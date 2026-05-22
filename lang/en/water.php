@@ -24,6 +24,8 @@ return [
         'auto_approved_body' => ':count water reading(s) were auto-approved because the review window closed, so they will be billed.',
         'reread_subject' => 'Water re-read requested',
         'reread_body' => 'A re-read was requested for a water reading in :building. Please take a fresh reading.',
+        'arrears_subject' => 'Water bill overdue',
+        'arrears_body' => 'Your water bill for :unit is overdue. Please settle it to avoid disconnection of your water service.',
     ],
     'hub' => [
         'title' => 'Water hub',
@@ -50,6 +52,9 @@ return [
         'consumption' => 'Consumption',
         'cost' => 'Charge',
         'status' => 'Status',
+        'disconnected_title' => 'Water service disconnected',
+        'disconnected_default' => 'Your water service has been disconnected due to non-payment.',
+        'pay_to_reconnect' => 'Pay now to restore service',
     ],
     'settings' => [
         'title' => 'Water Settings',
@@ -98,5 +103,6 @@ return [
         'reading_day_hint' => 'e.g. 25',
         'review_days' => 'Review window (days)',
         'review_days_hint' => 'e.g. 5',
+        'reconnection_fee' => 'Reconnection fee',
     ],
 ];

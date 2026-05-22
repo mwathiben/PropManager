@@ -41,6 +41,11 @@ class TenantActivity extends Model
     // Phase-88: a pending water reading auto-approved when the review window closed.
     const TYPE_WATER_READING_AUTO_APPROVED = 'water_reading_auto_approved';
 
+    // Phase-90: water service disconnected/reconnected for non-payment.
+    const TYPE_WATER_METER_DISCONNECTED = 'water_meter_disconnected';
+
+    const TYPE_WATER_METER_RECONNECTED = 'water_meter_reconnected';
+
     const TYPE_DOCUMENT_UPLOADED = 'document_uploaded';
 
     const TYPE_VERIFICATION_SUBMITTED = 'verification_submitted';

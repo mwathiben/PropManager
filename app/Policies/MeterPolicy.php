@@ -61,6 +61,16 @@ class MeterPolicy
         return $this->update($user, $meter);
     }
 
+    public function disconnect(User $user, Meter $meter): bool
+    {
+        return $this->update($user, $meter);
+    }
+
+    public function reconnect(User $user, Meter $meter): bool
+    {
+        return $this->update($user, $meter);
+    }
+
     public function delete(User $user, Meter $meter): bool
     {
         return $this->update($user, $meter);

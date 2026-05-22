@@ -38,6 +38,8 @@ class Meter extends Model
         'initial_reading',
         'installed_at',
         'decommissioned_at',
+        'disconnected_at',
+        'disconnect_reason',
         'replaced_by_meter_id',
         'notes',
     ];
@@ -47,6 +49,7 @@ class Meter extends Model
         'initial_reading' => 'decimal:2',
         'installed_at' => 'date',
         'decommissioned_at' => 'date',
+        'disconnected_at' => 'datetime',
     ];
 
     public function landlord(): BelongsTo
@@ -105,6 +108,43 @@ class Meter extends Model
     public function isActive(): bool
     {
         return $this->status === MeterStatus::Active;
+    }
+
+    /**
+     * Phase-90: water service is cut (distinct from device lifecycle status).
+     */
+    public function isDisconnected(): bool
+    {
+        return $this->disconnected_at !== null;
+    }
+
+    /**
+     * Phase-90 THE CAVEAT: only a unit's own meter may be disconnected — never a
+     * shared/main meter (it feeds sub-meters and would cut the whole building).
+     */
+    public function isUnitMeter(): bool
+    {
+        return $this->unit_id !== null
+            && $this->parent_meter_id === null
+            && $this->subMeters()->count() === 0;
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder<Meter>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<Meter>
+     */
+    public function scopeDisconnected($query)
+    {
+        return $query->whereNotNull('disconnected_at');
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder<Meter>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<Meter>
+     */
+    public function scopeConnected($query)
+    {
+        return $query->whereNull('disconnected_at');
     }
 
     /**

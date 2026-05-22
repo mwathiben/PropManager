@@ -13,7 +13,10 @@ interface Reading {
     status: string;
 }
 
-defineProps<{ hasUnit: boolean; readings: Reading[] }>();
+withDefaults(defineProps<{ hasUnit: boolean; readings: Reading[]; meterDisconnected?: boolean; disconnectReason?: string | null }>(), {
+    meterDisconnected: false,
+    disconnectReason: null,
+});
 
 const { t } = useI18n();
 const { formatCurrency, formatDate } = useFormatters();
@@ -36,6 +39,13 @@ const { formatCurrency, formatDate } = useFormatters();
         </template>
 
         <div class="mx-auto max-w-3xl px-4 py-6 sm:px-6 lg:px-8" data-testid="tenant-water">
+            <!-- Phase-90: water service disconnected for non-payment -->
+            <div v-if="meterDisconnected" class="mb-6 rounded-lg border border-red-300 bg-red-50 p-4">
+                <h3 class="font-semibold text-red-900">{{ t('water.tenant.disconnected_title') }}</h3>
+                <p class="mt-1 text-sm text-red-700">{{ disconnectReason || t('water.tenant.disconnected_default') }}</p>
+                <a :href="route('tenant.payments')" class="mt-3 inline-block text-sm font-medium text-red-700 underline">{{ t('water.tenant.pay_to_reconnect') }}</a>
+            </div>
+
             <p v-if="!hasUnit || readings.length === 0" class="rounded-lg bg-white p-8 text-center text-sm text-gray-500 shadow">
                 {{ t('water.tenant.empty') }}
             </p>

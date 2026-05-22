@@ -406,6 +406,14 @@ Schedule::command('water:review-window')
     ->withoutOverlapping()
     ->name('phase88-water-review-window');
 
+// Phase-90 WATER-ARREARS-ENFORCEMENT: warn tenants with an overdue water bill.
+Schedule::command('water:arrears-notify')
+    ->dailyAt('08:05')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->withoutOverlapping()
+    ->name('phase90-water-arrears-notify');
+
 // Phase-45 LEASE-COUNTER-3: expire counter-offers older than 14 days.
 // Runs at 06:00 — before tickets:audit-sla (07:00) so any expiry
 // notification email is already in the queue when the day's batch fires.

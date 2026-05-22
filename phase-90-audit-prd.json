@@ -1,0 +1,91 @@
+{
+  "phase": 90,
+  "title": "WATER-ARREARS-ENFORCEMENT",
+  "opened_at": "2026-05-22",
+  "tier": 7,
+  "scope": "USER-DIRECTED water domain, phase 5 of 12 — water arrears + a disconnect/reconnect-for-non-payment lever with a reconnection fee. Scout facts: water is billed inside the monthly invoice (invoices.water_due); payments apply to the invoice TOTAL (rent/water NOT separable), so 'water arrears' = an Overdue/Partial invoice with water_due>0 and (total_due-amount_paid)>0 (ArrearsController/Phase-81 aging exists). Disconnect must be modelled as separate Meter fields disconnected_at + disconnect_reason (NOT a MeterStatus value) so the meter stays status=active (device fine, service cut) and Meter::active()/resolveActiveForUnit keep working. THE CAVEAT (pressure-test): only a UNIT meter (unit_id set AND parent_meter_id null AND no subMeters) may be disconnected — NEVER a shared/main meter (would cut the whole building). No pending-charge/adjustments table exists -> add water_pending_charges + a NON-DESTRUCTIVE hook in InvoiceService::generateInvoiceForLease that folds unapplied charges into water_due. Notification 3-layer recipe (const+IMPORTANT urgency / pref column / type ENUM). TenantActivity::log(type not action, performed_by). MeterController/Meters Index.vue + MeterPolicy (Phase 86) are where actions live; /tenant/water + Tenant/Water.vue for the tenant banner. Money decimal:2.",
+  "categories": ["DISCONNECT", "RECONNECT-FEE", "ARREARS", "TENANT", "CI"],
+  "findings": [
+    {
+      "id": "DISCONNECT-1",
+      "severity": "HIGH",
+      "category": "DISCONNECT",
+      "title": "Meter disconnection state (separate fields)",
+      "evidence": "A meter has no service-disconnection concept distinct from its lifecycle status.",
+      "remediation": "Migration adds water_meters.disconnected_at (datetime nullable) + disconnect_reason (string nullable). Meter model: fillable + cast disconnected_at datetime; isDisconnected(); scopeConnected/scopeDisconnected. status stays 'active' so .active()/resolveActiveForUnit are unaffected. Phase90 test: a disconnected meter still resolves as the unit's active meter; isDisconnected() true.",
+      "passes": false
+    },
+    {
+      "id": "DISCONNECT-2",
+      "severity": "HIGH",
+      "category": "DISCONNECT",
+      "title": "Disconnect/reconnect actions — unit-meter-only (the caveat)",
+      "evidence": "No way to cut/restore water service for non-payment, and it must never cut a shared meter.",
+      "remediation": "MeterController disconnect/reconnect (landlord-only via MeterPolicy disconnect/reconnect) + routes meters.disconnect/reconnect. GUARD: reject unless the meter is a unit meter (unit_id set, parent_meter_id null, subMeters()->count()==0) — a shared/main meter cannot be disconnected. disconnect sets disconnected_at+reason; reconnect clears them. TenantActivity::log water_meter_disconnected/reconnected (performed_by). Meters Index.vue disconnect/reconnect buttons + a connection-status column, shown only on unit meters. Phase90 test: landlord disconnects a unit meter (state set + audit); disconnecting a main meter (with sub-meters) is rejected; caretaker cannot.",
+      "passes": false
+    },
+    {
+      "id": "RECONNECT-FEE-1",
+      "severity": "MEDIUM",
+      "category": "RECONNECT-FEE",
+      "title": "Reconnection-fee config",
+      "evidence": "No configurable reconnection fee on the canonical water settings.",
+      "remediation": "Migration adds water_reconnection_fee (decimal nullable) to payment_configurations + buildings (building null=inherit). Models fillable/casts; WaterSettingsData returns it; WaterSettingsForm + UpdateWaterSettingsRequest + controller persist (global + per-building); i18n. Phase90 test: landlord persists a reconnection fee.",
+      "passes": false
+    },
+    {
+      "id": "RECONNECT-FEE-2",
+      "severity": "HIGH",
+      "category": "RECONNECT-FEE",
+      "title": "Reconnect charges the fee on the next invoice (non-destructive)",
+      "evidence": "There is no ad-hoc charge mechanism to bill a reconnection fee.",
+      "remediation": "water_pending_charges (lease_id, landlord_id, amount, description, type, applied_invoice_id nullable, applied_at nullable). On reconnect, when an effective fee>0 AND the unit has an active lease, create a pending reconnection_fee charge. InvoiceService::generateInvoiceForLease folds unapplied pending charges for the lease into water_due + marks them applied (within the existing transaction); NON-DESTRUCTIVE when none exist. Phase90 test: reconnect with a fee -> next invoice water_due includes it once + the pending charge is marked applied; no pending charges => water_due unchanged.",
+      "passes": false
+    },
+    {
+      "id": "ARREARS-1",
+      "severity": "MEDIUM",
+      "category": "ARREARS",
+      "title": "Landlord water-arrears surface",
+      "evidence": "A landlord has no view of which water connections are in arrears to decide on disconnection.",
+      "remediation": "A landlord water-arrears listing (units/leases with Overdue/Partial invoices having water_due>0 + outstanding>0, with the connection status + disconnect/reconnect actions). Surface via the Meters page or a water hub panel + a hub overview stat (units in water arrears / disconnected). Reachable (nav-audit). Phase90 test: a unit with an overdue water invoice appears; a paid one does not.",
+      "passes": false
+    },
+    {
+      "id": "ARREARS-2",
+      "severity": "MEDIUM",
+      "category": "ARREARS",
+      "title": "Water-arrears reminder / disconnection warning",
+      "evidence": "Tenants in water arrears get no water-specific reminder warning of disconnection.",
+      "remediation": "NET-NEW Notification::TYPE_WATER_ARREARS (3 layers, IMPORTANT so email delivers) + water:arrears-notify daily command — tenants with an overdue water invoice get a warning (idempotent per invoice+month). Scheduled Africa/Nairobi onOneServer withoutOverlapping. Per-iteration try/catch (Phase-88 lesson). Phase90 test: a tenant with an overdue water invoice is notified; command exits 0.",
+      "passes": false
+    },
+    {
+      "id": "TENANT-1",
+      "severity": "MEDIUM",
+      "category": "TENANT",
+      "title": "Tenant sees disconnection + pay-to-reconnect",
+      "evidence": "A disconnected tenant has no in-app signal or path to restore service.",
+      "remediation": "TenantPortalController::water surfaces the unit meter's disconnected state + reason; Tenant/Water.vue shows a banner (disconnected + reason + a pay link) when disconnected. i18n. Phase90 test: a tenant on a disconnected meter sees meterDisconnected=true in the payload.",
+      "passes": false
+    },
+    {
+      "id": "CI-1",
+      "severity": "MEDIUM",
+      "category": "CI",
+      "title": "Phase 90 behavioral + surface tests",
+      "evidence": "The caveat guard + non-destructive fee + arrears need regression guards.",
+      "remediation": "Phase90WaterArrearsEnforcementTest (disconnect unit-meter-only + caveat rejection + audit; reconnect creates pending fee billed once; non-destructive fee; arrears listing; reminder dispatched; tenant banner) + Phase90 surface (schema, water_arrears type mapped, meters.disconnect/reconnect routes, command exit 0, lang parity). Existing water + invoice suites stay green.",
+      "passes": false
+    },
+    {
+      "id": "CI-2",
+      "severity": "LOW",
+      "category": "CI",
+      "title": "Runbook + closeout + memory + multi-reviewer pass",
+      "evidence": "Enforcement needs operator docs + per-phase review.",
+      "remediation": "docs/runbooks/water.md arrears/disconnect section (the shared-meter caveat, reconnection fee, never-disconnect-main). Multi-reviewer read-only pass. Memory: phase90 plan + forward-path + pending-path. Name next = Phase 91 [WATER-HUB-INTELLIGENCE].",
+      "passes": false
+    }
+  ]
+}

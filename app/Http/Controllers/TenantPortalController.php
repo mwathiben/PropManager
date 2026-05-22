@@ -126,9 +126,16 @@ class TenantPortalController extends Controller
                 ->get(['id', 'reading_date', 'consumption', 'cost', 'status'])
             : collect();
 
+        // Phase-90: surface a water-service disconnection so the tenant can pay to restore it.
+        $meter = $lease
+            ? \App\Models\Meter::where('unit_id', $lease->unit_id)->active()->orderByDesc('id')->first()
+            : null;
+
         return Inertia::render('Tenant/Water', [
             'hasUnit' => (bool) $lease,
             'readings' => $readings,
+            'meterDisconnected' => (bool) $meter?->isDisconnected(),
+            'disconnectReason' => $meter?->disconnect_reason,
         ]);
     }
 }

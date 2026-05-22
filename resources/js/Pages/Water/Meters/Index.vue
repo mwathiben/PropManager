@@ -3,7 +3,8 @@ import { ref } from 'vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { useI18n } from '@/composables/useI18n';
-import { BeakerIcon, PlusIcon } from '@heroicons/vue/24/outline';
+import { useFormatters } from '@/composables';
+import { BeakerIcon, PlusIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline';
 
 interface Meter {
     id: number;
@@ -17,6 +18,8 @@ interface Meter {
     building: string | null;
     installed_at: string | null;
     decommissioned_at: string | null;
+    disconnected_at: string | null;
+    is_unit_meter: boolean;
     replaced_by_meter_id: number | null;
     readings_count: number;
 }
@@ -27,8 +30,21 @@ interface BuildingOption {
     units: Array<{ id: number; unit_number: string }>;
 }
 
-const props = defineProps<{ meters: Meter[]; buildings: BuildingOption[] }>();
+interface ArrearsRow {
+    invoice_id: number;
+    unit: string | null;
+    building: string | null;
+    tenant: string | null;
+    water_due: number;
+    outstanding: number;
+    due_date: string | null;
+}
+
+const props = withDefaults(defineProps<{ meters: Meter[]; buildings: BuildingOption[]; arrears?: ArrearsRow[] }>(), {
+    arrears: () => [],
+});
 const { t } = useI18n();
+const { formatMoney } = useFormatters();
 
 const showCreate = ref(false);
 const replacingId = ref<number | null>(null);
@@ -77,6 +93,19 @@ const decommission = (meterId: number) => {
         return;
     }
     decommissionForm.post(route('meters.decommission', meterId), { preserveScroll: true });
+};
+
+const serviceForm = useForm({ reason: '' });
+
+const disconnect = (meterId: number) => {
+    if (! window.confirm(t('meter.disconnect.confirm'))) {
+        return;
+    }
+    serviceForm.post(route('meters.disconnect', meterId), { preserveScroll: true });
+};
+
+const reconnect = (meterId: number) => {
+    serviceForm.post(route('meters.reconnect', meterId), { preserveScroll: true });
 };
 
 const statusTone = (status: string) => ({
@@ -150,6 +179,32 @@ const statusTone = (status: string) => ({
                     </div>
                 </form>
 
+                <!-- Phase-90: units in water arrears (decide who to disconnect) -->
+                <div v-if="arrears.length" class="bg-white rounded-xl shadow-sm border border-red-200 p-4">
+                    <h2 class="flex items-center gap-2 text-sm font-semibold text-red-800 mb-3">
+                        <ExclamationTriangleIcon class="w-4 h-4" /> {{ t('meter.arrears.title') }}
+                    </h2>
+                    <table class="min-w-full divide-y divide-gray-100 text-sm">
+                        <thead>
+                            <tr class="text-xs text-gray-500 uppercase">
+                                <th class="px-3 py-2 text-start">{{ t('meter.columns.unit') }}</th>
+                                <th class="px-3 py-2 text-start">{{ t('meter.arrears.tenant') }}</th>
+                                <th class="px-3 py-2 text-end">{{ t('meter.arrears.outstanding') }}</th>
+                                <th class="px-3 py-2 text-start">{{ t('meter.arrears.due') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            <tr v-for="a in arrears" :key="a.invoice_id">
+                                <td class="px-3 py-2 text-gray-800">{{ a.building }} · {{ a.unit || '—' }}</td>
+                                <td class="px-3 py-2 text-gray-600">{{ a.tenant || '—' }}</td>
+                                <td class="px-3 py-2 text-end font-medium text-red-700">{{ formatMoney(a.outstanding) }}</td>
+                                <td class="px-3 py-2 text-gray-500">{{ a.due_date || '—' }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <p class="mt-2 text-xs text-gray-400">{{ t('meter.arrears.hint') }}</p>
+                </div>
+
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                     <table v-if="meters.length" class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
@@ -173,10 +228,13 @@ const statusTone = (status: string) => ({
                                     <td class="px-4 py-3 text-end text-gray-600">{{ m.current_value }}</td>
                                     <td class="px-4 py-3">
                                         <span :class="['inline-flex px-2 py-0.5 rounded-full text-xs font-medium', statusTone(m.status)]">{{ t(`meter.status.${m.status}`) }}</span>
+                                        <span v-if="m.disconnected_at" class="ms-1 inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">{{ t('meter.disconnect.status') }}</span>
                                     </td>
                                     <td class="px-4 py-3 text-end">
                                         <div v-if="m.status === 'active'" class="flex justify-end gap-2">
                                             <button type="button" class="text-cyan-700 hover:text-cyan-900 text-xs" @click="replacingId = replacingId === m.id ? null : m.id">{{ t('meter.replace.title') }}</button>
+                                            <button v-if="m.is_unit_meter && ! m.disconnected_at" type="button" class="text-red-600 hover:text-red-800 text-xs" @click="disconnect(m.id)">{{ t('meter.disconnect.action') }}</button>
+                                            <button v-if="m.disconnected_at" type="button" class="text-emerald-600 hover:text-emerald-800 text-xs" @click="reconnect(m.id)">{{ t('meter.disconnect.reconnect') }}</button>
                                             <button type="button" class="text-red-600 hover:text-red-800 text-xs" @click="decommission(m.id)">{{ t('meter.status.decommissioned') }}</button>
                                         </div>
                                         <span v-else class="text-xs text-gray-400">—</span>

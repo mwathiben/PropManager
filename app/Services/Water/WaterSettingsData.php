@@ -27,6 +27,7 @@ class WaterSettingsData
                 'id', 'name', 'water_billing_type', 'water_flat_rate', 'water_unit_rate',
                 'water_standing_charge', 'water_minimum_charge', 'water_sewerage_percent',
                 'water_vat_percent', 'water_source', 'water_reading_day', 'water_review_days',
+                'water_reconnection_fee',
             )
             ->withCount('units')
             ->orderBy('name')
@@ -51,6 +52,7 @@ class WaterSettingsData
                 // Phase-88 reading cycle.
                 'water_reading_day' => $config->water_reading_day,
                 'water_review_days' => $config->water_review_days,
+                'water_reconnection_fee' => $config->water_reconnection_fee,
             ],
         ];
     }

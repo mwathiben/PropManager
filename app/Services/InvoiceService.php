@@ -69,6 +69,16 @@ class InvoiceService
 
             $waterDue = $this->calculateWaterCharges($lease, $billingPeriod);
 
+            // Phase-90: fold any unapplied ad-hoc water charges (e.g. a reconnection
+            // fee) into water_due, then stamp them applied once the invoice exists.
+            // NON-DESTRUCTIVE — no pending charges means water_due is unchanged.
+            $pendingWaterCharges = \App\Models\WaterPendingCharge::withoutGlobalScope('landlord')
+                ->where('lease_id', $lease->id)
+                ->whereNull('applied_at')
+                ->lockForUpdate()
+                ->get();
+            $waterDue += (float) $pendingWaterCharges->sum('amount');
+
             $arrears = $this->getPreviousArrears($lease);
 
             $totalDue = $rentDue + $waterDue + $arrears;
@@ -109,6 +119,11 @@ class InvoiceService
                 if ($walletTransaction) {
                     $walletTransaction->update(['invoice_id' => $invoice->id]);
                 }
+            }
+
+            if ($pendingWaterCharges->isNotEmpty()) {
+                \App\Models\WaterPendingCharge::whereIn('id', $pendingWaterCharges->pluck('id'))
+                    ->update(['applied_at' => now(), 'applied_invoice_id' => $invoice->id]);
             }
 
             if ($waterDue > 0 && $building->usesConsumptionBilling()) {

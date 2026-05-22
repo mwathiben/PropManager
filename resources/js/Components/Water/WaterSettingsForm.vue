@@ -28,6 +28,7 @@ interface BuildingRow {
     water_source?: string | null;
     water_reading_day?: number | string | null;
     water_review_days?: number | string | null;
+    water_reconnection_fee?: number | string | null;
 }
 
 interface GlobalSettings {
@@ -42,6 +43,7 @@ interface GlobalSettings {
     water_source?: string | null;
     water_reading_day?: number | string | null;
     water_review_days?: number | string | null;
+    water_reconnection_fee?: number | string | null;
 }
 
 const props = withDefaults(defineProps<{
@@ -66,6 +68,7 @@ const form = useForm({
     water_source: props.globalSettings.water_source ?? '',
     water_reading_day: props.globalSettings.water_reading_day ?? '',
     water_review_days: props.globalSettings.water_review_days ?? '',
+    water_reconnection_fee: props.globalSettings.water_reconnection_fee ?? '',
     building_overrides: props.buildings.map((b) => ({
         id: b.id,
         water_billing_type: b.water_billing_type || 'inherit',
@@ -78,6 +81,7 @@ const form = useForm({
         water_source: b.water_source ?? '',
         water_reading_day: b.water_reading_day ?? '',
         water_review_days: b.water_review_days ?? '',
+        water_reconnection_fee: b.water_reconnection_fee ?? '',
     })),
 });
 
@@ -216,6 +220,10 @@ onMounted(async () => {
                     <span class="text-gray-700">{{ $t('water.settings.review_days') }}</span>
                     <input v-model="form.water_review_days" type="number" min="1" max="31" step="1" class="mt-1 w-full border-gray-300 rounded-md" :placeholder="$t('water.settings.review_days_hint')" />
                 </label>
+                <label class="block text-sm">
+                    <span class="text-gray-700">{{ $t('water.settings.reconnection_fee') }} ({{ currencyCode }})</span>
+                    <input v-model="form.water_reconnection_fee" type="number" min="0" step="0.01" class="mt-1 w-full border-gray-300 rounded-md" />
+                </label>
             </div>
         </div>
 
@@ -310,6 +318,10 @@ onMounted(async () => {
                         <label class="block text-xs">
                             <span class="text-gray-600">{{ $t('water.settings.review_days') }}</span>
                             <input v-model="form.building_overrides[getBuildingOverrideIndex(building.id)].water_review_days" type="number" min="1" max="31" step="1" class="mt-1 w-full border-gray-300 rounded-md text-sm" :placeholder="$t('water.settings.inherit_placeholder')" />
+                        </label>
+                        <label class="block text-xs">
+                            <span class="text-gray-600">{{ $t('water.settings.reconnection_fee') }}</span>
+                            <input v-model="form.building_overrides[getBuildingOverrideIndex(building.id)].water_reconnection_fee" type="number" min="0" step="0.01" class="mt-1 w-full border-gray-300 rounded-md text-sm" :placeholder="$t('water.settings.inherit_placeholder')" />
                         </label>
                     </div>
                 </div>

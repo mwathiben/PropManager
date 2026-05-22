@@ -9,8 +9,10 @@ use App\Http\Requests\Meter\StoreMeterRequest;
 use App\Http\Traits\WithLandlordScope;
 use App\Models\Building;
 use App\Models\Meter;
+use App\Models\TenantActivity;
 use App\Models\Unit;
 use App\Services\Water\MeterReplacementService;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -33,7 +35,7 @@ class MeterController extends Controller
         $meters = Meter::query()
             ->where('landlord_id', $landlordId)
             ->with(['unit:id,unit_number', 'building:id,name', 'latestReading:id,meter_id,current_reading'])
-            ->withCount('readings')
+            ->withCount(['readings', 'subMeters'])
             ->orderByDesc('status')
             ->orderBy('id')
             ->get()
@@ -49,6 +51,9 @@ class MeterController extends Controller
                 'building' => $m->building?->name,
                 'installed_at' => $m->installed_at?->toDateString(),
                 'decommissioned_at' => $m->decommissioned_at?->toDateString(),
+                'disconnected_at' => $m->disconnected_at?->toDateString(),
+                // Only a unit's own meter may be disconnected (not a shared/main meter).
+                'is_unit_meter' => $m->unit_id !== null && $m->parent_meter_id === null && $m->sub_meters_count === 0,
                 'replaced_by_meter_id' => $m->replaced_by_meter_id,
                 'readings_count' => $m->readings_count,
             ]);
@@ -59,9 +64,24 @@ class MeterController extends Controller
             ->orderBy('name')
             ->get(['id', 'name']);
 
+        // Phase-90: units in water arrears (overdue invoices carrying a water charge)
+        // — surfaced next to the meters so the landlord can act (disconnect).
+        $arrears = app(\App\Services\Water\WaterArrearsService::class)
+            ->overdueWaterInvoices($landlordId)
+            ->map(fn (\App\Models\Invoice $inv) => [
+                'invoice_id' => $inv->id,
+                'unit' => $inv->lease?->unit?->unit_number,
+                'building' => $inv->lease?->unit?->building?->name,
+                'tenant' => $inv->lease?->tenant?->name,
+                'water_due' => (float) $inv->water_due,
+                'outstanding' => (float) ($inv->total_due - $inv->amount_paid),
+                'due_date' => $inv->due_date?->toDateString(),
+            ]);
+
         return Inertia::render('Water/Meters/Index', [
             'meters' => $meters,
             'buildings' => $buildings,
+            'arrears' => $arrears,
         ]);
     }
 
@@ -123,5 +143,65 @@ class MeterController extends Controller
         }
 
         return back()->with('success', __('meter.flash.decommissioned'));
+    }
+
+    /**
+     * Phase-90: cut water service for non-payment. THE CAVEAT — only a unit's own
+     * meter (never a shared/main meter feeding sub-meters).
+     */
+    public function disconnect(Request $request, Meter $meter)
+    {
+        $this->authorize('disconnect', $meter);
+
+        if (! $meter->isUnitMeter()) {
+            return back()->withErrors(['meter' => __('meter.disconnect.not_unit_meter')]);
+        }
+        if ($meter->isDisconnected()) {
+            return back()->with('info', __('meter.disconnect.already'));
+        }
+
+        $reason = trim((string) $request->input('reason'));
+        $meter->update([
+            'disconnected_at' => now(),
+            'disconnect_reason' => $reason !== '' ? $reason : 'Non-payment',
+        ]);
+        $this->auditService($meter, TenantActivity::TYPE_WATER_METER_DISCONNECTED, 'Water service disconnected');
+
+        return back()->with('success', __('meter.flash.disconnected'));
+    }
+
+    public function reconnect(Meter $meter)
+    {
+        $this->authorize('reconnect', $meter);
+
+        if (! $meter->isDisconnected()) {
+            return back()->with('info', __('meter.disconnect.not_disconnected'));
+        }
+
+        $meter->update(['disconnected_at' => null, 'disconnect_reason' => null]);
+        // Phase-90 RECONNECT-FEE: charge the configured fee on the next invoice.
+        $fee = app(\App\Services\Water\WaterReconnectionService::class)->chargeFee($meter);
+        $this->auditService($meter, TenantActivity::TYPE_WATER_METER_RECONNECTED, 'Water service reconnected');
+
+        return back()->with('success', $fee > 0
+            ? __('meter.flash.reconnected_fee', ['amount' => number_format($fee, 2)])
+            : __('meter.flash.reconnected'));
+    }
+
+    private function auditService(Meter $meter, string $type, string $description): void
+    {
+        $tenantId = $meter->unit?->activeLease?->tenant_id;
+        if (! $tenantId) {
+            return;
+        }
+
+        TenantActivity::create([
+            'landlord_id' => $meter->landlord_id,
+            'tenant_id' => $tenantId,
+            'type' => $type,
+            'description' => "{$description} (meter #{$meter->id})",
+            'metadata' => ['meter_id' => $meter->id, 'unit_id' => $meter->unit_id],
+            'performed_by' => auth()->id(),
+        ]);
     }
 }

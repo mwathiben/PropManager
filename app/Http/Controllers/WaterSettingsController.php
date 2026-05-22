@@ -62,6 +62,7 @@ class WaterSettingsController extends Controller
                 'water_source' => $validated['water_source'] ?? null,
                 'water_reading_day' => $validated['water_reading_day'] ?? null,
                 'water_review_days' => $validated['water_review_days'] ?? null,
+                'water_reconnection_fee' => $validated['water_reconnection_fee'] ?? null,
             ]
         );
 
@@ -86,6 +87,7 @@ class WaterSettingsController extends Controller
                             'water_source' => null,
                             'water_reading_day' => null,
                             'water_review_days' => null,
+                            'water_reconnection_fee' => null,
                         ]);
                     } else {
                         $building->update([
@@ -100,6 +102,7 @@ class WaterSettingsController extends Controller
                             'water_source' => $override['water_source'] ?? null,
                             'water_reading_day' => $override['water_reading_day'] ?? null,
                             'water_review_days' => $override['water_review_days'] ?? null,
+                            'water_reconnection_fee' => $override['water_reconnection_fee'] ?? null,
                         ]);
                     }
                 }

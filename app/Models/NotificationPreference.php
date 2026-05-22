@@ -40,6 +40,7 @@ class NotificationPreference extends Model
         // Phase-88 WATER-READING-CYCLE: opt-in for water reading/review reminders.
         'water_reading_due_enabled',
         'water_review_due_enabled',
+        'water_arrears_enabled',
         // Channel preferences
         'email_enabled',
         'sms_enabled',
@@ -76,6 +77,7 @@ class NotificationPreference extends Model
         'payment_dispute_enabled' => 'boolean',
         'water_reading_due_enabled' => 'boolean',
         'water_review_due_enabled' => 'boolean',
+        'water_arrears_enabled' => 'boolean',
         // Channel casts
         'email_enabled' => 'boolean',
         'sms_enabled' => 'boolean',

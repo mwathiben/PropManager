@@ -24,6 +24,8 @@ return [
         'auto_approved_body' => 'Usomaji :count wa maji umeidhinishwa kiotomatiki kwa sababu dirisha la ukaguzi limefungwa, hivyo utatozwa.',
         'reread_subject' => 'Usomaji upya wa maji umeombwa',
         'reread_body' => 'Usomaji upya umeombwa kwa usomaji wa maji katika :building. Tafadhali chukua usomaji mpya.',
+        'arrears_subject' => 'Bili ya maji imechelewa',
+        'arrears_body' => 'Bili yako ya maji kwa :unit imechelewa. Tafadhali lipa ili kuepuka kukatwa kwa huduma ya maji.',
     ],
     'hub' => [
         'title' => 'Kitovu cha maji',
@@ -50,6 +52,9 @@ return [
         'consumption' => 'Matumizi',
         'cost' => 'Gharama',
         'status' => 'Hali',
+        'disconnected_title' => 'Huduma ya maji imekatwa',
+        'disconnected_default' => 'Huduma yako ya maji imekatwa kwa sababu ya kutolipa.',
+        'pay_to_reconnect' => 'Lipa sasa ili kurejesha huduma',
     ],
     'settings' => [
         'title' => 'Mipangilio ya Maji',
@@ -98,5 +103,6 @@ return [
         'reading_day_hint' => 'mf. 25',
         'review_days' => 'Dirisha la ukaguzi (siku)',
         'review_days_hint' => 'mf. 5',
+        'reconnection_fee' => 'Ada ya kurejesha huduma',
     ],
 ];
