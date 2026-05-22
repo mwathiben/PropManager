@@ -1,0 +1,55 @@
+<?php
+
+return [
+    'title' => 'Water meters',
+    'subtitle' => 'Register, replace and retire the physical meters readings are taken from.',
+    'add' => 'Add meter',
+    'empty' => 'No meters yet. Add one to start tracking consumption per meter.',
+    'columns' => [
+        'serial' => 'Serial',
+        'status' => 'Status',
+        'unit' => 'Unit',
+        'building' => 'Building',
+        'baseline' => 'Install baseline',
+        'current' => 'Current reading',
+        'installed' => 'Installed',
+        'readings' => 'Readings',
+        'actions' => 'Actions',
+    ],
+    'status' => [
+        'active' => 'Active',
+        'inactive' => 'Inactive',
+        'faulty' => 'Faulty',
+        'replaced' => 'Replaced',
+        'decommissioned' => 'Decommissioned',
+    ],
+    'form' => [
+        'serial' => 'Serial number',
+        'meter_type' => 'Meter type',
+        'initial_reading' => 'Initial (baseline) reading',
+        'initial_hint' => 'The value shown on the meter at install — often not zero.',
+        'building' => 'Building',
+        'unit' => 'Unit',
+        'installed_at' => 'Installed on',
+        'notes' => 'Notes',
+        'save' => 'Save meter',
+        'cancel' => 'Cancel',
+    ],
+    'replace' => [
+        'title' => 'Replace meter',
+        'old_final_reading' => 'Final reading on the old meter',
+        'new_serial' => 'New meter serial',
+        'new_initial_reading' => 'New meter initial reading',
+        'reading_date' => 'Date',
+        'submit' => 'Replace',
+        'hint' => "Records the old meter's closing read, retires it, and starts the new meter from its own baseline.",
+    ],
+    'decommission' => [
+        'confirm' => 'Decommission this meter? It will stop accepting readings.',
+    ],
+    'flash' => [
+        'created' => 'Meter registered.',
+        'replaced' => 'Meter replaced. The new meter is now active.',
+        'decommissioned' => 'Meter decommissioned.',
+    ],
+];

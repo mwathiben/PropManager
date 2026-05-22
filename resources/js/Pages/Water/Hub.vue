@@ -62,9 +62,16 @@ const tabComponents: Record<string, ReturnType<typeof defineAsyncComponent>> = {
 const currentTab = computed(() => props.activeTab || 'overview');
 const currentTabComponent = computed(() => tabComponents[currentTab.value] || HistoryTab);
 
-const quickLinks = computed(() => tabs.value
-    .filter((tab) => tab.id !== 'overview')
-    .map((tab) => ({ label: tab.name, href: route('water.hub', { tab: tab.id }), icon: tab.icon, badge: tab.badge })));
+const quickLinks = computed(() => {
+    const links: Array<{ label: string; href: string; icon: unknown; badge?: number }> = tabs.value
+        .filter((tab) => tab.id !== 'overview')
+        .map((tab) => ({ label: tab.name, href: route('water.hub', { tab: tab.id }), icon: tab.icon, badge: tab.badge }));
+    // Phase-86: landlord-only meter fleet management lives on its own page.
+    if (props.canSettings) {
+        links.push({ label: t('meter.title'), href: route('meters.index'), icon: BeakerIcon });
+    }
+    return links;
+});
 
 const subtitle = computed(() =>
     props.canReview ? t('water.hub.subtitle_landlord') : t('water.hub.subtitle_caretaker'),

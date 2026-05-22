@@ -1,0 +1,55 @@
+<?php
+
+return [
+    'title' => 'Mita za maji',
+    'subtitle' => 'Sajili, badilisha na ustaafishe mita halisi ambazo usomaji huchukuliwa kutoka.',
+    'add' => 'Ongeza mita',
+    'empty' => 'Bado hakuna mita. Ongeza moja ili kuanza kufuatilia matumizi kwa kila mita.',
+    'columns' => [
+        'serial' => 'Nambari ya mita',
+        'status' => 'Hali',
+        'unit' => 'Nyumba',
+        'building' => 'Jengo',
+        'baseline' => 'Usomaji wa awali',
+        'current' => 'Usomaji wa sasa',
+        'installed' => 'Iliwekwa',
+        'readings' => 'Usomaji',
+        'actions' => 'Vitendo',
+    ],
+    'status' => [
+        'active' => 'Inatumika',
+        'inactive' => 'Haitumiki',
+        'faulty' => 'Ina hitilafu',
+        'replaced' => 'Imebadilishwa',
+        'decommissioned' => 'Imestaafishwa',
+    ],
+    'form' => [
+        'serial' => 'Nambari ya mita',
+        'meter_type' => 'Aina ya mita',
+        'initial_reading' => 'Usomaji wa awali (msingi)',
+        'initial_hint' => 'Thamani iliyoonyeshwa kwenye mita wakati wa kuweka — mara nyingi si sifuri.',
+        'building' => 'Jengo',
+        'unit' => 'Nyumba',
+        'installed_at' => 'Iliwekwa tarehe',
+        'notes' => 'Maelezo',
+        'save' => 'Hifadhi mita',
+        'cancel' => 'Ghairi',
+    ],
+    'replace' => [
+        'title' => 'Badilisha mita',
+        'old_final_reading' => 'Usomaji wa mwisho kwenye mita ya zamani',
+        'new_serial' => 'Nambari ya mita mpya',
+        'new_initial_reading' => 'Usomaji wa awali wa mita mpya',
+        'reading_date' => 'Tarehe',
+        'submit' => 'Badilisha',
+        'hint' => 'Inarekodi usomaji wa mwisho wa mita ya zamani, kuistaafisha, na kuanzisha mita mpya kutoka msingi wake.',
+    ],
+    'decommission' => [
+        'confirm' => 'Ustaafishe mita hii? Itaacha kupokea usomaji.',
+    ],
+    'flash' => [
+        'created' => 'Mita imesajiliwa.',
+        'replaced' => 'Mita imebadilishwa. Mita mpya sasa inatumika.',
+        'decommissioned' => 'Mita imestaafishwa.',
+    ],
+];

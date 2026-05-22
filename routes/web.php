@@ -616,6 +616,16 @@ Route::middleware('auth')->group(function () {
         Route::get('/readings/{reading}/photo', [WaterReadingController::class, 'photo'])->name('readings.photo');
         Route::put('/readings/{reading}', [WaterReadingController::class, 'update'])->name('readings.update');
         Route::delete('/readings/{reading}', [WaterReadingController::class, 'destroy'])->name('readings.destroy');
+
+        // Phase-86 METER-LIFECYCLE: landlord-only meter fleet management
+        // (register with a non-zero baseline, replace preserving continuity,
+        // decommission). Caretakers record readings but never manage meters.
+        Route::middleware('role:landlord')->group(function () {
+            Route::get('/water/meters', [\App\Http\Controllers\MeterController::class, 'index'])->name('meters.index');
+            Route::post('/water/meters', [\App\Http\Controllers\MeterController::class, 'store'])->name('meters.store');
+            Route::post('/water/meters/{meter}/replace', [\App\Http\Controllers\MeterController::class, 'replace'])->whereNumber('meter')->name('meters.replace');
+            Route::post('/water/meters/{meter}/decommission', [\App\Http\Controllers\MeterController::class, 'decommission'])->whereNumber('meter')->name('meters.decommission');
+        });
     });
 
     // 6. Invitations (Caretaker Management)

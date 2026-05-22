@@ -10,6 +10,7 @@ use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Models\WaterReading;
+use App\Services\Water\MeterReplacementService;
 use App\Services\Water\WaterModuleAccess;
 use App\Services\WaterReadingService;
 use Illuminate\Database\Eloquent\Model;
@@ -183,5 +184,80 @@ class Phase86WaterMeterFoundationTest extends TestCase
 
         $this->assertTrue($this->landlord->fresh()->can('create', Meter::class));
         $this->assertFalse($caretaker->fresh()->can('create', Meter::class));
+    }
+
+    // --- METER LIFECYCLE -------------------------------------------------
+
+    public function test_replacement_preserves_continuity_via_new_baseline(): void
+    {
+        $this->actingAs($this->landlord->fresh());
+        $unit = $this->units->get(0);
+
+        // withoutEvents: WaterReadingFactory::definition() spins up a throwaway
+        // Unit whose UnitObserver trips OnboardingMilestoneRecorder under actingAs.
+        $meter = Model::withoutEvents(function () use ($unit) {
+            $m = Meter::factory()->create([
+                'landlord_id' => $this->landlord->id,
+                'building_id' => $unit->building_id,
+                'unit_id' => $unit->id,
+                'initial_reading' => 100,
+                'status' => 'active',
+            ]);
+            WaterReading::factory()->forMeter($m)->create([
+                'previous_reading' => 100,
+                'current_reading' => 150,
+                'reading_date' => now()->subMonth()->toDateString(),
+                'status' => 'approved',
+            ]);
+
+            return $m;
+        });
+
+        $new = app(MeterReplacementService::class)->replace($meter->fresh(), 170, 'NEW-123', 5);
+
+        $this->assertSame('replaced', $meter->fresh()->status->value);
+        $this->assertSame($new->id, $meter->fresh()->replaced_by_meter_id);
+        $this->assertSame('active', $new->status->value);
+        $this->assertEquals(5, (float) $new->initial_reading);
+        // The old meter's closing read (170) is captured.
+        $this->assertTrue(WaterReading::where('meter_id', $meter->id)->where('current_reading', 170)->exists());
+
+        // A fresh reading now routes to the NEW meter, measured from its baseline.
+        $result = app(WaterReadingService::class)->processReading([
+            'unit_id' => $unit->id,
+            'current_reading' => 12,
+            'reading_date' => now()->addDay()->toDateString(),
+        ], $this->landlord->id);
+        $this->assertTrue($result['success']);
+        $this->assertEquals(7, (float) WaterReading::where('meter_id', $new->id)->firstOrFail()->consumption);
+    }
+
+    public function test_landlord_can_register_a_meter_with_non_zero_baseline(): void
+    {
+        $unit = $this->units->get(3);
+
+        $this->actingAs($this->landlord->fresh())
+            ->post(route('meters.store'), [
+                'building_id' => $unit->building_id,
+                'unit_id' => $unit->id,
+                'serial_number' => 'WM-555',
+                'initial_reading' => 320,
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('water_meters', [
+            'serial_number' => 'WM-555',
+            'initial_reading' => 320,
+            'landlord_id' => $this->landlord->id,
+        ]);
+    }
+
+    public function test_meters_index_and_store_are_landlord_only(): void
+    {
+        $caretaker = $this->caretaker()->fresh();
+
+        $this->actingAs($caretaker)->get(route('meters.index'))->assertForbidden();
+        $this->actingAs($caretaker)->post(route('meters.store'), ['initial_reading' => 0])->assertForbidden();
+        $this->actingAs($this->landlord->fresh())->get(route('meters.index'))->assertOk();
     }
 }
