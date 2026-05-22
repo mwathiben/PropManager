@@ -198,3 +198,34 @@ Water arrears tracking + a service-disconnection lever for non-payment.
 ### Operator notes
 - Disconnection is a per-unit lever; for a common/shared meter (flat-rate / borehole main) it is intentionally unavailable — enforce off-system or sub-meter the units.
 - The reconnection fee bills on the unit's NEXT invoice (only if the unit has an active lease); a vacant unit reconnects with no charge.
+
+## Phase 91 — water intelligence (landlord)
+
+The landlord water hub gains an **Intelligence** tab (landlord-only — caretakers
+never see it; production costs/margin are business data). All metrics come from
+`WaterIntelligenceService::forLandlord()` — batched grouped queries, no N+1, every
+ratio guards a zero denominator. Two windows: a **12-month** monthly trend, and a
+trailing **3-month** window for the "current state" metrics.
+
+| Metric | Meaning / source |
+| --- | --- |
+| Consumption trend | approved-reading consumption summed per month (12 buckets, gaps filled with 0) |
+| Month change | last full month vs the prior month (delta %); `null` when the prior month is 0 |
+| Projection | trailing-3-month average — a simple next-month estimate |
+| By building / top consumers | approved consumption grouped by building / by unit (last 3 months) |
+| Leak signals | recent `is_anomalous` readings (Phase-86 spike flag) — likely leaks to verify |
+| Non-revenue water | where a **main meter feeds sub-meters**, main − Σ(sub) = water paid for but unbilled (leak / unmetered draw); empty when no main/sub hierarchy exists |
+| Billing vs collection | water billed (Σ `invoices.water_due`) vs the **water share** of payments, approximated pro-rata `amount_paid × water_due/total_due` (payments are not water-allocated) + collection rate + outstanding |
+| Cost of production vs revenue | margin = water billed − logged production costs; `water_production_costs` log (pump electricity / maintenance / permit / other), per landlord, optionally per building; + cost-per-unit-produced |
+
+| Concept | Where |
+| --- | --- |
+| Service | `App\Services\Water\WaterIntelligenceService` |
+| Tab | `WaterHubController::getIntelligenceData` (caretaker → bounced to overview) + `resources/js/Pages/Water/tabs/IntelligenceTab.vue` (reuses `Components/Dashboard/ChartCard.vue`) |
+| Production cost | `water_production_costs` table + `WaterProductionCost` model/policy/factory; `WaterProductionCostController` store/destroy (landlord-only, `water.production-costs.*`) |
+
+### Operator notes
+- **Margin is only as good as the costs you log.** Borehole landlords should add pump electricity + maintenance + permit costs on the Intelligence tab; without them margin == revenue.
+- Collection rate is an **estimate** — water can't be split from rent at payment time, so the water share of each payment is pro-rated by its share of the invoice total.
+- Non-revenue water only appears once a building is sub-metered (a main meter with `parent_meter_id` children). For unmetered/flat-rate buildings it is intentionally absent.
+- County-supply buildings (`water_source = county`) have no borehole production cost — log the county bill as a `maintenance`/`other` cost if you want it in the margin.

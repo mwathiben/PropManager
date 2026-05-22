@@ -1,0 +1,95 @@
+{
+  "phase": 91,
+  "title": "WATER-HUB-INTELLIGENCE",
+  "opened_at": "2026-05-22",
+  "tier": 7,
+  "scope": "USER-DIRECTED water domain, phase 6 of 12 — the payoff: make the landlord water hub INFORMATIVE, not just cards. The original directive: 'showing trends, giving info usable for business decisions and optimizations — figure out how that looks.' Fed by the data foundation (86 meters, 87 tariffs, 88 cadence, 89 imported history, 90 arrears). Scout facts: the app charts with a CUSTOM Components/Dashboard/ChartCard.vue (horizontal bars, points:[{label,value}]) + KpiCard — NO external chart lib (reuse ChartCard, do NOT add a lib). Water hub is a tab system (WaterHubController + Hub.vue HubShell) — add a landlord-only 'intelligence' tab (gate on canSettings like Phase 86). Analytics computable from existing data: consumption trend (WaterReading approved, group year/month, sum consumption), period delta, top consumers (group unit), anomalies (is_anomalous Phase-86 spike flag), main-vs-sub non-revenue-water (Meter parent_meter_id/subMeters — where present), billed-vs-collected (invoices.water_due billed vs approx collected amount_paid*water_due/total_due — water NOT payment-separable), projection (trailing avg). PRODUCTION COST has NO table (deferred from 87) — add a lightweight water_production_costs log (the user's emphasized cost-vs-revenue MARGIN metric needs it; Expense-category matching is too fragile). Mirror PropertyMetricsService (batched grouped queries, zero N+1, zero-row fallback). Money decimal:2.",
+  "categories": [
+    "INTELLIGENCE-SERVICE",
+    "PRODUCTION-COST",
+    "INTELLIGENCE-UI",
+    "CI"
+  ],
+  "findings": [
+    {
+      "id": "INTELLIGENCE-SERVICE-1",
+      "severity": "HIGH",
+      "category": "INTELLIGENCE-SERVICE",
+      "title": "WaterIntelligenceService — trends + delta + projection",
+      "evidence": "No service computes water consumption analytics for the landlord.",
+      "remediation": "WaterIntelligenceService::forLandlord(int): batched grouped queries (zero N+1, zero-row fallback like PropertyMetricsService) — monthly consumption trend (last 12 months, approved readings) + period-over-period delta % + next-period projection (trailing 3-month average) + per-building comparison (current period). Phase91 test: trend buckets + delta computed from seeded readings.",
+      "passes": true
+    },
+    {
+      "id": "INTELLIGENCE-SERVICE-2",
+      "severity": "HIGH",
+      "category": "INTELLIGENCE-SERVICE",
+      "title": "Leak intelligence + top consumers",
+      "evidence": "Anomalous readings (Phase-86 is_anomalous) and main-vs-sub reconciliation are not surfaced; no top-consumer ranking.",
+      "remediation": "Service adds: anomalies (recent is_anomalous readings with unit/meter), main-vs-sub NON-REVENUE-WATER % per building that has a main meter + sub-meters (main consumption - sum(sub consumption); graceful when absent), and top consumers (units ranked by consumption this period). Phase91 test: an anomalous reading appears; a top consumer ranks; non-revenue-water computed when main+sub exist.",
+      "passes": true
+    },
+    {
+      "id": "INTELLIGENCE-SERVICE-3",
+      "severity": "MEDIUM",
+      "category": "INTELLIGENCE-SERVICE",
+      "title": "Billing vs collection",
+      "evidence": "No view of water billed vs collected.",
+      "remediation": "Service computes water billed (sum invoices.water_due for the period) vs approx collected (amount_paid * water_due/total_due on paid/partial) + collection rate % + outstanding water. Documented as approximate (water isn't payment-separable). Phase91 test: billed/collected/rate computed.",
+      "passes": true
+    },
+    {
+      "id": "PRODUCTION-COST-1",
+      "severity": "MEDIUM",
+      "category": "PRODUCTION-COST",
+      "title": "Borehole production-cost capture",
+      "evidence": "Production cost (pump electricity / maintenance / permits) has no home (deferred from Phase 87); the margin metric needs it.",
+      "remediation": "Migration water_production_costs (landlord_id, building_id nullable, cost_date, amount decimal, category string [electricity|maintenance|permit|other], note). Model (TenantScope+HasFactory) + factory + policy + register. WaterProductionCostController store/destroy (landlord-only) + routes. Phase91 test: landlord logs a production cost; caretaker cannot.",
+      "passes": true
+    },
+    {
+      "id": "PRODUCTION-COST-2",
+      "severity": "MEDIUM",
+      "category": "PRODUCTION-COST",
+      "title": "Cost-of-production vs revenue margin",
+      "evidence": "No margin/business-decision metric.",
+      "remediation": "WaterIntelligenceService computes period production cost (sum water_production_costs) + water revenue (collected) + margin (revenue - cost) + margin % + cost-per-unit-produced (cost / total consumption). Phase91 test: margin = revenue - cost from seeded data.",
+      "passes": true
+    },
+    {
+      "id": "INTELLIGENCE-UI-1",
+      "severity": "HIGH",
+      "category": "INTELLIGENCE-UI",
+      "title": "Landlord water Intelligence tab (informative, not cards)",
+      "evidence": "The landlord water hub shows operational cards only — no trends/insights.",
+      "remediation": "Landlord-only 'intelligence' tab on the water hub (WaterHubController getIntelligenceData gated on !caretaker + Hub.vue IntelligenceTab async, ChartBarIcon, canSettings-gated). IntelligenceTab.vue: consumption-trend chart + building-comparison chart (reuse ChartCard) + insight KPI cards (avg consumption, period delta, projection, collection rate, margin) + a leak/anomaly panel + top-consumers panel + a production-cost entry form. i18n en/sw/ar. nav-audit clean. Phase91 test: caretaker cannot open the intelligence tab; landlord gets the data.",
+      "passes": true
+    },
+    {
+      "id": "CI-1",
+      "severity": "MEDIUM",
+      "category": "CI",
+      "title": "Phase 91 behavioral + surface tests",
+      "evidence": "Analytics + production cost + role gate need regression guards.",
+      "remediation": "Phase91WaterIntelligenceTest (trend/delta/projection, anomalies+top-consumers+non-revenue-water, billing-vs-collection, production cost landlord-only + margin, intelligence tab caretaker-gated) + Phase91 surface (water_production_costs schema, service resolvable, routes, intelligence tab gate, lang parity). Existing water suite stays green.",
+      "passes": true
+    },
+    {
+      "id": "CI-2",
+      "severity": "LOW",
+      "category": "CI",
+      "title": "Runbook + closeout + memory + multi-reviewer pass",
+      "evidence": "Analytics needs operator docs + per-phase review.",
+      "remediation": "docs/runbooks/water.md intelligence section (what each metric means, the approximations, production-cost capture). Multi-reviewer read-only pass. Memory: phase91 plan + forward-path + pending-path. Name next = Phase 92 [WATER-COMPLIANCE].",
+      "passes": true
+    }
+  ],
+  "closeout": {
+    "closed_at": "2026-05-22",
+    "result": "8/8 findings pass — zero PRD-finding deferrals",
+    "summary": "The landlord water hub becomes INFORMATIVE. WaterIntelligenceService::forLandlord (batched grouped queries, zero N+1, zero-denominator guards): 12-month consumption trend + period-over-period delta + trailing-3mo projection + per-building comparison (INTELLIGENCE-SERVICE-1); leak intelligence — recent is_anomalous readings + main-vs-sub NON-REVENUE-WATER per main meter (graceful empty when no hierarchy) + top consumers (INTELLIGENCE-SERVICE-2); billing-vs-collection — water billed vs pro-rata water share of payments (water not payment-separable) + collection rate + outstanding (INTELLIGENCE-SERVICE-3). PRODUCTION-COST: water_production_costs table + WaterProductionCost model/policy/factory + StoreWaterProductionCostRequest + WaterProductionCostController store/destroy (landlord-only, water.production-costs.*) (PRODUCTION-COST-1); cost-of-production-vs-revenue margin + margin% + cost-per-unit (PRODUCTION-COST-2). INTELLIGENCE-UI: landlord-only intelligence tab (WaterHubController getIntelligenceData caretaker-bounced + Hub.vue IntelligenceTab canSettings-gated, ChartBarIcon) — IntelligenceTab.vue KPI cards + ChartCard trend/comparison + top-consumers + leak panel + NRW table + billing-vs-collection bar + margin panel + production-cost entry form/list; i18n en/sw/ar (INTELLIGENCE-UI-1). CI surface + behavioral tests + runbook.",
+    "tests": "Phase-91 tests: WaterIntelligence 12 + Surface 6 (18 / 82 assertions). Full water suite + Pint/build/eslint green.",
+    "review": "Multi-reviewer read-only pass (CodeRabbit + pr-review-toolkit code-reviewer + silent-failure-hunter).",
+    "constraints_preserved": "Intelligence tab + production costs are landlord-only (caretaker bounced to overview; route role:landlord). Collection rate is an explicit ESTIMATE (water not payment-separable — pro-rata water_due/total_due). Non-revenue water only where a main/sub meter hierarchy exists (graceful empty otherwise). Margin uses logged production costs (water_production_costs); without them margin == revenue. Batched grouped queries, no N+1; every ratio guards a zero denominator. Money decimal:2."
+  }
+}
