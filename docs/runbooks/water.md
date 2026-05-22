@@ -142,3 +142,21 @@ flat `rate × consumption` (or `flat_water_rate`).
 - **WaterConnection** (universal billable entity) → Phase 94 (water clients) — introducing it earlier would rebuild the biller twice.
 - **Apportioned billing mode + common-area split**, **borehole production-cost capture**, **effective-dated tariff scheduling** → dedicated later water phases.
 - Per-building tiered-band editing in the UI is deferred (backend supports it; v1 exposes global bands + per-building flat-rate/levy overrides).
+
+## Phase 88 — reading cycle (read → review → bill)
+
+Automates the monthly water cadence and — critically — guarantees water revenue
+is never silently dropped (a reading left pending is excluded from invoicing).
+
+| Concept | Where |
+| --- | --- |
+| Read-date + review window config | `water_reading_day` (day-of-month) + `water_review_days` on payment_configurations / buildings (building null=inherit; default review 7d); shared settings editor |
+| Caretaker reading reminder | `water:reading-reminders` (daily 07:45) → on a consumption building's reading day, notifies its caretaker (`water_reading_due`), idempotent per building+month |
+| Landlord review reminder | `water:review-window` (daily 05:45) → buildings with pending readings inside the window nudge the landlord (`water_review_due`), once per building+month |
+| **Auto-approve safety** | same command auto-approves any reading still pending past the review window (`WaterReading::autoApprove`, `auto_approved=true`, reviewed_by null) + audits `TenantActivity` (water_reading_auto_approved) + one escalation per landlord. **This is why a never-reviewed reading still bills instead of hanging forever.** |
+| Re-read | `WaterReadingController::requestReread` (landlord-only, non-invoiced) reopens a reading to pending + re-prompts the caretaker; button on the review tab |
+
+### Operator notes
+- Set `water_reading_day` a few days before `invoice_generation_day`, with `water_review_days` short enough to close before invoicing, so approved readings are picked up that cycle. A reading recorded too late auto-approves and bills the NEXT cycle (never lost).
+- The review window is measured from when a reading was **recorded** (created_at + review_days), not a fixed calendar date — robust to late reads.
+- New notification types `water_reading_due` / `water_review_due` are IMPORTANT urgency (email + in-app default-on).

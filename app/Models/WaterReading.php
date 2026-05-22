@@ -131,6 +131,8 @@ class WaterReading extends Model
     {
         $this->update([
             'status' => WaterReadingStatus::Approved,
+            // A manual approval is never a system approval — clear stale provenance.
+            'auto_approved' => false,
             'reviewed_by' => $reviewerId,
             'reviewed_at' => now(),
             'review_notes' => $notes,

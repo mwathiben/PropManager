@@ -189,16 +189,20 @@ class WaterReadingController extends Controller
         ]);
 
         $building = $reading->unit?->building;
-        if ($building?->caretaker_id) {
-            $notifications->send(
-                recipientId: (int) $building->caretaker_id,
-                type: Notification::TYPE_WATER_READING_DUE,
-                subject: __('water.notify.reread_subject'),
-                message: __('water.notify.reread_body', ['building' => $building->name]),
-                data: ['reading_id' => $reading->id, 'building_id' => $building->id],
-                landlordId: (int) $reading->landlord_id,
-            );
+        if (! $building?->caretaker_id) {
+            // Reading is reopened, but there's no caretaker to prompt — say so
+            // rather than implying someone was notified.
+            return redirect()->back()->with('warning', 'Reading reopened, but no caretaker is assigned to take the re-read.');
         }
+
+        $notifications->send(
+            recipientId: (int) $building->caretaker_id,
+            type: Notification::TYPE_WATER_READING_DUE,
+            subject: __('water.notify.reread_subject'),
+            message: __('water.notify.reread_body', ['building' => $building->name]),
+            data: ['reading_id' => $reading->id, 'building_id' => $building->id],
+            landlordId: (int) $reading->landlord_id,
+        );
 
         return redirect()->back()->with('success', 'Re-read requested.');
     }

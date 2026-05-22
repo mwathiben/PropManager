@@ -9,6 +9,7 @@ use App\Services\NotificationService;
 use App\Services\Water\WaterReadingCycleService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Phase-88 WATER-READING-CYCLE: on each building's configured reading day, remind
@@ -43,15 +44,24 @@ class WaterReadingReminders extends Command
                 continue;
             }
 
-            $notifications->send(
-                recipientId: (int) $building->caretaker_id,
-                type: Notification::TYPE_WATER_READING_DUE,
-                subject: __('water.notify.reading_due_subject'),
-                message: __('water.notify.reading_due_body', ['building' => $building->name]),
-                data: ['building_id' => $building->id],
-                landlordId: (int) $building->landlord_id,
-            );
-            $sent++;
+            try {
+                $notifications->send(
+                    recipientId: (int) $building->caretaker_id,
+                    type: Notification::TYPE_WATER_READING_DUE,
+                    subject: __('water.notify.reading_due_subject'),
+                    message: __('water.notify.reading_due_body', ['building' => $building->name]),
+                    data: ['building_id' => $building->id],
+                    landlordId: (int) $building->landlord_id,
+                );
+                $sent++;
+            } catch (\Throwable $e) {
+                // One bad recipient must not abort reminders for other buildings.
+                Log::error('water:reading-reminders building failed', [
+                    'building_id' => $building->id,
+                    'exception' => $e::class,
+                    'message' => $e->getMessage(),
+                ]);
+            }
         }
 
         $this->info("water:reading-reminders: {$sent} reminder(s) dispatched");

@@ -214,7 +214,7 @@ onMounted(async () => {
                 </label>
                 <label class="block text-sm">
                     <span class="text-gray-700">{{ $t('water.settings.review_days') }}</span>
-                    <input v-model="form.water_review_days" type="number" min="0" max="31" step="1" class="mt-1 w-full border-gray-300 rounded-md" :placeholder="$t('water.settings.review_days_hint')" />
+                    <input v-model="form.water_review_days" type="number" min="1" max="31" step="1" class="mt-1 w-full border-gray-300 rounded-md" :placeholder="$t('water.settings.review_days_hint')" />
                 </label>
             </div>
         </div>
@@ -309,7 +309,7 @@ onMounted(async () => {
                         </label>
                         <label class="block text-xs">
                             <span class="text-gray-600">{{ $t('water.settings.review_days') }}</span>
-                            <input v-model="form.building_overrides[getBuildingOverrideIndex(building.id)].water_review_days" type="number" min="0" max="31" step="1" class="mt-1 w-full border-gray-300 rounded-md text-sm" :placeholder="$t('water.settings.inherit_placeholder')" />
+                            <input v-model="form.building_overrides[getBuildingOverrideIndex(building.id)].water_review_days" type="number" min="1" max="31" step="1" class="mt-1 w-full border-gray-300 rounded-md text-sm" :placeholder="$t('water.settings.inherit_placeholder')" />
                         </label>
                     </div>
                 </div>

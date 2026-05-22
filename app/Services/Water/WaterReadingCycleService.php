@@ -18,12 +18,15 @@ class WaterReadingCycleService
 {
     public const DEFAULT_REVIEW_DAYS = 7;
 
+    /** @var array<int, ?PaymentConfiguration> per-landlord config, resolved once per run */
+    private array $configCache = [];
+
     /**
      * @return array{billing_type: string, reading_day: ?int, review_days: int}
      */
     public function effectiveConfig(Building $building): array
     {
-        $config = PaymentConfiguration::withoutGlobalScope('landlord')
+        $config = $this->configCache[$building->landlord_id] ??= PaymentConfiguration::withoutGlobalScope('landlord')
             ->where('landlord_id', $building->landlord_id)
             ->first();
 

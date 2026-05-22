@@ -393,6 +393,7 @@ Schedule::command('water:reading-reminders')
     ->dailyAt('07:45')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
+    ->withoutOverlapping()
     ->name('phase88-water-reading-reminders');
 
 // Phase-88: nudge landlords to review + AUTO-APPROVE readings left pending past
@@ -402,6 +403,7 @@ Schedule::command('water:review-window')
     ->dailyAt('05:45')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
+    ->withoutOverlapping()
     ->name('phase88-water-review-window');
 
 // Phase-45 LEASE-COUNTER-3: expire counter-offers older than 14 days.

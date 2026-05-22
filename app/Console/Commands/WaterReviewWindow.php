@@ -11,6 +11,7 @@ use App\Services\NotificationService;
 use App\Services\Water\WaterReadingCycleService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Phase-88 WATER-READING-CYCLE — the safety. Each day: nudge the landlord to
@@ -32,55 +33,17 @@ class WaterReviewWindow extends Command
         $reminded = 0;
 
         foreach ($cycle->consumptionBuildings() as $building) {
-            $reviewDays = $cycle->effectiveConfig($building)['review_days'];
-            $cutoff = $now->copy()->subDays($reviewDays);
-
-            $unitIds = $building->units()->withoutGlobalScope('landlord')->pluck('id');
-            if ($unitIds->isEmpty()) {
-                continue;
-            }
-
-            $pending = WaterReading::withoutGlobalScope('landlord')
-                ->whereIn('unit_id', $unitIds)
-                ->where('status', 'pending')
-                ->where('is_invoiced', false)
-                ->get();
-
-            if ($pending->isEmpty()) {
-                continue;
-            }
-
-            [$overdue, $withinWindow] = $pending->partition(fn (WaterReading $r) => $r->created_at <= $cutoff);
-
-            // Auto-approve overdue readings so they bill.
-            foreach ($overdue as $reading) {
-                if ($dryRun) {
-                    $autoApprovedByLandlord[$building->landlord_id] = ($autoApprovedByLandlord[$building->landlord_id] ?? 0) + 1;
-
-                    continue;
-                }
-                $reading->autoApprove();
-                $this->auditAutoApproval($building->landlord_id, $reading);
-                $autoApprovedByLandlord[$building->landlord_id] = ($autoApprovedByLandlord[$building->landlord_id] ?? 0) + 1;
-            }
-
-            // Nudge the landlord to review readings still inside the window
-            // (once per building + month).
-            if ($withinWindow->isNotEmpty()) {
-                $key = sprintf('water-review-due:%d:%s', $building->id, $now->format('Y-m'));
-                if (Cache::add($key, true, $now->copy()->addDays(40))) {
-                    $reminded++;
-                    if (! $dryRun) {
-                        $notifications->send(
-                            recipientId: (int) $building->landlord_id,
-                            type: Notification::TYPE_WATER_REVIEW_DUE,
-                            subject: __('water.notify.review_due_subject'),
-                            message: __('water.notify.review_due_body', ['building' => $building->name, 'count' => $withinWindow->count()]),
-                            data: ['building_id' => $building->id, 'pending' => $withinWindow->count()],
-                            landlordId: (int) $building->landlord_id,
-                        );
-                    }
-                }
+            try {
+                $this->processBuilding($building, $cycle, $notifications, $now, $dryRun, $autoApprovedByLandlord, $reminded);
+            } catch (\Throwable $e) {
+                // Review CRITICAL: one poison building/reading must not abort the
+                // whole portfolio's auto-approval for the day.
+                Log::error('water:review-window building failed', [
+                    'building_id' => $building->id,
+                    'landlord_id' => $building->landlord_id,
+                    'exception' => $e::class,
+                    'message' => $e->getMessage(),
+                ]);
             }
         }
 
@@ -102,6 +65,67 @@ class WaterReviewWindow extends Command
         $this->info("water:review-window: {$autoApproved} auto-approved, {$reminded} review reminder(s)");
 
         return self::SUCCESS;
+    }
+
+    /**
+     * @param  array<int, int>  $autoApprovedByLandlord
+     */
+    private function processBuilding(
+        \App\Models\Building $building,
+        WaterReadingCycleService $cycle,
+        NotificationService $notifications,
+        \Illuminate\Support\Carbon $now,
+        bool $dryRun,
+        array &$autoApprovedByLandlord,
+        int &$reminded
+    ): void {
+        $reviewDays = $cycle->effectiveConfig($building)['review_days'];
+        $cutoff = $now->copy()->subDays($reviewDays);
+
+        $unitIds = $building->units()->withoutGlobalScope('landlord')->pluck('id');
+        if ($unitIds->isEmpty()) {
+            return;
+        }
+
+        $pending = WaterReading::withoutGlobalScope('landlord')
+            ->whereIn('unit_id', $unitIds)
+            ->where('status', 'pending')
+            ->where('is_invoiced', false)
+            ->get();
+
+        if ($pending->isEmpty()) {
+            return;
+        }
+
+        [$overdue, $withinWindow] = $pending->partition(fn (WaterReading $r) => $r->created_at <= $cutoff);
+
+        // Auto-approve overdue readings so they bill.
+        foreach ($overdue as $reading) {
+            if (! $dryRun) {
+                $reading->autoApprove();
+                $this->auditAutoApproval($building->landlord_id, $reading);
+            }
+            $autoApprovedByLandlord[$building->landlord_id] = ($autoApprovedByLandlord[$building->landlord_id] ?? 0) + 1;
+        }
+
+        // Nudge the landlord to review readings still inside the window
+        // (once per building + month).
+        if ($withinWindow->isNotEmpty()) {
+            $key = sprintf('water-review-due:%d:%s', $building->id, $now->format('Y-m'));
+            if (Cache::add($key, true, $now->copy()->addDays(40))) {
+                $reminded++;
+                if (! $dryRun) {
+                    $notifications->send(
+                        recipientId: (int) $building->landlord_id,
+                        type: Notification::TYPE_WATER_REVIEW_DUE,
+                        subject: __('water.notify.review_due_subject'),
+                        message: __('water.notify.review_due_body', ['building' => $building->name, 'count' => $withinWindow->count()]),
+                        data: ['building_id' => $building->id, 'pending' => $withinWindow->count()],
+                        landlordId: (int) $building->landlord_id,
+                    );
+                }
+            }
+        }
     }
 
     private function auditAutoApproval(int $landlordId, WaterReading $reading): void
