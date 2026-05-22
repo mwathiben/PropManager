@@ -38,6 +38,9 @@ class TenantActivity extends Model
 
     const TYPE_INVOICE_GENERATED = 'invoice_generated';
 
+    // Phase-88: a pending water reading auto-approved when the review window closed.
+    const TYPE_WATER_READING_AUTO_APPROVED = 'water_reading_auto_approved';
+
     const TYPE_DOCUMENT_UPLOADED = 'document_uploaded';
 
     const TYPE_VERIFICATION_SUBMITTED = 'verification_submitted';

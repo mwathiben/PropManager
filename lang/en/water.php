@@ -12,6 +12,17 @@ return [
     'review' => [
         'spike' => 'Possible spike',
         'spike_hint' => "Consumption is far above this meter's recent average — verify before approving.",
+        'request_reread' => 'Request re-read',
+    ],
+    'notify' => [
+        'reading_due_subject' => 'Water readings due',
+        'reading_due_body' => 'Please take this month\'s water readings for :building.',
+        'review_due_subject' => 'Water readings to review',
+        'review_due_body' => ':count water reading(s) for :building are awaiting your review before billing.',
+        'auto_approved_subject' => 'Water readings auto-approved',
+        'auto_approved_body' => ':count water reading(s) were auto-approved because the review window closed, so they will be billed.',
+        'reread_subject' => 'Water re-read requested',
+        'reread_body' => 'A re-read was requested for a water reading in :building. Please take a fresh reading.',
     ],
     'hub' => [
         'title' => 'Water hub',

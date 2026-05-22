@@ -44,6 +44,12 @@ class Notification extends Model
     // Phase-85 DISPUTE-2: chargeback/dispute raised against a payment.
     public const TYPE_PAYMENT_DISPUTE = 'payment_dispute';
 
+    // Phase-88 WATER-READING-CYCLE: caretaker reminded to take readings.
+    public const TYPE_WATER_READING_DUE = 'water_reading_due';
+
+    // Phase-88: landlord reminded to review water readings / auto-approval notice.
+    public const TYPE_WATER_REVIEW_DUE = 'water_review_due';
+
     // Channel constants
     public const CHANNEL_EMAIL = 'email';
 
@@ -109,6 +115,9 @@ class Notification extends Model
         self::TYPE_RENT_HIKE => self::URGENCY_IMPORTANT,
         self::TYPE_LEASE_RENEWAL => self::URGENCY_IMPORTANT,
         self::TYPE_DOCUMENT_EXPIRY => self::URGENCY_IMPORTANT,
+        // IMPORTANT so caretaker/landlord get them via email + in-app by default.
+        self::TYPE_WATER_READING_DUE => self::URGENCY_IMPORTANT,
+        self::TYPE_WATER_REVIEW_DUE => self::URGENCY_IMPORTANT,
         self::TYPE_CARETAKER_INVITATION => self::URGENCY_IMPORTANT,
         self::TYPE_TENANT_INVITATION => self::URGENCY_IMPORTANT,
         self::TYPE_RECEIPT => self::URGENCY_INFORMATIONAL,

@@ -613,6 +613,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/readings/review', [WaterReadingController::class, 'review'])->name('readings.review');
         Route::post('/readings/{reading}/approve', [WaterReadingController::class, 'approve'])->name('readings.approve');
         Route::post('/readings/{reading}/reject', [WaterReadingController::class, 'reject'])->name('readings.reject');
+        Route::post('/readings/{reading}/request-reread', [WaterReadingController::class, 'requestReread'])->whereNumber('reading')->name('readings.request-reread');
         Route::get('/readings/{reading}/photo', [WaterReadingController::class, 'photo'])->name('readings.photo');
         Route::put('/readings/{reading}', [WaterReadingController::class, 'update'])->name('readings.update');
         Route::delete('/readings/{reading}', [WaterReadingController::class, 'destroy'])->name('readings.destroy');

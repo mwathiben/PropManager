@@ -12,6 +12,17 @@ return [
     'review' => [
         'spike' => 'Ongezeko la kushtua',
         'spike_hint' => 'Matumizi ni juu zaidi ya wastani wa hivi karibuni wa mita hii — thibitisha kabla ya kuidhinisha.',
+        'request_reread' => 'Omba usomaji upya',
+    ],
+    'notify' => [
+        'reading_due_subject' => 'Usomaji wa maji unahitajika',
+        'reading_due_body' => 'Tafadhali chukua usomaji wa maji wa mwezi huu kwa :building.',
+        'review_due_subject' => 'Usomaji wa maji wa kukagua',
+        'review_due_body' => 'Usomaji :count wa maji kwa :building unasubiri ukaguzi wako kabla ya kutoza.',
+        'auto_approved_subject' => 'Usomaji wa maji umeidhinishwa kiotomatiki',
+        'auto_approved_body' => 'Usomaji :count wa maji umeidhinishwa kiotomatiki kwa sababu dirisha la ukaguzi limefungwa, hivyo utatozwa.',
+        'reread_subject' => 'Usomaji upya wa maji umeombwa',
+        'reread_body' => 'Usomaji upya umeombwa kwa usomaji wa maji katika :building. Tafadhali chukua usomaji mpya.',
     ],
     'hub' => [
         'title' => 'Kitovu cha maji',

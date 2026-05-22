@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { useForm } from '@inertiajs/vue3';
+import { router, useForm } from '@inertiajs/vue3';
 import PaginatorLink from '@/Components/PaginatorLink.vue';
 import { useFormatters } from '@/composables';
 
@@ -54,6 +54,10 @@ function confirmReject(): void {
     if (!selected.value || !rejectForm.reason) return;
     rejectForm.post(route('readings.reject', selected.value.id), { onSuccess: close, preserveScroll: true });
 }
+
+function requestReread(reading: ReadingRow): void {
+    router.post(route('readings.request-reread', reading.id), {}, { preserveScroll: true });
+}
 </script>
 
 <template>
@@ -94,6 +98,7 @@ function confirmReject(): void {
                         <div class="flex gap-2">
                             <button class="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700" @click="open(reading, 'approve')">Approve</button>
                             <button class="rounded-md bg-rose-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-rose-700" @click="open(reading, 'reject')">Reject</button>
+                            <button class="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50" @click="requestReread(reading)">{{ $t('water.review.request_reread') }}</button>
                         </div>
                     </div>
                 </div>

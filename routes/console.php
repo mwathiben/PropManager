@@ -388,6 +388,22 @@ Schedule::command('rent:apply-escalations')
     ->onOneServer()
     ->name('phase83-rent-apply-escalations');
 
+// Phase-88 WATER-READING-CYCLE: remind caretakers on each building's reading day.
+Schedule::command('water:reading-reminders')
+    ->dailyAt('07:45')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase88-water-reading-reminders');
+
+// Phase-88: nudge landlords to review + AUTO-APPROVE readings left pending past
+// the review window so water billing is never silently halted. Runs before the
+// 06:00 invoice automation would matter; placed in the morning reminder cluster.
+Schedule::command('water:review-window')
+    ->dailyAt('05:45')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase88-water-review-window');
+
 // Phase-45 LEASE-COUNTER-3: expire counter-offers older than 14 days.
 // Runs at 06:00 — before tickets:audit-sla (07:00) so any expiry
 // notification email is already in the queue when the day's batch fires.

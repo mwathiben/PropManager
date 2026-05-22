@@ -6,7 +6,9 @@ use App\Http\Requests\StoreWaterReadingRequest;
 use App\Http\Requests\WaterReading\ApproveWaterReadingRequest;
 use App\Http\Requests\WaterReading\RejectWaterReadingRequest;
 use App\Http\Requests\WaterReading\UpdateWaterReadingRequest;
+use App\Models\Notification;
 use App\Models\WaterReading;
+use App\Services\NotificationService;
 use App\Services\WaterReadingService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -164,6 +166,41 @@ class WaterReadingController extends Controller
         $reading->reject(auth()->id(), $validated['reason']);
 
         return redirect()->back()->with('success', 'Water reading rejected successfully.');
+    }
+
+    /**
+     * Phase-88 RE-READ: the landlord reopens a (non-invoiced) reading that looks
+     * wrong, sending it back to pending and re-prompting the caretaker.
+     */
+    public function requestReread(WaterReading $reading, NotificationService $notifications)
+    {
+        $this->authorize('approve', $reading);
+
+        if ($reading->is_invoiced) {
+            return redirect()->back()->with('error', 'Cannot re-read an invoiced reading.');
+        }
+
+        $reading->update([
+            'status' => \App\Enums\WaterReadingStatus::Pending,
+            'reviewed_by' => null,
+            'reviewed_at' => null,
+            'review_notes' => 'Re-read requested by landlord.',
+            'auto_approved' => false,
+        ]);
+
+        $building = $reading->unit?->building;
+        if ($building?->caretaker_id) {
+            $notifications->send(
+                recipientId: (int) $building->caretaker_id,
+                type: Notification::TYPE_WATER_READING_DUE,
+                subject: __('water.notify.reread_subject'),
+                message: __('water.notify.reread_body', ['building' => $building->name]),
+                data: ['reading_id' => $reading->id, 'building_id' => $building->id],
+                landlordId: (int) $reading->landlord_id,
+            );
+        }
+
+        return redirect()->back()->with('success', 'Re-read requested.');
     }
 
     public function photo(WaterReading $reading)

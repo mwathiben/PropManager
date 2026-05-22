@@ -37,6 +37,9 @@ class NotificationPreference extends Model
         'document_expiry_enabled',
         // Phase-85 DISPUTE-2: opt-in for payment-dispute alerts.
         'payment_dispute_enabled',
+        // Phase-88 WATER-READING-CYCLE: opt-in for water reading/review reminders.
+        'water_reading_due_enabled',
+        'water_review_due_enabled',
         // Channel preferences
         'email_enabled',
         'sms_enabled',
@@ -71,6 +74,8 @@ class NotificationPreference extends Model
         'new_message_enabled' => 'boolean',
         'document_expiry_enabled' => 'boolean',
         'payment_dispute_enabled' => 'boolean',
+        'water_reading_due_enabled' => 'boolean',
+        'water_review_due_enabled' => 'boolean',
         // Channel casts
         'email_enabled' => 'boolean',
         'sms_enabled' => 'boolean',
