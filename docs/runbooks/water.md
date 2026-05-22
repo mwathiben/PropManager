@@ -99,3 +99,25 @@ just the first property.
 | Nav didn't update after enabling water | Cache is 300s; the write paths call `WaterModuleAccess::forget`. If stale, confirm the write path ran. |
 | Caretaker sees Review / landlord sees Record | Shouldn't happen — `WaterHubController::index` forces the role-correct tab. Check the role resolution. |
 | New page unreachable from the UI | Run `node scripts/nav-audit.mjs`; wire a `route()` link or baseline it. |
+
+## Phase 86 — meter foundation
+
+Readings now hang off a first-class **`Meter`** (`water_meters`), not directly off
+a unit. One active meter per unit is the invariant the biller relies on; the
+backfill created one meter per unit with history (initial reading taken from the
+unit's earliest `previous_reading`).
+
+| Concept | Where |
+| --- | --- |
+| Meter entity + lifecycle states | `App\Models\Meter` + `App\Enums\MeterStatus` (active/inactive/faulty/replaced/decommissioned) |
+| Non-zero install baseline | `meters.initial_reading` — a meter's first read is measured from this, not 0. Set it when registering the meter. |
+| Register / replace / decommission | `MeterController` (landlord-only) → `/water/meters`, linked from the landlord hub overview |
+| Replacement continuity | `MeterReplacementService::replace` — records the old meter's closing read, retires it, and starts the successor from its OWN baseline. It's an explicit event; never infer a swap from a low reading. |
+| Per-meter, baseline-aware consumption | `WaterReadingService::processReading` — previous = the meter's last reading or its baseline |
+| Spike flag | a reading whose consumption exceeds `propmanager.water.spike_multiplier` (default 5) × the meter's trailing average is flagged `is_anomalous` (non-blocking) and shown with an amber chip in the review queue |
+| Caretaker role-split | the caretaker water hub no longer shows the **Settings** tab; water billing config is landlord-only (`WaterHubController` bounces `?tab=settings`, `WaterSettingsController::index` is 403 for caretakers) |
+
+### Operator notes
+- A unit can have only one **active** meter — registering a second is rejected; use **Replace** to swap.
+- A `replaced`/`decommissioned` meter cannot be decommissioned again (keeps the replacement chain intact).
+- `meter.utility_type` is `water` for now but the model is built to extend to other utilities later; do not implement electricity/gas off it yet.

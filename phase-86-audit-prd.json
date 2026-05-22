@@ -4,7 +4,13 @@
   "opened_at": "2026-05-22",
   "tier": 7,
   "scope": "USER-DIRECTED water domain, phase 1 of 12 (86-97). Brownfield: scout confirmed water bills today via WaterRateService (3-tier rate building->PaymentConfiguration->config 150) + WaterReadingObserver (consumption=current-previous, cost=consumption*rate, decimal:2) + InvoiceService::generateInvoiceForLease (consumption sums approved+uninvoiced reading.cost; flat_rate returns building.water_flat_rate). Config = payment_configurations(water_billing_type consumption|flat_rate|none, water_unit_rate, flat_water_rate) + buildings(water_billing_type, water_unit_rate, water_flat_rate nullable=inherit). WaterModuleAccess+EnsureWaterModule gate. WaterReading is keyed by unit_id (NOT a meter); units.meter_number is an unused informational string; NO meter/connection table exists. Bulk multi-unit entry, required photo, OCR, below-previous+duplicate validation ALREADY EXIST (do NOT rebuild). RETIRED WaterSetting orphan must not be reused. THIS PHASE = the metering foundation everything rides on: (1) fix the caretaker role-split (caretaker water hub MUST NOT show Settings), (2) introduce a first-class Meter entity with lifecycle (serial/type/status, utility_type-extensible, main<->sub-meter link, replacement-with-continuity, decommission), re-key readings to meters with a backfill, (3) non-zero baseline reading at meter install, (4) spike/implausible-reading flag at entry. SAFETY: do NOT touch the working biller (InvoiceService/WaterRateService) or rebuild existing reading-entry features; meter re-keying must be backward-compatible (one meter per unit = identical billing). WaterConnection (the universal billable entity) is DEFERRED to Phase 87 (tariff/billing rework) per scout to avoid rebuilding the biller twice. billing_mode(apportioned)+water_source config also deferred to 87. Estimated readings deferred to Phase 88 (cadence). Money is decimal:2.",
-  "categories": ["ROLE-SPLIT", "METER-MODEL", "METER-LIFECYCLE", "READING-INTEGRITY", "CI"],
+  "categories": [
+    "ROLE-SPLIT",
+    "METER-MODEL",
+    "METER-LIFECYCLE",
+    "READING-INTEGRITY",
+    "CI"
+  ],
   "findings": [
     {
       "id": "ROLE-SPLIT-1",
@@ -13,7 +19,7 @@
       "title": "Caretaker sees the landlord-only Settings tab in the water hub",
       "evidence": "Hub.vue:46 unconditionally pushes the Settings tab to the tab list regardless of canInput/canReview; a caretaker sees it and can open water billing config.",
       "remediation": "Add a canSettings prop (landlord-only) and gate the Settings tab + quick-link on it in Hub.vue. Caretaker tab set = overview + readings (+history); NO settings. Phase86 test: caretaker hub payload/render has no settings tab; landlord does.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "ROLE-SPLIT-2",
@@ -22,7 +28,7 @@
       "title": "WaterHubController exposes settings data + ?tab=settings to caretakers",
       "evidence": "WaterHubController returns getSettingsData() for any tab with no role gate and does not redirect a caretaker off ?tab=settings.",
       "remediation": "Add canSettings = isLandlord to the props; only compute/return settings data when canSettings; redirect a caretaker requesting tab=settings to overview. Phase86 test: caretaker GET /water?tab=settings does not receive settings data / redirects.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "ROLE-SPLIT-3",
@@ -31,7 +37,7 @@
       "title": "WaterSettingsController allows caretakers to view/update billing config",
       "evidence": "WaterSettingsController::index/update authorize isLandlord() || isCaretaker(); water billing configuration is landlord-only.",
       "remediation": "Gate WaterSettingsController index + update to landlord-only (abort 403 for caretaker). Keep it ungated by water.module (it is the enable point). Phase86 test: caretaker GET/PUT /water/settings -> 403; landlord OK.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "ROLE-SPLIT-4",
@@ -40,7 +46,7 @@
       "title": "Audit caretaker water hub for other landlord-only leaks",
       "evidence": "Beyond Settings, the overview stats / quick-links may surface landlord-only financial data (rates, revenue) to caretakers.",
       "remediation": "Audit WaterHubController overviewStats + Hub quick-links; ensure caretaker overview shows operational data (pending counts, their buildings) NOT billing rates/revenue. Gate any financial fields behind canReview/isLandlord. Phase86 test: caretaker overview payload omits rate/revenue fields.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "METER-MODEL-1",
@@ -49,7 +55,7 @@
       "title": "water_meters table (first-class meter entity + lifecycle)",
       "evidence": "Readings key off unit_id; units.meter_number is an unused string; no meter entity, status, baseline, sub-meter link or replacement history exists.",
       "remediation": "Migration water_meters: id, landlord_id (TenantScope), building_id (FK), unit_id (FK nullable - free-standing lines allowed later), parent_meter_id (self-FK nullable, for main<->sub), serial_number, utility_type (string default 'water' - extensible to electricity/gas, NOT implemented), meter_type (string nullable e.g. analog|digital), status (enum active|inactive|faulty|replaced|decommissioned default active), initial_reading (decimal:2 default 0 - the non-zero baseline), installed_at (date nullable), decommissioned_at (date nullable), replaced_by_meter_id (self-FK nullable), notes (nullable), timestamps, softDeletes. Indexes (landlord_id,status), (unit_id), (parent_meter_id).",
-      "passes": false
+      "passes": true
     },
     {
       "id": "METER-MODEL-2",
@@ -58,7 +64,7 @@
       "title": "Meter model + factory + policy + registration",
       "evidence": "No Meter model/factory/policy.",
       "remediation": "App\\Models\\Meter (TenantScope + HasFactory + SoftDeletes; casts incl initial_reading decimal:2, status enum or string, installed_at/decommissioned_at date; relationships unit/building/landlord/parent/subMeters/readings/replacedBy; scopes active; helper latestReadingValue / currentBalance). MeterFactory. MeterPolicy (before super-admin; viewAny landlord|caretaker; view/manage landlord-owns or caretaker-of-landlord; create/replace/decommission landlord only). Register in AuthServiceProvider.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "METER-MODEL-3",
@@ -67,7 +73,7 @@
       "title": "Re-key water_readings to meters with a non-destructive backfill",
       "evidence": "water_readings.unit_id only; consumption continuity / replacement needs readings keyed by physical meter.",
       "remediation": "Migration adds water_readings.meter_id (FK nullable). Data backfill: for each distinct unit that has readings or a non-null units.meter_number, create one active Meter (serial = meter_number or generated, unit_id, building_id from unit, installed) and set its readings' meter_id; set meter.initial_reading from that unit's earliest reading.previous_reading. Keep unit_id (denormalized for tenant resolution). WaterReading::meter() relationship. Backward-compatible: one meter per unit => identical billing.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "METER-MODEL-4",
@@ -76,7 +82,7 @@
       "title": "Consumption computed per-meter (not per-unit), baseline-aware",
       "evidence": "WaterReadingObserver computes previous_reading from the unit's prior reading; with meters + replacement this must be per-meter and the first read must use the meter baseline, not 0.",
       "remediation": "Update the consumption derivation so previous_reading = the latest prior reading FOR THE SAME METER; when none exists, use meter.initial_reading (non-zero baseline). One-meter-per-unit keeps current behavior identical. Phase86 test: first reading on a meter with initial_reading=500 and current=520 yields consumption=20 (not 520).",
-      "passes": false
+      "passes": true
     },
     {
       "id": "METER-LIFECYCLE-1",
@@ -85,7 +91,7 @@
       "title": "Meter replacement is an explicit event preserving consumption continuity",
       "evidence": "A swapped meter often starts non-zero; a naive reading on the new meter misfires below-previous validation or computes huge/negative consumption.",
       "remediation": "MeterReplacementService::replace(old, newSerial, oldFinalReading, newInitialReading): in a transaction record the old meter's final reading, mark it status=replaced + decommissioned_at + replaced_by_meter_id, create the new active Meter (initial_reading=newInitialReading) linked to the same unit. Validation becomes swap-aware (the new meter's first read is measured from its own baseline). Phase86 test: replace then read new meter -> consumption from new baseline; old meter inactive.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "METER-LIFECYCLE-2",
@@ -94,7 +100,7 @@
       "title": "Meter management surface (list/create/replace/decommission) + baseline entry",
       "evidence": "No landlord UI to manage meters or set a non-zero install baseline.",
       "remediation": "MeterController (landlord-only, owner-scoped) index/store/replace/decommission + StoreMeterRequest/ReplaceMeterRequest; Pages/Water/Meters/*.vue (or a Meters tab on the landlord hub) reachable from the water hub; set initial_reading at create (the non-zero baseline). Routes role:landlord + water.module. nav-audit clean. Phase86 test: routes registered + landlord can create a meter with initial_reading; caretaker cannot.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "METER-LIFECYCLE-3",
@@ -103,7 +109,7 @@
       "title": "i18n for meter surface (en/sw/ar parity)",
       "evidence": "New meter UI strings need localization with parity.",
       "remediation": "Add meter.* keys (or extend water.*) in lang/en + lang/sw + lang/ar with parity. Phase86 test: the three namespaces have identical key sets.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "READING-INTEGRITY-1",
@@ -112,7 +118,7 @@
       "title": "Flag implausible (spike) readings at entry",
       "evidence": "WaterReadingService rejects below-previous + duplicates but accepts an implausibly high reading (data-entry typo / leak) silently.",
       "remediation": "At entry, when consumption exceeds a threshold (config multiple of the meter's trailing average, or an absolute cap) flag the reading (e.g. is_anomalous / a warning surfaced to the landlord review) WITHOUT hard-blocking. Surface the flag in the review tab. Phase86 test: a 10x-average reading is stored but flagged; a normal reading is not.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "CI-1",
@@ -121,7 +127,7 @@
       "title": "Phase 86 surface + behavioral tests",
       "evidence": "New schema/model/policy/routes/role-split need a regression guard.",
       "remediation": "Phase86WaterMeterFoundationSurfaceTest: water_meters + water_readings.meter_id schema, Meter model/policy registered, meter routes registered, role-split (caretaker no settings tab/data/403 on settings), lang parity. Phase86WaterMeterFoundationTest: backfill correctness, per-meter baseline-aware consumption, replacement continuity, spike flag, meter create landlord-only. Existing water suite (Phase79*, WaterReadingControllerTest) stays green.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "CI-2",
@@ -130,7 +136,15 @@
       "title": "Runbook + nav reachability",
       "evidence": "Meter lifecycle needs operator docs and the new surface must be reachable.",
       "remediation": "Extend docs/runbooks/water.md with the meter lifecycle (entity, baseline, replacement, decommission, spike flag, role-split). nav-audit clean (meters surface reachable). Update memory at closeout.",
-      "passes": false
+      "passes": true
     }
-  ]
+  ],
+  "closeout": {
+    "closed_at": "2026-05-22",
+    "result": "13/13 findings pass — zero PRD-finding deferrals",
+    "summary": "Phase 1 of the 12-phase water domain. Brownfield: did NOT touch the working biller (InvoiceService/WaterRateService) — meters are additive and re-keying is backward-compatible (one meter per unit => identical billing). ROLE-SPLIT: caretaker water hub no longer shows Settings (Hub.vue canSettings gate + WaterHubController bounces ?tab=settings + WaterSettingsController landlord-only). METER-MODEL: water_meters first-class entity (serial/utility_type-extensible/meter_type/MeterStatus/initial_reading baseline/parent_meter_id main-sub/replaced_by/softDeletes) + Meter model/factory/policy + water_readings.meter_id with a non-destructive backfill + processReading meter-aware + baseline-aware (previous = meter last reading or its non-zero baseline). METER-LIFECYCLE: MeterReplacementService::replace (txn, lock+re-check, closing read, successor from own baseline) + MeterController landlord-only index/store/replace/decommission + Pages/Water/Meters/Index.vue reachable from the hub + meter.* i18n en/sw/ar. READING-INTEGRITY: is_anomalous spike flag (consumption > 5x trailing average, non-blocking) shown in the review queue. CI: surface + behavioral tests + water.md meter section.",
+    "tests": "Phase-86 tests: WaterMeterFoundation 18 + Surface 7. Full water suite (Phase79/83/86 + WaterReadingController) 67 tests / 183 assertions green. Cross-cutting water-billing regression (Phase62 conflict, InvoiceCurrency, Phase28 statement, Phase17 money) 28 green. Pint/build/eslint/nav-audit clean.",
+    "review": "Multi-reviewer pass (user-requested): independent feature-dev reviewer THEN CodeRabbit + a second code-reviewer + a silent-failure hunter (all read-only — none touched the DB). Net findings all closed: C1 cross-tenant unit guard in processReading; C2 landlord-scoped meter FK rules; one-active-meter-per-unit invariant (double-billing guard); 500->form-error on replace/decommission InvalidArgumentException; broad-catch logging + generic message; resolveActiveForUnit + replace + decommission concurrency locks; null-safe backfill; unit/building consistency; index N+1. Regression tests added for the security/billing-integrity fixes.",
+    "constraints_preserved": "Working biller untouched; backfill non-destructive + byte-for-byte billing; money decimal:2; TenantScope landlord_id; single-role model (meter mgmt + Settings landlord-only, caretaker records). WaterConnection (universal billable entity) deliberately DEFERRED to Phase 87 (tariff/billing rework) per scout — identity decision unchanged. utility_type carried but electricity/gas NOT implemented."
+  }
 }
