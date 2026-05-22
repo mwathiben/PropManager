@@ -308,9 +308,39 @@ class LeaseController extends Controller
         ]);
     }
 
-    public function show(Lease $lease)
+    public function show(Lease $lease, \App\Services\Lease\LeaseLifecycleService $lifecycle)
     {
-        return redirect()->route('tenants.show', $lease->tenant_id);
+        $user = auth()->user();
+
+        // Tenants keep the existing redirect to their own lease view.
+        if ($user->role === 'tenant') {
+            return redirect()->route('tenants.show', $lease->tenant_id);
+        }
+
+        // Phase-83 LIFECYCLE-VIEW-1: landlord/caretaker get a lease-centric page.
+        $landlordId = $user->isCaretaker() ? (int) $user->landlord_id : (int) $user->id;
+        abort_unless((int) $lease->landlord_id === $landlordId, 403);
+
+        $lease->load([
+            'tenant:id,name,email,mobile_number',
+            'unit:id,unit_number,building_id',
+            'unit.building:id,name',
+            'rentHistory',
+            'rentEscalations',
+            'coTenants',
+            'guarantors',
+            'documents',
+        ]);
+
+        $activeRenewal = \App\Models\LeaseRenewal::where('lease_id', $lease->id)
+            ->whereIn('status', \App\Models\LeaseRenewal::OPEN_STATUSES)
+            ->latest('id')->first();
+
+        return Inertia::render('Leases/Show', [
+            'lease' => $lease,
+            'activeRenewal' => $activeRenewal,
+            'timeline' => $lifecycle->timeline($lease),
+        ]);
     }
 
     /**

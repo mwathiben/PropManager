@@ -336,6 +336,15 @@ const getActivityIcon = (action) => {
                                 <ChatBubbleLeftIcon class="w-4 h-4" />
                                 Message
                             </button>
+                            <Link
+                                v-if="activeLease"
+                                :href="route('leases.show', activeLease.id)"
+                                class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                                data-testid="view-lease-cta"
+                            >
+                                <DocumentTextIcon class="w-4 h-4" />
+                                {{ $t('lease.lifecycle.view') }}
+                            </Link>
                             <button
                                 v-if="canEditTenant && activeLease"
                                 @click="openNoticeModal"

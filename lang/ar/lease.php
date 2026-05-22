@@ -65,4 +65,18 @@ return [
         'release' => 'إعفاء',
         'empty' => 'لا يوجد ضامنون في هذا العقد.',
     ],
+    'lifecycle' => [
+        'view' => 'عرض العقد',
+        'back' => 'العودة إلى العقود',
+        'timeline' => 'الجدول الزمني لدورة الحياة',
+        'empty' => 'لا توجد أحداث بعد.',
+        'documents' => 'المستندات',
+        'download' => 'تنزيل',
+        'event_rent_change' => 'تغيير الإيجار',
+        'event_escalation' => 'زيادة',
+        'event_renewal' => 'تجديد',
+        'event_termination' => 'إنهاء',
+        'event_transfer' => 'نقل',
+        'event_pause' => 'إيقاف',
+    ],
 ];

@@ -65,4 +65,18 @@ return [
         'release' => 'Release',
         'empty' => 'No guarantors on this lease.',
     ],
+    'lifecycle' => [
+        'view' => 'View lease',
+        'back' => 'Back to leases',
+        'timeline' => 'Lifecycle timeline',
+        'empty' => 'No lifecycle events yet.',
+        'documents' => 'Documents',
+        'download' => 'Download',
+        'event_rent_change' => 'Rent change',
+        'event_escalation' => 'Escalation',
+        'event_renewal' => 'Renewal',
+        'event_termination' => 'Termination',
+        'event_transfer' => 'Transfer',
+        'event_pause' => 'Pause',
+    ],
 ];

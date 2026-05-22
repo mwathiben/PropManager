@@ -65,4 +65,18 @@ return [
         'release' => 'Achilia',
         'empty' => 'Hakuna wadhamini kwenye pango hili.',
     ],
+    'lifecycle' => [
+        'view' => 'Ona pango',
+        'back' => 'Rudi kwenye mikataba',
+        'timeline' => 'Ratiba ya mzunguko',
+        'empty' => 'Hakuna matukio ya mzunguko bado.',
+        'documents' => 'Nyaraka',
+        'download' => 'Pakua',
+        'event_rent_change' => 'Mabadiliko ya kodi',
+        'event_escalation' => 'Ongezeko',
+        'event_renewal' => 'Upyaisho',
+        'event_termination' => 'Kusitisha',
+        'event_transfer' => 'Kuhamisha',
+        'event_pause' => 'Kusimamisha',
+    ],
 ];

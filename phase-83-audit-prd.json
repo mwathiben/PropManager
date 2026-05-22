@@ -4,7 +4,14 @@
   "opened_at": "2026-05-22",
   "tier": 7,
   "scope": "Lease lifecycle depth on a mature surface. Scout findings — ALREADY BUILT: renewals w/ counter-offers (Phase 29/45 LeaseRenewal+counter_* + LeaseRenewalCounterReviewController + lease-renewal:expire-stale-counters), auto-renew opt-in (Phase 61 leases.auto_renew + renewed_from_lease_id + lease:auto-renew cron + LeaseRenewalAutoService which INHERITS flat rent), termination/transfer/pause (Phase 61 services + NoticePeriodValidator + state machines), deposit settlement (Phase 81 DepositSettlementService), wallet (Phase 76), move-out (MoveOut), renewal reminders (leases:scan-renewals→LeaseRenewalApproaching→NotifyOnLeaseRenewalApproaching), rent adjustment (LeaseController::adjustRent/batchAdjustRent → RentHistory audit + RentHikeNotice, MANUAL only), notice PDF generation (Phase 82 DocumentGenerationService::generateNotice dompdf→Document; Lease::leaseAgreement() MorphOne document_type=lease_agreement). REAL GAPS: (1) NO scheduled rent escalation — RentHistory is audit-only, adjustRent is manual, auto-renew copies rent flat; no escalation schedule/percentage/cron; (2) NO lease-agreement or renewal-offer PDF GENERATION — only notices; lease_doc_path/lease_agreement_file are uploaded files, no template→generated Document; (3) NO co-tenants — leases are strictly single tenant_id (no lease_co_tenants); (4) NO guarantors — no guarantor table/relationship; (5) NO lease lifecycle VIEW — leases.show just redirect()->route('tenants.show'); no unified timeline of renewals/terminations/transfers/pauses/escalations/co-tenants/guarantors. Reuse: Phase 82 DocumentGenerationService + dompdf + blade + Storage::tenant + Document(document_type) pipeline; RentHistory; LeaseRenewalAutoService::renew; LeasesScanRenewals reminder + rollup-gauge cron patterns; NotificationService + Notification::TYPE_URGENCY_MAP; HubShell archetype for the lifecycle view. All landlord-scoped (Lease has TenantScope+Auditable). Money on leases is decimal:2 (rent_amount); LeaseRenewal uses cents — keep each subsystem's existing convention.",
-  "categories": ["RENT-ESCALATION", "LEASE-DOC-GEN", "CO-TENANT", "GUARANTOR", "LIFECYCLE-VIEW", "CI"],
+  "categories": [
+    "RENT-ESCALATION",
+    "LEASE-DOC-GEN",
+    "CO-TENANT",
+    "GUARANTOR",
+    "LIFECYCLE-VIEW",
+    "CI"
+  ],
   "findings": [
     {
       "id": "RENT-ESCALATION-1",
@@ -13,7 +20,7 @@
       "title": "Rent-escalation schedule model + service",
       "evidence": "Rent only changes via manual adjustRent/batchAdjustRent; auto-renew copies rent flat. No way to schedule a future increase (annual %, fixed step, or on-renewal).",
       "remediation": "Migration rent_escalations (lease_id, landlord_id, escalation_type enum[percentage|fixed_amount], amount decimal, effective_date date, status enum[scheduled|applied|cancelled], applied_at, rent_history_id nullable, notes). RentEscalation model (TenantScope, HasFactory, scopes due()/scheduled()). RentEscalationService::schedule (validates future date, owner) + preview (computes new rent). Phase83 test: schedule persists; preview computes percentage + fixed correctly.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "RENT-ESCALATION-2",
@@ -22,7 +29,7 @@
       "title": "Daily apply-due-escalations cron → RentHistory + rent_amount + notice",
       "evidence": "Even if scheduled, nothing applies an escalation when its effective_date arrives.",
       "remediation": "rent:apply-escalations command (daily, Africa/Nairobi, onOneServer) applies status=scheduled escalations whose effective_date<=today: DB::transaction updates lease.rent_amount, writes RentHistory(old/new/effective_date/reason), flips escalation status=applied + links rent_history_id, queues RentHikeNotice (existing) — idempotent (status guard). Schedule near leases:scan-renewals. Phase83 test: due escalation applies once (rent updated + RentHistory row + status applied); a second run is a no-op; a future-dated one is skipped.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "RENT-ESCALATION-3",
@@ -31,7 +38,7 @@
       "title": "Escalation management UI + auto-renew integration + rollup gauge + i18n",
       "evidence": "No landlord surface to schedule/cancel escalations; auto-renew still inherits flat rent; no ops visibility.",
       "remediation": "Controller + routes (rent-escalations.store/destroy, role:landlord, owner-gated) wired into the lease lifecycle view; LeaseRenewalAutoService::renew applies any escalation due at renewal start (or a configured on-renewal escalation) instead of flat copy; rent:escalation-rollup weekly gauge landlord_rent_escalations_scheduled. lang lease.escalation.* en/sw/ar. Phase83 test: store/cancel gated to owner; auto-renew picks up a due escalation.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "LEASE-DOC-GEN-1",
@@ -40,7 +47,7 @@
       "title": "Lease-agreement PDF generation via DocumentGenerationService",
       "evidence": "Phase 82 DocumentGenerationService only renders notices. Lease agreements can only be UPLOADED (lease_doc_path); there is no generated lease-agreement Document. Lease::leaseAgreement() MorphOne exists but nothing populates it via generation.",
       "remediation": "DocumentGenerationService::generateLeaseAgreement(Lease, array data, actor): renders resources/views/documents/lease_agreement.blade.php (parties, unit, term, rent, deposit, service charge, co-tenants, guarantors) to PDF via dompdf, stores on tenant disk, creates Document(documentable=Lease, document_type='lease_agreement'). Controller action + route documents.generate-lease (role:landlord,caretaker, owner-gated). Phase83 test: generating creates a lease_agreement Document on the lease.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "LEASE-DOC-GEN-2",
@@ -49,7 +56,7 @@
       "title": "Renewal-offer PDF on renewal proposal",
       "evidence": "A renewal proposal (LeaseRenewal) has no generated offer document the tenant can download/sign — only in-app numbers.",
       "remediation": "DocumentGenerationService::generateRenewalOffer(LeaseRenewal, actor) renders documents/renewal_offer.blade.php (current vs proposed rent/end_date) → Document(documentable=Lease, document_type='notice' or new 'renewal_offer'); optionally invoked from LeaseRenewalController::store. Phase83 test: generating a renewal offer creates a Document linked to the lease.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "LEASE-DOC-GEN-3",
@@ -58,7 +65,7 @@
       "title": "Generation surface + i18n + blade parity",
       "evidence": "Generators need a landlord entry point + localized blade strings.",
       "remediation": "Generate-lease-agreement + generate-renewal-offer actions surfaced on the lease lifecycle view; blades use lang lease_doc.* (en/sw/ar). Phase83 lang parity + surface assertion.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "CO-TENANT-1",
@@ -67,7 +74,7 @@
       "title": "Co-tenant schema + model + relationship",
       "evidence": "Leases are strictly single tenant_id. Shared/joint tenancies (couples, flatmates, company + signatory) cannot be represented.",
       "remediation": "Migration lease_co_tenants (lease_id, landlord_id, name, email nullable, phone nullable, national_id nullable, relationship nullable, is_responsible_for_rent bool, liability_share decimal nullable, user_id nullable FK, removed_at nullable, timestamps, softDeletes; unique active (lease_id,email)). LeaseCoTenant model (TenantScope, HasFactory). Lease::coTenants() HasMany (active scope). LeaseCoTenantService add/remove (owner-gated, dedupe). Phase83 test: add/remove co-tenant; relationship returns active only.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "CO-TENANT-2",
@@ -76,7 +83,7 @@
       "title": "Co-tenant management UI + lease-agreement inclusion",
       "evidence": "No landlord surface to manage co-tenants; generated lease agreement omits them.",
       "remediation": "Controller + routes (lease-co-tenants.store/destroy, role:landlord,caretaker, owner-gated) on the lease lifecycle view (add/remove with responsible-for-rent + liability share); generateLeaseAgreement includes co-tenants. lang lease.co_tenant.* en/sw/ar. Phase83 test: store/destroy owner-gated; appears on the lifecycle view payload.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "CO-TENANT-3",
@@ -85,7 +92,7 @@
       "title": "Co-tenant policy + audit",
       "evidence": "Co-tenant mutations need authorization + audit reconstructability.",
       "remediation": "LeaseCoTenantPolicy (owns-lease gate) + Auditable on the model; mutations log. Phase83 assertion: cross-landlord add is forbidden.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "GUARANTOR-1",
@@ -94,7 +101,7 @@
       "title": "Guarantor schema + model + relationship",
       "evidence": "No way to record a guarantor/surety standing behind a lease (common for students / first leases / company guarantees).",
       "remediation": "Migration lease_guarantors (lease_id, landlord_id, name, email nullable, phone nullable, national_id nullable, relationship nullable, guaranteed_amount decimal nullable, status enum[active|released], released_at nullable, released_reason nullable, timestamps, softDeletes). LeaseGuarantor model (TenantScope, HasFactory, scopes active()/released()). Lease::guarantors() HasMany. LeaseGuarantorService add/release (owner-gated). Phase83 test: add guarantor; release flips status + timestamp.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "GUARANTOR-2",
@@ -103,7 +110,7 @@
       "title": "Guarantor UI + auto-release on move-out + lease-agreement inclusion",
       "evidence": "No landlord surface; a guarantor should be released when the lease ends (move-out completion) and should appear on the generated agreement.",
       "remediation": "Controller + routes (lease-guarantors.store/release, role:landlord,caretaker, owner-gated) on the lifecycle view; MoveOutController::complete (or move-out completion path) releases active guarantors (reason move_out); generateLeaseAgreement includes guarantors. lang lease.guarantor.* en/sw/ar. Phase83 test: completing move-out releases active guarantors; store/release owner-gated.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "LIFECYCLE-VIEW-1",
@@ -112,7 +119,7 @@
       "title": "Lease lifecycle detail page (replaces the redirect)",
       "evidence": "leases.show just redirect()->route('tenants.show'); there is no lease-centric surface to see term, rent, renewals, escalations, co-tenants, guarantors, documents in one place.",
       "remediation": "LeaseController::show renders Pages/Leases/Show.vue (HubShell archetype) with the lease + tenant + unit + active renewal + scheduled escalations + co-tenants + guarantors + rent history + lease documents — landlord/caretaker owner-gated, no N+1. Keep tenant redirect for tenant role. Phase83 test: landlord gets the Inertia Leases/Show component with the expected props; cross-landlord 403.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "LIFECYCLE-VIEW-2",
@@ -121,7 +128,7 @@
       "title": "Lifecycle timeline aggregation",
       "evidence": "Renewal/termination/transfer/pause/escalation/rent-history events are scattered; no chronological lifecycle.",
       "remediation": "LeaseLifecycleService::timeline(Lease) merges renewals, terminations, transfers, pauses, rent history, escalations, generated docs into one date-sorted, typed list for the Show page. Phase83 test: timeline includes a rent-history entry + a scheduled escalation in date order.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "LIFECYCLE-VIEW-3",
@@ -130,7 +137,7 @@
       "title": "Lifecycle view nav reachability + i18n",
       "evidence": "The new lease Show page must be reachable (Archive leases tab / tenant page link) and pass nav-audit; strings localized.",
       "remediation": "Link leases.show from the Archive Leases tab + Tenants/Show active-lease panel; lang lease.lifecycle.* en/sw/ar; nav-audit clean (no new orphans). Phase83 test: route registered + reachable.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "CI-1",
@@ -139,7 +146,7 @@
       "title": "Phase83LeaseDepthSurfaceTest consolidated watchdog",
       "evidence": "Six categories need a single presence/behaviour map.",
       "remediation": "Phase83LeaseDepthSurfaceTest: schema (rent_escalations, lease_co_tenants, lease_guarantors), models bound, DocumentGenerationService::generateLeaseAgreement/generateRenewalOffer exist, routes registered (rent-escalations.store, documents.generate-lease, lease-co-tenants.store, lease-guarantors.store, leases.show renders), rent:apply-escalations + rent:escalation-rollup commands exit 0, lang parity (lease.escalation/co_tenant/guarantor/lifecycle + lease_doc), nav-audit clean.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "CI-2",
@@ -148,7 +155,15 @@
       "title": "docs/runbooks/lease.md + closeout + memory",
       "evidence": "No lease runbook covering the new lifecycle depth (escalation, document generation, co-tenants, guarantors, the unified view).",
       "remediation": "docs/runbooks/lease.md (NEW): escalation schedule + apply cron, lease-agreement/renewal-offer generation, co-tenant/guarantor management + move-out release, the lifecycle view + timeline, gauges. scripts/phase83-closeout.mjs + memory updates (phase83 plan, forward-path, pending-path, MEMORY.md).",
-      "passes": false
+      "passes": true
     }
-  ]
+  ],
+  "closeout": {
+    "closed_at": "2026-05-22",
+    "result": "17/17 findings pass — zero PRD-finding deferrals",
+    "summary": "Lease lifecycle depth on a mature surface (renewals+counter-offers, auto-renew, termination/transfer/pause, deposit settlement, wallet, notice gen already existed). RENT-ESCALATION: rent_escalations + RentEscalationService (schedule/apply/applyAtRenewal) + rent:apply-escalations daily cron (rent_amount + rent_histories + RentHikeNotice, idempotent) + rent:escalation-rollup gauge + auto-renew folds due escalations instead of inheriting flat. LEASE-DOC-GEN: DocumentGenerationService::generateLeaseAgreement + generateRenewalOffer (dompdf blades -> Document on the lease in the existing archive/retention/hold pipeline). CO-TENANT: lease_co_tenants + model + service + controller + policy (joint tenancy). GUARANTOR: lease_guarantors + service + controller + auto-release on move-out completion. LIFECYCLE-VIEW: LeaseController::show now renders Pages/Leases/Show.vue for landlords/caretakers (tenants keep the redirect) with escalations/co-tenants/guarantors/timeline/documents + generate buttons; LeaseLifecycleService::timeline merges all lifecycle events newest-first; reachable from Archive Leases tab + Tenants/Show. CI: Phase83LeaseDepthSurfaceTest + docs/runbooks/lease.md Phase-83 sections.",
+    "tests": "Phase-83 lease tests: RentEscalation 5 + LeaseParties 5 + LifecycleView 4 + Surface 7. Pint clean, build clean (exit 0), nav-audit clean.",
+    "constraints_preserved": "Lease money stays decimal:2 (rent_amount); LeaseRenewal keeps cents. Escalation apply is idempotent (status-guarded) + transactional. Owner-gating via WithLandlordScope + TenantScope route-binding (cross-landlord = 403/404). Generated docs on the tenant disk via the Phase-82 persist pipeline. Guarantor auto-release runs inside the move-out completion transaction. The lease lifecycle view is owner-gated; tenants keep the existing redirect.",
+    "coderabbit": "CodeRabbit CLI unavailable in this env (+ agent corrupts the test DB) — manual self-review: escalation idempotency + transaction; applyAtRenewal date boundary (effective_date <= new start, marked applied so the daily cron never double-applies); withoutGlobalScopes on cron/timeline paths scoped by lease_id; owner-gating on every mutation; lang parity lease + lease_doc en/sw/ar; net-negative on the hardcoded-english baseline (lifecycle view uses $t throughout)."
+  }
 }

@@ -111,9 +111,64 @@ Per-lease opt-out via `PATCH /leases/{lease}/auto-renew` with `auto_renew=false`
 | `lease-pause:auto-resume` | 06:00 | 61 | Resume elapsed pauses |
 | `lease:auto-renew` | 07:00 | 61 | Auto-create next-period leases |
 
+## Phase 83 LEASE-DEPTH (2026-05-22)
+
+Adds scheduled rent escalation, lease-agreement / renewal-offer document
+generation, co-tenants, guarantors, and a unified lease lifecycle view.
+
+### Rent escalation
+
+`rent_escalations` schedules a future increase per lease: `escalation_type`
+(`percentage` | `fixed_amount`), `amount`, `effective_date`, `status`
+(`scheduled` | `applied` | `cancelled`). Schedule/cancel from the lifecycle view
+(`rent-escalations.store` / `.destroy`, owner-gated).
+
+- `rent:apply-escalations` (daily 07:40) applies every `scheduled` escalation
+  with `effective_date <= today` in one transaction: bumps `leases.rent_amount`,
+  writes a `rent_histories` audit row, flips to `applied` (linking
+  `rent_history_id` + `new_rent_amount`), queues `RentHikeNotice`. Idempotent.
+- `LeaseRenewalAutoService` folds escalations due by the new term's start into
+  the renewed rent (compounding) instead of inheriting flat.
+- `rent:escalation-rollup` (weekly Sun 05:20) →
+  `landlord_rent_escalations_scheduled` gauge (visibility-only).
+
+### Document generation
+
+`DocumentGenerationService::generateLeaseAgreement(Lease, actor)` →
+`documents/lease_agreement.blade` → a `lease_agreement` Document (includes
+co-tenants + active guarantors). `generateRenewalOffer(LeaseRenewal, actor)` →
+`documents/renewal_offer.blade` → a Document (current vs proposed). Routes
+`documents.generate-lease` / `documents.generate-renewal-offer`. Both stored on
+the tenant disk in the existing archive/retention/legal-hold pipeline.
+
+### Co-tenants & guarantors
+
+`lease_co_tenants` (active = `removed_at` null; `Lease::coTenants()`) and
+`lease_guarantors` (`active` | `released`; `Lease::guarantors()`). Managed via
+`lease-co-tenants.*` / `lease-guarantors.*` (owner-gated; `LeaseCoTenantPolicy`).
+Move-out completion auto-releases active guarantors
+(`LeaseGuarantorService::releaseAllForLease`, in the completion transaction).
+
+### Lifecycle view
+
+`GET /leases/{lease}` renders `Pages/Leases/Show.vue` for landlords/caretakers
+(tenants keep the redirect). Owner-gated. Surfaces escalations, co-tenants,
+guarantors, documents, generate buttons, and the timeline.
+`LeaseLifecycleService::timeline` merges renewals / terminations / transfers /
+pauses / rent history / escalations into one newest-first typed list. Reachable
+from the Archive → Leases tab and the tenant profile.
+
+### Phase 83 cron additions
+
+| Cron | Time | Purpose |
+|---|---|---|
+| `rent:apply-escalations` | 07:40 daily | Apply due rent escalations |
+| `rent:escalation-rollup` | 05:20 Sun | Scheduled-escalation gauge |
+
 ## Cross-references
 
 - Phase 17 MONEY — rent reminder + Lease.is_active gating (a paused lease bypasses reminders)
 - Phase 29 WORKFLOW — `RentReminderPolicy` (Phase-29 WF-RENT-REMIND uses Lease.reminder_tier)
 - Phase 45 LEASE-COUNTER — counter-proposal during renewal (this runbook is the complement)
 - **Phase 61 LEASE-LIFECYCLE** — termination + transfer + pause + auto-renew
+- **Phase 83 LEASE-DEPTH** — rent escalation + document generation + co-tenants + guarantors + lifecycle view
