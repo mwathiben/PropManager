@@ -1,0 +1,82 @@
+{
+  "phase": 87,
+  "title": "WATER-TARIFF-ENGINE",
+  "opened_at": "2026-05-22",
+  "tier": 7,
+  "scope": "USER-DIRECTED water domain, phase 2 of 12. Make water charges reflect real (Kenyan) water billing: tiered/block rates + standing charge + minimum bill + sewerage/garbage % + VAT, on top of the Phase-86 meter foundation. Brownfield biller (DO NOT break): WaterReadingObserver stamps reading.cost = consumption * WaterRateService::getEffectiveRate (flat 3-tier building->PaymentConfiguration->config 150); InvoiceService::calculateWaterCharges sums approved+uninvoiced reading.cost (consumption) or building.water_flat_rate (flat) into invoice.water_due (a FLAT decimal column; total_due = rent+water+arrears+late_fees-wallet via Money::bcmath). Invoices generate via invoices:generate / invoices:automate (daily 06:00). Money is decimal:2 on water. NON-DESTRUCTIVE RULE: when no tiered bands / standing / sewerage / vat are configured, the computed charge MUST equal today's (flat rate * consumption, or flat_water_rate) byte-for-byte. RESEQUENCED at scout (re-right-size, not drop): WaterConnection (universal billable entity) -> Phase 94 (clients, where it is load-bearing — avoids rebuilding the biller twice); apportioned billing_mode + common-area + borehole production-cost capture + effective-dated tariff SCHEDULING -> dedicated later water phases. water_source column IS added now (cheap, foundational for Phase 91/92). water_billing_type stays the billing-mode axis (consumption=metered|flat_rate|none); apportioned NOT added yet.",
+  "categories": ["TARIFF-MODEL", "TARIFF-SERVICE", "BILLING-WIRE", "CONFIG-UI", "CI"],
+  "findings": [
+    {
+      "id": "TARIFF-MODEL-1",
+      "severity": "HIGH",
+      "category": "TARIFF-MODEL",
+      "title": "Add tariff-depth columns to the canonical water config (landlord + building)",
+      "evidence": "payment_configurations + buildings only carry water_billing_type + water_unit_rate + flat_water_rate. No tiered bands, standing charge, minimum bill, sewerage %, VAT %, or water source.",
+      "remediation": "Migration adds to BOTH payment_configurations and buildings: tiered_tariffs (json nullable — [{from,to,rate}] bands), water_standing_charge (decimal nullable), water_minimum_charge (decimal nullable), water_sewerage_percent (decimal nullable), water_vat_percent (decimal nullable), water_source (string nullable: borehole|county|mixed). Building NULL = inherit landlord. Models: fillable + casts (tiered_tariffs array, decimals decimal:2). Phase87 test: columns exist + cast.",
+      "passes": false
+    },
+    {
+      "id": "TARIFF-SERVICE-1",
+      "severity": "HIGH",
+      "category": "TARIFF-SERVICE",
+      "title": "WaterTariffService: tiered/block consumption charge",
+      "evidence": "Consumption is billed at a single flat rate; real water tariffs are stepped (first N units @ A, next @ B).",
+      "remediation": "WaterTariffService::computeConsumptionCharge(float $consumption, array|context $tariff): float — when tiered_tariffs bands are set, charge each block at its rate (sum of band_units * band_rate, last band open-ended); when not set, fall back to flat unit_rate * consumption (identical to today). Context resolved building->landlord->default (mirror WaterRateService). decimal:2 rounding. Phase87 test: 25 units over [0-10@50,10+@70] = 1550; no-bands = flat*consumption unchanged.",
+      "passes": false
+    },
+    {
+      "id": "TARIFF-SERVICE-2",
+      "severity": "HIGH",
+      "category": "TARIFF-SERVICE",
+      "title": "WaterTariffService: assemble period charge (standing + sewerage% + VAT% + minimum)",
+      "evidence": "No standing charge, sewerage levy, VAT, or minimum bill is applied to the water charge.",
+      "remediation": "WaterTariffService::assembleWaterCharge(float $base, context): float — subtotal = base + standing_charge; sewerage = subtotal * sewerage_percent/100; vat = (subtotal+sewerage) * vat_percent/100; total = subtotal+sewerage+vat; total = max(total, minimum_charge). All components default 0/unset => total = base (non-destructive). decimal:2. Phase87 test: base 1000 + standing 100 + sewerage 10% + vat 0 + min 0 = 1210; unset extras => 1000; minimum floor applies.",
+      "passes": false
+    },
+    {
+      "id": "BILLING-WIRE-1",
+      "severity": "HIGH",
+      "category": "BILLING-WIRE",
+      "title": "Reading cost uses the tiered consumption charge",
+      "evidence": "WaterReadingObserver computes cost = consumption * flat rate.",
+      "remediation": "WaterReadingObserver (creating + updating) computes cost via WaterTariffService::computeConsumptionCharge for the reading's meter/unit context. Non-destructive: no bands => identical to the old flat computation. Keep the existing previous/current/consumption logic. Phase87 test: a reading on a tiered building gets the stepped cost; a reading on a flat building is unchanged.",
+      "passes": false
+    },
+    {
+      "id": "BILLING-WIRE-2",
+      "severity": "HIGH",
+      "category": "BILLING-WIRE",
+      "title": "Invoice water charge applies the period assembly (standing/sewerage/VAT/min)",
+      "evidence": "InvoiceService::calculateWaterCharges returns the raw consumption sum or flat rate with no standing/sewerage/VAT/minimum.",
+      "remediation": "calculateWaterCharges: consumption base = sum(approved+uninvoiced reading.cost) [already tiered via the observer]; flat base = flat_water_rate; then water_due = assembleWaterCharge(base, context). Per-period standing/sewerage/VAT/min apply once per invoice. Non-destructive when extras unset. markWaterReadingsAsInvoiced unchanged. Phase87 test: an invoice with standing+sewerage configured stores the assembled water_due; with none configured it equals today's value; existing invoice tests stay green.",
+      "passes": false
+    },
+    {
+      "id": "CONFIG-UI-1",
+      "severity": "MEDIUM",
+      "category": "CONFIG-UI",
+      "title": "Water settings editor exposes the tariff fields (global + per-building) + water source",
+      "evidence": "WaterSettingsForm.vue + UpdateWaterSettingsRequest + WaterSettingsController only handle billing_type + unit/flat rate.",
+      "remediation": "Extend the shared editor: a tiered-bands sub-editor (add/remove {from,to,rate} rows), standing charge, minimum charge, sewerage %, VAT %, water source select — global + per-building (inherit-aware). UpdateWaterSettingsRequest rules for all (nullable numeric/array; percents 0-100; water_source in borehole,county,mixed). Controller persists them on PaymentConfiguration + Building (inherit => null). i18n en/sw/ar. Phase87 test: landlord PUT persists tiered bands + standing + sewerage; caretaker still 403 (Phase 86).",
+      "passes": false
+    },
+    {
+      "id": "CI-1",
+      "severity": "MEDIUM",
+      "category": "CI",
+      "title": "Phase 87 behavioral + surface tests",
+      "evidence": "New tariff math + config need regression guards, and the live biller must stay correct.",
+      "remediation": "Phase87WaterTariffEngineTest (tiered charge, assembly with standing/sewerage/VAT/min, NON-DESTRUCTIVE parity = today's value when unset, reading cost tiered, invoice water_due assembled, config persists) + Phase87WaterTariffSurfaceTest (schema, WaterTariffService bound, lang parity). Existing water + invoice suites stay green.",
+      "passes": false
+    },
+    {
+      "id": "CI-2",
+      "severity": "LOW",
+      "category": "CI",
+      "title": "Runbook + closeout + memory",
+      "evidence": "Tariff engine needs operator docs; roadmap resequencing must be recorded.",
+      "remediation": "docs/runbooks/water.md tariff section (tiered bands, standing/sewerage/VAT/min, water_source, non-destructive default, what was resequenced to 94/later). nav-audit clean. Multi-reviewer pass (read-only). Memory: phase87 plan + forward-path + pending-path; record WaterConnection->94 + apportioned/production-cost/effective-dated deferrals.",
+      "passes": false
+    }
+  ]
+}

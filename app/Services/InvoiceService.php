@@ -130,12 +130,19 @@ class InvoiceService
             return 0;
         }
 
-        // Flat rate billing - return the building's flat rate
+        // Phase-87: the per-period assembly (standing charge + sewerage % + VAT %
+        // + minimum bill) wraps the base. NON-DESTRUCTIVE — with none configured
+        // the result equals the base (flat_water_rate or the tiered reading sum).
+        $tariffService = app(\App\Services\Water\WaterTariffService::class);
+        $tariff = $tariffService->resolveForBuilding($building);
+
+        // Flat rate billing - the building's flat rate is the base.
         if ($building->usesFlatRateBilling()) {
-            return $building->getWaterChargeForUnit();
+            return $tariffService->assembleWaterCharge((float) $building->getWaterChargeForUnit(), $tariff);
         }
 
-        // Consumption-based billing - sum approved, uninvoiced readings up to billing period end
+        // Consumption-based billing - sum approved, uninvoiced readings up to billing period end.
+        // Each reading.cost is already tiered (WaterReadingObserver via the tariff engine).
         $billingPeriodEnd = $billingPeriod->copy()->endOfMonth();
         $readings = WaterReading::where('unit_id', $lease->unit_id)
             ->where('status', 'approved')
@@ -143,7 +150,7 @@ class InvoiceService
             ->where('reading_date', '<=', $billingPeriodEnd)
             ->get();
 
-        return $readings->sum('cost');
+        return $tariffService->assembleWaterCharge((float) $readings->sum('cost'), $tariff);
     }
 
     protected function markWaterReadingsAsInvoiced(Lease $lease, Carbon $billingPeriod)

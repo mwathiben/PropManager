@@ -4,13 +4,13 @@ namespace App\Observers;
 
 use App\Exceptions\WaterReading\ReadingLockedException;
 use App\Models\WaterReading;
-use App\Services\WaterRateService;
+use App\Services\Water\WaterTariffService;
 use Illuminate\Support\Facades\Auth;
 
 class WaterReadingObserver
 {
     public function __construct(
-        private WaterRateService $waterRateService
+        private WaterTariffService $tariffService
     ) {}
 
     /**
@@ -35,8 +35,9 @@ class WaterReadingObserver
         // 2. Calculate consumption (current - previous)
         $waterReading->consumption = max(0, $waterReading->current_reading - $waterReading->previous_reading);
 
-        // 3. Calculate cost using configured water rate
-        $waterReading->cost = $waterReading->consumption * $this->getWaterRate($waterReading);
+        // 3. Phase-87: cost via the tariff engine (tiered/flat). Non-destructive:
+        // with no bands configured this equals consumption * flat rate.
+        $waterReading->cost = $this->tariffService->costForReading($waterReading);
 
         // 4. Set status to pending by default (migration handles this, but being explicit)
         if (! $waterReading->status) {
@@ -65,21 +66,7 @@ class WaterReadingObserver
         // Recalculate if readings changed
         if ($waterReading->isDirty(['current_reading', 'previous_reading'])) {
             $waterReading->consumption = max(0, $waterReading->current_reading - $waterReading->previous_reading);
-            $waterReading->cost = $waterReading->consumption * $this->getWaterRate($waterReading);
+            $waterReading->cost = $this->tariffService->costForReading($waterReading);
         }
-    }
-
-    /**
-     * Get the water rate for a given reading.
-     * Uses WaterRateService to fetch from building override -> landlord config -> system default.
-     */
-    private function getWaterRate(WaterReading $waterReading): float
-    {
-        $unit = $waterReading->unit;
-        if ($unit) {
-            return $this->waterRateService->getEffectiveRate($unit);
-        }
-
-        return $this->waterRateService->getDefaultRate();
     }
 }
