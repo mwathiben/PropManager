@@ -136,6 +136,26 @@ class Phase90WaterArrearsEnforcementTest extends TestCase
         $this->assertSame(0, WaterPendingCharge::where('lease_id', $lease->id)->whereNull('applied_at')->count());
     }
 
+    public function test_double_reconnect_does_not_double_charge(): void
+    {
+        $this->building->update(['water_reconnection_fee' => 500]);
+        $unit = $this->units->get(7);
+        ['lease' => $lease] = Model::withoutEvents(fn () => $this->createTenantWithActiveLease($this->landlord, $unit));
+        $meter = Meter::factory()->create([
+            'landlord_id' => $this->landlord->id,
+            'building_id' => $unit->building_id,
+            'unit_id' => $unit->id,
+            'status' => 'active',
+            'disconnected_at' => now(),
+        ]);
+
+        $this->actingAs($this->landlord->fresh())->post(route('meters.reconnect', $meter->id))->assertRedirect();
+        // Second reconnect is a no-op (meter already reconnected) — no extra fee.
+        $this->actingAs($this->landlord->fresh())->post(route('meters.reconnect', $meter->id))->assertRedirect();
+
+        $this->assertSame(1, WaterPendingCharge::where('lease_id', $lease->id)->count());
+    }
+
     public function test_invoice_water_due_unchanged_without_pending_charges(): void
     {
         $unit = $this->units->get(4);

@@ -124,9 +124,11 @@ class Meter extends Model
      */
     public function isUnitMeter(): bool
     {
+        // Review MEDIUM: count soft-deleted sub-meters too — a meter that ever fed
+        // a sub-meter must never be classified as a disconnectable unit meter.
         return $this->unit_id !== null
             && $this->parent_meter_id === null
-            && $this->subMeters()->count() === 0;
+            && $this->subMeters()->withTrashed()->count() === 0;
     }
 
     /**

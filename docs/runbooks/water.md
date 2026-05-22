@@ -180,3 +180,21 @@ landlord water hub as "Import history").
 ### Operator notes
 - Rows map to a unit by **Unit Number** (scoped to the landlord). Water clients (Phase 94) will extend the importer to map by water-line/client.
 - Imported readings are history for analytics (Phase 91) — they never appear in the review queue and never bill.
+
+## Phase 90 — arrears + disconnect/reconnect
+
+Water arrears tracking + a service-disconnection lever for non-payment.
+
+| Concept | Where |
+| --- | --- |
+| Disconnect state | water_meters.disconnected_at + disconnect_reason (separate fields — meter stays status=active so readings/billing still resolve); Meter::isDisconnected/scopes |
+| **THE CAVEAT** | only a UNIT meter (unit_id set, no parent_meter_id, no sub-meters) can be disconnected — `Meter::isUnitMeter()`; a shared/main meter is rejected (would cut the whole building) |
+| Actions | MeterController disconnect/reconnect (landlord-only) on the Meters page; TenantActivity audit (water_meter_disconnected/reconnected) |
+| Reconnection fee | `water_reconnection_fee` config (landlord + building, inherit-aware); on reconnect a `water_pending_charges` row is recorded and the next invoice folds it into water_due (non-destructive) |
+| Arrears view | `WaterArrearsService` (Overdue/Partial invoices with water_due>0 + outstanding) — panel on the Meters page; water isn't payment-separable from rent (payments hit the invoice total) |
+| Reminder | `water:arrears-notify` (daily 08:05) warns tenants with an overdue water bill (`water_arrears` IMPORTANT, idempotent per invoice+month) |
+| Tenant | Tenant/Water.vue shows a "service disconnected — pay to reconnect" banner |
+
+### Operator notes
+- Disconnection is a per-unit lever; for a common/shared meter (flat-rate / borehole main) it is intentionally unavailable — enforce off-system or sub-meter the units.
+- The reconnection fee bills on the unit's NEXT invoice (only if the unit has an active lease); a vacant unit reconnects with no charge.

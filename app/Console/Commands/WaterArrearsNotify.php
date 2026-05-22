@@ -32,8 +32,11 @@ class WaterArrearsNotify extends Command
                 continue;
             }
 
+            // Review HIGH: don't claim the idempotency token on a dry-run (it would
+            // suppress the real run), and only claim it AFTER a successful send so a
+            // failed send is retried on the next run rather than silently skipped.
             $key = sprintf('water-arrears:%d:%s', $invoice->id, now()->format('Y-m'));
-            if (! Cache::add($key, true, now()->addDays(40))) {
+            if (Cache::has($key)) {
                 continue;
             }
 
@@ -54,6 +57,7 @@ class WaterArrearsNotify extends Command
                     data: ['invoice_id' => $invoice->id],
                     landlordId: (int) $invoice->landlord_id,
                 );
+                Cache::put($key, true, now()->addDays(40));
                 $sent++;
             } catch (\Throwable $e) {
                 Log::error('water:arrears-notify invoice failed', [

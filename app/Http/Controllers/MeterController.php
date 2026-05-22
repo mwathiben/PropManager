@@ -35,7 +35,7 @@ class MeterController extends Controller
         $meters = Meter::query()
             ->where('landlord_id', $landlordId)
             ->with(['unit:id,unit_number', 'building:id,name', 'latestReading:id,meter_id,current_reading'])
-            ->withCount(['readings', 'subMeters'])
+            ->withCount(['readings', 'subMeters' => fn ($q) => $q->withTrashed()])
             ->orderByDesc('status')
             ->orderBy('id')
             ->get()
@@ -174,14 +174,26 @@ class MeterController extends Controller
     {
         $this->authorize('reconnect', $meter);
 
-        if (! $meter->isDisconnected()) {
+        // Review CRITICAL: lock + re-check inside a transaction so a double-submit
+        // can't both pass the isDisconnected() guard and each charge the fee
+        // (mirrors MeterReplacementService). Returns null when already reconnected.
+        $fee = \Illuminate\Support\Facades\DB::transaction(function () use ($meter) {
+            $locked = Meter::query()->whereKey($meter->id)->lockForUpdate()->firstOrFail();
+            if (! $locked->isDisconnected()) {
+                return null;
+            }
+
+            $locked->update(['disconnected_at' => null, 'disconnect_reason' => null]);
+            // Phase-90 RECONNECT-FEE: charge the configured fee on the next invoice.
+            $charged = app(\App\Services\Water\WaterReconnectionService::class)->chargeFee($locked);
+            $this->auditService($locked, TenantActivity::TYPE_WATER_METER_RECONNECTED, 'Water service reconnected');
+
+            return $charged;
+        });
+
+        if ($fee === null) {
             return back()->with('info', __('meter.disconnect.not_disconnected'));
         }
-
-        $meter->update(['disconnected_at' => null, 'disconnect_reason' => null]);
-        // Phase-90 RECONNECT-FEE: charge the configured fee on the next invoice.
-        $fee = app(\App\Services\Water\WaterReconnectionService::class)->chargeFee($meter);
-        $this->auditService($meter, TenantActivity::TYPE_WATER_METER_RECONNECTED, 'Water service reconnected');
 
         return back()->with('success', $fee > 0
             ? __('meter.flash.reconnected_fee', ['amount' => number_format($fee, 2)])
