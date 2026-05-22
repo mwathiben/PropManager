@@ -12,6 +12,7 @@ interface ReadingRow {
     consumption: number | string;
     cost: number | string;
     recorder?: { name?: string } | null;
+    is_anomalous?: boolean;
     unit: { unit_number: string; building?: { name?: string } | null };
 }
 
@@ -71,6 +72,11 @@ function confirmReject(): void {
                     <div>
                         <p class="font-semibold text-gray-900">
                             {{ reading.unit.building?.name }} · {{ reading.unit.unit_number }}
+                            <span
+                                v-if="reading.is_anomalous"
+                                class="ms-2 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800"
+                                :title="$t('water.review.spike_hint')"
+                            >⚠ {{ $t('water.review.spike') }}</span>
                         </p>
                         <p class="text-xs text-gray-500">
                             {{ reading.reading_date }} · recorded by {{ reading.recorder?.name || 'N/A' }}

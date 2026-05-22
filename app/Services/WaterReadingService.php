@@ -147,6 +147,7 @@ class WaterReadingService
                 'status' => 'pending',
                 'ocr_reading' => $ocrData['reading'],
                 'ocr_verified' => $ocrData['verified'],
+                'is_anomalous' => $this->isSpike($meter->id, (float) $readingData['current_reading'] - $previousValue),
             ]);
 
             return ['success' => true];
@@ -170,6 +171,34 @@ class WaterReadingService
                 ],
             ];
         }
+    }
+
+    /**
+     * Phase-86 READING-INTEGRITY-1: a reading is flagged (not blocked) when its
+     * consumption is implausibly high vs the meter's recent trailing average —
+     * a likely typo or leak the landlord should eyeball in review. No history =>
+     * nothing to compare against => not flagged.
+     */
+    private function isSpike(int $meterId, float $consumption): bool
+    {
+        if ($consumption <= 0) {
+            return false;
+        }
+
+        $average = (float) WaterReading::where('meter_id', $meterId)
+            ->where('status', 'approved')
+            ->orderByDesc('reading_date')
+            ->orderByDesc('id')
+            ->limit(3)
+            ->avg('consumption');
+
+        if ($average <= 0) {
+            return false;
+        }
+
+        $multiplier = (float) config('propmanager.water.spike_multiplier', 5);
+
+        return $consumption > $average * $multiplier;
     }
 
     public function handlePhotoUpload(?UploadedFile $photo, int $unitId, int $landlordId): ?string

@@ -352,4 +352,51 @@ class Phase86WaterMeterFoundationTest extends TestCase
 
         $this->assertSame('active', $meter->fresh()->status->value);
     }
+
+    // --- READING INTEGRITY (spike flag) ----------------------------------
+
+    public function test_spike_reading_is_flagged_normal_is_not(): void
+    {
+        $this->actingAs($this->landlord->fresh());
+
+        $build = function ($unit) {
+            return Model::withoutEvents(function () use ($unit) {
+                $meter = Meter::factory()->create([
+                    'landlord_id' => $this->landlord->id,
+                    'building_id' => $unit->building_id,
+                    'unit_id' => $unit->id,
+                    'initial_reading' => 0,
+                    'status' => 'active',
+                ]);
+                $prev = 0;
+                $day = 40;
+                foreach ([10, 20, 30] as $cur) {
+                    WaterReading::factory()->forMeter($meter)->create([
+                        'previous_reading' => $prev,
+                        'current_reading' => $cur,
+                        'consumption' => $cur - $prev,
+                        'status' => 'approved',
+                        'reading_date' => now()->subDays($day)->toDateString(),
+                    ]);
+                    $prev = $cur;
+                    $day -= 5;
+                }
+
+                return $meter;
+            });
+        };
+
+        $spikeUnit = $this->units->get(7);
+        $normalUnit = $this->units->get(0);
+        $spikeMeter = $build($spikeUnit);
+        $normalMeter = $build($normalUnit);
+
+        $svc = app(WaterReadingService::class);
+        // Trailing average consumption is 10. spike: 90-30=60 (> 5x); normal: 38-30=8.
+        $svc->processReading(['unit_id' => $spikeUnit->id, 'current_reading' => 90, 'reading_date' => now()->toDateString()], $this->landlord->id);
+        $svc->processReading(['unit_id' => $normalUnit->id, 'current_reading' => 38, 'reading_date' => now()->toDateString()], $this->landlord->id);
+
+        $this->assertTrue((bool) WaterReading::where('meter_id', $spikeMeter->id)->where('current_reading', 90)->firstOrFail()->is_anomalous);
+        $this->assertFalse((bool) WaterReading::where('meter_id', $normalMeter->id)->where('current_reading', 38)->firstOrFail()->is_anomalous);
+    }
 }

@@ -34,6 +34,7 @@ class WaterReading extends Model
         'review_notes',
         'ocr_reading',
         'ocr_verified',
+        'is_anomalous',
     ];
 
     protected $casts = [
@@ -42,6 +43,7 @@ class WaterReading extends Model
         'reviewed_at' => 'datetime',
         'is_invoiced' => 'boolean',
         'ocr_verified' => 'boolean',
+        'is_anomalous' => 'boolean',
         'previous_reading' => 'decimal:2',
         'current_reading' => 'decimal:2',
         'consumption' => 'decimal:2',
