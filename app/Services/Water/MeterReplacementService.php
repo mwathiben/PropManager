@@ -31,24 +31,29 @@ class MeterReplacementService
         float $newInitialReading,
         ?string $readingDate = null
     ): Meter {
-        if (! $old->isActive()) {
-            throw new InvalidArgumentException('Only an active meter can be replaced.');
-        }
+        return DB::transaction(function () use ($old, $oldFinalReading, $newSerial, $newInitialReading, $readingDate) {
+            // Review H3: lock + re-check inside the transaction so a double-submit
+            // can't retire the meter twice or write two billable closing reads —
+            // the second caller finds it already Replaced and fails fast.
+            $locked = Meter::query()->whereKey($old->id)->lockForUpdate()->firstOrFail();
 
-        $closingBaseline = $old->baselineForNextReading();
-        if ($oldFinalReading < $closingBaseline) {
-            throw new InvalidArgumentException(
-                "Final reading ({$oldFinalReading}) cannot be below the meter's last reading ({$closingBaseline})."
-            );
-        }
+            if (! $locked->isActive()) {
+                throw new InvalidArgumentException('Only an active meter can be replaced.');
+            }
 
-        return DB::transaction(function () use ($old, $oldFinalReading, $newSerial, $newInitialReading, $readingDate, $closingBaseline) {
+            $closingBaseline = $locked->baselineForNextReading();
+            if ($oldFinalReading < $closingBaseline) {
+                throw new InvalidArgumentException(
+                    "Final reading ({$oldFinalReading}) cannot be below the meter's last reading ({$closingBaseline})."
+                );
+            }
+
             // Closing read on the outgoing meter — billable like any reading,
             // so it enters the normal review flow (status pending).
             WaterReading::create([
-                'unit_id' => $old->unit_id,
-                'meter_id' => $old->id,
-                'landlord_id' => $old->landlord_id,
+                'unit_id' => $locked->unit_id,
+                'meter_id' => $locked->id,
+                'landlord_id' => $locked->landlord_id,
                 'previous_reading' => $closingBaseline,
                 'current_reading' => $oldFinalReading,
                 'reading_date' => $readingDate ?? now()->toDateString(),
@@ -56,19 +61,19 @@ class MeterReplacementService
             ]);
 
             $new = Meter::create([
-                'landlord_id' => $old->landlord_id,
-                'building_id' => $old->building_id,
-                'unit_id' => $old->unit_id,
-                'parent_meter_id' => $old->parent_meter_id,
+                'landlord_id' => $locked->landlord_id,
+                'building_id' => $locked->building_id,
+                'unit_id' => $locked->unit_id,
+                'parent_meter_id' => $locked->parent_meter_id,
                 'serial_number' => $newSerial,
-                'utility_type' => $old->utility_type,
-                'meter_type' => $old->meter_type,
+                'utility_type' => $locked->utility_type,
+                'meter_type' => $locked->meter_type,
                 'status' => MeterStatus::Active->value,
                 'initial_reading' => $newInitialReading,
                 'installed_at' => now()->toDateString(),
             ]);
 
-            $old->update([
+            $locked->update([
                 'status' => MeterStatus::Replaced->value,
                 'decommissioned_at' => now()->toDateString(),
                 'replaced_by_meter_id' => $new->id,
@@ -80,6 +85,12 @@ class MeterReplacementService
 
     public function decommission(Meter $meter): void
     {
+        // Review M1: don't move an already-retired meter into a second terminal
+        // state (a Replaced meter has a successor; that chain must stay intact).
+        if (in_array($meter->status, [MeterStatus::Replaced, MeterStatus::Decommissioned], true)) {
+            throw new InvalidArgumentException('This meter is already retired.');
+        }
+
         $meter->update([
             'status' => MeterStatus::Decommissioned->value,
             'decommissioned_at' => now()->toDateString(),

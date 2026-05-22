@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Phase-86 WATER-METER-FOUNDATION: a physical water meter. Readings hang off a
@@ -119,25 +120,32 @@ class Meter extends Model
      */
     public static function resolveActiveForUnit(Unit $unit): self
     {
-        $meter = static::query()
-            ->where('unit_id', $unit->id)
-            ->active()
-            ->orderByDesc('id')
-            ->first();
+        // Review H2: serialize on the unit row so two concurrent first-readings
+        // for the same unit cannot each create an active meter (orphaned
+        // readings that the biller would never see).
+        return DB::transaction(function () use ($unit) {
+            Unit::query()->whereKey($unit->id)->lockForUpdate()->first();
 
-        if ($meter) {
-            return $meter;
-        }
+            $meter = static::query()
+                ->where('unit_id', $unit->id)
+                ->active()
+                ->orderByDesc('id')
+                ->first();
 
-        return static::create([
-            'landlord_id' => $unit->landlord_id,
-            'building_id' => $unit->building_id,
-            'unit_id' => $unit->id,
-            'serial_number' => $unit->meter_number,
-            'utility_type' => 'water',
-            'status' => MeterStatus::Active->value,
-            'initial_reading' => 0,
-            'installed_at' => now()->toDateString(),
-        ]);
+            if ($meter) {
+                return $meter;
+            }
+
+            return static::create([
+                'landlord_id' => $unit->landlord_id,
+                'building_id' => $unit->building_id,
+                'unit_id' => $unit->id,
+                'serial_number' => $unit->meter_number,
+                'utility_type' => 'water',
+                'status' => MeterStatus::Active->value,
+                'initial_reading' => 0,
+                'installed_at' => now()->toDateString(),
+            ]);
+        });
     }
 }

@@ -48,8 +48,8 @@ return new class extends Migration
                 'serial_number' => $unit->meter_number,
                 'utility_type' => 'water',
                 'status' => 'active',
-                'initial_reading' => $earliest->previous_reading ?? 0,
-                'installed_at' => $earliest->reading_date ?? null,
+                'initial_reading' => $earliest?->previous_reading ?? 0,
+                'installed_at' => $earliest?->reading_date ?? null,
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);

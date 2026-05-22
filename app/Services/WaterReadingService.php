@@ -86,6 +86,16 @@ class WaterReadingService
         try {
             $unit = Unit::findOrFail($readingData['unit_id']);
 
+            // Phase-86 (review C1): the FormRequest validates exists:units only,
+            // not ownership. Reject a unit belonging to another landlord before
+            // resolveActiveForUnit would write a cross-tenant meter row.
+            if ((int) $unit->landlord_id !== (int) $landlordId) {
+                return [
+                    'success' => false,
+                    'error' => ['unit' => $readingData['unit_id'], 'message' => 'Unit not found.'],
+                ];
+            }
+
             // Phase-86 METER-MODEL: readings key off a physical meter. The
             // previous value is the meter's last reading or — for the meter's
             // first read — its (possibly non-zero) install baseline, not 0.

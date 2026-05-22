@@ -260,4 +260,50 @@ class Phase86WaterMeterFoundationTest extends TestCase
         $this->actingAs($caretaker)->post(route('meters.store'), ['initial_reading' => 0])->assertForbidden();
         $this->actingAs($this->landlord->fresh())->get(route('meters.index'))->assertOk();
     }
+
+    // --- REVIEW HARDENING ------------------------------------------------
+
+    public function test_reading_for_another_landlords_unit_is_rejected(): void
+    {
+        $otherUnit = $this->createLandlordWithFullSetup()['units']->get(0);
+
+        $this->actingAs($this->landlord->fresh());
+        $result = app(WaterReadingService::class)->processReading([
+            'unit_id' => $otherUnit->id,
+            'current_reading' => 50,
+            'reading_date' => now()->toDateString(),
+        ], $this->landlord->id);
+
+        $this->assertFalse($result['success']);
+        $this->assertSame(0, WaterReading::where('unit_id', $otherUnit->id)->count());
+        // The cross-tenant meter must NOT have been lazily created.
+        $this->assertSame(0, Meter::withoutGlobalScopes()->where('unit_id', $otherUnit->id)->count());
+    }
+
+    public function test_store_rejects_another_landlords_building(): void
+    {
+        $otherBuilding = $this->createLandlordWithFullSetup()['building'];
+
+        $this->actingAs($this->landlord->fresh())
+            ->post(route('meters.store'), [
+                'building_id' => $otherBuilding->id,
+                'initial_reading' => 10,
+            ])
+            ->assertSessionHasErrors('building_id');
+
+        $this->assertDatabaseMissing('water_meters', ['building_id' => $otherBuilding->id]);
+    }
+
+    public function test_decommissioning_a_replaced_meter_is_rejected(): void
+    {
+        $unit = $this->units->get(4);
+        $meter = Meter::factory()->replaced()->create([
+            'landlord_id' => $this->landlord->id,
+            'building_id' => $unit->building_id,
+            'unit_id' => $unit->id,
+        ]);
+
+        $this->expectException(\InvalidArgumentException::class);
+        app(MeterReplacementService::class)->decommission($meter);
+    }
 }
