@@ -4,7 +4,13 @@
   "opened_at": "2026-05-22",
   "tier": 7,
   "scope": "USER-DIRECTED water domain, phase 3 of 12 (the operational cadence). Automate read -> review -> bill: caretaker reading reminder on a configured read-date, a landlord review window with reminders, and — CRITICALLY — auto-approve at window close so water billing is never silently halted. Scout facts: cron via routes/console.php Schedule::command()->dailyAt()->timezone('Africa/Nairobi')->onOneServer()->name('phaseNN-...'); reminder pattern = iterate rows + Cache::add idempotency key per item+period + NotificationService::send(recipientId,type,subject,message,data?,landlordId?). Notification type = 3 layers (Notification.php const + TYPE_URGENCY_MAP [IMPORTANT = whatsapp+email+in_app, email DELIVERS]; notification_preferences.{type}_enabled column default true; notifications.type ENUM extension). Building->caretaker_id->caretaker(); landlord via building->landlord_id. Invoices: invoices:automate daily 06:00 (buildings.auto_generate_invoices + invoice_generation_day == today) -> InvoiceService::generateInvoiceForLease; water is part of the monthly invoice (water_due); calculateWaterCharges bills ONLY status=approved+is_invoiced=false readings -> a reading left PENDING is silently unbilled forever (THE BUG). No review-window/deadline exists today. TenantActivity::create uses 'type' (not 'action'); set landlord_id explicitly + performed_by null for system actions. Money decimal:2. Review window is RECORDED-relative (reviewDays from reading.created_at) for robustness; read-date reminder is calendar (day-of-month).",
-  "categories": ["CYCLE-CONFIG", "READING-REMINDER", "REVIEW-AUTOAPPROVE", "RE-READ", "CI"],
+  "categories": [
+    "CYCLE-CONFIG",
+    "READING-REMINDER",
+    "REVIEW-AUTOAPPROVE",
+    "RE-READ",
+    "CI"
+  ],
   "findings": [
     {
       "id": "CYCLE-CONFIG-1",
@@ -13,7 +19,7 @@
       "title": "Reading-cycle config columns + auto_approved flag",
       "evidence": "No read-date, review-window, or auto-approval concept exists on the water config or readings.",
       "remediation": "Migration adds water_reading_day (unsignedTinyInteger nullable, day-of-month) + water_review_days (unsignedTinyInteger nullable) to payment_configurations + buildings (building null=inherit), and water_readings.auto_approved (bool default false). Models: fillable + casts. Phase88 test: columns exist + cast.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "CYCLE-CONFIG-2",
@@ -22,7 +28,7 @@
       "title": "Water settings editor exposes read-date + review-window",
       "evidence": "The shared editor has no reading-cycle fields.",
       "remediation": "WaterSettingsData returns reading_day + review_days; WaterSettingsForm.vue adds inputs (global + per-building inherit-aware, shown when charging); UpdateWaterSettingsRequest rules (water_reading_day 1-28 nullable, water_review_days 0-31 nullable; per-building too); controller persists (inherit=>null). i18n en/sw/ar. Phase88 test: landlord persists reading_day + review_days; caretaker 403.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "READING-REMINDER-1",
@@ -31,7 +37,7 @@
       "title": "NET-NEW water_reading_due notification type",
       "evidence": "No notification type tells the caretaker to take readings.",
       "remediation": "3 layers: Notification::TYPE_WATER_READING_DUE const + TYPE_URGENCY_MAP=IMPORTANT; notification_preferences.water_reading_due_enabled (default true); notifications.type ENUM extension. Phase88 test: type in map.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "READING-REMINDER-2",
@@ -40,7 +46,7 @@
       "title": "water:reading-reminders daily command",
       "evidence": "Caretakers get no prompt to read on the cycle date.",
       "remediation": "Command iterates water-enabled buildings whose effective water_reading_day == today.day with an assigned caretaker; NotificationService::send(caretaker, water_reading_due, ...). Idempotent Cache key per building+year-month. Scheduled dailyAt Africa/Nairobi onOneServer named phase88-water-reading-reminders. Phase88 test: a building due today notifies its caretaker; not-due does not; idempotent.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "REVIEW-AUTOAPPROVE-1",
@@ -49,7 +55,7 @@
       "title": "NET-NEW water_review_due notification type",
       "evidence": "No notification tells the landlord to review before the window closes / that readings auto-approved.",
       "remediation": "3 layers: Notification::TYPE_WATER_REVIEW_DUE const + TYPE_URGENCY_MAP=IMPORTANT; notification_preferences.water_review_due_enabled default true; notifications.type ENUM extension. Used for both the review reminder and the auto-approval escalation. Phase88 test: type in map.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "REVIEW-AUTOAPPROVE-2",
@@ -58,7 +64,7 @@
       "title": "water:review-window: remind landlord + AUTO-APPROVE at window close (the safety)",
       "evidence": "THE BUG: a pending reading is silently excluded from invoicing and never bills. A review gate that never closes silently halts water revenue.",
       "remediation": "Daily command: (a) for water-enabled buildings with pending readings recorded >= (reviewDays-1) days ago, NotificationService::send(landlord, water_review_due, 'review before close'), idempotent per reading; (b) AUTO-APPROVE pending readings whose created_at <= now-reviewDays (effective per building): WaterReading::autoApprove() (status=approved, auto_approved=true, reviewed_by=null, note), TenantActivity::create type=water_reading_auto_approved landlord_id+performed_by=null, then ONE escalation NotificationService::send(landlord, water_review_due, 'N readings auto-approved') per landlord+run. Scheduled dailyAt onOneServer named phase88-water-review-window. Phase88 test: a pending reading past the window is auto-approved (so it bills) + landlord notified; a fresh pending reading is left alone.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "RE-READ-1",
@@ -67,7 +73,7 @@
       "title": "Landlord can request a re-read (dispute) on a non-invoiced reading",
       "evidence": "If a reading looks wrong the landlord can only reject it; there is no reopen-for-re-read that re-prompts the caretaker.",
       "remediation": "WaterReadingController::requestReread (landlord-only, non-invoiced) resets the reading to pending, clears review fields, records a note, and notifies the caretaker (water_reading_due 're-read requested'). Route readings.request-reread + WaterReadingPolicy gate + a button on the review surface. Phase88 test: landlord reopens a reading -> pending + caretaker notified; cannot reopen an invoiced reading.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "CI-1",
@@ -76,7 +82,7 @@
       "title": "Phase 88 behavioral + surface tests",
       "evidence": "Cron cadence + the auto-approve safety + config need regression guards.",
       "remediation": "Phase88WaterReadingCycleTest (config persist, reading reminder dispatched/idempotent, review reminder, AUTO-APPROVE bills + escalates, re-read reopens) + Phase88WaterReadingCycleSurfaceTest (schema, both notification types mapped, commands exit 0, routes, lang parity). Existing water + invoice suites stay green.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "CI-2",
@@ -85,7 +91,15 @@
       "title": "Runbook + closeout + memory + multi-reviewer pass",
       "evidence": "Operational cadence needs operator docs; review discipline per phase.",
       "remediation": "docs/runbooks/water.md reading-cycle section (read-date reminder, review window, auto-approve safety, re-read). nav-audit clean. Multi-reviewer read-only pass (CodeRabbit + independent + silent-failure). Memory: phase88 plan + forward-path + pending-path. Name next = Phase 89 [WATER-HISTORICAL-IMPORT].",
-      "passes": false
+      "passes": true
     }
-  ]
+  ],
+  "closeout": {
+    "closed_at": "2026-05-22",
+    "result": "9/9 findings pass — zero PRD-finding deferrals",
+    "summary": "The water read -> review -> bill cadence + the safety that water revenue is never silently dropped. CYCLE-CONFIG: water_reading_day + water_review_days on payment_configurations + buildings + water_readings.auto_approved; shared settings editor extended. READING-REMINDER: NET-NEW water_reading_due type (3 layers) + water:reading-reminders daily (caretaker reminded on the building reading day, idempotent per building+month). REVIEW-AUTOAPPROVE: NET-NEW water_review_due type + water:review-window daily — nudges the landlord AND auto-approves any reading left pending past the review window (WaterReading::autoApprove + TenantActivity audit + per-landlord escalation) so a pending reading bills instead of hanging forever. RE-READ: WaterReadingController::requestReread reopens a non-invoiced reading + re-prompts the caretaker. CI: behavioral + surface tests + runbook.",
+    "tests": "Phase-88 tests: WaterReadingCycle 8 + Surface 5. Full water suite + WaterReadingController 96 regression green. Pint/build/eslint/nav-audit clean.",
+    "review": "Multi-reviewer read-only pass (CodeRabbit + pr-review-toolkit code-reviewer + silent-failure-hunter) caught + fixed: CRITICAL cron loops aborting the whole portfolio on one poison row (now per-building try/catch+Log+continue); HIGH review_days=0 same-day auto-approve over-bill (now min:1); MEDIUM withoutOverlapping on both crons, approve() clears stale auto_approved, requestReread warns when no caretaker; N+1 config memoized. Accepted-as-correct: created_at-vs-reading_date (bills in its own period), soft-deleted units (no bill), plan-gate on cron (don't-lose-revenue).",
+    "constraints_preserved": "THE SAFETY: a reading left pending past the window auto-approves so it always bills (the bug = pending readings silently excluded from invoicing + hanging forever). Crons run scope-free (withoutGlobalScope landlord) + explicit landlord_id. Notification types IMPORTANT (email+in-app default-on). water Settings landlord-only (Phase 86). Money decimal:2. Review window measured from reading.created_at (robust to late reads)."
+  }
 }
