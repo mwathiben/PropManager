@@ -14,10 +14,16 @@ return [
         'subtitle_landlord' => 'راجع واعتمد قراءات المياه',
     ],
     'tabs' => [
+        'overview' => 'نظرة عامة',
         'record' => 'تسجيل القراءات',
         'review' => 'مراجعة',
         'history' => 'السجل',
         'settings' => 'الإعدادات',
+    ],
+    'overview' => [
+        'pending' => 'قراءات معلّقة',
+        'approved_month' => 'المعتمدة هذا الشهر',
+        'buildings' => 'المباني',
     ],
     'tenant' => [
         'title' => 'مياهي',

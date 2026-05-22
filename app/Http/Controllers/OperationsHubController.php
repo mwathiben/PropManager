@@ -28,7 +28,7 @@ class OperationsHubController extends Controller
     public function index(Request $request): Response
     {
         $landlordId = $this->getLandlordId();
-        $tab = $request->query('tab', 'notifications');
+        $tab = $request->query('tab', 'overview');
 
         $baseProps = [
             'activeTab' => $tab,
@@ -37,15 +37,34 @@ class OperationsHubController extends Controller
         ];
 
         $tabData = match ($tab) {
+            'overview' => $this->getOverviewData($landlordId),
             'notifications' => $this->getNotificationsData($request, $landlordId),
             'inbox' => $this->getInboxData($request, $landlordId),
             'bulk' => $this->getBulkData($landlordId),
             'team' => $this->getTeamData($request, $landlordId),
             'imports' => $this->getImportsData($request, $landlordId),
-            default => $this->getNotificationsData($request, $landlordId),
+            default => $this->getOverviewData($landlordId),
         };
 
         return Inertia::render('Operations/Hub', array_merge($baseProps, $tabData));
+    }
+
+    private function getOverviewData(int $landlordId): array
+    {
+        $unreadInbox = TenantMessage::where('landlord_id', $landlordId)
+            ->where('status', TenantMessage::STATUS_RECEIVED)->count();
+        $pending = Notification::where('landlord_id', $landlordId)->where('status', 'pending')->count();
+        $failed = Notification::where('landlord_id', $landlordId)->where('status', 'failed')->count();
+        $team = User::where('landlord_id', $landlordId)->where('role', 'caretaker')->count();
+
+        return [
+            'overviewStats' => [
+                ['label' => 'Unread inbox', 'value' => $unreadInbox, 'tone' => $unreadInbox > 0 ? 'amber' : 'emerald'],
+                ['label' => 'Pending notifications', 'value' => $pending, 'tone' => 'default'],
+                ['label' => 'Failed notifications', 'value' => $failed, 'tone' => $failed > 0 ? 'red' : 'default'],
+                ['label' => 'Team members', 'value' => $team, 'tone' => 'default'],
+            ],
+        ];
     }
 
     private function getNotificationsData(Request $request, int $landlordId): array

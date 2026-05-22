@@ -115,4 +115,10 @@ return [
         'col_water' => 'Water readings',
         'col_escalations' => 'Escalations',
     ],
+    'overview' => [
+        'open_issues' => 'Open issues',
+        'open_complaints' => 'Open complaints',
+        'urgent' => 'Urgent',
+        'escalated' => 'Escalated',
+    ],
 ];

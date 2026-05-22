@@ -105,4 +105,10 @@ return [
         'col_water' => 'Visomo vya maji',
         'col_escalations' => 'Upandishaji',
     ],
+    'overview' => [
+        'open_issues' => 'Matatizo wazi',
+        'open_complaints' => 'Malalamiko wazi',
+        'urgent' => 'Ya dharura',
+        'escalated' => 'Zilizopandishwa',
+    ],
 ];

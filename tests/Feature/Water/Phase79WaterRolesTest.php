@@ -69,7 +69,9 @@ class Phase79WaterRolesTest extends TestCase
         $this->assertSame('landlord', $props['role']);
         $this->assertTrue($props['canReview']);
         $this->assertFalse($props['canInput']);
-        $this->assertSame('review', $props['activeTab']);
+        // Phase-83 follow-up: hubs now open on the Overview homepage; the
+        // role still gates which working tab (review vs readings) is available.
+        $this->assertSame('overview', $props['activeTab']);
     }
 
     public function test_caretaker_hub_shows_input_not_review(): void
@@ -81,7 +83,8 @@ class Phase79WaterRolesTest extends TestCase
         $this->assertSame('caretaker', $props['role']);
         $this->assertTrue($props['canInput']);
         $this->assertFalse($props['canReview']);
-        $this->assertSame('readings', $props['activeTab']);
+        // Phase-83 follow-up: hubs now open on the Overview homepage.
+        $this->assertSame('overview', $props['activeTab']);
     }
 
     public function test_landlord_review_tab_request_is_honoured(): void

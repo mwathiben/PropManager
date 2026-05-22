@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent } from 'vue';
 import HubShell from '@/Components/Hub/HubShell.vue';
+import HubOverview from '@/Components/Hub/HubOverview.vue';
 import { TabLoadingPlaceholder } from '@/Components/Finances';
 import type { OperationsHubPageProps } from '@/types';
 import {
@@ -10,6 +11,7 @@ import {
     UserGroupIcon,
     DocumentArrowDownIcon,
     InboxIcon,
+    Squares2X2Icon,
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps<OperationsHubPageProps>();
@@ -21,6 +23,7 @@ const ImportsTab = defineAsyncComponent({ loader: () => import('./tabs/ImportsTa
 const InboxTab = defineAsyncComponent({ loader: () => import('./tabs/InboxTab.vue'), loadingComponent: TabLoadingPlaceholder, delay: 100 });
 
 const tabs = computed(() => [
+    { id: 'overview', name: 'Overview', icon: Squares2X2Icon },
     { id: 'notifications', name: 'Notifications', icon: BellIcon },
     { id: 'inbox', name: 'Inbox', icon: InboxIcon, badge: props.inboxUnreadCount },
     { id: 'bulk', name: 'Bulk Operations', icon: ArrowUpTrayIcon },
@@ -36,8 +39,12 @@ const tabComponents: Record<string, ReturnType<typeof defineAsyncComponent>> = {
     imports: ImportsTab,
 };
 
-const currentTab = computed(() => props.activeTab || 'notifications');
+const currentTab = computed(() => props.activeTab || 'overview');
 const currentTabComponent = computed(() => tabComponents[currentTab.value] || NotificationsTab);
+
+const quickLinks = computed(() => tabs.value
+    .filter((t) => t.id !== 'overview')
+    .map((t) => ({ label: t.name, href: route('operations.hub', { tab: t.id }), icon: t.icon, badge: t.badge })));
 </script>
 
 <template>
@@ -50,7 +57,9 @@ const currentTabComponent = computed(() => tabComponents[currentTab.value] || No
         :tabs="tabs"
         :current-tab="currentTab"
     >
+        <HubOverview v-if="currentTab === 'overview'" :stats="overviewStats" :links="quickLinks" />
         <component
+            v-else
             :is="currentTabComponent"
             :key="currentTab"
             :stats="stats"

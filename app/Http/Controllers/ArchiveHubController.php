@@ -18,7 +18,7 @@ class ArchiveHubController extends Controller
     public function index(Request $request): Response
     {
         $landlordId = $this->getLandlordId();
-        $tab = $request->query('tab', 'documents');
+        $tab = $request->query('tab', 'overview');
 
         $baseProps = [
             'activeTab' => $tab,
@@ -28,13 +28,33 @@ class ArchiveHubController extends Controller
         ];
 
         $tabData = match ($tab) {
+            'overview' => $this->getOverviewData($landlordId),
             'documents' => $this->getDocumentsData($request, $landlordId),
             'leases' => $this->getLeasesData($request, $landlordId),
             'activity' => $this->getActivityData($request, $landlordId),
-            default => $this->getDocumentsData($request, $landlordId),
+            default => $this->getOverviewData($landlordId),
         };
 
         return Inertia::render('Archive/Hub', array_merge($baseProps, $tabData));
+    }
+
+    private function getOverviewData(int $landlordId): array
+    {
+        $documents = Document::where('landlord_id', $landlordId)->current()->count();
+        $expiring = Document::where('landlord_id', $landlordId)->current()
+            ->where('is_renewable', true)->expiringSoon(30)->count();
+        $activeLeases = Lease::where('landlord_id', $landlordId)->where('is_active', true)->count();
+        $activityWeek = TenantActivity::where('landlord_id', $landlordId)
+            ->where('created_at', '>=', now()->startOfWeek())->count();
+
+        return [
+            'overviewStats' => [
+                ['label' => 'Documents', 'value' => $documents, 'tone' => 'default'],
+                ['label' => 'Expiring soon', 'value' => $expiring, 'tone' => $expiring > 0 ? 'amber' : 'emerald'],
+                ['label' => 'Active leases', 'value' => $activeLeases, 'tone' => 'default'],
+                ['label' => 'Activity this week', 'value' => $activityWeek, 'tone' => 'default'],
+            ],
+        ];
     }
 
     private function getDocumentsData(Request $request, int $landlordId): array

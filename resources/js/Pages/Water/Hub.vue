@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent } from 'vue';
 import HubShell from '@/Components/Hub/HubShell.vue';
+import HubOverview from '@/Components/Hub/HubOverview.vue';
 import { TabLoadingPlaceholder } from '@/Components/Finances';
 import { useI18n } from '@/composables/useI18n';
-import { BeakerIcon, ClipboardDocumentListIcon, ClockIcon, Cog6ToothIcon, CheckBadgeIcon } from '@heroicons/vue/24/outline';
+import { BeakerIcon, ClipboardDocumentListIcon, ClockIcon, Cog6ToothIcon, CheckBadgeIcon, Squares2X2Icon } from '@heroicons/vue/24/outline';
 
 interface Props {
     activeTab?: string;
@@ -18,6 +19,7 @@ interface Props {
     buildingsList?: unknown[];
     pendingReadings?: unknown;
     settings?: Record<string, unknown>;
+    overviewStats?: Array<{ label: string; value: string | number; tone?: string }>;
 }
 
 const props = defineProps<Props>();
@@ -29,9 +31,11 @@ const HistoryTab = defineAsyncComponent({ loader: () => import('./tabs/HistoryTa
 const SettingsTab = defineAsyncComponent({ loader: () => import('./tabs/SettingsTab.vue'), loadingComponent: TabLoadingPlaceholder, delay: 100 });
 
 // Phase-79 WATER-ROLES-1: caretaker records, landlord reviews — each role only
-// sees its own primary tab.
+// sees its own primary tab. Phase-83 follow-up: an Overview homepage leads.
 const tabs = computed(() => {
-    const list = [];
+    const list: Array<{ id: string; name: string; icon: unknown; badge?: number }> = [
+        { id: 'overview', name: t('water.tabs.overview'), icon: Squares2X2Icon },
+    ];
     if (props.canInput) {
         list.push({ id: 'readings', name: t('water.tabs.record'), icon: ClipboardDocumentListIcon, badge: props.counts?.pendingReadings });
     }
@@ -50,8 +54,12 @@ const tabComponents: Record<string, ReturnType<typeof defineAsyncComponent>> = {
     settings: SettingsTab,
 };
 
-const currentTab = computed(() => props.activeTab || (props.canReview ? 'review' : 'readings'));
+const currentTab = computed(() => props.activeTab || 'overview');
 const currentTabComponent = computed(() => tabComponents[currentTab.value] || HistoryTab);
+
+const quickLinks = computed(() => tabs.value
+    .filter((tab) => tab.id !== 'overview')
+    .map((tab) => ({ label: tab.name, href: route('water.hub', { tab: tab.id }), icon: tab.icon, badge: tab.badge })));
 
 const subtitle = computed(() =>
     props.canReview ? t('water.hub.subtitle_landlord') : t('water.hub.subtitle_caretaker'),
@@ -68,7 +76,9 @@ const subtitle = computed(() =>
         :tabs="tabs"
         :current-tab="currentTab"
     >
+        <HubOverview v-if="currentTab === 'overview'" :stats="overviewStats" :links="quickLinks" />
         <component
+            v-else
             :is="currentTabComponent"
             :key="currentTab"
             :buildings-data="buildingsData"

@@ -25,8 +25,10 @@ class WaterHubController extends Controller
         // readings (input); the landlord only REVIEWS (approve/reject). Neither
         // sees the other's primary tab.
         $isCaretaker = auth()->user()->isCaretaker();
-        $defaultTab = $isCaretaker ? 'readings' : 'review';
-        $tab = $request->query('tab', $defaultTab);
+        // Phase-83 follow-up: every hub now opens on an Overview homepage rather
+        // than a working first tab. The role-specific tab (caretaker records /
+        // landlord reviews) is one click away and still role-guarded below.
+        $tab = $request->query('tab', 'overview');
         if ($tab === 'readings' && ! $isCaretaker) {
             $tab = 'review';
         }
@@ -45,11 +47,12 @@ class WaterHubController extends Controller
         ];
 
         $tabData = match ($tab) {
+            'overview' => $this->getOverviewData($landlordId),
             'readings' => $this->getReadingsData($landlordId),
             'review' => $this->getReviewData($landlordId),
             'history' => $this->getHistoryData($request, $landlordId),
             'settings' => $this->getSettingsData($landlordId),
-            default => $isCaretaker ? $this->getReadingsData($landlordId) : $this->getReviewData($landlordId),
+            default => $this->getOverviewData($landlordId),
         };
 
         return Inertia::render('Water/Hub', array_merge($baseProps, $tabData));
@@ -181,6 +184,25 @@ class WaterHubController extends Controller
             'pendingReadings' => WaterReading::whereIn('unit_id', $this->unitIdsForLandlord($landlordId))
                 ->where('status', 'pending')
                 ->count(),
+        ];
+    }
+
+    private function getOverviewData(int $landlordId): array
+    {
+        $unitIds = $this->unitIdsForLandlord($landlordId);
+        $pending = WaterReading::whereIn('unit_id', $unitIds)->where('status', 'pending')->count();
+        $approvedMonth = WaterReading::whereIn('unit_id', $unitIds)
+            ->where('status', 'approved')
+            ->where('reading_date', '>=', now()->startOfMonth())
+            ->count();
+        $buildings = Building::where('landlord_id', $landlordId)->count();
+
+        return [
+            'overviewStats' => [
+                ['label' => __('water.overview.pending'), 'value' => $pending, 'tone' => $pending > 0 ? 'amber' : 'emerald'],
+                ['label' => __('water.overview.approved_month'), 'value' => $approvedMonth, 'tone' => 'default'],
+                ['label' => __('water.overview.buildings'), 'value' => $buildings, 'tone' => 'default'],
+            ],
         ];
     }
 }

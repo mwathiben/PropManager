@@ -20,7 +20,7 @@ class TenantsHubController extends Controller
     public function index(Request $request): Response
     {
         $landlordId = $this->getLandlordId();
-        $tab = $request->query('tab', 'directory');
+        $tab = $request->query('tab', 'overview');
 
         $baseProps = [
             'activeTab' => $tab,
@@ -30,16 +30,33 @@ class TenantsHubController extends Controller
         ];
 
         $tabData = match ($tab) {
+            'overview' => $this->getOverviewData($landlordId),
             'directory' => $this->getDirectoryData($request, $landlordId),
             'onboarding' => $this->getOnboardingData($request, $landlordId),
             'verifications' => $this->getVerificationsData($request, $landlordId),
             'payment-verifications' => $this->getPaymentVerificationsData($request, $landlordId),
             'move-outs' => $this->getMoveOutsData($request, $landlordId),
             'history' => $this->getHistoryData($request, $landlordId),
-            default => $this->getDirectoryData($request, $landlordId),
+            default => $this->getOverviewData($landlordId),
         };
 
         return Inertia::render('Tenants/Hub', array_merge($baseProps, $tabData));
+    }
+
+    private function getOverviewData(int $landlordId): array
+    {
+        $activeTenants = User::where('role', 'tenant')->where('landlord_id', $landlordId)
+            ->whereHas('leases', fn ($q) => $q->where('is_active', true))->count();
+        $counts = $this->getCounts($landlordId);
+
+        return [
+            'overviewStats' => [
+                ['label' => 'Active tenants', 'value' => $activeTenants, 'tone' => 'default'],
+                ['label' => 'Pending invitations', 'value' => $counts['pendingInvitations'], 'tone' => $counts['pendingInvitations'] > 0 ? 'amber' : 'default'],
+                ['label' => 'Pending verifications', 'value' => $counts['pendingVerifications'], 'tone' => $counts['pendingVerifications'] > 0 ? 'amber' : 'default'],
+                ['label' => 'Active move-outs', 'value' => $counts['moveOuts'], 'tone' => $counts['moveOuts'] > 0 ? 'amber' : 'default'],
+            ],
+        ];
     }
 
     private function getDirectoryData(Request $request, int $landlordId): array

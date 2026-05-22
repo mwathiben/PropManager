@@ -105,4 +105,10 @@ return [
         'col_water' => 'قراءات المياه',
         'col_escalations' => 'التصعيدات',
     ],
+    'overview' => [
+        'open_issues' => 'مشكلات مفتوحة',
+        'open_complaints' => 'شكاوى مفتوحة',
+        'urgent' => 'عاجلة',
+        'escalated' => 'مُصعّدة',
+    ],
 ];

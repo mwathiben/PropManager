@@ -16,7 +16,7 @@ class MaintenanceHubController extends Controller
     public function index(Request $request): Response
     {
         $landlordId = $this->getLandlordId();
-        $tab = $request->query('tab', 'tickets');
+        $tab = $request->query('tab', 'overview');
 
         $baseProps = [
             'activeTab' => $tab,
@@ -29,12 +29,30 @@ class MaintenanceHubController extends Controller
         $user = $request->user();
 
         $tabData = match ($tab) {
+            'overview' => $this->getOverviewData($landlordId),
             'tickets' => $this->getTicketsData($request, $user, 'issue'),
             'complaints' => $this->getTicketsData($request, $user, 'complaint'),
-            default => $this->getTicketsData($request, $user, 'issue'),
+            default => $this->getOverviewData($landlordId),
         };
 
         return Inertia::render('Maintenance/Hub', array_merge($baseProps, $tabData));
+    }
+
+    private function getOverviewData(int $landlordId): array
+    {
+        $openIssues = Ticket::where('landlord_id', $landlordId)->where('category', 'issue')->open()->count();
+        $openComplaints = Ticket::where('landlord_id', $landlordId)->where('category', 'complaint')->open()->count();
+        $urgent = Ticket::where('landlord_id', $landlordId)->open()->where('priority', 'urgent')->count();
+        $escalated = Ticket::where('landlord_id', $landlordId)->escalated()->count();
+
+        return [
+            'overviewStats' => [
+                ['label' => __('maintenance.overview.open_issues'), 'value' => $openIssues, 'tone' => $openIssues > 0 ? 'amber' : 'emerald'],
+                ['label' => __('maintenance.overview.open_complaints'), 'value' => $openComplaints, 'tone' => $openComplaints > 0 ? 'amber' : 'emerald'],
+                ['label' => __('maintenance.overview.urgent'), 'value' => $urgent, 'tone' => $urgent > 0 ? 'red' : 'default'],
+                ['label' => __('maintenance.overview.escalated'), 'value' => $escalated, 'tone' => $escalated > 0 ? 'red' : 'default'],
+            ],
+        ];
     }
 
     private function getTicketsData(Request $request, User $user, string $category): array

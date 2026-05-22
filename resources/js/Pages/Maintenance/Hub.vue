@@ -2,8 +2,9 @@
 import { computed, defineAsyncComponent } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import HubShell from '@/Components/Hub/HubShell.vue';
+import HubOverview from '@/Components/Hub/HubOverview.vue';
 import { TabLoadingPlaceholder } from '@/Components/Finances';
-import { WrenchScrewdriverIcon, TicketIcon, ChatBubbleLeftRightIcon, ChartBarIcon, CubeIcon, PhotoIcon, UserGroupIcon } from '@heroicons/vue/24/outline';
+import { WrenchScrewdriverIcon, TicketIcon, ChatBubbleLeftRightIcon, ChartBarIcon, CubeIcon, PhotoIcon, UserGroupIcon, Squares2X2Icon } from '@heroicons/vue/24/outline';
 
 interface Props {
     activeTab?: string;
@@ -13,6 +14,7 @@ interface Props {
     counts?: Record<string, number>;
     tickets?: Record<string, unknown>;
     stats?: Record<string, unknown>;
+    overviewStats?: Array<{ label: string; value: string | number; tone?: string }>;
 }
 
 const props = defineProps<Props>();
@@ -23,12 +25,17 @@ const TicketsTab = defineAsyncComponent({
     delay: 100,
 });
 
-const currentTab = computed(() => props.activeTab || 'tickets');
+const currentTab = computed(() => props.activeTab || 'overview');
 
 const tabs = computed(() => [
+    { id: 'overview', name: 'Overview', icon: Squares2X2Icon },
     { id: 'tickets', name: 'Maintenance', icon: TicketIcon, badge: props.counts?.tickets },
     { id: 'complaints', name: 'Complaints', icon: ChatBubbleLeftRightIcon, badge: props.counts?.complaints },
 ]);
+
+const quickLinks = computed(() => tabs.value
+    .filter((t) => t.id !== 'overview')
+    .map((t) => ({ label: t.name, href: route('maintenance.hub', { tab: t.id }), icon: t.icon, badge: t.badge })));
 </script>
 
 <template>
@@ -68,7 +75,9 @@ const tabs = computed(() => [
             </Link>
         </template>
 
+        <HubOverview v-if="currentTab === 'overview'" :stats="overviewStats" :links="quickLinks" />
         <TicketsTab
+            v-else
             :key="currentTab"
             :tickets="tickets"
             :stats="stats"

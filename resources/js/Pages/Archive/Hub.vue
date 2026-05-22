@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent } from 'vue';
 import HubShell from '@/Components/Hub/HubShell.vue';
+import HubOverview from '@/Components/Hub/HubOverview.vue';
 import { TabLoadingPlaceholder } from '@/Components/Finances';
-import { ArchiveBoxIcon, DocumentTextIcon, DocumentDuplicateIcon, ClockIcon } from '@heroicons/vue/24/outline';
+import { ArchiveBoxIcon, DocumentTextIcon, DocumentDuplicateIcon, ClockIcon, Squares2X2Icon } from '@heroicons/vue/24/outline';
 
 interface Props {
     activeTab?: string;
@@ -15,6 +16,7 @@ interface Props {
     activities?: Record<string, unknown>;
     activityTypes?: unknown[];
     stats?: Record<string, unknown>;
+    overviewStats?: Array<{ label: string; value: string | number; tone?: string }>;
 }
 
 const props = defineProps<Props>();
@@ -24,6 +26,7 @@ const LeasesTab = defineAsyncComponent({ loader: () => import('./tabs/LeasesTab.
 const ActivityTab = defineAsyncComponent({ loader: () => import('./tabs/ActivityTab.vue'), loadingComponent: TabLoadingPlaceholder, delay: 100 });
 
 const tabs = [
+    { id: 'overview', name: 'Overview', icon: Squares2X2Icon },
     { id: 'documents', name: 'Documents', icon: DocumentTextIcon },
     { id: 'leases', name: 'Leases', icon: DocumentDuplicateIcon },
     { id: 'activity', name: 'Activity', icon: ClockIcon },
@@ -35,8 +38,12 @@ const tabComponents: Record<string, ReturnType<typeof defineAsyncComponent>> = {
     activity: ActivityTab,
 };
 
-const currentTab = computed(() => props.activeTab || 'documents');
+const currentTab = computed(() => props.activeTab || 'overview');
 const currentTabComponent = computed(() => tabComponents[currentTab.value] || DocumentsTab);
+
+const quickLinks = computed(() => tabs
+    .filter((t) => t.id !== 'overview')
+    .map((t) => ({ label: t.name, href: route('archive.hub', { tab: t.id }), icon: t.icon })));
 </script>
 
 <template>
@@ -49,7 +56,9 @@ const currentTabComponent = computed(() => tabComponents[currentTab.value] || Do
         :tabs="tabs"
         :current-tab="currentTab"
     >
+        <HubOverview v-if="currentTab === 'overview'" :stats="overviewStats" :links="quickLinks" />
         <component
+            v-else
             :is="currentTabComponent"
             :key="currentTab"
             :documents="documents"

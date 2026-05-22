@@ -14,10 +14,16 @@ return [
         'subtitle_landlord' => 'Kagua na uidhinishe visomo vya maji',
     ],
     'tabs' => [
+        'overview' => 'Muhtasari',
         'record' => 'Rekodi visomo',
         'review' => 'Kagua',
         'history' => 'Historia',
         'settings' => 'Mipangilio',
+    ],
+    'overview' => [
+        'pending' => 'Visomo vinavyosubiri',
+        'approved_month' => 'Vilivyoidhinishwa mwezi huu',
+        'buildings' => 'Majengo',
     ],
     'tenant' => [
         'title' => 'Maji yangu',

@@ -14,10 +14,16 @@ return [
         'subtitle_landlord' => 'Review and approve water readings',
     ],
     'tabs' => [
+        'overview' => 'Overview',
         'record' => 'Record readings',
         'review' => 'Review',
         'history' => 'History',
         'settings' => 'Settings',
+    ],
+    'overview' => [
+        'pending' => 'Pending readings',
+        'approved_month' => 'Approved this month',
+        'buildings' => 'Buildings',
     ],
     'tenant' => [
         'title' => 'My water',

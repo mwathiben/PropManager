@@ -206,6 +206,8 @@ export interface ScheduledNotification extends BaseEntity {
 // Operations Hub Page Props
 export interface OperationsHubPageProps {
   activeTab: string;
+  // Overview tab (hub homepage stat cards)
+  overviewStats?: Array<{ label: string; value: string | number; tone?: string }>;
   // Notifications tab
   stats: NotificationStats;
   recentNotifications: RecentNotification[];
