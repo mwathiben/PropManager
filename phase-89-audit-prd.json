@@ -4,7 +4,13 @@
   "opened_at": "2026-05-22",
   "tier": 7,
   "scope": "USER-DIRECTED water domain, phase 4 of 12 — backfill historical water readings from a landlord's spreadsheet so the data foundation (86-89) feeds Phase-91 intelligence. BROWNFIELD: the import infrastructure ALREADY EXISTS — Import model + ImportStatus + ImportsController (/imports upload/index/show/reprocess/template, file mimes:csv,txt max10MB stored to local) + ImportService (CSV via ParsesCSVFiles str_getcsv; type-dispatch tenants|leases|water_readings|invoices|payments|units) + ImportPolicy (landlord+caretaker, immutable). There is ALREADY an importWaterReadings() — but with the exact bug the user warned about: it does NOT set is_invoiced=true (so imported history is billable by InvoiceService::calculateWaterCharges which bills approved+is_invoiced=false), does NOT set meter_id (Phase-86 made readings meter-keyed), has NO dedup (re-import duplicates), and the upload is CSV-only (user said EXCEL). PhpSpreadsheet (phpoffice/phpspreadsheet ^1.30) is used to READ xlsx in app/Imports/BankStatementImport.php (IOFactory::load(path)->getActiveSheet()->toArray()). WaterReadingObserver auto-recomputes consumption=current-previous + cost via tariff on create — for faithful HISTORY use Model::withoutEvents + explicit values. Meter::resolveActiveForUnit(unit) maps/creates the meter. Money decimal:2. SAFETY: imported readings = read-only history that must NEVER re-bill (is_invoiced=true) and re-import must be idempotent.",
-  "categories": ["IMPORT-WATER", "IMPORT-DEDUP", "IMPORT-XLSX", "REACH", "CI"],
+  "categories": [
+    "IMPORT-WATER",
+    "IMPORT-DEDUP",
+    "IMPORT-XLSX",
+    "REACH",
+    "CI"
+  ],
   "findings": [
     {
       "id": "IMPORT-WATER-1",
@@ -13,7 +19,7 @@
       "title": "Imported readings must be meter-linked and never re-bill",
       "evidence": "importWaterReadings() omits meter_id and is_invoiced; an imported historical reading (status approved, is_invoiced=false) would be picked up by InvoiceService::calculateWaterCharges and billed again.",
       "remediation": "In importWaterReadings: resolve Meter::resolveActiveForUnit(unit) -> meter_id; create the reading with status=approved + is_invoiced=true (read-only history, excluded from billing) + review_notes='Imported historical reading' for provenance + recorded_by=Auth::id(). Phase89 test: an imported reading has is_invoiced=true + meter_id set, and a generated invoice for that lease does NOT bill it.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "IMPORT-WATER-2",
@@ -22,7 +28,7 @@
       "title": "Preserve historical consumption/cost faithfully",
       "evidence": "The observer recomputes consumption=current-previous and cost with TODAY's tariff, discarding the spreadsheet's historical values.",
       "remediation": "Support optional consumption + cost columns. Create via Model::withoutEvents with explicit consumption (row ?? max(0,current-previous)) and cost (row ?? round(consumption * WaterRateService::getEffectiveRate(unit),2) as a best-effort estimate). Extend the water_readings CSV template headers (+ optional consumption, cost). Phase89 test: a row with an explicit cost preserves it; a row without falls back to consumption*rate.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "IMPORT-DEDUP-1",
@@ -31,7 +37,7 @@
       "title": "Idempotent re-import (skip duplicate meter+date)",
       "evidence": "Re-uploading the same sheet creates duplicate readings, double-counting history.",
       "remediation": "Before creating, skip a row whose (meter_id, reading_date) already exists; count it as skipped (not failed) and surface summary.skipped_duplicates. Phase89 test: importing the same row twice creates ONE reading; the second run reports it skipped.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "IMPORT-XLSX-1",
@@ -40,7 +46,7 @@
       "title": "Accept + parse Excel (.xlsx/.xls) uploads",
       "evidence": "The user keeps water records in Excel, but the import accepts mimes:csv,txt only and parses via str_getcsv.",
       "remediation": "ImportsController upload validation accepts xlsx,xls; ImportService dispatches by extension — xlsx/xls parsed via PhpOffice\\PhpSpreadsheet IOFactory::load(Storage path)->getActiveSheet()->toArray() with the same header-normalisation as CSV (mirror BankStatementImport); CSV path unchanged. Phase89 test: an .xlsx of water readings imports the same as CSV.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "REACH-1",
@@ -49,7 +55,7 @@
       "title": "Surface the historical import from the water hub",
       "evidence": "The /imports feature exists but isn't discoverable from the water hub.",
       "remediation": "Add a landlord-only quick-link from the water hub to the water-readings import (/imports?type=water_readings or the imports index) + i18n. nav-audit clean. Phase89 test: route reachable; link present for landlord.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "CI-1",
@@ -58,7 +64,7 @@
       "title": "Phase 89 behavioral + surface tests",
       "evidence": "The never-re-bill guarantee + dedup + xlsx need regression guards.",
       "remediation": "Phase89WaterHistoricalImportTest (imported reading is_invoiced=true + meter_id + not re-billed by an invoice; dedup skips a repeat; xlsx parses; cost preserved/estimated) + Phase89 surface (import type registered, xlsx accepted, water template headers). Existing import + water + invoice suites stay green.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "CI-2",
@@ -67,7 +73,15 @@
       "title": "Runbook + closeout + memory + multi-reviewer pass",
       "evidence": "Import needs operator docs; per-phase review discipline.",
       "remediation": "docs/runbooks/water.md historical-import section (template, never-re-bill, dedup, xlsx, client-ready note for Phase 94). Multi-reviewer read-only pass. Memory: phase89 plan + forward-path + pending-path. Name next = Phase 90 [WATER-ARREARS-ENFORCEMENT].",
-      "passes": false
+      "passes": true
     }
-  ]
+  ],
+  "closeout": {
+    "closed_at": "2026-05-22",
+    "result": "7/7 findings pass — zero PRD-finding deferrals",
+    "summary": "Backfill historical water readings from a CSV or EXCEL sheet by enriching the existing imports feature (Import/ImportService/ImportsController). IMPORT-WATER: importWaterReadings resolves Meter::resolveActiveForUnit -> meter_id and records readings as already-billed history (status=approved + is_invoiced=true) so InvoiceService never re-bills them (closed a latent bug where imported readings were billable); optional Consumption/Cost preserved via Model::withoutEvents (fallback cost = consumption * current rate, matching Phase-87 reading.cost). IMPORT-DEDUP: idempotent re-import (skip existing meter+date, summary.skipped_duplicates). IMPORT-XLSX: .xlsx/.xls accepted + parsed via PhpSpreadsheet (parseRows/parseSpreadsheet). REACH: landlord-only Import-history quick-link from the water hub. CI: behavioral + surface tests + runbook.",
+    "tests": "Phase-89 tests: WaterHistoricalImport 6 + Surface 5. Import/invoice/storage/water regression green. Pint/build/eslint/nav-audit clean. No migration this phase (pure enrichment of existing tables).",
+    "review": "Multi-reviewer read-only pass (CodeRabbit + pr-review-toolkit code-reviewer + silent-failure-hunter) caught + fixed: CRITICAL Excel date month/day swap (formatData=true locale string -> Carbon swap) -> read formatData=false + convert Excel serials before validation (test asserts a real dd/mm/yyyy cell round-trips); MEDIUM xlsx decompression-bomb/memory -> data-only reader + 10000-row cap; MEDIUM Storage::path() non-local fragility -> temp-file read from tenant disk; HIGH current<previous silent-zero -> failed row. Kept: omitted-Cost = consumption*current rate (consistent with Phase-87 reading.cost flat estimate; Cost column preserves exact history; never re-bills).",
+    "constraints_preserved": "Imported readings = read-only history that NEVER re-bills (is_invoiced=true; InvoiceService bills approved+is_invoiced=false). Idempotent re-import. Landlord-scoped unit resolution. withoutEvents sets landlord_id/recorded_by/status/consumption/cost explicitly; version has a DB default. Architected so water clients (Phase 94) reuse the importer (maps by unit_number today). Money decimal:2."
+  }
 }
