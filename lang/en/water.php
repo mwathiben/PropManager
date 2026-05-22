@@ -82,5 +82,9 @@ return [
         'source_county' => 'County / municipal',
         'source_mixed' => 'Mixed',
         'inherit_placeholder' => 'Inherit',
+        'reading_day' => 'Reading day of month',
+        'reading_day_hint' => 'e.g. 25',
+        'review_days' => 'Review window (days)',
+        'review_days_hint' => 'e.g. 5',
     ],
 ];

@@ -26,7 +26,7 @@ class WaterSettingsData
             ->select(
                 'id', 'name', 'water_billing_type', 'water_flat_rate', 'water_unit_rate',
                 'water_standing_charge', 'water_minimum_charge', 'water_sewerage_percent',
-                'water_vat_percent', 'water_source',
+                'water_vat_percent', 'water_source', 'water_reading_day', 'water_review_days',
             )
             ->withCount('units')
             ->orderBy('name')
@@ -48,6 +48,9 @@ class WaterSettingsData
                 'water_sewerage_percent' => $config->water_sewerage_percent,
                 'water_vat_percent' => $config->water_vat_percent,
                 'water_source' => $config->water_source,
+                // Phase-88 reading cycle.
+                'water_reading_day' => $config->water_reading_day,
+                'water_review_days' => $config->water_review_days,
             ],
         ];
     }

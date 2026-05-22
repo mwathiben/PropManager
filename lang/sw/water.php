@@ -82,5 +82,9 @@ return [
         'source_county' => 'Kaunti / manispaa',
         'source_mixed' => 'Mchanganyiko',
         'inherit_placeholder' => 'Rithi',
+        'reading_day' => 'Siku ya kusoma ya mwezi',
+        'reading_day_hint' => 'mf. 25',
+        'review_days' => 'Dirisha la ukaguzi (siku)',
+        'review_days_hint' => 'mf. 5',
     ],
 ];

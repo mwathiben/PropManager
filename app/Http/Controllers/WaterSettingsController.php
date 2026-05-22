@@ -60,6 +60,8 @@ class WaterSettingsController extends Controller
                 'water_sewerage_percent' => $validated['water_sewerage_percent'] ?? null,
                 'water_vat_percent' => $validated['water_vat_percent'] ?? null,
                 'water_source' => $validated['water_source'] ?? null,
+                'water_reading_day' => $validated['water_reading_day'] ?? null,
+                'water_review_days' => $validated['water_review_days'] ?? null,
             ]
         );
 
@@ -82,6 +84,8 @@ class WaterSettingsController extends Controller
                             'water_sewerage_percent' => null,
                             'water_vat_percent' => null,
                             'water_source' => null,
+                            'water_reading_day' => null,
+                            'water_review_days' => null,
                         ]);
                     } else {
                         $building->update([
@@ -94,6 +98,8 @@ class WaterSettingsController extends Controller
                             'water_sewerage_percent' => $override['water_sewerage_percent'] ?? null,
                             'water_vat_percent' => $override['water_vat_percent'] ?? null,
                             'water_source' => $override['water_source'] ?? null,
+                            'water_reading_day' => $override['water_reading_day'] ?? null,
+                            'water_review_days' => $override['water_review_days'] ?? null,
                         ]);
                     }
                 }

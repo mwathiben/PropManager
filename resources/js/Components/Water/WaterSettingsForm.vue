@@ -26,6 +26,8 @@ interface BuildingRow {
     water_sewerage_percent?: number | string | null;
     water_vat_percent?: number | string | null;
     water_source?: string | null;
+    water_reading_day?: number | string | null;
+    water_review_days?: number | string | null;
 }
 
 interface GlobalSettings {
@@ -38,6 +40,8 @@ interface GlobalSettings {
     water_sewerage_percent?: number | string | null;
     water_vat_percent?: number | string | null;
     water_source?: string | null;
+    water_reading_day?: number | string | null;
+    water_review_days?: number | string | null;
 }
 
 const props = withDefaults(defineProps<{
@@ -60,6 +64,8 @@ const form = useForm({
     water_sewerage_percent: props.globalSettings.water_sewerage_percent ?? '',
     water_vat_percent: props.globalSettings.water_vat_percent ?? '',
     water_source: props.globalSettings.water_source ?? '',
+    water_reading_day: props.globalSettings.water_reading_day ?? '',
+    water_review_days: props.globalSettings.water_review_days ?? '',
     building_overrides: props.buildings.map((b) => ({
         id: b.id,
         water_billing_type: b.water_billing_type || 'inherit',
@@ -70,6 +76,8 @@ const form = useForm({
         water_sewerage_percent: b.water_sewerage_percent ?? '',
         water_vat_percent: b.water_vat_percent ?? '',
         water_source: b.water_source ?? '',
+        water_reading_day: b.water_reading_day ?? '',
+        water_review_days: b.water_review_days ?? '',
     })),
 });
 
@@ -200,6 +208,14 @@ onMounted(async () => {
                         <option v-for="s in sourceOptions" :key="s" :value="s">{{ $t(`water.settings.source_${s}`) }}</option>
                     </select>
                 </label>
+                <label class="block text-sm">
+                    <span class="text-gray-700">{{ $t('water.settings.reading_day') }}</span>
+                    <input v-model="form.water_reading_day" type="number" min="1" max="28" step="1" class="mt-1 w-full border-gray-300 rounded-md" :placeholder="$t('water.settings.reading_day_hint')" />
+                </label>
+                <label class="block text-sm">
+                    <span class="text-gray-700">{{ $t('water.settings.review_days') }}</span>
+                    <input v-model="form.water_review_days" type="number" min="0" max="31" step="1" class="mt-1 w-full border-gray-300 rounded-md" :placeholder="$t('water.settings.review_days_hint')" />
+                </label>
             </div>
         </div>
 
@@ -286,6 +302,14 @@ onMounted(async () => {
                                 <option value="">{{ $t('water.settings.source_inherit') }}</option>
                                 <option v-for="s in sourceOptions" :key="s" :value="s">{{ $t(`water.settings.source_${s}`) }}</option>
                             </select>
+                        </label>
+                        <label class="block text-xs">
+                            <span class="text-gray-600">{{ $t('water.settings.reading_day') }}</span>
+                            <input v-model="form.building_overrides[getBuildingOverrideIndex(building.id)].water_reading_day" type="number" min="1" max="28" step="1" class="mt-1 w-full border-gray-300 rounded-md text-sm" :placeholder="$t('water.settings.inherit_placeholder')" />
+                        </label>
+                        <label class="block text-xs">
+                            <span class="text-gray-600">{{ $t('water.settings.review_days') }}</span>
+                            <input v-model="form.building_overrides[getBuildingOverrideIndex(building.id)].water_review_days" type="number" min="0" max="31" step="1" class="mt-1 w-full border-gray-300 rounded-md text-sm" :placeholder="$t('water.settings.inherit_placeholder')" />
                         </label>
                     </div>
                 </div>

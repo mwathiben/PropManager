@@ -82,5 +82,9 @@ return [
         'source_county' => 'المقاطعة / البلدية',
         'source_mixed' => 'مختلط',
         'inherit_placeholder' => 'موروث',
+        'reading_day' => 'يوم القراءة من الشهر',
+        'reading_day_hint' => 'مثال: 25',
+        'review_days' => 'نافذة المراجعة (أيام)',
+        'review_days_hint' => 'مثال: 5',
     ],
 ];

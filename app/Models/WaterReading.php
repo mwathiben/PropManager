@@ -35,6 +35,7 @@ class WaterReading extends Model
         'ocr_reading',
         'ocr_verified',
         'is_anomalous',
+        'auto_approved',
     ];
 
     protected $casts = [
@@ -44,6 +45,7 @@ class WaterReading extends Model
         'is_invoiced' => 'boolean',
         'ocr_verified' => 'boolean',
         'is_anomalous' => 'boolean',
+        'auto_approved' => 'boolean',
         'previous_reading' => 'decimal:2',
         'current_reading' => 'decimal:2',
         'consumption' => 'decimal:2',
@@ -132,6 +134,22 @@ class WaterReading extends Model
             'reviewed_by' => $reviewerId,
             'reviewed_at' => now(),
             'review_notes' => $notes,
+        ]);
+    }
+
+    /**
+     * Phase-88: system auto-approval when the landlord review window closes with
+     * the reading still pending. Marks it billable (so water revenue is never
+     * silently lost) and flags it as a system approval (reviewed_by null).
+     */
+    public function autoApprove(): void
+    {
+        $this->update([
+            'status' => WaterReadingStatus::Approved,
+            'auto_approved' => true,
+            'reviewed_by' => null,
+            'reviewed_at' => now(),
+            'review_notes' => 'Auto-approved after the review window closed.',
         ]);
     }
 
