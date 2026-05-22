@@ -628,6 +628,11 @@ Route::middleware('auth')->group(function () {
             Route::post('/water/meters/{meter}/decommission', [\App\Http\Controllers\MeterController::class, 'decommission'])->whereNumber('meter')->name('meters.decommission');
             Route::post('/water/meters/{meter}/disconnect', [\App\Http\Controllers\MeterController::class, 'disconnect'])->whereNumber('meter')->name('meters.disconnect');
             Route::post('/water/meters/{meter}/reconnect', [\App\Http\Controllers\MeterController::class, 'reconnect'])->whereNumber('meter')->name('meters.reconnect');
+
+            // Phase-91 PRODUCTION-COST: borehole running-cost log feeding the
+            // landlord water intelligence margin metric (landlord-only).
+            Route::post('/water/production-costs', [\App\Http\Controllers\WaterProductionCostController::class, 'store'])->name('water.production-costs.store');
+            Route::delete('/water/production-costs/{productionCost}', [\App\Http\Controllers\WaterProductionCostController::class, 'destroy'])->whereNumber('productionCost')->name('water.production-costs.destroy');
         });
     });
 

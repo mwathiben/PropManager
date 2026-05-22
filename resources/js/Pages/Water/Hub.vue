@@ -4,7 +4,7 @@ import HubShell from '@/Components/Hub/HubShell.vue';
 import HubOverview from '@/Components/Hub/HubOverview.vue';
 import { TabLoadingPlaceholder } from '@/Components/Finances';
 import { useI18n } from '@/composables/useI18n';
-import { BeakerIcon, ClipboardDocumentListIcon, ClockIcon, Cog6ToothIcon, CheckBadgeIcon, Squares2X2Icon, ArrowUpTrayIcon } from '@heroicons/vue/24/outline';
+import { BeakerIcon, ClipboardDocumentListIcon, ClockIcon, Cog6ToothIcon, CheckBadgeIcon, Squares2X2Icon, ArrowUpTrayIcon, ChartBarIcon } from '@heroicons/vue/24/outline';
 
 interface Props {
     activeTab?: string;
@@ -20,6 +20,8 @@ interface Props {
     buildingsList?: unknown[];
     pendingReadings?: unknown;
     settings?: Record<string, unknown>;
+    intelligence?: Record<string, unknown>;
+    costCategories?: string[];
     overviewStats?: Array<{ label: string; value: string | number; tone?: string }>;
 }
 
@@ -30,6 +32,7 @@ const ReadingsTab = defineAsyncComponent({ loader: () => import('./tabs/Readings
 const ReviewTab = defineAsyncComponent({ loader: () => import('./tabs/ReviewTab.vue'), loadingComponent: TabLoadingPlaceholder, delay: 100 });
 const HistoryTab = defineAsyncComponent({ loader: () => import('./tabs/HistoryTab.vue'), loadingComponent: TabLoadingPlaceholder, delay: 100 });
 const SettingsTab = defineAsyncComponent({ loader: () => import('./tabs/SettingsTab.vue'), loadingComponent: TabLoadingPlaceholder, delay: 100 });
+const IntelligenceTab = defineAsyncComponent({ loader: () => import('./tabs/IntelligenceTab.vue'), loadingComponent: TabLoadingPlaceholder, delay: 100 });
 
 // Phase-79 WATER-ROLES-1: caretaker records, landlord reviews — each role only
 // sees its own primary tab. Phase-83 follow-up: an Overview homepage leads.
@@ -44,6 +47,11 @@ const tabs = computed(() => {
         list.push({ id: 'review', name: t('water.tabs.review'), icon: CheckBadgeIcon, badge: props.counts?.pendingReadings });
     }
     list.push({ id: 'history', name: t('water.tabs.history'), icon: ClockIcon });
+    // Phase-91: the Intelligence analytics surface is landlord-only (canSettings
+    // doubles as the landlord flag), placed before Settings.
+    if (props.canSettings) {
+        list.push({ id: 'intelligence', name: t('water.tabs.intelligence'), icon: ChartBarIcon });
+    }
     // Phase-86 ROLE-SPLIT: Settings is landlord-only — a caretaker never sees
     // the water billing configuration tab or its quick-link.
     if (props.canSettings) {
@@ -57,6 +65,7 @@ const tabComponents: Record<string, ReturnType<typeof defineAsyncComponent>> = {
     review: ReviewTab,
     history: HistoryTab,
     settings: SettingsTab,
+    intelligence: IntelligenceTab,
 };
 
 const currentTab = computed(() => props.activeTab || 'overview');
@@ -100,6 +109,8 @@ const subtitle = computed(() =>
             :buildings-list="buildingsList"
             :pending-readings="pendingReadings"
             :settings="settings"
+            :intelligence="intelligence"
+            :cost-categories="costCategories"
             :buildings="buildings"
             :filters="filters"
         />

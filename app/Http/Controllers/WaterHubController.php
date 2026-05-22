@@ -41,6 +41,12 @@ class WaterHubController extends Controller
         if ($tab === 'settings' && $isCaretaker) {
             $tab = 'overview';
         }
+        // Phase-91 WATER-HUB-INTELLIGENCE: the analytics surface is landlord-only
+        // (production costs + margin are business data) — a caretaker requesting
+        // ?tab=intelligence is bounced so the payload is never computed for them.
+        if ($tab === 'intelligence' && $isCaretaker) {
+            $tab = 'overview';
+        }
 
         $baseProps = [
             'activeTab' => $tab,
@@ -59,6 +65,7 @@ class WaterHubController extends Controller
             'review' => $this->getReviewData($landlordId),
             'history' => $this->getHistoryData($request, $landlordId),
             'settings' => $this->getSettingsData($landlordId),
+            'intelligence' => $this->getIntelligenceData($landlordId),
             default => $this->getOverviewData($landlordId),
         };
 
@@ -182,6 +189,19 @@ class WaterHubController extends Controller
         // orphan no billing path read, so it is retired here.
         return [
             'settings' => \App\Services\Water\WaterSettingsData::forLandlord($landlordId),
+        ];
+    }
+
+    /**
+     * Phase-91 WATER-HUB-INTELLIGENCE: the landlord-only analytics payload —
+     * consumption trends, leak signals, billing-vs-collection, and the
+     * cost-of-production margin (see WaterIntelligenceService).
+     */
+    private function getIntelligenceData(int $landlordId): array
+    {
+        return [
+            'intelligence' => app(\App\Services\Water\WaterIntelligenceService::class)->forLandlord($landlordId),
+            'costCategories' => \App\Models\WaterProductionCost::CATEGORIES,
         ];
     }
 

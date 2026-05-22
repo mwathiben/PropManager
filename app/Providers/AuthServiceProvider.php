@@ -81,6 +81,7 @@ class AuthServiceProvider extends ServiceProvider
         Ticket::class => TicketPolicy::class,
         WaterReading::class => WaterReadingPolicy::class,
         Meter::class => MeterPolicy::class,
+        \App\Models\WaterProductionCost::class => \App\Policies\WaterProductionCostPolicy::class,
         Invitation::class => InvitationPolicy::class,
         Expense::class => ExpensePolicy::class,
         ExpenseCategory::class => ExpenseCategoryPolicy::class,
