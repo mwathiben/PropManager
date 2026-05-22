@@ -6,7 +6,6 @@ use App\Http\Traits\WithLandlordScope;
 use App\Models\Building;
 use App\Models\Unit;
 use App\Models\WaterReading;
-use App\Models\WaterSetting;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -166,19 +165,13 @@ class WaterHubController extends Controller
 
     private function getSettingsData(int $landlordId): array
     {
-        $settings = WaterSetting::where('landlord_id', $landlordId)->first();
-
-        if (! $settings) {
-            $settings = WaterSetting::create([
-                'landlord_id' => $landlordId,
-                'rate_per_unit' => config('propmanager.water.default_rate', 150),
-                'billing_day' => 1,
-                'is_enabled' => true,
-            ]);
-        }
-
+        // Phase-83 follow-up WATER-SETTINGS-UNIFY: the Settings tab now renders
+        // the SAME canonical editor as /water/settings (global PaymentConfiguration
+        // + per-building overrides — what WaterRateService actually bills from).
+        // The old WaterSetting model (rate_per_unit/billing_day/is_enabled) was an
+        // orphan no billing path read, so it is retired here.
         return [
-            'settings' => $settings,
+            'settings' => \App\Services\Water\WaterSettingsData::forLandlord($landlordId),
         ];
     }
 

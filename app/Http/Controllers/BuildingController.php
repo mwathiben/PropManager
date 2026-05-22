@@ -202,9 +202,11 @@ class BuildingController extends Controller
 
     public function waterSettings(Building $building)
     {
-        return Inertia::render('Buildings/WaterSettings', [
-            'building' => $building,
-        ]);
+        // Phase-83 follow-up WATER-SETTINGS-UNIFY: there is now ONE canonical
+        // water-settings editor (global defaults + per-building overrides). The
+        // old standalone per-building page is folded in — redirect to the unified
+        // editor anchored to this building's override row.
+        return redirect()->route('water.settings', ['building' => $building->id]);
     }
 
     public function updateWaterSettings(UpdateBuildingWaterSettingsRequest $request, Building $building)

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\WaterSetting\UpdateWaterSettingsRequest;
 use App\Models\Building;
 use App\Models\PaymentConfiguration;
+use App\Services\Water\WaterSettingsData;
 use Inertia\Inertia;
 
 class WaterSettingsController extends Controller
@@ -20,28 +21,15 @@ class WaterSettingsController extends Controller
             abort(403, 'Access denied.');
         }
 
-        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
+        $landlordId = $user->isCaretaker() ? (int) $user->landlord_id : (int) $user->id;
 
-        // Get all buildings with their water settings
-        $buildings = Building::where('landlord_id', $landlordId)
-            ->select('id', 'name', 'water_billing_type', 'water_flat_rate', 'water_unit_rate')
-            ->withCount('units')
-            ->orderBy('name')
-            ->get();
-
-        // Get global payment configuration
-        $paymentConfig = PaymentConfiguration::where('landlord_id', $landlordId)->first();
-
-        $defaultRate = config('propmanager.water.default_rate', 150);
-
-        return Inertia::render('Water/Settings', [
-            'buildings' => $buildings,
-            'globalSettings' => [
-                'water_billing_type' => $paymentConfig->water_billing_type ?? 'consumption',
-                'water_unit_rate' => $paymentConfig->water_unit_rate ?? $defaultRate,
-                'flat_water_rate' => $paymentConfig->flat_water_rate ?? 0,
-            ],
-        ]);
+        // Phase-83 follow-up WATER-SETTINGS-UNIFY: one canonical payload (shared
+        // with the Water hub Settings tab) so both surfaces show identical data.
+        return Inertia::render('Water/Settings', array_merge(
+            WaterSettingsData::forLandlord($landlordId),
+            // Optional deep-link target when arriving from a building's page.
+            ['highlightBuildingId' => request()->integer('building') ?: null],
+        ));
     }
 
     /**
