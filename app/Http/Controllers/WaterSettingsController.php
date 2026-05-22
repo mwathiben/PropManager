@@ -17,11 +17,13 @@ class WaterSettingsController extends Controller
     {
         $user = auth()->user();
 
-        if (! $user->isLandlord() && ! $user->isCaretaker()) {
+        // Phase-86 ROLE-SPLIT: water billing configuration is landlord-only.
+        // Caretakers record/review readings but do not set rates or billing type.
+        if (! $user->isLandlord()) {
             abort(403, 'Access denied.');
         }
 
-        $landlordId = $user->isCaretaker() ? (int) $user->landlord_id : (int) $user->id;
+        $landlordId = (int) $user->id;
 
         // Phase-83 follow-up WATER-SETTINGS-UNIFY: one canonical payload (shared
         // with the Water hub Settings tab) so both surfaces show identical data.
@@ -39,12 +41,9 @@ class WaterSettingsController extends Controller
     {
         $validated = $request->validated();
 
-        // SCOPE-P1: caretakers act on the landlord's behalf — using
-        // auth()->id() would have written to a phantom landlord_id
-        // matching the caretaker's user id. Same root cause as SCOPE-S3
-        // (DocumentController) — resolve to the landlord they manage.
-        $user = auth()->user();
-        $landlordId = $user->isCaretaker() ? (int) $user->landlord_id : (int) $user->id;
+        // Phase-86 ROLE-SPLIT: UpdateWaterSettingsRequest::authorize() restricts
+        // this to landlords, so the configured landlord is always the actor.
+        $landlordId = (int) auth()->id();
 
         $defaultRate = config('propmanager.water.default_rate', 150);
 

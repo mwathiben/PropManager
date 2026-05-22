@@ -35,12 +35,19 @@ class WaterHubController extends Controller
         if ($tab === 'review' && $isCaretaker) {
             $tab = 'readings';
         }
+        // Phase-86 ROLE-SPLIT: water billing configuration is landlord-only. A
+        // caretaker requesting ?tab=settings is bounced to the overview so the
+        // settings payload is never computed or rendered for them.
+        if ($tab === 'settings' && $isCaretaker) {
+            $tab = 'overview';
+        }
 
         $baseProps = [
             'activeTab' => $tab,
             'role' => $isCaretaker ? 'caretaker' : 'landlord',
             'canInput' => $isCaretaker,
             'canReview' => ! $isCaretaker,
+            'canSettings' => ! $isCaretaker,
             'filters' => $request->only(['building_id', 'unit_id', 'date_from', 'date_to', 'status']),
             'buildings' => $this->getBuildings($landlordId),
             'counts' => $this->getCounts($landlordId),

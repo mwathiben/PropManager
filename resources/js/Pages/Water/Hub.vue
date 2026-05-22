@@ -11,6 +11,7 @@ interface Props {
     role?: 'landlord' | 'caretaker';
     canInput?: boolean;
     canReview?: boolean;
+    canSettings?: boolean;
     filters?: Record<string, unknown>;
     buildings?: unknown[];
     counts?: Record<string, number>;
@@ -43,7 +44,11 @@ const tabs = computed(() => {
         list.push({ id: 'review', name: t('water.tabs.review'), icon: CheckBadgeIcon, badge: props.counts?.pendingReadings });
     }
     list.push({ id: 'history', name: t('water.tabs.history'), icon: ClockIcon });
-    list.push({ id: 'settings', name: t('water.tabs.settings'), icon: Cog6ToothIcon });
+    // Phase-86 ROLE-SPLIT: Settings is landlord-only — a caretaker never sees
+    // the water billing configuration tab or its quick-link.
+    if (props.canSettings) {
+        list.push({ id: 'settings', name: t('water.tabs.settings'), icon: Cog6ToothIcon });
+    }
     return list;
 });
 
