@@ -132,7 +132,7 @@ class InvoiceService
 
         // Phase-87: the per-period assembly (standing charge + sewerage % + VAT %
         // + minimum bill) wraps the base. NON-DESTRUCTIVE — with none configured
-        // the result equals the base (flat_water_rate or the tiered reading sum).
+        // the result equals the base (flat_water_rate or consumption * unit rate).
         $tariffService = app(\App\Services\Water\WaterTariffService::class);
         $tariff = $tariffService->resolveForBuilding($building);
 
@@ -141,8 +141,15 @@ class InvoiceService
             return $tariffService->assembleWaterCharge((float) $building->getWaterChargeForUnit(), $tariff);
         }
 
-        // Consumption-based billing - sum approved, uninvoiced readings up to billing period end.
-        // Each reading.cost is already tiered (WaterReadingObserver via the tariff engine).
+        // 'none' (or any non-charging mode) bills nothing (review LOW).
+        if (! $building->usesConsumptionBilling()) {
+            return 0;
+        }
+
+        // Consumption-based billing. Review CRITICAL-1: tier the PERIOD's aggregate
+        // consumption (block tariffs are cumulative over the period), not each
+        // reading. Review HIGH-4: with no readings there is nothing to bill — do
+        // NOT floor a zero base to the minimum / standing charge.
         $billingPeriodEnd = $billingPeriod->copy()->endOfMonth();
         $readings = WaterReading::where('unit_id', $lease->unit_id)
             ->where('status', 'approved')
@@ -150,7 +157,13 @@ class InvoiceService
             ->where('reading_date', '<=', $billingPeriodEnd)
             ->get();
 
-        return $tariffService->assembleWaterCharge((float) $readings->sum('cost'), $tariff);
+        if ($readings->isEmpty()) {
+            return 0;
+        }
+
+        $base = $tariffService->computeConsumptionCharge((float) $readings->sum('consumption'), $tariff);
+
+        return $tariffService->assembleWaterCharge($base, $tariff);
     }
 
     protected function markWaterReadingsAsInvoiced(Lease $lease, Carbon $billingPeriod)

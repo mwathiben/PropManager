@@ -39,4 +39,43 @@ class UpdateWaterSettingsRequest extends FormRequest
             'building_overrides.*.water_source' => 'nullable|in:borehole,county,mixed',
         ];
     }
+
+    /**
+     * Review CRITICAL-2: per-band rules can't catch gaps/overlaps/inversions
+     * across bands, which would silently mis-bill. Enforce: start at 0, each
+     * to > from, contiguous, and only the last band may be open-ended.
+     */
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($v) {
+            $bands = $this->input('tiered_tariffs');
+            if (empty($bands) || ! is_array($bands)) {
+                return;
+            }
+
+            $sorted = collect($bands)
+                ->sortBy(fn ($b) => (float) ($b['from'] ?? 0))
+                ->values();
+            $expectedFrom = 0.0;
+            $last = $sorted->count() - 1;
+
+            foreach ($sorted as $i => $band) {
+                $from = (float) ($band['from'] ?? 0);
+                $hasTo = isset($band['to']) && $band['to'] !== null && $band['to'] !== '';
+                $to = $hasTo ? (float) $band['to'] : null;
+
+                $invalid = $from != $expectedFrom
+                    || ($to !== null && $to <= $from)
+                    || ($to === null && $i !== $last);
+
+                if ($invalid) {
+                    $v->errors()->add('tiered_tariffs', __('water.settings.tiers_invalid'));
+
+                    return;
+                }
+
+                $expectedFrom = $to ?? $from;
+            }
+        });
+    }
 }

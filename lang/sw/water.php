@@ -66,6 +66,7 @@ return [
         'tiers_title' => 'Viwango vya hatua',
         'tiers_hint' => 'Toza viwango vya hatua kwa matumizi. Acha "hadi" ya hatua ya mwisho wazi kwa isiyo na kikomo. Bila hatua, kiwango cha kawaida kwa kila kipimo kinatumika.',
         'tiers_add' => 'Ongeza hatua',
+        'tiers_invalid' => 'Hatua za bei lazima zianze 0, ziwe mfululizo, na hatua ya mwisho pekee ndiyo inaweza kuwa wazi.',
         'tier_from' => 'Kuanzia (vipimo)',
         'tier_to' => 'Hadi (vipimo)',
         'tier_open' => 'Wazi',

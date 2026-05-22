@@ -121,3 +121,24 @@ unit's earliest `previous_reading`).
 - A unit can have only one **active** meter — registering a second is rejected; use **Replace** to swap.
 - A `replaced`/`decommissioned` meter cannot be decommissioned again (keeps the replacement chain intact).
 - `meter.utility_type` is `water` for now but the model is built to extend to other utilities later; do not implement electricity/gas off it yet.
+
+## Phase 87 — tariff engine
+
+`WaterTariffService` turns consumption into a charge with real water-tariff
+depth. **Non-destructive**: with nothing configured the result equals the old
+flat `rate × consumption` (or `flat_water_rate`).
+
+| Concept | Where |
+| --- | --- |
+| Tiered/block rates | `tiered_tariffs` json (`[{from,to,rate}]`, last band `to` blank = open) on payment_configurations / buildings; `WaterTariffService::computeConsumptionCharge` |
+| Standing charge / minimum bill / sewerage % / VAT % | `water_standing_charge` / `water_minimum_charge` / `water_sewerage_percent` / `water_vat_percent`; `WaterTariffService::assembleWaterCharge` (subtotal = base + standing; + sewerage%; + VAT%; floored at minimum) |
+| Water source | `water_source` (borehole\|county\|mixed) — stored now, used by Phase 91 intelligence + Phase 92 compliance |
+| Reading cost | `WaterReadingObserver` → `WaterTariffService::costForReading` (tiered) |
+| Invoice water charge | `InvoiceService::calculateWaterCharges` wraps the base in `assembleWaterCharge` (per-period fixed components) |
+| Config resolution | building override → landlord `PaymentConfiguration` → default (mirrors WaterRateService); building NULL = inherit |
+| Editing | shared `Components/Water/WaterSettingsForm.vue` (global + per-building), landlord-only |
+
+### Resequenced (deliberate, not dropped)
+- **WaterConnection** (universal billable entity) → Phase 94 (water clients) — introducing it earlier would rebuild the biller twice.
+- **Apportioned billing mode + common-area split**, **borehole production-cost capture**, **effective-dated tariff scheduling** → dedicated later water phases.
+- Per-building tiered-band editing in the UI is deferred (backend supports it; v1 exposes global bands + per-building flat-rate/levy overrides).

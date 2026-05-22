@@ -66,6 +66,7 @@ return [
         'tiers_title' => 'Tiered rates',
         'tiers_hint' => 'Charge stepped block rates by consumption. Leave the last band\'s "to" blank for open-ended. If no tiers are set, the flat rate per unit applies.',
         'tiers_add' => 'Add tier',
+        'tiers_invalid' => 'Tariff bands must start at 0, be contiguous, and only the last band may be open-ended.',
         'tier_from' => 'From (units)',
         'tier_to' => 'To (units)',
         'tier_open' => 'Open',

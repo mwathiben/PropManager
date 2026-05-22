@@ -32,6 +32,15 @@ class WaterTariffService
         return $this->computeConsumptionCharge($consumption, $this->resolveForUnit($unit));
     }
 
+    /**
+     * Per-reading FLAT estimate (consumption x unit rate) for display in the
+     * review/history surfaces. Review CRITICAL-1: tiers are a PERIOD concept and
+     * are applied over the period's aggregate consumption at invoice time
+     * (InvoiceService::calculateWaterCharges), NOT per reading — otherwise a
+     * period split across several readings resets to the cheapest band each time
+     * and silently under-bills. So reading.cost stays a flat estimate; the
+     * authoritative tiered charge lives on the invoice.
+     */
     public function costForReading(WaterReading $reading): float
     {
         if ($reading->consumption <= 0) {
@@ -39,11 +48,11 @@ class WaterTariffService
         }
 
         $unit = $reading->unit;
-        if (! $unit) {
-            return round((float) $reading->consumption * $this->rateService->getDefaultRate(), 2);
-        }
+        $rate = $unit
+            ? $this->rateService->getEffectiveRate($unit)
+            : $this->rateService->getDefaultRate();
 
-        return $this->consumptionChargeForUnit($unit, (float) $reading->consumption);
+        return round((float) $reading->consumption * $rate, 2);
     }
 
     /**
@@ -112,7 +121,11 @@ class WaterTariffService
             'unit_rate' => $building
                 ? $this->rateService->getEffectiveRateForBuilding($building)
                 : $this->rateService->getDefaultRate(),
-            'tiered_tariffs' => $building?->tiered_tariffs ?? $config?->tiered_tariffs,
+            // Review MEDIUM: tiered bands are landlord-global in v1 (no per-building
+            // bands UI / persistence yet) — reading the building column would be
+            // dead config and an empty-[] inherit trap. The column stays for a
+            // future per-building-bands phase.
+            'tiered_tariffs' => $config?->tiered_tariffs,
             'standing_charge' => (float) ($pick('water_standing_charge') ?? 0),
             'minimum_charge' => (float) ($pick('water_minimum_charge') ?? 0),
             'sewerage_percent' => (float) ($pick('water_sewerage_percent') ?? 0),

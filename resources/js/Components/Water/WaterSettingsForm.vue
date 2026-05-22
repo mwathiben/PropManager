@@ -269,8 +269,16 @@ onMounted(async () => {
                             <input v-model="form.building_overrides[getBuildingOverrideIndex(building.id)].water_standing_charge" type="number" min="0" step="0.01" class="mt-1 w-full border-gray-300 rounded-md text-sm" :placeholder="$t('water.settings.inherit_placeholder')" />
                         </label>
                         <label class="block text-xs">
+                            <span class="text-gray-600">{{ $t('water.settings.minimum_charge') }}</span>
+                            <input v-model="form.building_overrides[getBuildingOverrideIndex(building.id)].water_minimum_charge" type="number" min="0" step="0.01" class="mt-1 w-full border-gray-300 rounded-md text-sm" :placeholder="$t('water.settings.inherit_placeholder')" />
+                        </label>
+                        <label class="block text-xs">
                             <span class="text-gray-600">{{ $t('water.settings.sewerage_percent') }} (%)</span>
                             <input v-model="form.building_overrides[getBuildingOverrideIndex(building.id)].water_sewerage_percent" type="number" min="0" max="100" step="0.01" class="mt-1 w-full border-gray-300 rounded-md text-sm" :placeholder="$t('water.settings.inherit_placeholder')" />
+                        </label>
+                        <label class="block text-xs">
+                            <span class="text-gray-600">{{ $t('water.settings.vat_percent') }} (%)</span>
+                            <input v-model="form.building_overrides[getBuildingOverrideIndex(building.id)].water_vat_percent" type="number" min="0" max="100" step="0.01" class="mt-1 w-full border-gray-300 rounded-md text-sm" :placeholder="$t('water.settings.inherit_placeholder')" />
                         </label>
                         <label class="block text-xs">
                             <span class="text-gray-600">{{ $t('water.settings.water_source') }}</span>
