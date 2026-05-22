@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 return [
     'module_disabled' => 'Water billing is not enabled. Configure water charges in a building\'s water settings to use the water hub.',
+    'reading_failed' => 'This reading could not be saved. Please try again.',
     'hub' => [
         'title' => 'Water hub',
         'subtitle_caretaker' => 'Record meter readings for your buildings',

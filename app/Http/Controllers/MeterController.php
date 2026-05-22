@@ -9,6 +9,7 @@ use App\Http\Requests\Meter\StoreMeterRequest;
 use App\Http\Traits\WithLandlordScope;
 use App\Models\Building;
 use App\Models\Meter;
+use App\Models\Unit;
 use App\Services\Water\MeterReplacementService;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -31,7 +32,7 @@ class MeterController extends Controller
 
         $meters = Meter::query()
             ->where('landlord_id', $landlordId)
-            ->with(['unit:id,unit_number', 'building:id,name'])
+            ->with(['unit:id,unit_number', 'building:id,name', 'latestReading:id,meter_id,current_reading'])
             ->withCount('readings')
             ->orderByDesc('status')
             ->orderBy('id')
@@ -43,7 +44,7 @@ class MeterController extends Controller
                 'utility_type' => $m->utility_type,
                 'meter_type' => $m->meter_type,
                 'initial_reading' => $m->initial_reading,
-                'current_value' => $m->baselineForNextReading(),
+                'current_value' => (float) ($m->latestReading->current_reading ?? $m->initial_reading),
                 'unit' => $m->unit?->unit_number,
                 'building' => $m->building?->name,
                 'installed_at' => $m->installed_at?->toDateString(),
@@ -66,10 +67,17 @@ class MeterController extends Controller
 
     public function store(StoreMeterRequest $request)
     {
+        $unitId = $request->input('unit_id');
+        // Review (CR M2): keep building_id consistent with the unit rather than
+        // trusting a possibly-mismatched client value.
+        $buildingId = $unitId
+            ? Unit::whereKey($unitId)->value('building_id')
+            : $request->input('building_id');
+
         Meter::create([
             'landlord_id' => $this->getLandlordId(),
-            'building_id' => $request->input('building_id'),
-            'unit_id' => $request->input('unit_id'),
+            'building_id' => $buildingId,
+            'unit_id' => $unitId,
             'parent_meter_id' => $request->input('parent_meter_id'),
             'serial_number' => $request->input('serial_number'),
             'meter_type' => $request->input('meter_type'),
@@ -87,13 +95,19 @@ class MeterController extends Controller
     {
         $this->authorize('replace', $meter);
 
-        $this->replacements->replace(
-            $meter,
-            (float) $request->input('old_final_reading'),
-            (string) ($request->input('new_serial') ?? ''),
-            (float) $request->input('new_initial_reading'),
-            $request->input('reading_date'),
-        );
+        try {
+            $this->replacements->replace(
+                $meter,
+                (float) $request->input('old_final_reading'),
+                (string) ($request->input('new_serial') ?? ''),
+                (float) $request->input('new_initial_reading'),
+                $request->input('reading_date'),
+            );
+        } catch (\InvalidArgumentException $e) {
+            // Review (CR1): user-correctable conditions (below-baseline, already
+            // replaced) belong on the form, not a 500 — matches BuildingController.
+            return back()->withErrors(['old_final_reading' => $e->getMessage()]);
+        }
 
         return back()->with('success', __('meter.flash.replaced'));
     }
@@ -102,7 +116,11 @@ class MeterController extends Controller
     {
         $this->authorize('decommission', $meter);
 
-        $this->replacements->decommission($meter);
+        try {
+            $this->replacements->decommission($meter);
+        } catch (\InvalidArgumentException $e) {
+            return back()->withErrors(['meter' => $e->getMessage()]);
+        }
 
         return back()->with('success', __('meter.flash.decommissioned'));
     }

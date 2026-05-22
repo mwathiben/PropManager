@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 return [
     'module_disabled' => 'Bili ya maji haijawashwa. Weka gharama za maji katika mipangilio ya maji ya jengo ili kutumia kitovu cha maji.',
+    'reading_failed' => 'Usomaji huu haukuweza kuhifadhiwa. Tafadhali jaribu tena.',
     'hub' => [
         'title' => 'Kitovu cha maji',
         'subtitle_caretaker' => 'Rekodi visomo vya mita kwa majengo yako',

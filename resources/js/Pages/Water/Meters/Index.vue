@@ -198,6 +198,7 @@ const statusTone = (status: string) => ({
                                                 <input v-model="replaceForm.new_initial_reading" type="number" step="0.01" min="0" class="mt-1 w-40 rounded-md border-gray-300 text-sm" />
                                             </label>
                                             <button type="submit" :disabled="replaceForm.processing" class="rounded-lg bg-cyan-600 px-3 py-2 text-xs font-medium text-white hover:bg-cyan-700 disabled:opacity-50">{{ t('meter.replace.submit') }}</button>
+                                            <p v-if="replaceForm.errors.old_final_reading" class="basis-full text-xs text-red-600">{{ replaceForm.errors.old_final_reading }}</p>
                                             <p class="basis-full text-xs text-gray-400">{{ t('meter.replace.hint') }}</p>
                                         </form>
                                     </td>

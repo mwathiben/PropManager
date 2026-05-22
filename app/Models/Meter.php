@@ -85,6 +85,15 @@ class Meter extends Model
     }
 
     /**
+     * The most recent reading, for eager-loading the current value without an
+     * N+1 over a meter fleet (review LOW).
+     */
+    public function latestReading(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(WaterReading::class)->latestOfMany(['reading_date' => 'max', 'id' => 'max']);
+    }
+
+    /**
      * @param  \Illuminate\Database\Eloquent\Builder<Meter>  $query
      * @return \Illuminate\Database\Eloquent\Builder<Meter>
      */

@@ -151,11 +151,22 @@ class WaterReadingService
 
             return ['success' => true];
         } catch (\Exception $e) {
+            // Review (silent-failure HIGH): the try wraps a DB transaction
+            // (resolveActiveForUnit lock), photo I/O and the write. A real
+            // infra fault (deadlock, storage error) must be observable, not
+            // flattened into a per-row string with a leaked raw SQL message.
+            Log::error('Water reading processing failed', [
+                'unit_id' => $readingData['unit_id'] ?? null,
+                'landlord_id' => $landlordId,
+                'exception' => $e::class,
+                'message' => $e->getMessage(),
+            ]);
+
             return [
                 'success' => false,
                 'error' => [
-                    'unit' => $readingData['unit_id'],
-                    'message' => $e->getMessage(),
+                    'unit' => $readingData['unit_id'] ?? null,
+                    'message' => __('water.reading_failed'),
                 ],
             ];
         }

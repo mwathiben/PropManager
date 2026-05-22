@@ -306,4 +306,50 @@ class Phase86WaterMeterFoundationTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         app(MeterReplacementService::class)->decommission($meter);
     }
+
+    public function test_cannot_register_a_second_active_meter_for_a_unit(): void
+    {
+        $unit = $this->units->get(5);
+        Meter::factory()->create([
+            'landlord_id' => $this->landlord->id,
+            'building_id' => $unit->building_id,
+            'unit_id' => $unit->id,
+            'status' => 'active',
+        ]);
+
+        $this->actingAs($this->landlord->fresh())
+            ->post(route('meters.store'), ['unit_id' => $unit->id, 'initial_reading' => 10])
+            ->assertSessionHasErrors('unit_id');
+    }
+
+    public function test_replace_below_baseline_returns_form_error_not_500(): void
+    {
+        $this->actingAs($this->landlord->fresh());
+        $unit = $this->units->get(6);
+
+        $meter = Model::withoutEvents(function () use ($unit) {
+            $m = Meter::factory()->create([
+                'landlord_id' => $this->landlord->id,
+                'building_id' => $unit->building_id,
+                'unit_id' => $unit->id,
+                'initial_reading' => 100,
+                'status' => 'active',
+            ]);
+            WaterReading::factory()->forMeter($m)->create([
+                'previous_reading' => 100,
+                'current_reading' => 150,
+                'reading_date' => now()->subMonth()->toDateString(),
+                'status' => 'approved',
+            ]);
+
+            return $m;
+        });
+
+        $this->post(route('meters.replace', $meter->id), [
+            'old_final_reading' => 80,
+            'new_initial_reading' => 0,
+        ])->assertSessionHasErrors('old_final_reading');
+
+        $this->assertSame('active', $meter->fresh()->status->value);
+    }
 }

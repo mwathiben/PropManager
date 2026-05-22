@@ -85,15 +85,20 @@ class MeterReplacementService
 
     public function decommission(Meter $meter): void
     {
-        // Review M1: don't move an already-retired meter into a second terminal
-        // state (a Replaced meter has a successor; that chain must stay intact).
-        if (in_array($meter->status, [MeterStatus::Replaced, MeterStatus::Decommissioned], true)) {
-            throw new InvalidArgumentException('This meter is already retired.');
-        }
+        // Review M1 + CR-M (TOCTOU): lock + re-check inside a transaction, like
+        // replace(), so a decommission can't race a replace and leave the meter
+        // Decommissioned while still carrying a replaced_by_meter_id successor.
+        DB::transaction(function () use ($meter) {
+            $locked = Meter::query()->whereKey($meter->id)->lockForUpdate()->firstOrFail();
 
-        $meter->update([
-            'status' => MeterStatus::Decommissioned->value,
-            'decommissioned_at' => now()->toDateString(),
-        ]);
+            if (in_array($locked->status, [MeterStatus::Replaced, MeterStatus::Decommissioned], true)) {
+                throw new InvalidArgumentException('This meter is already retired.');
+            }
+
+            $locked->update([
+                'status' => MeterStatus::Decommissioned->value,
+                'decommissioned_at' => now()->toDateString(),
+            ]);
+        });
     }
 }
