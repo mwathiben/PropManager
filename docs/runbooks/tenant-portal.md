@@ -127,7 +127,45 @@ for surfacing the breach count to dashboards without re-alerting.
   Landlord approve/reject/mark-paid lands in a follow-up so this audit
   cycle stays scoped to the tenant portal.
 
+## Phase 84 TENANT-PORTAL-DEPTH (2026-05-22)
+
+Closes the remaining tenant self-service gaps on top of the rich Phase-28..81 base.
+
+### Payment-method self-management (PAY-METHODS)
+`tenant.payment-methods.index|store|default|destroy` → `Tenant\PaymentMethodController`,
+self-scoped to `auth()->id()`; page `Pages/Tenant/PaymentMethods.vue` (nav "Payment
+Methods"). Writes go through the Phase-48 `TenantPaymentMethodService`
+(single-default-per-(user,type); `details_encrypted` encrypted:json — the index
+returns MASKED summaries). `StoreTenantPaymentMethodRequest` validates per type
+(mpesa→phone, bank→tri-field, card→brand+last4 metadata only). The pay flow
+prefills the STK phone from the saved default M-Pesa method (`savedMpesaPhone`).
+
+### Renewal review/response (RENEWAL-RESPONSE)
+`tenant.renewals.index` → `RenewalResponseController::index` →
+`Pages/Tenant/Renewals.vue`: the lease's open `LeaseRenewal` (current vs proposed
+rent/end_date + counter state) + the Phase-83 generated renewal-offer PDF.
+Accept/reject/counter post to the existing `tenant.renewals.*` routes (only when
+status = proposed). A renewal-pending banner on the lease page deep-links here.
+
+### Lease visibility (LEASE-VISIBILITY)
+`TenantPortalController::lease` also passes `coTenants`, active `guarantors`, the
+open `activeRenewal`, and `leaseAgreementId` (Phase 83). `Tenant/Lease.vue` shows
+read-only co-tenant + guarantor panels, the renewal banner, and a lease-agreement
+download.
+
+### Per-invoice PDF (INVOICE-PDF)
+`tenant.invoices.download` → `TenantFinancesController::downloadInvoice` authorizes
+`invoice.lease.tenant_id === auth id` then streams `InvoicePdfService::downloadPdf`.
+Download buttons on the History invoices tab. Cross-lease = 403, cross-landlord = 404.
+
+| Symptom | Where to look |
+| --- | --- |
+| Payment Methods nav missing | Tenant must pass payment.verified + kyc.complete. |
+| Saved M-Pesa not prefilled | A default mpesa method must exist; `savedMpesaPhone` prop on Pay. |
+| Renewal page empty | Only an OPEN renewal shows; otherwise the empty state. |
+| Invoice download denied | The invoice's lease must belong to the tenant (403 same-landlord, 404 cross). |
+
 ## Memory + lineage
 
-See `project_propmanager_phase28_plan.md` and
-`project_propmanager_path_forward.md` Phase 28 marker.
+See `project_propmanager_phase28_plan.md`, `project-propmanager-phase84-plan`, and
+`project_propmanager_path_forward.md` Phase 28 / Phase 84 markers.

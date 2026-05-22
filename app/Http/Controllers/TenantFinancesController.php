@@ -7,6 +7,7 @@ use App\Models\Invoice;
 use App\Models\Lease;
 use App\Models\Payment;
 use App\Models\PaymentConfiguration;
+use App\Services\InvoicePdfService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -120,6 +121,14 @@ class TenantFinancesController extends Controller
             ];
         }
 
+        // Phase-84 PAY-METHODS-3: prefill the STK phone from the tenant's saved
+        // default M-Pesa method so they don't re-enter it every time.
+        $defaultMpesa = \App\Models\TenantPaymentMethod::where('user_id', $user->id)
+            ->where('type', 'mpesa')
+            ->orderByDesc('is_default')
+            ->first();
+        $savedMpesaPhone = $defaultMpesa?->details_encrypted['phone'] ?? null;
+
         return Inertia::render('TenantFinances/Pay', [
             'invoice' => [
                 'id' => $invoice->id,
@@ -141,7 +150,23 @@ class TenantFinancesController extends Controller
             ],
             'paymentMethods' => $paymentMethods,
             'paystackPublicKey' => $paymentConfig?->paystack_public_key,
+            'savedMpesaPhone' => $savedMpesaPhone,
         ]);
+    }
+
+    /**
+     * Phase-84 INVOICE-PDF-1: tenant downloads a PDF of their own invoice.
+     * Ownership is enforced via the lease's tenant_id (TenantScope isolates by
+     * landlord only, so the explicit check is required).
+     */
+    public function downloadInvoice(Invoice $invoice, InvoicePdfService $pdf)
+    {
+        $user = auth()->user();
+        $invoice->loadMissing('lease');
+
+        abort_unless($invoice->lease && (int) $invoice->lease->tenant_id === (int) $user->id, 403);
+
+        return $pdf->downloadPdf($invoice);
     }
 
     public function history(Request $request): Response

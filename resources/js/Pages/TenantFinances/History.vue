@@ -17,6 +17,7 @@ import {
     DocumentTextIcon,
     ChevronLeftIcon,
     DocumentArrowDownIcon,
+    ArrowDownTrayIcon,
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps<TenantFinancesHistoryPageProps>();
@@ -39,6 +40,7 @@ const invoiceColumns = [
     { key: 'total_due', label: 'Amount', align: 'right', sortable: true },
     { key: 'amount_paid', label: 'Paid', align: 'right', sortable: true },
     { key: 'status', label: 'Status', sortable: true },
+    { key: 'actions', label: '', align: 'right', sortable: false },
 ];
 
 const downloadReceipt = (payment) => {
@@ -185,6 +187,16 @@ const downloadReceipt = (payment) => {
 
                                 <template #cell-status="{ row }">
                                     <InvoiceStatusBadge :status="row.status" size="sm" />
+                                </template>
+
+                                <template #cell-actions="{ row }">
+                                    <a
+                                        :href="route('tenant.invoices.download', row.id)"
+                                        class="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800"
+                                        :title="$t('tenant_finances.download_invoice')"
+                                    >
+                                        <ArrowDownTrayIcon class="w-4 h-4" />
+                                    </a>
                                 </template>
                             </DataTable>
 

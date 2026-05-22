@@ -285,6 +285,8 @@ const navigationItems = computed(() => {
             { name: t('nav.my_finances'), href: route('tenant.finances.index'), icon: BanknotesIcon, active: route().current('tenant.finances.*'), badgeKey: 'invoices', badgeColor: 'bg-red-500', tour: 'nav-tenant-finances' },
             // Phase-79 NAV-REACH-2: wire the previously-orphaned tenant wallet.
             { name: t('nav.my_wallet'), href: route('tenant.wallet.index'), icon: WalletIcon, active: route().current('tenant.wallet.*') },
+            // Phase-84 PAY-METHODS: tenant saved payment methods.
+            { name: t('nav.payment_methods'), href: route('tenant.payment-methods.index'), icon: CreditCardIcon, active: route().current('tenant.payment-methods.*') },
             { name: t('nav.my_tickets'), href: route('tickets.index'), icon: TicketIcon, active: route().current('tickets.*'), badgeKey: 'tickets', badgeColor: 'bg-yellow-500' },
             { name: t('nav.my_lease'), href: route('tenant.lease'), icon: DocumentTextIcon, active: route().current('tenant.lease') },
             // Phase-79 WATER-GATE-4: tenant water view, only when the landlord charges for water.

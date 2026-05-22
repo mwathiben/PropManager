@@ -8,7 +8,11 @@ import {
     DocumentTextIcon,
     CalendarIcon,
     CurrencyDollarIcon,
-    ArrowTrendingUpIcon
+    ArrowTrendingUpIcon,
+    ArrowPathIcon,
+    UserGroupIcon,
+    ShieldCheckIcon,
+    DocumentArrowDownIcon,
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps<TenantLeasePageProps>();
@@ -35,6 +39,24 @@ const { formatCurrency, formatDate } = useFormatters();
                 </div>
 
                 <template v-else>
+                    <!-- Phase-84 RENEWAL-RESPONSE: renewal-pending banner -->
+                    <div v-if="activeRenewal" class="mb-6 rounded-lg border border-indigo-200 bg-indigo-50 p-4 flex items-center justify-between gap-3">
+                        <div class="flex items-center gap-3">
+                            <ArrowPathIcon class="h-5 w-5 text-indigo-600" />
+                            <p class="text-sm text-indigo-800">{{ $t('tenant_renewal.pending_banner') }}</p>
+                        </div>
+                        <Link :href="route('tenant.renewals.index')" class="text-sm font-medium text-indigo-700 hover:text-indigo-900 whitespace-nowrap">
+                            {{ $t('tenant_renewal.review') }}
+                        </Link>
+                    </div>
+
+                    <!-- Phase-84 LEASE-VISIBILITY: download generated lease agreement -->
+                    <div v-if="leaseAgreementId" class="mb-6">
+                        <a :href="route('tenant.documents.download', leaseAgreementId)" class="inline-flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-800">
+                            <DocumentArrowDownIcon class="h-4 w-4" /> {{ $t('tenant_renewal.download_agreement') }}
+                        </a>
+                    </div>
+
                     <!-- Unit Information -->
                     <div class="bg-white rounded-lg shadow-sm border mb-6">
                         <div class="px-4 py-3 border-b bg-gray-50">
@@ -88,6 +110,34 @@ const { formatCurrency, formatDate } = useFormatters();
                                     <p class="font-medium text-gray-900">{{ formatCurrency(lease.deposit_amount) }}</p>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- Phase-84 LEASE-VISIBILITY: co-tenants + guarantors (read-only) -->
+                    <div v-if="(coTenants && coTenants.length) || (guarantors && guarantors.length)" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        <div v-if="coTenants && coTenants.length" class="bg-white rounded-lg shadow-sm border">
+                            <div class="px-4 py-3 border-b bg-gray-50 flex items-center">
+                                <UserGroupIcon class="h-5 w-5 text-gray-500 me-2" />
+                                <h3 class="font-semibold text-gray-900">{{ $t('tenant_renewal.co_tenants') }}</h3>
+                            </div>
+                            <ul class="p-4 divide-y divide-gray-100 text-sm">
+                                <li v-for="c in coTenants" :key="c.id" class="py-2 flex justify-between">
+                                    <span class="text-gray-900">{{ c.name }}</span>
+                                    <span class="text-gray-500">{{ c.relationship || '—' }}</span>
+                                </li>
+                            </ul>
+                        </div>
+                        <div v-if="guarantors && guarantors.length" class="bg-white rounded-lg shadow-sm border">
+                            <div class="px-4 py-3 border-b bg-gray-50 flex items-center">
+                                <ShieldCheckIcon class="h-5 w-5 text-gray-500 me-2" />
+                                <h3 class="font-semibold text-gray-900">{{ $t('tenant_renewal.guarantors') }}</h3>
+                            </div>
+                            <ul class="p-4 divide-y divide-gray-100 text-sm">
+                                <li v-for="g in guarantors" :key="g.id" class="py-2 flex justify-between">
+                                    <span class="text-gray-900">{{ g.name }}</span>
+                                    <span class="text-gray-500">{{ g.relationship || '—' }}</span>
+                                </li>
+                            </ul>
                         </div>
                     </div>
 

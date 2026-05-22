@@ -1,0 +1,132 @@
+{
+  "phase": 84,
+  "title": "TENANT-PORTAL-DEPTH",
+  "opened_at": "2026-05-22",
+  "tier": 7,
+  "scope": "Tenant-facing self-service portal depth. Scout found the portal is ALREADY rich: tenant dashboard (DashboardController::tenantDashboard), finances+pay (TenantFinancesController index/pay/history, M-Pesa STK + Paystack + IntaSend), wallet (Phase 76), statement (Phase 45, PDF/XLSX/email/column-prefs), documents (TenantDocumentsController), full maintenance lifecycle (TicketController create/index/show, tenant reporter-scoped + photos), profile + per-type/per-channel notification prefs (TenantProfileController), KYC (TenantKycController), inbox (Phase 63/67/71), notifications, water (Phase 79 read-only), payment plans + deposit refunds + renewal accept/reject/counter ROUTES (Tenant\\RenewalResponseController). Tenant nav = dashboard/finances/wallet/tickets/lease/water/notifications/inbox. REAL GAPS: (1) tenant PAYMENT-METHOD self-management — Phase 48 built tenant_payment_methods + TenantPaymentMethodService::store/setDefault/softDelete but there is NO tenant route/UI to manage saved methods after onboarding, and the pay flow doesn't prefill from them; (2) NO dedicated tenant RENEWAL page — accept/reject/counter routes exist but a tenant can only respond via a notification, with no page showing the offer (current vs proposed rent/end_date, landlord notes, the Phase-83 generated renewal-offer PDF); (3) Tenant/Lease.vue is a thin 142-line read-only page (rent history only) — it does NOT surface the Phase-83 co-tenants / guarantors / active renewal / generated lease-agreement that now exist on the lease; (4) NO per-invoice PDF download for tenants (statement export exists; InvoicePdfService exists for landlords but no tenant route). Reuse: TenantPaymentMethodService (Phase 48); LeaseRenewal + Tenant\\RenewalResponseController (Phase 45) + DocumentGenerationService renewal-offer (Phase 83); Lease::coTenants/guarantors (Phase 83); InvoicePdfService; AuthenticatedLayout tenant nav branch. All tenant routes gated auth+role:tenant+payment.verified+kyc.complete; ownership via lease.tenant_id (TenantScope isolates by landlord only, so tenant self-access needs explicit tenant_id checks). Money: invoices/payments are decimal.",
+  "categories": [
+    "PAY-METHODS",
+    "RENEWAL-RESPONSE",
+    "LEASE-VISIBILITY",
+    "INVOICE-PDF",
+    "CI"
+  ],
+  "findings": [
+    {
+      "id": "PAY-METHODS-1",
+      "severity": "HIGH",
+      "category": "PAY-METHODS",
+      "title": "Tenant payment-method management page + routes",
+      "evidence": "Phase 48 created tenant_payment_methods + TenantPaymentMethodService (store/setDefault/softDelete) but there is no tenant-facing route or UI — methods can only be set at onboarding. A tenant cannot view, add, set-default, or remove their saved payment methods.",
+      "remediation": "Tenant\\PaymentMethodController index/store/setDefault/destroy (auth+role:tenant, self-scoped via auth()->id()); routes tenant.payment-methods.* ; Pages/Tenant/PaymentMethods.vue listing saved methods (type/masked details/default badge) + add form + set-default + remove; nav link in the tenant branch. Phase84 test: tenant adds/sets-default/removes own methods; cannot touch another tenant's.",
+      "passes": true
+    },
+    {
+      "id": "PAY-METHODS-2",
+      "severity": "MEDIUM",
+      "category": "PAY-METHODS",
+      "title": "Per-type validation + single-default invariant",
+      "evidence": "Saved methods need per-type validation (mpesa phone, bank tri-field, card brand/last4) and exactly one default per type (the service enforces it; the request must validate the inputs).",
+      "remediation": "StoreTenantPaymentMethodRequest with per-type rules (type in mpesa|bank|card; mpesa→phone E.164, bank→bank_name+account_name+account_number, card→brand+last4); controller delegates to TenantPaymentMethodService (single-default-per-(user,type) tx already enforced). Phase84 test: invalid per-type payload rejected; setting a new default unsets the old for that type.",
+      "passes": true
+    },
+    {
+      "id": "PAY-METHODS-3",
+      "severity": "MEDIUM",
+      "category": "PAY-METHODS",
+      "title": "Surface saved methods in the pay flow + i18n",
+      "evidence": "TenantFinancesController::pay shows landlord-configured methods but does not prefill from the tenant's saved default (e.g. M-Pesa phone), so the tenant re-enters details each time.",
+      "remediation": "pay() passes the tenant's saved methods/default; Pay.vue prefills the M-Pesa phone (and shows saved methods) from the default. lang tenant_payment_method.* en/sw/ar. Phase84 test: pay payload includes the tenant's saved methods.",
+      "passes": true
+    },
+    {
+      "id": "RENEWAL-RESPONSE-1",
+      "severity": "HIGH",
+      "category": "RENEWAL-RESPONSE",
+      "title": "Dedicated tenant renewal review page",
+      "evidence": "tenant.renewals.accept/reject/counter routes exist but there is no page rendering the offer — a tenant can only act from a notification with no view of current vs proposed rent/end_date, landlord notes, or any counter history.",
+      "remediation": "Tenant\\RenewalResponseController::index (or TenantPortalController) renders Pages/Tenant/Renewals.vue with the lease's open LeaseRenewal (proposed rent/end_date, notes, counter_* + history) + current lease terms; route tenant.renewals.index (auth+role:tenant, lease-owned). Phase84 test: tenant sees their open renewal; no open renewal → empty state; cannot see another lease's renewal.",
+      "passes": true
+    },
+    {
+      "id": "RENEWAL-RESPONSE-2",
+      "severity": "HIGH",
+      "category": "RENEWAL-RESPONSE",
+      "title": "Inline accept / reject / counter + offer document",
+      "evidence": "The existing accept/reject/counter routes need a real UI; the Phase-83 generated renewal-offer PDF (Document on the lease) is not downloadable by the tenant.",
+      "remediation": "Renewals.vue wires accept/reject (reason)/counter (rent + end_date + message) to the existing tenant.renewals.* routes; shows + links any generated renewal-offer Document (document_type notice with the renewal title) for download via tenant.documents.download. Phase84 test: accept transitions the renewal; counter sets counter_* (reuses RenewalResponseController).",
+      "passes": true
+    },
+    {
+      "id": "RENEWAL-RESPONSE-3",
+      "severity": "MEDIUM",
+      "category": "RENEWAL-RESPONSE",
+      "title": "Renewal prompt on dashboard/lease + nav + i18n",
+      "evidence": "Nothing deep-links the tenant to the new renewal page when an offer is pending.",
+      "remediation": "A 'renewal pending' prompt on the tenant lease page (and/or dashboard action area) linking to tenant.renewals.index when an open renewal exists; lang tenant_renewal.* en/sw/ar. Phase84 test: route registered + reachable; nav-audit clean.",
+      "passes": true
+    },
+    {
+      "id": "LEASE-VISIBILITY-1",
+      "severity": "MEDIUM",
+      "category": "LEASE-VISIBILITY",
+      "title": "Tenant lease page surfaces co-tenants, guarantors, renewal status",
+      "evidence": "Tenant/Lease.vue (142 lines) shows only unit/terms/rent history. Phase 83 added co-tenants, guarantors, and renewal lifecycle on the lease but the tenant cannot see who their co-tenants/guarantors are or whether a renewal is in flight.",
+      "remediation": "TenantPortalController::lease eager-loads coTenants + guarantors(active) + the open renewal; Tenant/Lease.vue renders read-only co-tenant + guarantor panels + a renewal-status banner. Phase84 test: lease payload includes coTenants/guarantors/activeRenewal for the tenant's own lease.",
+      "passes": true
+    },
+    {
+      "id": "LEASE-VISIBILITY-2",
+      "severity": "LOW",
+      "category": "LEASE-VISIBILITY",
+      "title": "Tenant lease-agreement download + i18n",
+      "evidence": "The Phase-83 generated lease_agreement Document is not surfaced for tenant download on the lease page (only generic documents list).",
+      "remediation": "Tenant/Lease.vue lists the lease_agreement Document with a download link (tenant.documents.download, already lease-scoped); lang tenant lease.* additions en/sw/ar. Phase84 lang parity + surface assertion.",
+      "passes": true
+    },
+    {
+      "id": "INVOICE-PDF-1",
+      "severity": "MEDIUM",
+      "category": "INVOICE-PDF",
+      "title": "Per-invoice PDF download for tenants",
+      "evidence": "Tenants can export statements but cannot download an individual invoice PDF; InvoicePdfService exists but has no tenant route.",
+      "remediation": "tenant.invoices.download route (auth+role:tenant) → controller method that authorizes the invoice belongs to the tenant's lease (invoice.lease.tenant_id === auth id) then streams InvoicePdfService output; download buttons on TenantFinances Index/History/Pay. Phase84 test: tenant downloads own invoice PDF; 403/404 on another lease's invoice.",
+      "passes": true
+    },
+    {
+      "id": "INVOICE-PDF-2",
+      "severity": "LOW",
+      "category": "INVOICE-PDF",
+      "title": "Invoice download i18n + surface",
+      "evidence": "The download action needs localized labels and to appear where tenants view invoices.",
+      "remediation": "lang tenant_finances.download_invoice en/sw/ar; button on the finances surfaces. Phase84 lang parity.",
+      "passes": true
+    },
+    {
+      "id": "CI-1",
+      "severity": "MEDIUM",
+      "category": "CI",
+      "title": "Phase84TenantPortalSurfaceTest consolidated watchdog",
+      "evidence": "Five categories need a single presence/behaviour map.",
+      "remediation": "Phase84TenantPortalSurfaceTest: routes registered (tenant.payment-methods.*, tenant.renewals.index, tenant.invoices.download), TenantPaymentMethodService bound, Pages exist (Tenant/PaymentMethods.vue, Tenant/Renewals.vue), lang parity (tenant_payment_method/tenant_renewal namespaces en/sw/ar), nav-audit clean.",
+      "passes": true
+    },
+    {
+      "id": "CI-2",
+      "severity": "LOW",
+      "category": "CI",
+      "title": "docs/runbooks/tenant-portal.md + closeout + memory",
+      "evidence": "No runbook for the tenant portal depth additions.",
+      "remediation": "docs/runbooks/tenant-portal.md (NEW): payment-method self-management, renewal review/response, lease visibility, invoice PDF, the tenant gating tiers. scripts/phase84-closeout.mjs + memory updates (phase84 plan, forward-path, pending-path, MEMORY.md).",
+      "passes": true
+    }
+  ],
+  "closeout": {
+    "closed_at": "2026-05-22",
+    "result": "12/12 findings pass — zero PRD-finding deferrals",
+    "summary": "Tenant-portal depth on an already-rich surface. PAY-METHODS: Tenant\\PaymentMethodController index/store/setDefault/destroy (self-scoped) + StoreTenantPaymentMethodRequest per-type rules + Pages/Tenant/PaymentMethods.vue (masked summaries) + nav link; wired the Phase-48 TenantPaymentMethodService that previously had no UI; pay() prefills savedMpesaPhone. RENEWAL-RESPONSE: RenewalResponseController::index + Pages/Tenant/Renewals.vue (current-vs-proposed, accept/reject/counter to existing routes, generated offer PDF download); renewal-pending banner on the lease page. LEASE-VISIBILITY: TenantPortalController::lease surfaces Phase-83 co-tenants/guarantors/open renewal/lease-agreement; Tenant/Lease.vue read-only panels. INVOICE-PDF: tenant.invoices.download (lease-owned) streaming InvoicePdfService + History download buttons. CI: Phase84TenantPortalSurfaceTest + docs/runbooks/tenant-portal.md.",
+    "tests": "Phase-84 tenant tests: TenantPortal 6 + Surface 6. Pint clean, build clean, nav-audit clean.",
+    "constraints_preserved": "Tenant gating tiers unchanged (auth+role:tenant+payment.verified+kyc.complete). Ownership by lease.tenant_id / user_id (TenantScope is landlord-only). Payment-method details stay server-side encrypted:json, masked in the index. Per-invoice download authorizes by lease.tenant_id. Renewal actions reuse the existing Phase-29/45 routes.",
+    "coderabbit": "CodeRabbit CLI unavailable (+ agent corrupts test DB) — manual self-review: self-scoping on every payment-method mutation (abort_unless user_id===auth); per-type validation; encrypted blob never sent to client (masked); invoice download ownership; lang parity tenant_payment_method/tenant_renewal/tenant_finances en/sw/ar + nav.payment_methods in the json bundles. Used Model::withoutEvents in tests to avoid the known OnboardingMilestoneRecorder catch trip."
+  }
+}

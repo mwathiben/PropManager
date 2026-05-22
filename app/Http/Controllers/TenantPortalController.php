@@ -58,7 +58,7 @@ class TenantPortalController extends Controller
         }
 
         $lease = $user->lease()
-            ->with(['unit.building', 'rentHistory', 'documents'])
+            ->with(['unit.building', 'rentHistory', 'documents', 'coTenants', 'guarantors'])
             ->first();
 
         if (! $lease) {
@@ -68,12 +68,37 @@ class TenantPortalController extends Controller
             ]);
         }
 
+        // Phase-84 LEASE-VISIBILITY: surface the Phase-83 co-tenants / guarantors /
+        // open renewal / generated lease agreement to the tenant (read-only).
+        $activeRenewal = \App\Models\LeaseRenewal::where('lease_id', $lease->id)
+            ->whereIn('status', \App\Models\LeaseRenewal::OPEN_STATUSES)
+            ->latest('id')
+            ->first();
+
+        $leaseAgreement = $lease->documents->firstWhere('document_type', 'lease_agreement');
+
         return Inertia::render('Tenant/Lease', [
             'hasLease' => true,
             'lease' => $lease,
             'unit' => $lease->unit,
             'building' => $lease->unit->building,
             'rentHistory' => $lease->rentHistory()->orderBy('effective_date', 'desc')->get(),
+            'coTenants' => $lease->coTenants->map(fn ($c) => [
+                'id' => $c->id,
+                'name' => $c->name,
+                'relationship' => $c->relationship,
+                'is_responsible_for_rent' => $c->is_responsible_for_rent,
+            ])->values(),
+            'guarantors' => $lease->guarantors->where('status', 'active')->map(fn ($g) => [
+                'id' => $g->id,
+                'name' => $g->name,
+                'relationship' => $g->relationship,
+            ])->values(),
+            'activeRenewal' => $activeRenewal ? [
+                'id' => $activeRenewal->id,
+                'status' => $activeRenewal->status,
+            ] : null,
+            'leaseAgreementId' => $leaseAgreement?->id,
         ]);
     }
 

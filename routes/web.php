@@ -1535,6 +1535,22 @@ Route::middleware(['auth', 'role:tenant', 'payment.verified', 'kyc.complete'])->
     Route::post('/wallet/apply', [\App\Http\Controllers\TenantWalletController::class, 'apply'])
         ->middleware('throttle:6,1')->name('tenant.wallet.apply');
 
+    // Phase-84 PAY-METHODS: tenant self-management of saved payment methods.
+    Route::get('/payment-methods', [\App\Http\Controllers\Tenant\PaymentMethodController::class, 'index'])->name('tenant.payment-methods.index');
+    Route::post('/payment-methods', [\App\Http\Controllers\Tenant\PaymentMethodController::class, 'store'])
+        ->middleware('throttle:sensitive')->name('tenant.payment-methods.store');
+    Route::patch('/payment-methods/{paymentMethod}/default', [\App\Http\Controllers\Tenant\PaymentMethodController::class, 'setDefault'])
+        ->whereNumber('paymentMethod')->name('tenant.payment-methods.default');
+    Route::delete('/payment-methods/{paymentMethod}', [\App\Http\Controllers\Tenant\PaymentMethodController::class, 'destroy'])
+        ->whereNumber('paymentMethod')->name('tenant.payment-methods.destroy');
+
+    // Phase-84 INVOICE-PDF-1: tenant per-invoice PDF download.
+    Route::get('/invoices/{invoice}/download', [TenantFinancesController::class, 'downloadInvoice'])
+        ->whereNumber('invoice')->name('tenant.invoices.download');
+
+    // Phase-84 RENEWAL-RESPONSE-1: dedicated tenant renewal review page.
+    Route::get('/renewals', [\App\Http\Controllers\Tenant\RenewalResponseController::class, 'index'])->name('tenant.renewals.index');
+
     // Tenant Notifications
     Route::get('/notifications', [\App\Http\Controllers\TenantNotificationController::class, 'index'])->name('tenant.notifications');
     Route::get('/notifications/api', [\App\Http\Controllers\TenantNotificationController::class, 'getNotifications'])->name('tenant.notifications.api');

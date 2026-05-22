@@ -5,12 +5,16 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Tenant;
 
 use App\Http\Controllers\Controller;
+use App\Models\Document;
+use App\Models\Lease;
 use App\Models\LeaseRenewal;
 use App\Models\LeaseRenewalCounterHistory;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
+use Inertia\Inertia;
+use Inertia\Response;
 
 /**
  * Phase-29 WF-LEASE-RENEW-3: tenant accepts or rejects a proposed
@@ -20,6 +24,56 @@ use Illuminate\Support\Facades\Redirect;
  */
 class RenewalResponseController extends Controller
 {
+    /**
+     * Phase-84 RENEWAL-RESPONSE-1: dedicated tenant page to review the open
+     * renewal offer (current vs proposed) and accept / reject / counter — the
+     * routes existed but had no page; a tenant could only act from a notification.
+     */
+    public function index(Request $request): Response
+    {
+        $tenant = $request->user();
+        $lease = $tenant->lease()->with(['unit.building'])->first();
+
+        $renewal = $lease
+            ? LeaseRenewal::where('lease_id', $lease->id)
+                ->whereIn('status', LeaseRenewal::OPEN_STATUSES)
+                ->latest('id')
+                ->first()
+            : null;
+
+        // Phase-83 generated renewal-offer PDF for this lease, if one exists.
+        $offerDoc = ($lease && $renewal)
+            ? Document::where('documentable_type', Lease::class)
+                ->where('documentable_id', $lease->id)
+                ->where('document_type', 'notice')
+                ->where('title', __('lease_doc.renewal.title'))
+                ->latest('id')
+                ->first()
+            : null;
+
+        return Inertia::render('Tenant/Renewals', [
+            'hasLease' => (bool) $lease,
+            'lease' => $lease ? [
+                'rent_amount' => (float) $lease->rent_amount,
+                'end_date' => $lease->end_date?->toDateString(),
+                'unit' => $lease->unit?->unit_number,
+                'building' => $lease->unit?->building?->name,
+            ] : null,
+            'renewal' => $renewal ? [
+                'id' => $renewal->id,
+                'status' => $renewal->status,
+                'proposed_rent' => $renewal->proposed_rent_amount_cents / 100,
+                'proposed_end_date' => $renewal->proposed_end_date?->toDateString(),
+                'notes' => $renewal->notes,
+                'counter_rent' => $renewal->counter_rent_amount_cents ? $renewal->counter_rent_amount_cents / 100 : null,
+                'counter_end_date' => $renewal->counter_end_date?->toDateString(),
+                'counter_message' => $renewal->counter_message,
+                'can_respond' => $renewal->status === LeaseRenewal::STATUS_PROPOSED,
+            ] : null,
+            'offerDocumentId' => $offerDoc?->id,
+        ]);
+    }
+
     public function accept(Request $request, LeaseRenewal $renewal): RedirectResponse
     {
         $this->guard($request, $renewal);

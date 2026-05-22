@@ -100,6 +100,11 @@ export interface TenantLeasePageProps {
   unit?: Unit;
   building?: Building;
   rentHistory?: TenantRentHistoryEntry[];
+  // Phase-84 LEASE-VISIBILITY: read-only Phase-83 lease parties + renewal.
+  coTenants?: Array<{ id: number; name: string; relationship?: string | null; is_responsible_for_rent?: boolean }>;
+  guarantors?: Array<{ id: number; name: string; relationship?: string | null }>;
+  activeRenewal?: { id: number; status: string } | null;
+  leaseAgreementId?: number | null;
 }
 
 // ===== TENANT PAYMENT REQUIRED PAGE =====
