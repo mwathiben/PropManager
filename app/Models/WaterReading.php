@@ -18,6 +18,7 @@ class WaterReading extends Model
     protected $fillable = [
         'version',
         'unit_id',
+        'meter_id',
         'landlord_id',
         'reading_date',
         'previous_reading',
@@ -56,6 +57,15 @@ class WaterReading extends Model
     public function unit()
     {
         return $this->belongsTo(Unit::class);
+    }
+
+    /**
+     * The physical meter this reading was taken from (Phase-86). Nullable for
+     * legacy rows that pre-date the meter model and were not backfilled.
+     */
+    public function meter()
+    {
+        return $this->belongsTo(Meter::class);
     }
 
     /**

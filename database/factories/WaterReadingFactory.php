@@ -70,6 +70,15 @@ class WaterReadingFactory extends Factory
         ]);
     }
 
+    public function forMeter(\App\Models\Meter $meter): static
+    {
+        return $this->state([
+            'meter_id' => $meter->id,
+            'unit_id' => $meter->unit_id,
+            'landlord_id' => $meter->landlord_id,
+        ]);
+    }
+
     public function withConsumption(float $previousReading, float $currentReading): static
     {
         $consumption = $currentReading - $previousReading;

@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Water;
 
+use App\Models\Meter;
 use App\Models\PaymentConfiguration;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
+use App\Models\WaterReading;
 use App\Services\Water\WaterModuleAccess;
+use App\Services\WaterReadingService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
@@ -105,5 +108,80 @@ class Phase86WaterMeterFoundationTest extends TestCase
         $this->actingAs($this->landlord->fresh())
             ->get(route('water.settings'))
             ->assertOk();
+    }
+
+    // --- METER MODEL -----------------------------------------------------
+
+    public function test_reading_uses_meter_non_zero_baseline_for_first_consumption(): void
+    {
+        $unit = $this->units->get(0);
+        $meter = Meter::factory()->create([
+            'landlord_id' => $this->landlord->id,
+            'building_id' => $unit->building_id,
+            'unit_id' => $unit->id,
+            'initial_reading' => 500,
+            'status' => 'active',
+        ]);
+
+        $this->actingAs($this->landlord->fresh());
+        $result = app(WaterReadingService::class)->processReading([
+            'unit_id' => $unit->id,
+            'current_reading' => 520,
+            'reading_date' => now()->toDateString(),
+        ], $this->landlord->id);
+
+        $this->assertTrue($result['success']);
+        $reading = WaterReading::where('meter_id', $meter->id)->firstOrFail();
+        // Baseline 500, not 0 -> consumption is 20, not 520.
+        $this->assertEquals(20, (float) $reading->consumption);
+        $this->assertEquals(500, (float) $reading->previous_reading);
+    }
+
+    public function test_reading_for_unmetered_unit_lazily_creates_a_meter(): void
+    {
+        $unit = $this->units->get(1);
+        $this->assertNull(Meter::where('unit_id', $unit->id)->first());
+
+        $this->actingAs($this->landlord->fresh());
+        $result = app(WaterReadingService::class)->processReading([
+            'unit_id' => $unit->id,
+            'current_reading' => 30,
+            'reading_date' => now()->toDateString(),
+        ], $this->landlord->id);
+
+        $this->assertTrue($result['success']);
+        $meter = Meter::where('unit_id', $unit->id)->first();
+        $this->assertNotNull($meter);
+        $this->assertSame($meter->id, WaterReading::where('unit_id', $unit->id)->firstOrFail()->meter_id);
+    }
+
+    public function test_below_baseline_reading_is_rejected(): void
+    {
+        $unit = $this->units->get(2);
+        Meter::factory()->create([
+            'landlord_id' => $this->landlord->id,
+            'building_id' => $unit->building_id,
+            'unit_id' => $unit->id,
+            'initial_reading' => 500,
+            'status' => 'active',
+        ]);
+
+        $this->actingAs($this->landlord->fresh());
+        $result = app(WaterReadingService::class)->processReading([
+            'unit_id' => $unit->id,
+            'current_reading' => 400,
+            'reading_date' => now()->toDateString(),
+        ], $this->landlord->id);
+
+        $this->assertFalse($result['success']);
+        $this->assertSame(0, WaterReading::where('unit_id', $unit->id)->count());
+    }
+
+    public function test_meter_lifecycle_actions_are_landlord_only(): void
+    {
+        $caretaker = $this->caretaker();
+
+        $this->assertTrue($this->landlord->fresh()->can('create', Meter::class));
+        $this->assertFalse($caretaker->fresh()->can('create', Meter::class));
     }
 }

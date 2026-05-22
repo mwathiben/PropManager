@@ -2,9 +2,14 @@
 
 namespace Tests\Feature\Controllers;
 
+use App\Models\PaymentConfiguration;
+use App\Models\Subscription;
+use App\Models\SubscriptionPlan;
 use App\Models\User;
+use App\Services\Water\WaterModuleAccess;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 use Tests\Traits\CreatesTestData;
@@ -21,12 +26,26 @@ class WaterReadingControllerTest extends TestCase
     {
         parent::setUp();
         Storage::fake('local');
+        // WaterModuleAccess caches per landlord; ids reset under RefreshDatabase.
+        Cache::flush();
         $this->setupData = $this->createLandlordWithFullSetup();
         $this->landlord = $this->setupData['landlord'];
 
         $this->setupData['building']->update([
             'water_billing_type' => 'consumption',
         ]);
+
+        // The water.module gate requires plan-allows AND charges-for-water. The
+        // building covers "charges"; enable the plan feature so this suite no
+        // longer depends on cache pollution from earlier water tests.
+        $plan = SubscriptionPlan::factory()->create(['water_billing_enabled' => true]);
+        Subscription::factory()->create(['user_id' => $this->landlord->id, 'plan_id' => $plan->id, 'status' => 'active']);
+        PaymentConfiguration::create([
+            'landlord_id' => $this->landlord->id,
+            'water_billing_type' => 'consumption',
+            'water_unit_rate' => 150,
+        ]);
+        WaterModuleAccess::forget($this->landlord->id);
     }
 
     public function test_landlord_can_view_water_readings_form(): void

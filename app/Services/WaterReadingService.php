@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Meter;
 use App\Models\Property;
 use App\Models\Setting;
 use App\Models\Unit;
@@ -85,21 +86,31 @@ class WaterReadingService
         try {
             $unit = Unit::findOrFail($readingData['unit_id']);
 
-            $previousReading = WaterReading::where('unit_id', $unit->id)
+            // Phase-86 METER-MODEL: readings key off a physical meter. The
+            // previous value is the meter's last reading or — for the meter's
+            // first read — its (possibly non-zero) install baseline, not 0.
+            $meter = Meter::resolveActiveForUnit($unit);
+
+            $previousReading = WaterReading::where('meter_id', $meter->id)
                 ->orderBy('reading_date', 'desc')
+                ->orderBy('id', 'desc')
                 ->first();
 
-            if ($previousReading && $readingData['current_reading'] < $previousReading->current_reading) {
+            $previousValue = $previousReading
+                ? (float) $previousReading->current_reading
+                : (float) $meter->initial_reading;
+
+            if ($readingData['current_reading'] < $previousValue) {
                 return [
                     'success' => false,
                     'error' => [
                         'unit' => $unit->unit_number,
-                        'message' => "Current reading ({$readingData['current_reading']}) cannot be less than previous reading ({$previousReading->current_reading})",
+                        'message' => "Current reading ({$readingData['current_reading']}) cannot be less than previous reading ({$previousValue})",
                     ],
                 ];
             }
 
-            $duplicate = WaterReading::where('unit_id', $unit->id)
+            $duplicate = WaterReading::where('meter_id', $meter->id)
                 ->whereDate('reading_date', $readingData['reading_date'])
                 ->exists();
 
@@ -118,7 +129,8 @@ class WaterReadingService
 
             WaterReading::create([
                 'unit_id' => $unit->id,
-                'previous_reading' => $previousReading ? $previousReading->current_reading : 0,
+                'meter_id' => $meter->id,
+                'previous_reading' => $previousValue,
                 'current_reading' => $readingData['current_reading'],
                 'reading_date' => $readingData['reading_date'],
                 'photo_path' => $photoPath,

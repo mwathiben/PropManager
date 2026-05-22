@@ -15,6 +15,7 @@ use App\Models\KycRequirement;
 use App\Models\LandlordPayoutAccount;
 use App\Models\LateFeePolicy;
 use App\Models\Lease;
+use App\Models\Meter;
 use App\Models\MoveOutDeductionCategory;
 use App\Models\Payment;
 use App\Models\Property;
@@ -42,6 +43,7 @@ use App\Policies\KycRequirementPolicy;
 use App\Policies\LandlordPayoutAccountPolicy;
 use App\Policies\LateFeeRulePolicy;
 use App\Policies\LeasePolicy;
+use App\Policies\MeterPolicy;
 use App\Policies\MoveOutDeductionCategoryPolicy;
 use App\Policies\PaymentPolicy;
 use App\Policies\PropertyPolicy;
@@ -78,6 +80,7 @@ class AuthServiceProvider extends ServiceProvider
         Document::class => DocumentPolicy::class,
         Ticket::class => TicketPolicy::class,
         WaterReading::class => WaterReadingPolicy::class,
+        Meter::class => MeterPolicy::class,
         Invitation::class => InvitationPolicy::class,
         Expense::class => ExpensePolicy::class,
         ExpenseCategory::class => ExpenseCategoryPolicy::class,
