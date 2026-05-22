@@ -50,6 +50,17 @@ class ReconciliationReport extends Model
     }
 
     /**
+     * Phase-85 RECON-VIEW-2: the stored discrepancy list (type | reference |
+     * local vs remote amount) for the in-app report view.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function getDiscrepanciesAttribute(): array
+    {
+        return $this->result_data ?? [];
+    }
+
+    /**
      * @param  array{0: CarbonImmutable, 1: CarbonImmutable}  $period  [$from, $to]
      */
     public static function storeFromResult(

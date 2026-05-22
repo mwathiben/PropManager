@@ -41,6 +41,9 @@ class Notification extends Model
     // Phase-63 INBOX-NOTIFY-2: fallback channel for unread inbox messages.
     public const TYPE_NEW_MESSAGE = 'new_message';
 
+    // Phase-85 DISPUTE-2: chargeback/dispute raised against a payment.
+    public const TYPE_PAYMENT_DISPUTE = 'payment_dispute';
+
     // Channel constants
     public const CHANNEL_EMAIL = 'email';
 
@@ -98,6 +101,9 @@ class Notification extends Model
         self::TYPE_EVICTION_NOTICE => self::URGENCY_CRITICAL,
         self::TYPE_ARREARS_NOTICE => self::URGENCY_URGENT,
         self::TYPE_LEASE_EXPIRY => self::URGENCY_URGENT,
+        // IMPORTANT (not URGENT) so it reaches landlords via email + in-app by
+        // default — the URGENT channel set (whatsapp/push/in_app) is off by default.
+        self::TYPE_PAYMENT_DISPUTE => self::URGENCY_IMPORTANT,
         self::TYPE_INVOICE => self::URGENCY_IMPORTANT,
         self::TYPE_RENT_REMINDER => self::URGENCY_IMPORTANT,
         self::TYPE_RENT_HIKE => self::URGENCY_IMPORTANT,

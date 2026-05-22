@@ -77,6 +77,7 @@ class StripeWebhookController extends Controller
             $type === 'charge.refunded' => $this->handleChargeRefunded($payload),
             $type === 'invoice.payment_failed' => $this->handleInvoicePaymentFailed($payload),
             $type === 'charge.dispute.created' => $this->handleChargeDisputeCreated($payload),
+            $type === 'charge.dispute.closed' => $this->handleChargeDisputeClosed($payload),
             $type === 'account.updated' => $this->handleAccountUpdated($payload),
             $type === 'price.updated' => $this->handlePriceUpdated($payload),
             $type === 'customer.created' => $this->handleCustomerCreated($payload),
@@ -239,7 +240,9 @@ class StripeWebhookController extends Controller
     private function handleChargeDisputeCreated(array $payload): void
     {
         $chargeId = (string) ($payload['charge'] ?? $payload['id'] ?? '');
+        $disputeId = (string) ($payload['id'] ?? '');
 
+        // Ops-facing incident (unchanged) — fires regardless of attribution.
         \App\Models\OperationalIncident::create([
             'severity' => 'sev3',
             'title' => 'Stripe dispute on charge '.$chargeId,
@@ -248,13 +251,94 @@ class StripeWebhookController extends Controller
             'affected_services' => ['stripe', 'payments'],
             'summary' => sprintf(
                 'Dispute %s on charge %s — amount=%s %s, reason=%s',
-                (string) ($payload['id'] ?? ''),
+                $disputeId,
                 $chargeId,
                 (string) ($payload['amount'] ?? ''),
                 strtoupper((string) ($payload['currency'] ?? '')),
                 (string) ($payload['reason'] ?? ''),
             ),
         ]);
+
+        // Phase-85 DISPUTE-1: first-class landlord-facing record, attributed via
+        // the Payment behind the disputed intent. No auto-reversal (can be won).
+        if ($disputeId === '') {
+            return;
+        }
+
+        $intentId = (string) ($payload['payment_intent'] ?? '');
+        $payment = $intentId !== ''
+            ? \App\Models\Payment::query()->where('paystack_reference', $intentId)->first()
+            : null;
+
+        if (! $payment) {
+            Log::info('Stripe dispute not attributed to a rent payment', ['dispute' => $disputeId, 'charge' => $chargeId]);
+
+            return;
+        }
+
+        $dispute = \App\Models\PaymentDispute::updateOrCreate(
+            ['gateway_dispute_id' => $disputeId],
+            [
+                'payment_id' => $payment->id,
+                'landlord_id' => $payment->landlord_id,
+                'gateway' => 'stripe',
+                'charge_reference' => $chargeId,
+                'amount' => ((int) ($payload['amount'] ?? 0)) / 100,
+                'currency' => strtoupper((string) ($payload['currency'] ?? 'usd')),
+                'reason' => (string) ($payload['reason'] ?? '') ?: null,
+                'status' => \App\Models\PaymentDispute::STATUS_OPEN,
+                'opened_at' => now(),
+                'raw' => $payload,
+            ],
+        );
+
+        if ($dispute->wasRecentlyCreated) {
+            $this->notifyLandlordOfDispute($dispute);
+        }
+    }
+
+    /**
+     * Phase-85 DISPUTE-3: dispute resolved (won/lost). Updates the record only —
+     * a "lost" dispute does NOT auto-reverse the payment here (operator decision).
+     */
+    private function handleChargeDisputeClosed(array $payload): void
+    {
+        $disputeId = (string) ($payload['id'] ?? '');
+        if ($disputeId === '') {
+            return;
+        }
+
+        $dispute = \App\Models\PaymentDispute::query()->where('gateway_dispute_id', $disputeId)->first();
+        if (! $dispute) {
+            return;
+        }
+
+        $status = match ((string) ($payload['status'] ?? '')) {
+            'won' => \App\Models\PaymentDispute::STATUS_WON,
+            'lost' => \App\Models\PaymentDispute::STATUS_LOST,
+            default => \App\Models\PaymentDispute::STATUS_CLOSED,
+        };
+
+        $dispute->update(['status' => $status, 'resolved_at' => now(), 'raw' => $payload]);
+    }
+
+    private function notifyLandlordOfDispute(\App\Models\PaymentDispute $dispute): void
+    {
+        try {
+            app(\App\Services\NotificationService::class)->send(
+                (int) $dispute->landlord_id,
+                \App\Models\Notification::TYPE_PAYMENT_DISPUTE,
+                __('payment_dispute.notify_subject'),
+                __('payment_dispute.notify_body', [
+                    'amount' => number_format((float) $dispute->amount, 2),
+                    'currency' => $dispute->currency,
+                ]),
+                ['dispute_id' => $dispute->id, 'url' => route('gateway-reconciliation.index')],
+                (int) $dispute->landlord_id,
+            );
+        } catch (\Throwable $e) {
+            Log::warning('dispute landlord notification failed', ['dispute' => $dispute->id, 'error' => $e->getMessage()]);
+        }
     }
 
     /**

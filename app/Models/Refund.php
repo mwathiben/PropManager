@@ -44,6 +44,9 @@ class Refund extends Model
         'processed_at',
         'notes',
         'error_details',
+        // Phase-85 REFUND-RETRY-2.
+        'retry_count',
+        'needs_review',
     ];
 
     protected $casts = [
@@ -51,6 +54,8 @@ class Refund extends Model
         'amount' => 'decimal:2',
         'processed_at' => 'datetime',
         'error_details' => 'array',
+        'needs_review' => 'boolean',
+        'retry_count' => 'integer',
     ];
 
     public function payment(): BelongsTo

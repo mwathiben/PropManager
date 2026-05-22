@@ -345,6 +345,14 @@ Schedule::command('rent:escalation-rollup')
     ->onOneServer()
     ->name('phase83-rent-escalation-rollup');
 
+// Phase-85 RECON-STRIPE-2: weekly per-landlord/per-gateway discrepancy gauge.
+// Visibility-only (no alert). Sunday rollup cluster after rent escalation.
+Schedule::command('payments:reconciliation-rollup')
+    ->weeklyOn(0, '05:25')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase85-payments-reconciliation-rollup');
+
 // Phase-29 WF-RENT-REMIND-1: tiered rent reminder dispatcher. Runs
 // after invoices:automate (06:00) and before tickets:audit-sla (07:00)
 // so newly-generated invoices land in the same overnight cycle.
@@ -818,6 +826,15 @@ Schedule::command('payments:gateway-reconcile')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase40-payments-gateway-reconcile');
+
+// Phase-85 REFUND-RETRY-2: retry reference-less failed refunds (idempotent;
+// referenced failures are flagged needs_review, never re-called). Daily before
+// the reconciliation run.
+Schedule::command('refunds:retry-failed')
+    ->dailyAt('05:30')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase85-refunds-retry-failed');
 
 // Phase-41 GATEWAY-PLAN-SYNC-1: weekly push of SubscriptionPlan
 // price changes to Stripe Prices. Mon 04:35 — slots between

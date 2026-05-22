@@ -84,6 +84,33 @@ class RefundService
         return true;
     }
 
+    /**
+     * Phase-85 REFUND-RETRY-1: idempotent retry of a FAILED refund.
+     *
+     * SAFE-BY-DESIGN: a refund only carries a gateway reference
+     * (paystack_refund_reference / mpesa_conversation_id) once the gateway
+     * accepted it — so a failed refund WITHOUT a reference never reached the
+     * gateway and is safe to re-attempt. A failed refund WITH a reference already
+     * created a gateway refund (a later step failed); re-calling would
+     * DOUBLE-REFUND, so it is flagged needs_review for a human and never re-called.
+     */
+    public function retry(Refund $refund): bool
+    {
+        if ($refund->status !== \App\Enums\RefundStatus::Failed) {
+            return false;
+        }
+
+        if ($refund->paystack_refund_reference || $refund->mpesa_conversation_id) {
+            $refund->update(['needs_review' => true]);
+
+            return false;
+        }
+
+        $refund->increment('retry_count');
+
+        return $this->processRefund($refund);
+    }
+
     public function getRefundableAmount(Payment $payment): float
     {
         return DB::transaction(function () use ($payment) {

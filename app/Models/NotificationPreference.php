@@ -35,6 +35,8 @@ class NotificationPreference extends Model
         'new_message_enabled',
         // Phase-82 DOC-REMINDERS-2: opt-in for document-expiry reminders.
         'document_expiry_enabled',
+        // Phase-85 DISPUTE-2: opt-in for payment-dispute alerts.
+        'payment_dispute_enabled',
         // Channel preferences
         'email_enabled',
         'sms_enabled',
@@ -68,6 +70,7 @@ class NotificationPreference extends Model
         'lifecycle_enabled' => 'boolean',
         'new_message_enabled' => 'boolean',
         'document_expiry_enabled' => 'boolean',
+        'payment_dispute_enabled' => 'boolean',
         // Channel casts
         'email_enabled' => 'boolean',
         'sms_enabled' => 'boolean',

@@ -1,0 +1,141 @@
+{
+  "phase": 85,
+  "title": "PAYMENTS-GATEWAY-DEPTH",
+  "opened_at": "2026-05-22",
+  "tier": 7,
+  "scope": "Payment-gateway resilience + reconciliation depth on a MATURE surface. Scout found Phases 40-42 already built: 4 gateways (Paystack/M-Pesa-Daraja/IntaSend/Stripe) with Http timeout+retry + no-retry guards on financial calls; webhook signature verification (Paystack HMAC-SHA512, Stripe SDK constructEvent, M-Pesa IP+timestamp window, IntaSend challenge hash_equals); dual-layer idempotency (IdempotencyService DB 90d + Cache 24h dedup + lockForUpdate + per-gateway reference guards) + webhook_logs (unique provider+event_id) + webhook_dead_letters; FULL Refund flow (Refund model + RefundService initiate/process/handleSuccessful per-gateway + partial refunds + invoice reversal + PlatformFee::markRefunded); gateway reconciliation (PaymentReconciliationService reconcilePaystack/reconcileStripe + TransactionAdapter + compareLedgers missing-locally/amount-mismatch/missing-remotely + ReconciliationReport::storeFromResult persistence + ReconciliationAlert email + gateway_drift alert + DailyPaymentReconciliation cron + PaymentsGatewayReconcile manual command; StripeService::listCharges fully implemented); split/partial payments + platform-fee splitting. REAL GAPS: (1) gateway ReconciliationReport records are persisted + emailed but have NO in-app VIEW — a landlord/ops cannot see or act on the discrepancies (the existing /reconciliation UI is BANK-statement recon [Phase 81], a different thing); (2) DailyPaymentReconciliation::processLandlord ONLY calls reconcilePaystack — Stripe-configured landlords never get scheduled gateway recon even though the service supports reconcileStripe; (3) FAILED refunds (Refund status=failed via markAsFailed) have NO retry/recovery path — they sit indefinitely needing manual DB intervention; (4) Stripe disputes/chargebacks are only LOGGED to operational incidents (handleChargeDisputeCreated) — no first-class dispute record, no Payment link, no landlord notification, no view. Reuse: PaymentReconciliationService + ReconciliationReport (Phase 40); RefundService + Refund + RefundStatus + PaystackService::listRefunds/getRefund (Phase 40/41); StripeWebhookController dispute hook; NotificationService + Notification::TYPE_URGENCY_MAP; HubShell/finances surfaces. SAFETY: this is the most financially-sensitive code — do NOT rebuild working flows; refund retry must be idempotent (never double-refund: only auto-retry refunds with NO gateway reference; surface referenced-but-failed ones for manual review); dispute handling RECORDS + NOTIFIES only (no auto-reversal — disputes can be won). Money is decimal.",
+  "categories": [
+    "RECON-VIEW",
+    "RECON-STRIPE",
+    "REFUND-RETRY",
+    "DISPUTE",
+    "CI"
+  ],
+  "findings": [
+    {
+      "id": "RECON-VIEW-1",
+      "severity": "HIGH",
+      "category": "RECON-VIEW",
+      "title": "In-app gateway reconciliation report view",
+      "evidence": "DailyPaymentReconciliation persists ReconciliationReport rows (storeFromResult) + emails ReconciliationAlert, but there is NO in-app surface — a landlord/ops cannot see the gateway-vs-ledger discrepancies. The existing /reconciliation UI is Phase-81 BANK reconciliation, unrelated.",
+      "remediation": "GatewayReconciliationController index/show (role:landlord, owner-scoped via landlord_id) listing recent ReconciliationReport rows (gateway, window, counts, discrepancy count, alert_sent) + a detail view rendering the stored discrepancies (type, reference, local vs remote amount). Pages/Finances/GatewayReconciliation/{Index,Show}.vue. Routes gateway-reconciliation.* . Phase85 test: landlord sees own reports; cross-landlord 403/404.",
+      "passes": true
+    },
+    {
+      "id": "RECON-VIEW-2",
+      "severity": "MEDIUM",
+      "category": "RECON-VIEW",
+      "title": "Reconciliation report payload exposes discrepancies for the UI",
+      "evidence": "ReconciliationReport must expose its discrepancies in a UI-consumable shape (the stored result + counts) for the detail view.",
+      "remediation": "Confirm/extend ReconciliationReport with an accessor returning the typed discrepancy list (missing_locally | amount_mismatch | missing_remotely with reference + amounts) the Show page renders; controller maps it. Phase85 test: a report with discrepancies returns them in the payload.",
+      "passes": true
+    },
+    {
+      "id": "RECON-VIEW-3",
+      "severity": "LOW",
+      "category": "RECON-VIEW",
+      "title": "Reconciliation nav reachability + i18n",
+      "evidence": "The new view must be reachable (from the Finances hub) and localized.",
+      "remediation": "Link gateway-reconciliation.index from the Finances reconciliation area / a finances action; lang gateway_reconciliation.* en/sw/ar; nav-audit clean. Phase85 test: route registered + reachable.",
+      "passes": true
+    },
+    {
+      "id": "RECON-STRIPE-1",
+      "severity": "HIGH",
+      "category": "RECON-STRIPE",
+      "title": "Daily reconciliation also runs Stripe",
+      "evidence": "DailyPaymentReconciliation::processLandlord only calls reconcilePaystack($landlordId). Stripe-configured landlords never get scheduled gateway reconciliation, despite PaymentReconciliationService::reconcileStripe + StripeService::listCharges existing.",
+      "remediation": "processLandlord reconciles each gateway the landlord has configured (paystack when paystack_secret_key set; stripe when stripe_secret_key set), storing a ReconciliationReport per gateway. Phase85 test: a Stripe-configured landlord produces a stripe ReconciliationReport in the daily run.",
+      "passes": true
+    },
+    {
+      "id": "RECON-STRIPE-2",
+      "severity": "LOW",
+      "category": "RECON-STRIPE",
+      "title": "Reconciliation rollup gauge per gateway",
+      "evidence": "No ops gauge for outstanding gateway discrepancies over time.",
+      "remediation": "payments:reconciliation-rollup weekly gauge landlord_gateway_discrepancies{gateway} from the latest ReconciliationReport per (landlord,gateway) — visibility-only, no alert. Phase85 test: command exits 0.",
+      "passes": true
+    },
+    {
+      "id": "REFUND-RETRY-1",
+      "severity": "HIGH",
+      "category": "REFUND-RETRY",
+      "title": "Idempotent retry of failed refunds",
+      "evidence": "RefundService::markAsFailed leaves refunds in status=failed with no recovery. There is no command/flow to retry them, and a naive retry risks double-refunding.",
+      "remediation": "RefundService::retry(Refund): SAFE-by-design — only re-processes refunds that failed BEFORE obtaining a gateway reference (paystack_refund_reference / mpesa_conversation_id null) so no double-refund is possible; refunds that failed WITH a reference are left for manual review (flagged needs_review). Bounded by a retry_count cap. Phase85 test: a reference-less failed refund retries via processRefund; a referenced failed refund is NOT re-called (flagged).",
+      "passes": true
+    },
+    {
+      "id": "REFUND-RETRY-2",
+      "severity": "MEDIUM",
+      "category": "REFUND-RETRY",
+      "title": "refunds:retry-failed cron + retry bookkeeping",
+      "evidence": "Retry must run on a schedule with attempt tracking and a cap.",
+      "remediation": "Migration adds refunds.retry_count + needs_review (bool) (or reuse error_details). refunds:retry-failed daily command iterates eligible failed refunds (retry_count < cap, reference null), calls RefundService::retry, increments retry_count. Scheduled Africa/Nairobi onOneServer. Phase85 test: command exits 0; retry_count increments; capped refunds skipped.",
+      "passes": true
+    },
+    {
+      "id": "REFUND-RETRY-3",
+      "severity": "MEDIUM",
+      "category": "REFUND-RETRY",
+      "title": "Surface failed/needs-review refunds + gauge",
+      "evidence": "Failed refunds are invisible to the landlord/ops.",
+      "remediation": "Failed + needs_review refunds surfaced on the finances refunds surface (or the reconciliation view) for action; refunds_failed_count gauge + refund_failed sev3 alert. lang refund.retry.* en/sw/ar. Phase85 test: failed refund counted in the gauge command.",
+      "passes": true
+    },
+    {
+      "id": "DISPUTE-1",
+      "severity": "HIGH",
+      "category": "DISPUTE",
+      "title": "First-class payment dispute record from the webhook",
+      "evidence": "StripeWebhookController::handleChargeDisputeCreated only logs to operational incidents — no dispute record linked to the Payment, so chargebacks are invisible to the app/landlord.",
+      "remediation": "Migration payment_disputes (payment_id nullable FK, landlord_id, gateway, gateway_dispute_id unique, amount decimal, currency, reason, status enum[open|under_review|won|lost|closed], opened_at, resolved_at, raw json). PaymentDispute model. handleChargeDisputeCreated records/updates a PaymentDispute (idempotent on gateway_dispute_id, linked to the Payment by charge/intent ref). NO auto-reversal of the Payment/Invoice (disputes can be won). Phase85 test: a dispute.created webhook creates a linked PaymentDispute; replay is idempotent.",
+      "passes": true
+    },
+    {
+      "id": "DISPUTE-2",
+      "severity": "MEDIUM",
+      "category": "DISPUTE",
+      "title": "Landlord notification + dispute view",
+      "evidence": "A new dispute (real money at risk) must alert the landlord and be viewable.",
+      "remediation": "NotifyLandlordOnDispute (NET-NEW Notification type payment_dispute — needs const+TYPE_URGENCY_MAP[URGENT] + notification_preferences.payment_dispute_enabled column + notifications.type ENUM value) on dispute creation; a disputes list on the gateway-reconciliation/finances surface. Phase85 test: dispute creation sends the notification to the landlord.",
+      "passes": true
+    },
+    {
+      "id": "DISPUTE-3",
+      "severity": "MEDIUM",
+      "category": "DISPUTE",
+      "title": "Dispute status updates + i18n",
+      "evidence": "Stripe also fires dispute.closed/funds_reinstated/funds_withdrawn — the record must reflect resolution; strings localized.",
+      "remediation": "Webhook handles dispute.closed (won|lost) updating the PaymentDispute status + resolved_at; lang payment_dispute.* en/sw/ar. Phase85 test: dispute.closed transitions the record to won/lost.",
+      "passes": true
+    },
+    {
+      "id": "CI-1",
+      "severity": "MEDIUM",
+      "category": "CI",
+      "title": "Phase85PaymentsGatewayDepthSurfaceTest consolidated watchdog",
+      "evidence": "Five categories need a single presence/behaviour map.",
+      "remediation": "Phase85PaymentsGatewayDepthSurfaceTest: schema (payment_disputes, refunds.retry_count/needs_review), models bound, routes registered (gateway-reconciliation.index/show), commands exit 0 (refunds:retry-failed, payments:reconciliation-rollup), payment_dispute notification type mapped, lang parity (gateway_reconciliation/payment_dispute/refund namespaces en/sw/ar), nav-audit clean.",
+      "passes": true
+    },
+    {
+      "id": "CI-2",
+      "severity": "LOW",
+      "category": "CI",
+      "title": "docs/runbooks/payments-gateway.md + closeout + memory",
+      "evidence": "No runbook for the gateway-depth additions (recon view, Stripe daily recon, refund retry, disputes).",
+      "remediation": "docs/runbooks/payments-gateway.md (NEW): reconciliation view + report lifecycle, Stripe daily recon, idempotent refund retry (safety rule), dispute recording (no auto-reversal). scripts/phase85-closeout.mjs + memory updates (phase85 plan, forward-path, pending-path, MEMORY.md).",
+      "passes": true
+    }
+  ],
+  "closeout": {
+    "closed_at": "2026-05-22",
+    "result": "13/13 findings pass — zero PRD-finding deferrals",
+    "summary": "Gateway resilience + reconciliation depth on a mature surface (Phases 40-42 already had signature verification, idempotency, refunds, reconciliation). RECON-VIEW: GatewayReconciliationController index/show over the persisted ReconciliationReport (discrepancies accessor) + Pages/Finances/GatewayReconciliation/{Index,Show}.vue + Finances link — the recon results were previously email-only. RECON-STRIPE: DailyPaymentReconciliation now reconciles EVERY configured gateway (paystack + stripe), not just Paystack; payments:reconciliation-rollup gauge. REFUND-RETRY: idempotent RefundService::retry (only re-process reference-less failed refunds; flag referenced ones needs_review — never double-refund) + refunds:retry-failed cron (cap 3) + refunds_failed_count gauge + reconciliation-view surface. DISPUTE: payment_disputes table + PaymentDispute model; StripeWebhookController records/updates a first-class dispute (idempotent on gateway_dispute_id, linked to the Payment, NO auto-reversal) on dispute.created/closed; NET-NEW payment_dispute notification type (IMPORTANT) + landlord notification. CI: Phase85PaymentsGatewayDepthSurfaceTest + docs/runbooks/payments-gateway.md.",
+    "tests": "Phase-85 gateway tests: PaymentsGatewayDepth 5 + Surface 7. Pint clean, build clean, nav-audit clean.",
+    "constraints_preserved": "Most financially-sensitive code — no working flow rebuilt. Refund retry is double-refund-safe (reference guard). Disputes RECORD + NOTIFY only, never auto-reverse (can be won). Reconciliation view is read-only + owner-scoped. payment_dispute is IMPORTANT urgency so it reaches landlords via email+in-app by default (URGENT channel set is off by default). Money is decimal.",
+    "coderabbit": "CodeRabbit CLI unavailable (+ agent corrupts test DB) — manual self-review: refund double-refund guard (reference-less only); dispute idempotency (updateOrCreate on gateway_dispute_id); dispute attribution via paystack_reference=intent; owner-scoping on the recon view; the 3-layer notification wiring (const+map, pref column, enum) verified by the dispute notification test; lang parity gateway_reconciliation/payment_dispute/refund en/sw/ar."
+  }
+}

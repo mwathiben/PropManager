@@ -49,7 +49,7 @@ class DailyPaymentReconciliation extends Command
         $landlordIds = $this->getLandlordIds();
 
         if ($landlordIds->isEmpty()) {
-            $this->info('No Paystack-configured landlords found.');
+            $this->info('No gateway-configured landlords found.');
 
             return self::SUCCESS;
         }
@@ -84,7 +84,7 @@ class DailyPaymentReconciliation extends Command
                 ->pluck('landlord_id');
         }
 
-        return $this->paystackConfiguredFleet()
+        return $this->gatewayConfiguredFleet()
             ->pluck('payment_configurations.landlord_id');
     }
 
@@ -94,28 +94,58 @@ class DailyPaymentReconciliation extends Command
             throw new \InvalidArgumentException('Reconciliation requires a positive landlord id.');
         }
 
+        // Phase-85 RECON-STRIPE-1: match a landlord configured for EITHER gateway.
         return PaymentConfiguration::withoutGlobalScope('landlord')
             ->where('landlord_id', $landlordId)
-            ->where('paystack_enabled', true)
-            ->whereNotNull('paystack_secret_key');
+            ->where(fn ($q) => $q
+                ->where(fn ($p) => $p->where('paystack_enabled', true)->whereNotNull('paystack_secret_key'))
+                ->orWhere(fn ($s) => $s->where('stripe_enabled', true)->whereNotNull('stripe_secret_key')));
     }
 
     // Intentional cross-tenant query — the daily cron sweeps every active
-    // landlord with Paystack configured. Documented so the next reader knows
-    // this is the one place the landlord_id filter is omitted on purpose.
-    private function paystackConfiguredFleet()
+    // landlord with a payment gateway (Paystack OR Stripe) configured. Documented
+    // so the next reader knows this is the one place the landlord_id filter is
+    // omitted on purpose.
+    private function gatewayConfiguredFleet()
     {
         return PaymentConfiguration::withoutGlobalScope('landlord')
-            ->where('paystack_enabled', true)
-            ->whereNotNull('paystack_secret_key')
+            ->where(fn ($q) => $q
+                ->where(fn ($p) => $p->where('paystack_enabled', true)->whereNotNull('paystack_secret_key'))
+                ->orWhere(fn ($s) => $s->where('stripe_enabled', true)->whereNotNull('stripe_secret_key')))
             ->join('users', 'payment_configurations.landlord_id', '=', 'users.id')
             ->where('users.is_archived', false);
     }
 
     private function processLandlord(PaymentReconciliationService $service, int $landlordId): void
     {
+        $config = PaymentConfiguration::withoutGlobalScope('landlord')
+            ->where('landlord_id', $landlordId)
+            ->first();
+
+        if (! $config) {
+            return;
+        }
+
+        // Phase-85 RECON-STRIPE-1: reconcile EVERY gateway the landlord has
+        // configured, not just Paystack (the old code only ran reconcilePaystack,
+        // so Stripe-configured landlords never got scheduled gateway recon).
+        $gateways = [];
+        if ($config->paystack_enabled && ! empty($config->paystack_secret_key)) {
+            $gateways['paystack'] = fn () => $service->reconcilePaystack($landlordId, $this->from, $this->to);
+        }
+        if ($config->stripe_enabled && ! empty($config->stripe_secret_key)) {
+            $gateways['stripe'] = fn () => $service->reconcileStripe($landlordId, $this->from, $this->to);
+        }
+
+        foreach ($gateways as $provider => $run) {
+            $this->reconcileGateway($provider, $run, $landlordId);
+        }
+    }
+
+    private function reconcileGateway(string $provider, \Closure $run, int $landlordId): void
+    {
         try {
-            $result = $service->reconcilePaystack($landlordId, $this->from, $this->to);
+            $result = $run();
 
             if ($this->isDryRun) {
                 $this->processed++;
@@ -126,7 +156,7 @@ class DailyPaymentReconciliation extends Command
                 return;
             }
 
-            $report = ReconciliationReport::storeFromResult($landlordId, 'paystack', $result, [$this->from, $this->to]);
+            $report = ReconciliationReport::storeFromResult($landlordId, $provider, $result, [$this->from, $this->to]);
 
             if ($report->hasDiscrepancies()) {
                 $this->sendAlert($report, $landlordId);
@@ -139,11 +169,12 @@ class DailyPaymentReconciliation extends Command
 
             Log::error('Reconciliation failed for landlord', [
                 'landlord_id' => $landlordId,
+                'gateway' => $provider,
                 'error' => $e->getMessage(),
             ]);
 
             if (! $this->isDryRun) {
-                ReconciliationReport::storeFailed($landlordId, 'paystack', $e->getMessage(), [$this->from, $this->to]);
+                ReconciliationReport::storeFailed($landlordId, $provider, $e->getMessage(), [$this->from, $this->to]);
             }
         }
     }

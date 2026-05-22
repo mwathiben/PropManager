@@ -814,6 +814,12 @@ Route::middleware('auth')->group(function () {
     Route::post('/reconciliation/import', [\App\Http\Controllers\ReconciliationController::class, 'import'])->name('reconciliation.import');
     Route::post('/reconciliation/process-queue', [\App\Http\Controllers\ReconciliationController::class, 'processQueue'])->name('reconciliation.process-queue');
 
+    // Phase-85 RECON-VIEW: gateway (Paystack/Stripe) reconciliation report viewer.
+    Route::get('/gateway-reconciliation', [\App\Http\Controllers\GatewayReconciliationController::class, 'index'])
+        ->middleware('role:landlord,caretaker')->name('gateway-reconciliation.index');
+    Route::get('/gateway-reconciliation/{report}', [\App\Http\Controllers\GatewayReconciliationController::class, 'show'])
+        ->middleware('role:landlord,caretaker')->whereNumber('report')->name('gateway-reconciliation.show');
+
     // 9. Settings (Integrations & Configuration)
     Route::get('/settings', [\App\Http\Controllers\SettingsController::class, 'index'])->name('settings.index');
     Route::post('/settings/business-profile', [\App\Http\Controllers\SettingsController::class, 'updateBusinessProfile'])->name('settings.business.update');

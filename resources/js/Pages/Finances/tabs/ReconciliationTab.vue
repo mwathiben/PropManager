@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { useForm } from '@inertiajs/vue3';
+import { useForm, Link } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables';
 import { useFinancesStore } from '@/stores/finances';
 import { DataTable, PaymentMethodBadge, AmountDisplay } from '@/Components/Finances';
@@ -15,6 +15,7 @@ import {
     ExclamationTriangleIcon,
     XCircleIcon,
     ShieldCheckIcon,
+    ArrowsRightLeftIcon,
 } from '@heroicons/vue/24/outline';
 import type { Payment } from '@/types/finances';
 
@@ -194,6 +195,13 @@ const processQueue = () => {
                 <p class="text-sm text-gray-500">Import bank statements and match transactions to invoices</p>
             </div>
             <div class="flex gap-3">
+                <Link
+                    :href="route('gateway-reconciliation.index')"
+                    class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                    <ArrowsRightLeftIcon class="h-4 w-4" />
+                    {{ $t('gateway_reconciliation.title') }}
+                </Link>
                 <button
                     v-if="pendingReconciliation > 0"
                     @click="processQueue"
