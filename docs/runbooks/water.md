@@ -160,3 +160,23 @@ is never silently dropped (a reading left pending is excluded from invoicing).
 - Set `water_reading_day` a few days before `invoice_generation_day`, with `water_review_days` short enough to close before invoicing, so approved readings are picked up that cycle. A reading recorded too late auto-approves and bills the NEXT cycle (never lost).
 - The review window is measured from when a reading was **recorded** (created_at + review_days), not a fixed calendar date — robust to late reads.
 - New notification types `water_reading_due` / `water_review_due` are IMPORTANT urgency (email + in-app default-on).
+
+## Phase 89 — historical import
+
+Backfill historical water readings from a landlord's CSV **or Excel** sheet via
+the existing imports feature (`/imports`, type `water_readings`; linked from the
+landlord water hub as "Import history").
+
+| Concept | Where |
+| --- | --- |
+| Importer | `ImportService::importWaterReadings` (dispatched by `processImport`) |
+| File types | CSV/TXT (native) + **.xlsx/.xls** (PhpSpreadsheet via `parseRows`/`parseSpreadsheet`) |
+| Template columns | Unit Number, Reading Date, Previous Reading, Current Reading, **Consumption (opt)**, **Cost (opt)** — download from the imports page |
+| Never re-bills | imported readings are `status=approved` + **`is_invoiced=true`** (already-billed history), so `InvoiceService::calculateWaterCharges` excludes them |
+| Faithful values | optional Consumption/Cost preserved as-is (`Model::withoutEvents`); absent Cost = consumption × current effective rate (estimate) |
+| Idempotent | a row whose (meter, reading_date) already exists is **skipped** (`summary.skipped_duplicates`), so re-uploading the same sheet is safe |
+| Meter link | each row resolves `Meter::resolveActiveForUnit` so imported history is meter-keyed like live readings |
+
+### Operator notes
+- Rows map to a unit by **Unit Number** (scoped to the landlord). Water clients (Phase 94) will extend the importer to map by water-line/client.
+- Imported readings are history for analytics (Phase 91) — they never appear in the review queue and never bill.

@@ -80,9 +80,27 @@ class ImportService
             throw new ImportFileException($storagePath);
         }
 
-        $rows = \PhpOffice\PhpSpreadsheet\IOFactory::load(Storage::tenant()->path($storagePath))
-            ->getActiveSheet()
-            ->toArray();
+        // Read via a temp file (works on any disk, not just local — review M2) and
+        // a data-only reader with a row cap (bounds a decompression bomb — review M1).
+        $ext = strtolower(pathinfo($storagePath, PATHINFO_EXTENSION));
+        $tmp = tempnam(sys_get_temp_dir(), 'wimport_');
+        file_put_contents($tmp, Storage::tenant()->get($storagePath));
+
+        try {
+            $reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReader($ext === 'xls' ? 'Xls' : 'Xlsx');
+            $reader->setReadDataOnly(true);
+            $sheet = $reader->load($tmp)->getActiveSheet();
+
+            if ($sheet->getHighestDataRow() > 10000) {
+                throw new InvalidCsvFormatException('too many rows (max 10000)');
+            }
+
+            // formatData=false: date cells return raw Excel serials (converted in
+            // the importer), avoiding the locale-format month/day swap (review CRITICAL).
+            $rows = $sheet->toArray(null, true, false);
+        } finally {
+            @unlink($tmp);
+        }
 
         if (empty($rows) || empty($rows[0])) {
             throw new InvalidCsvFormatException('no headers found');
@@ -316,6 +334,18 @@ class ImportService
         foreach ($rows as $index => $row) {
             $rowNumber = $index + 2;
 
+            // Review CRITICAL: an Excel date cell arrives as a raw serial
+            // (formatData=false). Normalise it to Y-m-d BEFORE validation so the
+            // `date` rule sees a real date and Carbon never guesses a swapped
+            // locale format.
+            if (isset($row['reading_date']) && is_numeric($row['reading_date'])) {
+                try {
+                    $row['reading_date'] = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject((float) $row['reading_date'])->format('Y-m-d');
+                } catch (\Throwable) {
+                    // leave as-is; the validator will reject a non-date.
+                }
+            }
+
             $validator = Validator::make($row, [
                 'unit_number' => 'required|string',
                 'reading_date' => 'required|date',
@@ -347,11 +377,12 @@ class ImportService
                 }
 
                 $meter = Meter::resolveActiveForUnit($unit);
+                // reading_date was normalised to Y-m-d above (Excel serials handled).
                 $readingDate = Carbon::parse($row['reading_date'])->toDateString();
 
                 // Phase-89 DEDUP: re-import is idempotent (one reading per meter+date).
                 $exists = WaterReading::where('meter_id', $meter->id)
-                    ->whereDate('reading_date', $readingDate)
+                    ->where('reading_date', $readingDate)
                     ->exists();
                 if ($exists) {
                     $skipped++;
@@ -361,7 +392,13 @@ class ImportService
 
                 $previous = (float) $row['previous_reading'];
                 $current = (float) $row['current_reading'];
-                $consumption = isset($row['consumption']) && $row['consumption'] !== ''
+                $hasConsumption = isset($row['consumption']) && $row['consumption'] !== '';
+                // Review HIGH: don't silently zero a current<previous reading (a
+                // meter rollover or transposed columns) — surface it as a failed row.
+                if (! $hasConsumption && $current < $previous) {
+                    throw new \RuntimeException("Current reading ({$current}) is below previous ({$previous}); provide a Consumption column for a rollover.");
+                }
+                $consumption = $hasConsumption
                     ? (float) $row['consumption']
                     : max(0, $current - $previous);
                 $cost = isset($row['cost']) && $row['cost'] !== ''

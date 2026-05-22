@@ -98,10 +98,15 @@ class Phase89WaterHistoricalImportTest extends TestCase
         $unit = $this->units->get(3);
 
         $spreadsheet = new Spreadsheet;
-        $spreadsheet->getActiveSheet()->fromArray([
-            ['Unit Number', 'Reading Date', 'Previous Reading', 'Current Reading'],
-            [$unit->unit_number, '2024-02-15', '0', '30'],
-        ], null, 'A1');
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->fromArray([['Unit Number', 'Reading Date', 'Previous Reading', 'Current Reading']], null, 'A1');
+        $sheet->setCellValue('A2', $unit->unit_number);
+        // A REAL Excel date cell formatted dd/mm/yyyy — under the old formatData=true
+        // path Carbon would have read "15/02/2024" and (for day<=12) swapped m/d.
+        $sheet->setCellValue('B2', \PhpOffice\PhpSpreadsheet\Shared\Date::PHPToExcel(\Carbon\Carbon::parse('2024-02-05')));
+        $sheet->getStyle('B2')->getNumberFormat()->setFormatCode('dd/mm/yyyy');
+        $sheet->setCellValue('C2', 0);
+        $sheet->setCellValue('D2', 30);
         $tmp = tempnam(sys_get_temp_dir(), 'wimp').'.xlsx';
         (new Xlsx($spreadsheet))->save($tmp);
         Storage::tenant()->put('imports/water.xlsx', file_get_contents($tmp));
@@ -120,5 +125,16 @@ class Phase89WaterHistoricalImportTest extends TestCase
         $reading = WaterReading::where('unit_id', $unit->id)->firstOrFail();
         $this->assertEquals(30, (float) $reading->consumption);
         $this->assertTrue($reading->is_invoiced);
+        // The Excel date serial converts to the exact date — no month/day swap.
+        $this->assertSame('2024-02-05', $reading->reading_date->format('Y-m-d'));
+    }
+
+    public function test_current_below_previous_without_consumption_is_a_failed_row(): void
+    {
+        $unit = $this->units->get(4);
+        $import = $this->importCsv("Unit Number,Reading Date,Previous Reading,Current Reading\n{$unit->unit_number},2024-01-15,100,50\n");
+
+        $this->assertSame(0, WaterReading::where('unit_id', $unit->id)->count());
+        $this->assertSame(1, $import->failed_rows);
     }
 }
