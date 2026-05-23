@@ -82,6 +82,28 @@ class Phase27ScheduledDeliveryTest extends TestCase
         );
     }
 
+    public function test_delivery_mailable_renders_markdown_body(): void
+    {
+        $savedReport = SavedReport::create([
+            'landlord_id' => $this->landlord->id,
+            'name' => 'Test Arrears',
+            'config' => ['table' => 'payments', 'fields' => ['payment.amount'], 'limit' => 10],
+        ]);
+        $schedule = ScheduledReport::create([
+            'landlord_id' => $this->landlord->id,
+            'saved_report_id' => $savedReport->id,
+            'cadence' => 'weekly',
+            'recipient_email' => $this->landlord->email,
+            'next_due_at' => Carbon::now(),
+        ]);
+
+        // Renders the @component('mail::message') body. Mail::fake() queue assertions
+        // skip rendering, so this guards the "No hint path defined for [mail]" regression.
+        $html = (new ScheduledReportDelivery($schedule, '/tmp/report.xlsx'))->render();
+
+        $this->assertStringContainsString('Test Arrears', $html);
+    }
+
     public function test_command_skips_schedules_not_yet_due(): void
     {
         Mail::fake();

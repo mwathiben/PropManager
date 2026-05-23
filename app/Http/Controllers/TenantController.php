@@ -9,6 +9,7 @@ use App\Http\Requests\Tenant\StoreTenantNoteRequest;
 use App\Http\Requests\Tenant\UpdateEmergencyContactRequest;
 use App\Http\Requests\Tenant\UpdateTenantNoteRequest;
 use App\Http\Requests\UpdateTenantRequest;
+use App\Mail\TenantLedgerStatementMail;
 use App\Models\EmergencyContact;
 use App\Models\Invoice;
 use App\Models\Lease;
@@ -23,9 +24,11 @@ use App\Support\AuthAbilities;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Redirect;
 use Inertia\Inertia;
+use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 
 class TenantController extends Controller
 {
@@ -729,26 +732,40 @@ class TenantController extends Controller
             'currency_code' => $currency->value,
         ]);
 
+        // Actionable feedback instead of an opaque RfcComplianceException 500.
+        if (blank($tenant->email)) {
+            return Redirect::back()->with('error', 'This tenant has no email address on file. Add one before emailing a statement.');
+        }
+
         $filename = "statement-{$tenant->name}-".now()->format('Y-m-d').'.pdf';
         $pdfContent = $pdf->output();
 
-        Mail::send('emails.tenant-statement', [
-            'tenant' => $tenant,
-            'landlord' => $landlord,
-            'summary' => $summary,
-            'dateFrom' => $dateFrom,
-            'dateTo' => $dateTo,
-            'currency_symbol' => $activeLease?->unit?->building?->getEffectiveCurrency()?->symbol()
-                ?? Currency::default()->symbol(),
-        ], function ($message) use ($tenant, $pdfContent, $filename, $landlord) {
-            $message->to($tenant->email, $tenant->name)
-                ->subject('Your Account Statement')
-                ->attachData($pdfContent, $filename, ['mime' => 'application/pdf']);
+        // Must go through a Mailable (markdown), not Mail::send('emails.tenant-statement', ...):
+        // the view uses <x-mail::message> components whose `mail` namespace is only
+        // registered by the markdown render pipeline (a plain view send 500s).
+        // Sent synchronously (not queued) so the success flash reflects a real send and
+        // the PDF isn't serialized onto the queue payload; a transport failure becomes a
+        // clean flash rather than a 500.
+        try {
+            Mail::to($tenant->email, $tenant->name)->send(new TenantLedgerStatementMail(
+                tenant: $tenant,
+                landlord: $landlord,
+                summary: $summary,
+                dateFrom: $dateFrom,
+                dateTo: $dateTo,
+                currencySymbol: $currency->symbol(),
+                pdfContent: $pdfContent,
+                pdfFilename: $filename,
+            ));
+        } catch (TransportExceptionInterface $e) {
+            Log::error('Tenant ledger statement email failed', [
+                'tenant_id' => $tenant->id,
+                'landlord_id' => $landlordId,
+                'error' => $e->getMessage(),
+            ]);
 
-            if ($landlord->email) {
-                $message->from($landlord->email, $landlord->name ?? 'Property Management');
-            }
-        });
+            return Redirect::back()->with('error', 'Could not send the statement right now — the mail server is unavailable. Please try again shortly.');
+        }
 
         return Redirect::back()->with('success', 'Statement emailed to tenant successfully.');
     }

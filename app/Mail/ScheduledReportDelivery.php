@@ -41,7 +41,10 @@ class ScheduledReportDelivery extends Mailable implements ShouldQueue
     public function content(): Content
     {
         return new Content(
-            view: 'emails.scheduled-report',
+            // markdown (not view): the template uses @component('mail::message'/'mail::button'),
+            // whose `mail` namespace only exists in the markdown render pipeline — a plain
+            // view send 500s with "No hint path defined for [mail]".
+            markdown: 'emails.scheduled-report',
             with: [
                 'schedule' => $this->schedule,
                 'reportName' => $this->schedule->savedReport->name,

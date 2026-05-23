@@ -32,8 +32,7 @@ class TenantStatementMail extends Mailable
         public readonly array $rows,
         public readonly CarbonImmutable $periodFrom,
         public readonly CarbonImmutable $periodTo,
-    ) {
-    }
+    ) {}
 
     public function envelope(): Envelope
     {
@@ -52,7 +51,10 @@ class TenantStatementMail extends Mailable
     public function content(): Content
     {
         return new Content(
-            view: 'emails.tenant.statement',
+            // markdown (not view): the template uses <x-mail::message>/<x-mail::table>,
+            // whose `mail` namespace only exists in the markdown render pipeline — a plain
+            // view send 500s with "No hint path defined for [mail]".
+            markdown: 'emails.tenant.statement',
             with: [
                 'tenant' => $this->tenant,
                 'rows' => $this->rows,

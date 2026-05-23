@@ -180,6 +180,21 @@ class Phase28StatementTest extends TestCase
         );
     }
 
+    public function test_statement_mailable_renders_markdown_body(): void
+    {
+        // Renders the <x-mail::message>/<x-mail::table> body. Mail::fake() queue
+        // assertions skip rendering, so this guards the "No hint path defined for
+        // [mail]" regression (the mailable must use markdown:, not view:).
+        $html = (new TenantStatementMail(
+            $this->tenant,
+            [],
+            \Carbon\CarbonImmutable::parse('2026-01-01'),
+            \Carbon\CarbonImmutable::parse('2026-01-31'),
+        ))->render();
+
+        $this->assertStringContainsString($this->tenant->name, $html);
+    }
+
     public function test_unknown_period_falls_back_to_current_month_without_error(): void
     {
         $response = $this->actingAs($this->tenant)
