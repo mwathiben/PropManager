@@ -272,3 +272,20 @@ The tenant water view (`/water`, `tenant.water`, water.module gated) is now a se
 - The four `Components/Water/*` cards are the deliberate reuse seam for the water-clients epic — a water-client dashboard (Phase 96) composes the same components with a different pay route and no rent context.
 - Readings are scoped to the tenant's **occupancy window** (lease `start_date` onward) — `water_readings` has no `lease_id`, so a tenant on a previously-occupied unit must not see the prior occupant's history. The water-client reuse passes its service-start date the same way.
 - Known limitation: **imported** historical readings (Phase-89) are not spike-flagged (`is_anomalous` defaults false, the import bypasses the spike check), so the leak self-alert reflects normally-recorded readings, not bulk-imported history.
+
+## Phase 94 — water clients (foundation)
+
+A landlord can supply water to **non-tenant clients** (e.g. a borehole feeding neighbours) billed at a different rate. Phase 94 is the foundation (model + role + landlord setup/management); onboarding, dashboard, and billing land in Phases 95–97.
+
+| Concept | Where |
+| --- | --- |
+| Identity | A water supply is a **relationship** (`WaterConnection` = the "water line", the analogue of a Lease), NOT a role. A water-only person is a `User` with the new single-value role `water_client` (added Phase 94; users created at onboarding, Phase 95). Dashboards render by capability (`has_water_connection`). |
+| Model | `App\Models\WaterConnection` (`water_connections`) — landlord_id, user_id (the client account, null until onboarded), unit_id/meter_id (the metering point, both nullable — a client line can be unit-less), identifier (landlord-defined code), client_name, billing_mode (metered/flat_rate), client_rate, status, connected_at. TenantScope + SoftDeletes. |
+| Opt-in | `payment_configurations.supplies_water_clients` + `water_client_rate` (the default different rate). Managed on the clients tab, not the shared water settings form. |
+| Surface | landlord-only **Clients** tab (`WaterHubController::getClientsData`, caretaker-bounced) → `Pages/Water/tabs/ClientsTab.vue`: a setup wizard (declare supply + default rate) until opted in, then water-line management (create/edit/delete connections). `WaterConnectionController` setup + store/update/destroy (`water.clients.setup`, `water.connections.*`). |
+
+### Operator notes
+- A water line (connection) can exist **before** the client has an account — the landlord identifies + rates the line now; the `water_client` user is invited/onboarded in Phase 95 and linked via `user_id`.
+- The client rate lives on the connection (overriding the default `water_client_rate`); the Phase-97 biller will charge water clients at this rate via the Phase-87 tariff engine.
+- `water_client` is scoped to the supplier landlord (`TenantScope`, keyed on `landlord_id`), exactly like a tenant.
+- Deferred to 95–97: client invitation/onboarding + required docs + payment method (95), the water-client dashboard reusing the Phase-93 `Components/Water/*` (96), and invoice/statement/payment billing (97).
