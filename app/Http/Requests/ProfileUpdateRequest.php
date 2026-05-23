@@ -8,6 +8,15 @@ use Illuminate\Validation\Rule;
 
 class ProfileUpdateRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        // Multipart submissions send a cleared optional field as '' (not null);
+        // normalize so a blanked mobile number stores NULL rather than ''.
+        if ($this->input('mobile_number') === '') {
+            $this->merge(['mobile_number' => null]);
+        }
+    }
+
     /**
      * Get the validation rules that apply to the request.
      *

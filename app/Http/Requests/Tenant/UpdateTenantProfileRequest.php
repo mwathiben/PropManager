@@ -20,6 +20,18 @@ class UpdateTenantProfileRequest extends FormRequest
         return $this->user()?->isTenant() ?? false;
     }
 
+    protected function prepareForValidation(): void
+    {
+        // Multipart submissions send cleared optional fields as '' (not null);
+        // normalize so an emptied contact field stores NULL, not '' (consistent
+        // querying — WHERE ... IS NULL must catch a blanked field).
+        foreach (['mobile_number', 'emergency_contact_name', 'emergency_contact_phone'] as $field) {
+            if ($this->input($field) === '') {
+                $this->merge([$field => null]);
+            }
+        }
+    }
+
     /**
      * @return array<string, mixed>
      */

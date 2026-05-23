@@ -17,6 +17,11 @@ import {
 const props = defineProps<PersonalInfoTabProps>();
 
 const form = useForm({
+    // Laravel method spoofing: this form uploads a photo (multipart) and PHP only
+    // parses multipart bodies on POST, so we POST with _method=patch rather than
+    // PATCH directly. (Inertia's .post() ignores a `method` option — it must be a
+    // body field, sent via forceFormData below, for the override to read it.)
+    _method: 'patch',
     name: props.user.name,
     email: props.user.email,
     mobile_number: props.user.mobile_number || '',
@@ -57,7 +62,6 @@ const updatePhotoPreview = (event) => {
 
 const submit = () => {
     form.post(route('profile.update'), {
-        method: 'patch',
         forceFormData: true,
         preserveScroll: true,
         onSuccess: () => {

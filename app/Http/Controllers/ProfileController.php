@@ -85,15 +85,21 @@ class ProfileController extends Controller
 
         // Handle photo upload for all users
         if ($request->hasFile('profile_photo')) {
-            // Delete old photo if exists
-            if ($user->profile_photo_path) {
-                Storage::disk('public')->delete($user->profile_photo_path);
-            }
-
+            // Store the new photo FIRST and verify it landed — store() returns false
+            // (it does not throw) on a disk failure. Deleting the old photo before a
+            // failed store would silently destroy it and still report success.
             $path = $request->file('profile_photo')->store(
                 'profile-photos/'.$user->id,
                 'public'
             );
+            if ($path === false) {
+                throw new \RuntimeException('Failed to store profile photo.');
+            }
+
+            if ($user->profile_photo_path) {
+                Storage::disk('public')->delete($user->profile_photo_path);
+            }
+
             $validated['profile_photo_path'] = $path;
         }
 

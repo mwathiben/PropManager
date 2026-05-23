@@ -74,13 +74,19 @@ class TenantProfileController extends Controller
         $validated = $request->validated();
 
         if ($request->hasFile('profile_photo')) {
+            // Store the new photo FIRST and verify it landed — store() returns false
+            // (it does not throw) on a disk failure. Deleting the old photo before a
+            // failed store would silently destroy it and still report success.
+            $path = $request->file('profile_photo')->store('profile-photos/'.$user->id, 'public');
+            if ($path === false) {
+                throw new \RuntimeException('Failed to store tenant profile photo.');
+            }
+
             if ($user->profile_photo_path) {
                 Storage::disk('public')->delete($user->profile_photo_path);
             }
 
-            $validated['profile_photo_path'] = $request
-                ->file('profile_photo')
-                ->store('profile-photos/'.$user->id, 'public');
+            $validated['profile_photo_path'] = $path;
         }
 
         unset($validated['profile_photo']);

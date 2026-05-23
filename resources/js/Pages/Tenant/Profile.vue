@@ -63,6 +63,10 @@ const tabs: { key: TabKey; label: string; icon: any }[] = [
 ];
 
 const profileForm = useForm({
+    // Laravel method spoofing: this form uploads a photo (multipart), and PHP only
+    // parses multipart bodies on POST — so we POST with _method=patch rather than
+    // PATCH directly. The route is PATCH; the override reads _method from the body.
+    _method: 'patch',
     name: props.user.name,
     email: props.user.email,
     mobile_number: props.user.mobile_number ?? '',
@@ -110,8 +114,8 @@ const notificationTypes: { key: keyof NotificationPref; label: string }[] = [
 ];
 
 const submitProfile = () => {
+    // forceFormData so _method is sent in a multipart body the override can read.
     profileForm.post(route('tenant.profile.update'), {
-        method: 'patch',
         forceFormData: true,
         preserveScroll: true,
         onSuccess: () => { profileForm.profile_photo = null; },
@@ -134,8 +138,9 @@ const submitNotifications = () => {
 };
 
 const submitEmergency = () => {
+    // Same form/route as submitProfile — forceFormData so the _method spoof is read.
     profileForm.post(route('tenant.profile.update'), {
-        method: 'patch',
+        forceFormData: true,
         preserveScroll: true,
     });
 };
