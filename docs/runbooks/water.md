@@ -229,3 +229,26 @@ trailing **3-month** window for the "current state" metrics.
 - Collection rate is an **estimate** — water can't be split from rent at payment time, so the water share of each payment is pro-rated by its share of the invoice total.
 - Non-revenue water only appears once a building is sub-metered (a main meter with `parent_meter_id` children). For unmetered/flat-rate buildings it is intentionally absent.
 - County-supply buildings (`water_source = county`) have no borehole production cost — log the county bill as a `maintenance`/`other` cost if you want it in the margin.
+
+## Phase 92 — water compliance (landlord)
+
+A landlord-only **Compliance** tab on the water hub, scoped to **borehole**
+buildings (effective `water_source = borehole`, building override else the global
+config). It tracks the WRA abstraction permit + water-quality certificate and the
+annual abstraction limit vs actual abstraction.
+
+| Concept | Where |
+| --- | --- |
+| Service | `App\Services\Water\WaterComplianceService::forLandlord` |
+| Tab | `WaterHubController::getComplianceData` (caretaker → bounced to overview) + `resources/js/Pages/Water/tabs/ComplianceTab.vue` |
+| Permit / cert files | **Documents** (`documentable_type = Building`, types `wra_abstraction_permit` / `water_quality_certificate`) — uploaded via the shared `documents.store`, renewed via `documents.renew` |
+| Expiry reminders | **REUSED** from Phase-82: a renewable building doc with `expires_at` is found by `documents:scan-expiring` → `document_expiry` notification to the landlord (no new cron, no new notification type) |
+| Abstraction limit | `buildings.water_abstraction_limit` (m³/year) set via `water.compliance.limit` (landlord-only) |
+| Abstraction used | calendar-year approved consumption — prefers the building's **main meter** (a top-level meter with sub-meters = the abstraction point); else summed unit consumption (`basis` tells which) |
+| Status | `no_limit` / `unknown` (no readings) / `ok` / `warning` (≥90% or projected to exceed) / `exceeded`; honest nulls — never a fabricated "compliant" |
+
+### Operator notes
+- The Compliance tab only lists **borehole** buildings. Set a building's water source to Borehole in Settings to track it; county/municipal buildings are intentionally absent.
+- Permit/cert renewal reminders are the **same** machinery as every other document expiry — set the doc renewable with an expiry + reminder days and the daily scan handles it.
+- Abstraction "used" is metered consumption. Where a building has a borehole **main meter** (a metered parent feeding sub-meters), that reading is the true abstraction total; otherwise it is estimated from unit meters and **understates** real abstraction (leaks/common areas not metered) — sub-meter the building for an accurate compliance figure.
+- A single borehole supplying multiple buildings: model the limit per building (split it, or set it on the building carrying the main meter). A first-class shared-source model arrives with the water-clients epic (Phase 94+).

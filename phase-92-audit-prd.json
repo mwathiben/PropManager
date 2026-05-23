@@ -1,0 +1,86 @@
+{
+  "phase": 92,
+  "title": "WATER-COMPLIANCE",
+  "opened_at": "2026-05-23",
+  "tier": 7,
+  "scope": "USER-DIRECTED water domain, phase 7 of 12 — borehole regulatory compliance: WRA abstraction permit + water-quality certificates + permit-renewal reminders + abstraction-limit-vs-production. DIRECTIVE: REUSE the Phase-82 document-expiry machinery, do NOT build a parallel reminder. Scout facts: Document is polymorphic (documentable_id/type morphTo) but Building has NO documents() relationship yet — add morphMany (this also closes a Phase-82 gap: title_deed/insurance couldn't attach to buildings). Document::DOCUMENT_TYPES const + Rule::in(array_keys) validation; expiry flow = documents:scan-expiring (scopeDueForReminder: is_renewable+not-superseded+expires_at within reminder_days) -> DocumentExpiryApproaching -> NotifyOnDocumentExpiry (notifies landlord always, tenant only for lease/kyc -> a Building doc notifies landlord ONLY = exactly right). document_expiry notification type exists (URGENCY_IMPORTANT). So a Building-attached renewable doc with expires_at flows through the EXISTING scan + notifies the landlord with NO new cron. expiryStatus() -> expired/expiring_soon/valid/none (reuse). DocumentController::store restricts documentable_type to Lease,User (extend to Building + authz branch building.landlord_id). water_source on buildings (borehole|county|mixed|null; respect inheritance from global PaymentConfiguration). NO abstraction-limit field exists -> add buildings.water_abstraction_limit (decimal, m3/year). Abstraction 'used' = prefer building main-meter consumption (meter building_id set, unit_id null, parent null) else summed unit consumption (reuse WaterIntelligenceService query shapes, landlord-scoped + soft-delete-guarded + approved-only). Honesty (Phase-91 lesson): null/unknown when no data, never a flattering number. Water hub tab = mirror the Phase-91 landlord-only 'intelligence' tab for a new 'compliance' tab.",
+  "categories": [
+    "COMPLIANCE-DOCS",
+    "ABSTRACTION-LIMIT",
+    "COMPLIANCE-SURFACE",
+    "CI"
+  ],
+  "findings": [
+    {
+      "id": "COMPLIANCE-DOCS-1",
+      "severity": "HIGH",
+      "category": "COMPLIANCE-DOCS",
+      "title": "Building-attachable water-compliance documents (reuse Phase-82)",
+      "evidence": "WRA permits and water-quality certs have no home; Documents cannot attach to a Building.",
+      "remediation": "Add Document::DOCUMENT_TYPES wra_abstraction_permit + water_quality_certificate (+ lang/document.php types en/sw/ar). Add Building::documents() morphMany. Extend DocumentController::store to allow documentable_type=Building with an authz branch (building.landlord_id === landlordId). Phase92 test: a landlord uploads a permit attached to a borehole building; document_type validated; cross-landlord building rejected (403).",
+      "passes": true
+    },
+    {
+      "id": "COMPLIANCE-DOCS-2",
+      "severity": "HIGH",
+      "category": "COMPLIANCE-DOCS",
+      "title": "Permit/cert expiry flows through the existing scan (no new cron)",
+      "evidence": "Compliance renewal reminders must reuse documents:scan-expiring, not a parallel reminder.",
+      "remediation": "Verify a Building-attached renewable permit with expires_at within its reminder window is found by documents:scan-expiring and the landlord receives a document_expiry notification (NotifyOnDocumentExpiry resolves no tenant for a Building doc). Phase92 test: a borehole building's permit expiring within reminder_days -> documents:scan-expiring -> landlord gets a document_expiry notification.",
+      "passes": true
+    },
+    {
+      "id": "ABSTRACTION-LIMIT-1",
+      "severity": "MEDIUM",
+      "category": "ABSTRACTION-LIMIT",
+      "title": "Per-borehole-building annual abstraction limit",
+      "evidence": "No field stores the WRA permit's annual abstraction allowance.",
+      "remediation": "Migration buildings.water_abstraction_limit (decimal nullable, m3/year) + fillable/cast. WaterComplianceController::updateLimit (landlord-only, owns the building) + route water.compliance.limit. Phase92 test: landlord sets a limit; caretaker cannot; cross-landlord building rejected.",
+      "passes": true
+    },
+    {
+      "id": "ABSTRACTION-LIMIT-2",
+      "severity": "MEDIUM",
+      "category": "ABSTRACTION-LIMIT",
+      "title": "Abstraction-used vs limit (compliance utilization)",
+      "evidence": "No view of how much of the permit allowance has been abstracted.",
+      "remediation": "WaterComplianceService computes per borehole building: abstraction used this calendar year (prefer building main-meter consumption, basis 'meter'; else summed unit consumption, basis 'units'; batched, landlord-scoped, soft-delete-guarded, approved-only) + utilization% + projected annual (used / fraction-of-year-elapsed) + status (no_limit/unknown/ok/warning/exceeded). Honest nulls when no limit or no data (Phase-91 lesson). Phase92 test: used computed from readings; exceeded when used>limit; warning when projected>limit; no_limit/unknown surfaced honestly.",
+      "passes": true
+    },
+    {
+      "id": "COMPLIANCE-SURFACE-1",
+      "severity": "HIGH",
+      "category": "COMPLIANCE-SURFACE",
+      "title": "Landlord water Compliance tab",
+      "evidence": "There is no compliance surface on the water hub.",
+      "remediation": "Landlord-only 'compliance' tab (WaterHubController getComplianceData gated on !caretaker + Hub.vue ComplianceTab async, ShieldCheckIcon, canSettings-gated). ComplianceTab.vue: summary stats + per borehole building card (overall status; abstraction limit set/used/util-bar/projected/status; permit doc status chip [reuse expiryStatus] + upload/renew; quality cert status chip + upload/renew); empty state when no borehole buildings. Upload posts to documents.store (documentable_type=Building); renew posts to documents.renew. i18n en/sw/ar. nav-audit clean. Phase92 test: caretaker cannot open the compliance tab; landlord gets the data + only borehole buildings listed.",
+      "passes": true
+    },
+    {
+      "id": "CI-1",
+      "severity": "MEDIUM",
+      "category": "CI",
+      "title": "Phase 92 behavioral + surface tests",
+      "evidence": "Compliance docs + limit + scan reuse + role gate need regression guards.",
+      "remediation": "Phase92WaterComplianceTest (Building doc upload + authz; scan-expiring -> landlord notification; limit set landlord-only; used/utilization/status incl exceeded+warning+no_limit+unknown; only-borehole-buildings; tab caretaker-gated) + Phase92 surface (schema, document types, Building documents() + store allows Building, routes, notification type, lang parity). Existing document + water suites stay green.",
+      "passes": true
+    },
+    {
+      "id": "CI-2",
+      "severity": "LOW",
+      "category": "CI",
+      "title": "Runbook + closeout + memory + multi-reviewer pass",
+      "evidence": "Compliance needs operator docs + per-phase review.",
+      "remediation": "docs/runbooks/water.md compliance section (borehole-only, reuses doc-expiry, abstraction basis, multi-building borehole caveat). Multi-reviewer read-only pass. Memory: phase92 plan + forward-path + pending-path. Name next = Phase 93 [WATER-TENANT-SELFSERVICE].",
+      "passes": true
+    }
+  ],
+  "closeout": {
+    "closed_at": "2026-05-23",
+    "result": "7/7 findings pass — zero PRD-finding deferrals",
+    "summary": "Borehole regulatory compliance, reusing the Phase-82 document-expiry machinery. COMPLIANCE-DOCS: Document::DOCUMENT_TYPES += wra_abstraction_permit + water_quality_certificate (+ lang/document.php en/sw/ar); Building::documents() morphMany (closes a Phase-82 gap — title_deed/insurance can now attach to buildings too); DocumentController::store extended to allow documentable_type=Building with a landlord-ownership authz branch; a renewable building doc with expires_at flows through the EXISTING documents:scan-expiring -> document_expiry notification to the landlord (NO new cron, NO new notification type). ABSTRACTION-LIMIT: buildings.water_abstraction_limit (m3/year) + WaterComplianceController::updateLimit (landlord-only, UpdateWaterAbstractionLimitRequest authorizes building ownership) + route water.compliance.limit. WaterComplianceService::forLandlord: per borehole building (effective water_source=borehole, building override else global config) — abstraction used this calendar year (prefers the main meter [top-level metered parent feeding sub-meters = the abstraction point]; else summed unit consumption; basis labelled) vs limit + utilization% + projected-annual + status (no_limit/unknown/ok/warning/exceeded, honest nulls), plus the permit + quality-cert document status (expiryStatus reused) + a portfolio summary; batched grouped queries, landlord-scoped, soft-delete-guarded. COMPLIANCE-SURFACE: landlord-only compliance tab (WaterHubController getComplianceData caretaker-bounced + Hub.vue ComplianceTab canSettings-gated, ShieldCheckIcon) — ComplianceTab.vue summary + per-building permit/cert cards (status chips + upload/renew modal posting to documents.store / documents.renew) + abstraction limit form + utilization bar; empty state when no borehole buildings. i18n en/sw/ar. CI surface + behavioral tests + runbook.",
+    "tests": "Phase-92 tests: WaterCompliance 13 + Surface 7 (20 tests). Documents + Water regression 167 / 465 green. Pint/build/eslint(custom rules 0)/nav-audit clean. Lang parity water 171, document 67.",
+    "review": "Multi-reviewer read-only pass (CodeRabbit + pr-review-toolkit code-reviewer + silent-failure-hunter). Fixed (silent-failure-hunter, regulatory-data honesty): HIGH early-year projection inflation (gate projection until >= ~8% of year elapsed); HIGH unit-meter estimate is a lower bound (estimate flag + escalate to warning at >= 75% util, surfaced amber); MEDIUM undated permit/cert (expiry_status none) now warns not green; MEDIUM summary watch count for warning-level buildings; MEDIUM no_limit rendered actionable amber (distinct from unknown). Verified non-issues: C1 null-consumption is moot (water_readings.consumption is NOT NULL — 0 is a real value); multiple-mains/replacement (predecessor soft-deleted, excluded); year-boundary attribution (matches intelligence).",
+    "constraints_preserved": "Compliance tab + abstraction-limit are landlord-only (caretaker bounced to overview; route role:landlord + FormRequest authorize building ownership). Reminders REUSE Phase-82 doc-expiry (no parallel cron / notification type). Only borehole buildings listed. Abstraction \"used\" prefers the main meter (true abstraction) else estimates from unit meters (understates — labelled). Honest nulls (no_limit / unknown) — never a fabricated compliant status. Money/volume decimal:2. water_readings.unit_id is NOT NULL, so a building main meter carries a unit."
+  }
+}
