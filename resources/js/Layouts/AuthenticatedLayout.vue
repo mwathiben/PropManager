@@ -168,6 +168,7 @@ const roleConfig = computed(() => {
         'landlord': { label: t('role.landlord'), color: 'bg-blue-600', icon: BuildingOffice2Icon },
         'caretaker': { label: t('role.caretaker'), color: 'bg-green-600', icon: WrenchScrewdriverIcon },
         'tenant': { label: t('role.tenant'), color: 'bg-amber-600', icon: HomeIcon },
+        'water_client': { label: t('role.water_client'), color: 'bg-cyan-600', icon: BeakerIcon },
     };
     return configs[user.value?.role] || { label: t('role.user'), color: 'bg-gray-600', icon: UserCircleIcon };
 });
@@ -294,6 +295,14 @@ const navigationItems = computed(() => {
             { name: t('nav.notifications'), href: route('tenant.notifications'), icon: BellIcon, active: route().current('tenant.notifications'), badgeKey: 'notifications', badgeColor: 'bg-indigo-500' },
             // Phase-64 INBOX-MOUNT-3: tenant-side inbox entry.
             { name: t('nav.inbox'), href: route('tenant.inbox.index'), icon: EnvelopeIcon, active: route().current('tenant.inbox.*'), badgeKey: 'inboxUnread', badgeColor: 'bg-indigo-500', tour: 'nav-inbox' },
+        ];
+    }
+
+    // Phase-95 WATER-CLIENT: a water-only account — their dashboard is their water
+    // view (Phase 96 enriches it). Profile/logout live in the shared user menu.
+    if (role === 'water_client') {
+        return [
+            { name: t('nav.dashboard'), href: route('dashboard'), icon: HomeIcon, active: route().current('dashboard'), tour: 'nav-dashboard' },
         ];
     }
 

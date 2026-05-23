@@ -72,6 +72,7 @@
         "landlord": "Landlord",
         "caretaker": "Caretaker",
         "tenant": "Tenant",
+        "water_client": "Water Client",
         "user": "User"
     },
     "banner": {

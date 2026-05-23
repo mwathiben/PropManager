@@ -67,6 +67,17 @@ final class OnboardingFlow
                     3 => 'Payment method',
                 ],
             ),
+            // Phase-95 WATER-CLIENT-ONBOARDING: tenant onboarding minus the lease —
+            // profile, required documents, then payment method.
+            'water_client' => new self(
+                role: 'water_client',
+                steps: [1, 2, 3],
+                labels: [
+                    1 => 'Profile',
+                    2 => 'Documents',
+                    3 => 'Payment method',
+                ],
+            ),
             default => throw new InvalidArgumentException("Unsupported onboarding role: {$role}"),
         };
     }

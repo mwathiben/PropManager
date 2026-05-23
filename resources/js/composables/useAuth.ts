@@ -6,7 +6,7 @@
 import { computed, type ComputedRef } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 
-type UserRole = 'landlord' | 'caretaker' | 'tenant' | 'super_admin';
+type UserRole = 'landlord' | 'caretaker' | 'tenant' | 'super_admin' | 'water_client';
 
 /**
  * Phase-20 AUTHZ-FRONT-6: slim DTO mirror of App\Support\UserDto.

@@ -331,7 +331,7 @@ class HandleInertiaRequests extends Middleware
 
         $landlordId = match (true) {
             $user->isLandlord() => $user->id,
-            $user->isCaretaker(), $user->isTenant() => $user->landlord_id,
+            $user->isCaretaker(), $user->isTenant(), $user->isWaterClient() => $user->landlord_id,
             default => null,
         };
 

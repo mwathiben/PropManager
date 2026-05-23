@@ -130,6 +130,8 @@ class AuthController extends Controller
             'landlord' => ['tenant:read', 'landlord:manage'],
             'caretaker' => ['tenant:read', 'landlord:manage'],
             'tenant' => ['tenant:read'],
+            // A water client must never inherit tenant:read (the default would leak it).
+            'water_client' => ['water_client:read'],
             'super_admin' => ['tenant:read', 'landlord:manage', 'integration:webhook', 'admin:all'],
             default => ['tenant:read'],
         };

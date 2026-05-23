@@ -112,6 +112,14 @@ Route::post('/invitations/{token}/accept', [InvitationController::class, 'accept
     ->middleware('throttle:invitation')
     ->name('invitations.accept');
 
+// Phase-95 Water-Client Invitations (deep-link accept)
+Route::get('/water-invite/{token}', [\App\Http\Controllers\WaterClientInvitationController::class, 'show'])
+    ->middleware('throttle:invitation')
+    ->name('water-invite.show');
+Route::post('/water-invite/{token}/accept', [\App\Http\Controllers\WaterClientInvitationController::class, 'accept'])
+    ->middleware('throttle:invitation')
+    ->name('water-invite.accept');
+
 // Tenant Invitations
 Route::get('/tenant-invite/{token}', [TenantInvitationController::class, 'show'])->name('tenant-invitations.show');
 Route::post('/tenant-invite/{token}/accept', [TenantInvitationController::class, 'accept'])
@@ -645,6 +653,9 @@ Route::middleware('auth')->group(function () {
             Route::post('/water/connections', [\App\Http\Controllers\WaterConnectionController::class, 'store'])->name('water.connections.store');
             Route::put('/water/connections/{waterConnection}', [\App\Http\Controllers\WaterConnectionController::class, 'update'])->whereNumber('waterConnection')->name('water.connections.update');
             Route::delete('/water/connections/{waterConnection}', [\App\Http\Controllers\WaterConnectionController::class, 'destroy'])->whereNumber('waterConnection')->name('water.connections.destroy');
+
+            // Phase-95 WATER-CLIENT-ONBOARDING: invite the client for a connection.
+            Route::post('/water/connections/{waterConnection}/invite', [\App\Http\Controllers\WaterClientInvitationController::class, 'store'])->whereNumber('waterConnection')->name('water-client-invitations.store');
         });
     });
 

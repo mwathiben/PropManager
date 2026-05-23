@@ -145,6 +145,7 @@ return [
         'tenant_invitation_existing' => 'Mwaliko wa Mkataba Mpya - :property',
         'tenant_invitation_new' => 'Umealikwa Kujiunga na :property',
         'caretaker_invitation' => 'Mwaliko wa Kujiunga kama Mlinzi wa Jengo',
+        'water_client_invitation' => 'Mwaliko wa Kuanzisha Akaunti Yako ya Maji',
     ],
 
 ];

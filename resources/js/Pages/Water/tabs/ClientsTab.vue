@@ -90,6 +90,23 @@ function remove(c: Connection): void {
     router.delete(route('water.connections.destroy', c.id), { preserveScroll: true });
 }
 
+// --- Invite the client for a connection ---
+const inviteOpen = ref(false);
+const inviteConnection = ref<Connection | null>(null);
+const inviteForm = useForm({ email: '' });
+function openInvite(c: Connection): void {
+    inviteForm.reset();
+    inviteConnection.value = c;
+    inviteOpen.value = true;
+}
+function submitInvite(): void {
+    if (inviteConnection.value === null) return;
+    inviteForm.post(route('water-client-invitations.store', inviteConnection.value.id), {
+        preserveScroll: true,
+        onSuccess: () => { inviteOpen.value = false; inviteForm.reset(); },
+    });
+}
+
 const today = new Date().toISOString().slice(0, 10);
 const modeLabel = (m: string) => t(`water.clients.mode_${m}`);
 </script>
@@ -187,6 +204,7 @@ const modeLabel = (m: string) => t(`water.clients.mode_${m}`);
                                 <span :class="['inline-flex rounded-full px-2 py-0.5 text-xs font-medium', c.status === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-600']">{{ t(`water.clients.status_${c.status}`) }}</span>
                             </td>
                             <td class="px-4 py-3 text-end">
+                                <button v-if="!c.has_account" type="button" class="me-2 text-xs font-medium text-cyan-700 hover:text-cyan-900" @click="openInvite(c)">{{ t('water.clients.invite') }}</button>
                                 <button type="button" class="me-2 text-gray-400 hover:text-cyan-700" :title="t('water.clients.edit')" @click="openEdit(c)"><PencilSquareIcon class="inline h-4 w-4" /></button>
                                 <button type="button" class="text-gray-300 hover:text-red-600" :title="t('water.clients.delete')" @click="remove(c)"><TrashIcon class="inline h-4 w-4" /></button>
                             </td>
@@ -250,6 +268,26 @@ const modeLabel = (m: string) => t(`water.clients.mode_${m}`);
                     <div class="flex gap-3 pt-1">
                         <button type="submit" :disabled="form.processing" class="flex-1 rounded-md bg-cyan-600 py-2 text-sm font-medium text-white hover:bg-cyan-700 disabled:opacity-50">{{ t('water.clients.save') }}</button>
                         <button type="button" class="flex-1 rounded-md bg-gray-100 py-2 text-sm text-gray-700 hover:bg-gray-200" @click="modalOpen = false">{{ t('water.clients.cancel') }}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Invite client modal -->
+        <div v-if="inviteOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div class="fixed inset-0 bg-gray-900/50" @click="inviteOpen = false"></div>
+            <div class="relative z-10 w-full max-w-sm rounded-lg bg-white p-6">
+                <h3 class="mb-1 text-lg font-semibold text-gray-900">{{ t('water.clients.invite_title') }}</h3>
+                <p class="mb-4 text-sm text-gray-500">{{ inviteConnection?.identifier }}</p>
+                <form class="space-y-3" @submit.prevent="submitInvite">
+                    <label class="block">
+                        <span class="block text-xs font-medium text-gray-500">{{ t('water.clients.invite_email') }}</span>
+                        <input v-model="inviteForm.email" type="email" required class="mt-1 w-full rounded-md border-gray-300 text-sm focus:border-cyan-500 focus:ring-cyan-500" />
+                        <span v-if="inviteForm.errors.email" class="mt-1 block text-xs text-red-600">{{ inviteForm.errors.email }}</span>
+                    </label>
+                    <div class="flex gap-3 pt-1">
+                        <button type="submit" :disabled="inviteForm.processing" class="flex-1 rounded-md bg-cyan-600 py-2 text-sm font-medium text-white hover:bg-cyan-700 disabled:opacity-50">{{ t('water.clients.invite_send') }}</button>
+                        <button type="button" class="flex-1 rounded-md bg-gray-100 py-2 text-sm text-gray-700 hover:bg-gray-200" @click="inviteOpen = false">{{ t('water.clients.cancel') }}</button>
                     </div>
                 </form>
             </div>

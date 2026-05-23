@@ -289,3 +289,29 @@ A landlord can supply water to **non-tenant clients** (e.g. a borehole feeding n
 - The client rate lives on the connection (overriding the default `water_client_rate`); the Phase-97 biller will charge water clients at this rate via the Phase-87 tariff engine.
 - `water_client` is scoped to the supplier landlord (`TenantScope`, keyed on `landlord_id`), exactly like a tenant.
 - Deferred to 95–97: client invitation/onboarding + required docs + payment method (95), the water-client dashboard reusing the Phase-93 `Components/Water/*` (96), and invoice/statement/payment billing (97).
+
+## Phase 95 — water-client onboarding
+
+A landlord provisions a water client by **inviting** them per connection; the client accepts a deep-link, onboards (water-only), and lands on their dashboard.
+
+| Concept | Where |
+| --- | --- |
+| Invite | Clients tab → "Invite" on a connection without an account → `WaterClientInvitationController::store` creates an `Invitation` (role `water_client`, `water_connection_id`) + queues `WaterClientInvitation` mail. Separate from the caretaker `InvitationController`. |
+| Accept | public deep-link `water-invite.show` / `water-invite.accept` → mints a `water_client` User (role + `landlord_id` from the invitation, `email_verified_at` set since the link proves the email), links the connection's `user_id`, logs in → onboarding step 1. |
+| Onboarding | `OnboardingFlow::forRole('water_client')` = 3 steps (Profile / Documents / Payment); `WaterClientOnboardingService` processes them (payment via the shared `TenantPaymentMethodService`). `Onboarding/WaterClientSteps.vue`. |
+| Login landing | `DashboardController` `water_client` arm → `WaterClient/Dashboard.vue` (a shell; Phase 96 enriches). |
+| Role blast radius (all ADDITIVE) | role ENUMs (`invitations.role`, `onboarding_sessions.role`) widened; `AuthenticatedLayout` nav + role badge; `HandleInertiaRequests::getEffectiveCurrency` → supplier `landlord_id`; `useAuth.ts` UserRole; `role.water_client` label. |
+
+### Operator notes
+- Water clients are **landlord-provisioned only** — they cannot self-register (the public register form does not offer the role; a self-registered one would have no landlord and 403).
+- The invitation carries the `water_connection_id`; accepting links the new user to that connection (`user_id`). A client can be invited only for a connection that has no account yet.
+- `invitations.property_id` is now nullable (a water-client invite has no property).
+- Documents step is an acknowledgement for now (consistent with the tenant/caretaker acknowledgement step); the actual required-document upload UI for water clients is a later enhancement.
+
+### Security hardening (Phase-95 multi-reviewer pass)
+- **Self-register gate (critical):** widening the role ENUMs removed the accidental safety net that used to 500 a self-registered `water_client`. `RegisteredUserController` now hard-`abort(403)`s if an `invitation_token` resolves to a `water_client` invitation (it never sets `landlord_id`, so it would mint an orphaned, unscoped account *and* burn the one-time token). The register **GET** with such a token redirects to the `water-invite.show` deep-link instead.
+- **One live token per connection:** `store()` rejects a second pending invite for the same connection+email (`invite_already_pending`) — the invite button stays visible until acceptance, so a double-click would otherwise create two valid deep-links.
+- **Deleted line:** if the connection was removed after sending (FK `nullOnDelete`), both `show()` and `accept()` refuse (`invite_revoked`) rather than onboard a client onto a line that no longer exists.
+- **Claim race:** `accept()` links only an *unclaimed* (`whereNull('user_id')`), live connection and throws on a 0-row update, rolling the whole accept back — a duplicate token can never re-point a connection away from its existing owner.
+- **API abilities:** `Api/AuthController::getAbilitiesForUser` gives `water_client` its own `['water_client:read']` arm so it never inherits the default `tenant:read`.
+- `accept()` failures surface on the deep-link page (flash-error banner in `AcceptInvitation.vue`); invite emails are normalized to lowercase.

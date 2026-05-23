@@ -22,6 +22,7 @@ class DashboardController extends Controller
             'landlord' => $this->landlordDashboard($request),
             'caretaker' => $this->caretakerDashboard(),
             'tenant' => $this->tenantDashboard(),
+            'water_client' => $this->waterClientDashboard(),
             default => abort(403, 'Unknown user role.'),
         };
     }
@@ -56,6 +57,36 @@ class DashboardController extends Controller
         $data = $this->dashboardService->getTenantDashboardData(auth()->user());
 
         return Inertia::render('Tenant/Dashboard', $data);
+    }
+
+    /**
+     * Phase-95 WATER-CLIENT-ONBOARDING: the landing for a water client (a
+     * non-tenant the landlord supplies). A minimal shell — their water line(s) +
+     * onboarding status; Phase 96 enriches it with the shared Components/Water/*
+     * (consumption history, charges, leak alert) keyed off the connection.
+     */
+    protected function waterClientDashboard()
+    {
+        $user = auth()->user();
+
+        $connections = \App\Models\WaterConnection::query()
+            ->where('user_id', $user->id)
+            ->with(['meter:id,serial_number'])
+            ->get()
+            ->map(fn (\App\Models\WaterConnection $c) => [
+                'id' => $c->id,
+                'identifier' => $c->identifier,
+                'status' => $c->status,
+                'billing_mode' => $c->billing_mode,
+                'meter' => $c->meter?->serial_number,
+            ]);
+
+        return Inertia::render('WaterClient/Dashboard', [
+            'connections' => $connections,
+            // hasCompletedOnboarding() short-circuits to true for every non-landlord,
+            // which would hide the nudge forever — read the actual wizard progress.
+            'onboardingComplete' => $user->onboardingProgress?->is_complete ?? false,
+        ]);
     }
 
     public function unitDetail(Unit $unit)

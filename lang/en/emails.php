@@ -144,6 +144,7 @@ return [
         'tenant_invitation_existing' => 'New Lease Invitation - :property',
         'tenant_invitation_new' => "You've Been Invited to :property",
         'caretaker_invitation' => 'Invitation to Join as Property Caretaker',
+        'water_client_invitation' => 'Invitation to Set Up Your Water Account',
     ],
 
 ];

@@ -17,6 +17,7 @@ class Invitation extends Model
         'target_user_id',
         'token',
         'property_id',
+        'water_connection_id',
         'accepted_at',
         'viewed_at',
     ];
@@ -48,6 +49,14 @@ class Invitation extends Model
     public function targetUser()
     {
         return $this->belongsTo(User::class, 'target_user_id');
+    }
+
+    /**
+     * Phase-95: the water connection a water_client invitation provisions.
+     */
+    public function waterConnection()
+    {
+        return $this->belongsTo(WaterConnection::class);
     }
 
     /**

@@ -33,6 +33,8 @@ const ALLOWLIST = new Set([
     'onboarding.index', 'onboarding.step', 'onboarding.create',
     // Signed / email-linked entry points.
     'invitations.accept', 'tenant-invitations.accept',
+    // Phase-95: water-client invite deep-link (reached via the invitation email).
+    'water-invite.show',
 ]);
 
 // Phase-79 NAV-REACH-1: shrink-only baseline of pre-existing pages reached via

@@ -3,6 +3,7 @@ import { Head, useForm, router, usePage } from '@inertiajs/vue3';
 import { ref, computed, watch } from 'vue';
 import TenantSteps from './TenantSteps.vue';
 import CaretakerSteps from './CaretakerSteps.vue';
+import WaterClientSteps from './WaterClientSteps.vue';
 import { useFormatters, useCurrency } from '@/composables';
 const { formatMoney: formatCurrency, todayAsISODate } = useFormatters();
 const { currencyCode, currencySymbol } = useCurrency();
@@ -288,6 +289,8 @@ function completeOnboarding() {
 
     <!-- Phase-47 WIZARD-VUE-1: tenant + caretaker scaffold dispatch. -->
     <TenantSteps v-if="role === 'tenant'" :current-step="currentStep" :completed-steps="completedSteps" />
+    <!-- Phase-95 WATER-CLIENT-ONBOARDING: water-client scaffold. -->
+    <WaterClientSteps v-else-if="role === 'water_client'" :current-step="currentStep" :completed-steps="completedSteps" />
     <!-- Phase-77 CARETAKER-FLOW-2: forward the server-injected caretaker step
          props (stats / orientation summary / first-task) the child renders. -->
     <CaretakerSteps

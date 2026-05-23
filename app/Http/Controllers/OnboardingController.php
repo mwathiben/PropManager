@@ -25,6 +25,7 @@ class OnboardingController extends Controller
         protected OnboardingService $onboardingService,
         protected TenantOnboardingService $tenantOnboardingService,
         protected CaretakerOnboardingService $caretakerOnboardingService,
+        protected \App\Services\Onboarding\WaterClientOnboardingService $waterClientOnboardingService,
         protected OnboardingSessionService $sessionService,
         protected CaretakerBuildingSummaryService $caretakerBuildingSummary,
         protected CaretakerFirstTaskResolver $caretakerFirstTask,
@@ -35,6 +36,7 @@ class OnboardingController extends Controller
         return match ($user->role) {
             'tenant' => $this->tenantOnboardingService,
             'caretaker' => $this->caretakerOnboardingService,
+            'water_client' => $this->waterClientOnboardingService,
             default => $this->onboardingService,
         };
     }
@@ -73,6 +75,16 @@ class OnboardingController extends Controller
             $props = $this->caretakerStepProps($step, $user, $progress);
 
             return Inertia::render('Onboarding/Index', $props);
+        }
+
+        // Phase-95 WATER-CLIENT-ONBOARDING: water-only 3-step flow (profile /
+        // documents / payment) — minimal props; the Vue renders WaterClientSteps.
+        if ($user->role === 'water_client') {
+            return Inertia::render('Onboarding/Index', [
+                'currentStep' => $step,
+                'completedSteps' => $progress->completed_steps ?? [],
+                'totalSteps' => 3,
+            ]);
         }
 
         $props = $this->onboardingService->getStepProps($step, $user, $progress);
@@ -301,6 +313,9 @@ class OnboardingController extends Controller
         if ($role === 'caretaker') {
             return $this->validateCaretakerStep($request, $step);
         }
+        if ($role === 'water_client') {
+            return $this->validateWaterClientStep($request, $step);
+        }
 
         $rules = match ($step) {
             2 => [
@@ -403,6 +418,43 @@ class OnboardingController extends Controller
                 'details.brand' => 'nullable|string|max:50',
                 'details.last4' => 'nullable|string|size:4',
                 'details.stripe_payment_method_id' => 'nullable|string|max:64',
+                'is_default' => 'nullable|boolean',
+                'acknowledged' => 'nullable|boolean',
+            ],
+            default => [],
+        };
+
+        if (empty($rules)) {
+            return $request->only([]);
+        }
+
+        return $request->validate($rules);
+    }
+
+    /**
+     * Phase-95 WATER-CLIENT-ONBOARDING: profile / documents (acknowledgement) /
+     * payment method. Same shape as a tenant minus the lease/KYC specifics.
+     */
+    private function validateWaterClientStep(Request $request, int $step): array
+    {
+        $rules = match ($step) {
+            1 => [
+                'name' => 'required|string|max:255',
+                'mobile_number' => 'nullable|string|max:20',
+                'national_id' => 'nullable|string|max:32',
+            ],
+            2 => [
+                'acknowledged' => 'nullable|boolean',
+            ],
+            3 => [
+                // Water clients pay via M-Pesa/bank (the WaterClientSteps UI offers
+                // only those + "none"); card needs Stripe detail rules we don't surface.
+                'type' => 'nullable|in:mpesa,bank',
+                'details' => 'nullable|required_with:type|array',
+                'details.phone' => 'required_if:type,mpesa|string|max:20',
+                'details.bank_name' => 'required_if:type,bank|string|max:255',
+                'details.account_number' => 'required_if:type,bank|string|max:50',
+                'details.account_name' => 'required_if:type,bank|string|max:255',
                 'is_default' => 'nullable|boolean',
                 'acknowledged' => 'nullable|boolean',
             ],

@@ -1,0 +1,77 @@
+{
+  "phase": 95,
+  "title": "WATER-CLIENT-ONBOARDING",
+  "opened_at": "2026-05-23",
+  "tier": 7,
+  "scope": "USER-DIRECTED water domain, phase 10 of 12 — epic 2/4. A landlord invites/provisions a water_client (role added in Phase 94, landlord-provisioned only); the client accepts a deep-link, onboards (profile → required docs → payment method, WATER-ONLY, no lease), logs in, and lands on a working (minimal) water-client dashboard. Discharge the entire Phase-94 DEFERRED list so login works. Scout facts: the generic Invitation model + InvitationController are caretaker-specific (hardcoded role='caretaker', property_id, CaretakerAssignment side-effects) — DON'T touch them; build a dedicated WaterClientInvitationController reusing the Invitation model (add water_client to its role ENUM + a water_connection_id column). onboarding_sessions.role + invitations.role are hard DB ENUMs [landlord,caretaker,tenant] -> ALTER TABLE MODIFY to add water_client. Onboarding machinery: OnboardingFlow::forRole (match throws for unknown role), OnboardingController::processorForUser (default=>landlord service — must add water_client arm) + validateStep + step rendering (Onboarding/Index.vue per-role) — ALL additive. TenantPaymentMethodService::store(User,type,details,isDefault) is user-agnostic (reuse for the payment step). InvitationAccepted listeners auto-discovered + role-guarded (caretaker listener no-ops for water_client). DEFERRED-list integration points (exact, from Phase-94 review): DashboardController::index match default=>abort(403); AuthenticatedLayout.vue nav builder returns [] for unknown role (+roleConfig badge); HandleInertiaRequests getEffectiveCurrency match(true) default null + getNavBadges match default null; useAuth.ts UserRole type; Api/AuthController getAbilitiesForUser default. All edits ADDITIVE (new arms only — never modify existing role branches). The water-client dashboard is a SHELL in 95 (welcome + water line + onboarding status); Phase 96 enriches it with the Phase-93 Components/Water/* + WaterAccountService.",
+  "categories": [
+    "LOGIN",
+    "INVITE",
+    "ONBOARD",
+    "CI"
+  ],
+  "findings": [
+    {
+      "id": "LOGIN-1",
+      "severity": "HIGH",
+      "category": "LOGIN",
+      "title": "Discharge the role blast radius so a water_client can log in (additive)",
+      "evidence": "A water_client User would 403 at the dashboard, get an empty nav, and the wrong currency (Phase-94 deferred list).",
+      "remediation": "ADDITIVE arms only: DashboardController::index water_client => render the WaterClient dashboard shell; AuthenticatedLayout.vue nav + roleConfig water_client branch (dashboard + water + profile/notifications); HandleInertiaRequests getEffectiveCurrency water_client => landlord_id + getNavBadges water_client arm; useAuth.ts UserRole += water_client; Api/AuthController abilities water_client => [water:read]. Phase95 test: a water_client GET /dashboard renders WaterClient/Dashboard (not 403); shared props resolve the supplier currency.",
+      "passes": true
+    },
+    {
+      "id": "LOGIN-2",
+      "severity": "MEDIUM",
+      "category": "LOGIN",
+      "title": "Water-client dashboard shell (the landing)",
+      "evidence": "There is no page for a logged-in water client.",
+      "remediation": "WaterClientDashboardController (or DashboardController method) renders Pages/WaterClient/Dashboard.vue — a minimal landing: welcome, the client's water connection(s) summary (identifier, status), onboarding-status nudge, profile/notifications links. Capability-gated to has_water_connection. Phase 96 enriches with Components/Water/* + WaterAccountService. Phase95 test: a water_client sees their own connection; cannot see another's.",
+      "passes": true
+    },
+    {
+      "id": "INVITE-1",
+      "severity": "HIGH",
+      "category": "INVITE",
+      "title": "Water-client invitation (provision + deep-link accept)",
+      "evidence": "A landlord cannot create a water_client account for a connection.",
+      "remediation": "invitations.role ENUM += water_client + invitations.water_connection_id (nullable FK) + Invitation fillable/relationship. WaterClientInvitationController store (per connection, landlord-only, from the Clients tab) + show (public token) + accept (public: create User role=water_client + landlord_id from invitation [non-null], link the connection user_id, mark accepted, login, redirect to onboarding step 1). WaterClientInvitation mail. Routes (landlord store + public water-invite show/accept). Clients tab: an Invite action per connection without an account. Do NOT modify the caretaker InvitationController. Phase95 test: landlord invites a connection's client; accept creates a water_client linked to the connection + landlord; an invalid/used token is rejected; caretaker cannot invite.",
+      "passes": true
+    },
+    {
+      "id": "ONBOARD-1",
+      "severity": "HIGH",
+      "category": "ONBOARD",
+      "title": "Water-client onboarding flow (profile / documents / payment)",
+      "evidence": "OnboardingFlow throws for water_client and there is no water-client step processor.",
+      "remediation": "onboarding_sessions.role ENUM += water_client. OnboardingFlow::forRole water_client => steps [1 Profile, 2 Documents, 3 Payment]. WaterClientOnboardingService (processStep: 1 profile name/mobile/national_id; 2 documents acknowledgement [reuse the doc system, link to upload]; 3 payment via TenantPaymentMethodService::store). OnboardingController::processorForUser + validateStep + step props water_client arms (ADDITIVE) + Onboarding water-client steps Vue. Phase95 test: a water_client advances profile->documents->payment and completes; final step lands on the dashboard (not 403).",
+      "passes": true
+    },
+    {
+      "id": "CI-1",
+      "severity": "MEDIUM",
+      "category": "CI",
+      "title": "Phase 95 behavioral + surface tests",
+      "evidence": "Invitation + onboarding + login + dashboard + role blast radius need regression guards.",
+      "remediation": "Phase95WaterClientOnboardingTest (invite + accept creates linked water_client; login renders dashboard not 403; onboarding steps advance + complete; caretaker cannot invite; cross-landlord connection rejected) + Phase95 surface (ENUMs include water_client, routes, OnboardingFlow water_client, dashboard route, role type). Existing Auth + Onboarding + Water suites stay green (additive edits must not regress them).",
+      "passes": true
+    },
+    {
+      "id": "CI-2",
+      "severity": "LOW",
+      "category": "CI",
+      "title": "Runbook + closeout + memory + multi-reviewer pass",
+      "evidence": "A new account login + onboarding path needs operator docs + per-phase review (regression risk on shared flows).",
+      "remediation": "docs/runbooks/water.md water-client onboarding section. Multi-reviewer read-only pass (focus: regressions in shared onboarding/auth + the role blast radius completeness). Memory: phase95 plan + forward/pending-path. Name next = Phase 96 [WATER-CLIENT-DASHBOARD].",
+      "passes": true
+    }
+  ],
+  "closeout": {
+    "closed_at": "2026-05-23",
+    "result": "6/6 findings pass — zero PRD-finding deferrals",
+    "summary": "Water clients become real: a landlord invites/provisions one, they accept a deep-link, onboard (water-only), log in, and land on a working dashboard. LOGIN (role blast radius, all ADDITIVE): role ENUMs (invitations.role + onboarding_sessions.role) widened to water_client; DashboardController water_client arm -> WaterClient/Dashboard shell; AuthenticatedLayout nav + role badge; HandleInertiaRequests getEffectiveCurrency -> supplier landlord_id; useAuth.ts UserRole; role.water_client label (en/sw/ar json). INVITE: invitations.water_connection_id (+ property_id made nullable) + WaterClientInvitationController store/show/accept (separate from the caretaker controller) -> mints a water_client User (role + landlord_id from the invitation, email_verified_at set), links the connection user_id, logs in -> onboarding; WaterClientInvitation mail + StoreWaterClientInvitationRequest/AcceptInvitationRequest (no inline validate); Clients-tab Invite action. ONBOARD: OnboardingFlow::forRole(water_client) = [Profile, Documents, Payment]; WaterClientOnboardingService (payment via shared TenantPaymentMethodService); OnboardingController processorForUser/validateStep/step arms (additive) + Onboarding/WaterClientSteps.vue. Water clients are landlord-provisioned only (not self-registerable, per Phase-94). CI surface + behavioral tests + runbook.",
+    "tests": "Phase-95 tests: WaterClientOnboarding 14 (incl. self-register-blocked, register-GET-redirect, duplicate-invite, lowercase-normalize, removed-connection-refused, already-claimed-no-overwrite) + Surface 6. Auth + Onboarding regression 205 passed. Dashboard green except pre-existing Phase55DashboardFiltersTest::missing_building_id_defaults_to_all (scopeFrom(null) default drift — unrelated to Phase 95, confirmed by clean-stash run). Pint/build/eslint(new files 0 errors)/nav-audit clean (water-invite.show allowlisted, now throttled). Lang parity water 277 + role json.",
+    "review": "Multi-reviewer read-only pass (CodeRabbit + pr-review-toolkit code-reviewer + silent-failure-hunter). Found + FIXED: CRITICAL water_client self-registration via the /register invitation-token override (now abort 403 + GET redirect to deep-link; the ENUM widen had removed the accidental 500 safety net); HIGH duplicate-pending-invite guard; HIGH accept() errors now shown on the deep-link page; MEDIUM removed-connection refusal (show+accept) + claim-race 0-row-update throw/rollback; MEDIUM dead onboarding nudge (now reads real progress); MEDIUM migration down() de-lossified (clear water_client rows + restore property_id NOT NULL); LOW api-abilities water_client arm (no tenant:read leak), show-route throttle, lowercase email, mail getExpiresAt(), drop card from water-client pay step, drop empty-string profile writes, ar wording.",
+    "constraints_preserved": "All role-branch edits ADDITIVE (new match/if arms only — never modified tenant/caretaker/landlord branches). Water clients landlord-provisioned only (self-registration HARD-blocked at /register, GET + POST). Invite links the connection (user_id) + sets landlord_id (non-null, closing the Phase-94 TenantScope-null gap). One live token per connection. Accept links only an unclaimed live connection (whereNull(user_id) + 0-row throw). email_verified_at set on accept (deep-link proves email). Caretaker InvitationController untouched. FormRequests (no inline validate). property_id nullable for water-client invites; migration down() restores it NOT NULL. Money decimal:2."
+  }
+}

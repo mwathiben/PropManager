@@ -129,5 +129,6 @@ return [
         'tenant_invitation_existing' => '[TODO-ar] New Lease Invitation - :property',
         'tenant_invitation_new' => '[TODO-ar] You\'ve Been Invited to :property',
         'caretaker_invitation' => '[TODO-ar] Invitation to Join as Property Caretaker',
+        'water_client_invitation' => 'دعوة لإعداد حساب المياه الخاص بك',
     ],
 ];

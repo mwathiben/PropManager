@@ -28,7 +28,7 @@ class RegisteredUserController extends Controller
      * view lets the form pick the right one. The Invitation model can
      * also pre-fill the role.
      */
-    public function create(Request $request): Response
+    public function create(Request $request): Response|RedirectResponse
     {
         $invitationToken = $request->query('invitation');
         $invitationRole = null;
@@ -38,6 +38,15 @@ class RegisteredUserController extends Controller
             $invitation = Invitation::where('token', $invitationToken)
                 ->whereNull('accepted_at')
                 ->first();
+
+            // Water clients are landlord-provisioned via their own deep-link
+            // (WaterClientInvitationController), which sets landlord_id. The public
+            // /register path never sets it, so route the invitee to the correct flow
+            // rather than rendering a register form that would 403 on submit.
+            if ($invitation?->role === 'water_client') {
+                return redirect()->route('water-invite.show', $invitationToken);
+            }
+
             $invitationRole = $invitation?->role;
             $invitationEmail = $invitation?->email;
         }
@@ -80,6 +89,11 @@ class RegisteredUserController extends Controller
                 ->whereNull('accepted_at')
                 ->first();
             if ($invitation !== null) {
+                // Hard gate: a water_client invitation must NOT mint a user here —
+                // /register never sets landlord_id, so it would orphan the account
+                // (unscoped, null currency) AND burn the one-time token, denying the
+                // legitimate deep-link accept. They onboard via WaterClientInvitationController.
+                abort_if($invitation->role === 'water_client', 403);
                 $resolvedRole = $invitation->role;
             }
         }
