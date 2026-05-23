@@ -117,25 +117,38 @@ class TenantPortalController extends Controller
 
         $lease = $user->lease()->with('unit')->first();
 
+        // Phase-93: bound everything to THIS tenancy's window — water_readings has
+        // no lease_id, so without the floor a new tenant would see the previous
+        // occupant's history for the same unit (reviewer CRITICAL).
+        $since = $lease?->start_date?->toDateString();
+
         $readings = $lease
             ? \App\Models\WaterReading::query()
                 ->where('unit_id', $lease->unit_id)
                 ->approved()
+                ->when($since, fn ($q) => $q->where('reading_date', '>=', $since))
                 ->orderBy('reading_date', 'desc')
-                ->limit(36)
+                ->limit(12)
                 ->get(['id', 'reading_date', 'consumption', 'cost', 'status'])
             : collect();
 
-        // Phase-90: surface a water-service disconnection so the tenant can pay to restore it.
-        $meter = $lease
-            ? \App\Models\Meter::where('unit_id', $lease->unit_id)->active()->orderByDesc('id')->first()
-            : null;
+        // Phase-93: consumption history + summary + leak self-alert + charge history
+        // + disconnection, from the shared (unit-centric) account service the
+        // water-client dashboard reuses.
+        $account = $lease
+            ? app(\App\Services\Water\WaterAccountService::class)->overview($lease->unit_id, $lease->id, $since)
+            : ['history' => [], 'summary' => null, 'alert' => null, 'charges' => [], 'disconnection' => ['disconnected' => false, 'reason' => null]];
 
         return Inertia::render('Tenant/Water', [
             'hasUnit' => (bool) $lease,
             'readings' => $readings,
-            'meterDisconnected' => (bool) $meter?->isDisconnected(),
-            'disconnectReason' => $meter?->disconnect_reason,
+            'history' => $account['history'],
+            'summary' => $account['summary'],
+            'alert' => $account['alert'],
+            'charges' => $account['charges'],
+            'meterDisconnected' => $account['disconnection']['disconnected'],
+            'disconnectReason' => $account['disconnection']['reason'],
+            'payUrl' => route('tenant.payments'),
         ]);
     }
 }
