@@ -1,0 +1,52 @@
+{
+  "phase": 96,
+  "name": "WATER-CLIENT-DASHBOARD",
+  "epic": "water-clients 3/4",
+  "summary": "The water client's own dashboard: each water line (WaterConnection) renders the SAME shared Components/Water/* the Phase-93 tenant self-service uses (consumption history, usage/leak alert, charges), keyed off the connection's meter instead of a lease.",
+  "findings": [
+    {
+      "id": "WCD-1-SERVICE-REUSE",
+      "title": "Connection/meter-centric overview reusing the Phase-93 contract",
+      "detail": "WaterAccountService::overviewForConnection(WaterConnection) returns the same {history, summary, alert, charges, disconnection} shape as the unit-centric overview(), so the four shared Components/Water/* render verbatim. The private query core was generalized to scope by an arbitrary column (unit_id | meter_id).",
+      "passes": true
+    },
+    {
+      "id": "WCD-2-DATA-ISOLATION",
+      "title": "No cross-account leak on a re-used or decommissioned meter",
+      "detail": "Readings are bounded by connected_at (?? created_at) AND by landlord_id; the meter is resolved through the soft-delete/tenant-scoped relation so a decommissioned or foreign meter yields an empty account, never another occupant's history (the Phase-93 CRITICAL class). StoreWaterConnectionRequest exists-rules tightened with whereNull(deleted_at).",
+      "passes": true
+    },
+    {
+      "id": "WCD-3-DASHBOARD",
+      "title": "Per-line rich dashboard, graceful + honest",
+      "detail": "DashboardController::waterClientDashboard maps each connection to {meta + history/summary/alert/charges/disconnection + effective_rate}; the Vue composes the shared components per line; flat-rate/no-meter lines show a note instead of empty charts; effective_rate = client_rate ?? landlord default ?? null (never a fabricated system default).",
+      "passes": true
+    },
+    {
+      "id": "WCD-4-REFACTOR-SAFETY",
+      "title": "Phase-93 unit-centric path preserved",
+      "detail": "The public unit-centric API (overview/consumptionHistory/summary/latestAnomaly/chargeHistory/disconnection) is retained as thin delegators with landlord_id defaulting null — byte-for-byte behaviour. Phase-93 tenant tests stay green.",
+      "passes": true
+    },
+    {
+      "id": "WCD-5-CHARGES-DEFERRED",
+      "title": "Charge surface ready, populated in Phase 97",
+      "detail": "charges = [] for a connection (no per-connection billing exists yet); the WaterChargesCard renders its empty state. Phase 97 fills it via the tariff engine at the client rate.",
+      "passes": true
+    },
+    {
+      "id": "WCD-6-I18N-SURFACE",
+      "title": "i18n parity + surface guards",
+      "detail": "water.client_dash.* gained rate_label/per_unit/rate_not_set/flat_rate_note/metering_pending across en/sw/ar (parity asserted); surface test guards the four shared components + the page exist and the service contract is stable.",
+      "passes": true
+    }
+  ],
+  "closeout": {
+    "closed_at": "2026-05-23",
+    "result": "6/6 findings pass — zero PRD-finding deferrals",
+    "summary": "A water client now has a real dashboard. Each water line (WaterConnection) renders the SAME shared Components/Water/* the Phase-93 tenant self-service uses — consumption history, usage/leak alert, charges — keyed off the connection meter, not a lease. WaterAccountService was generalized: the private reading-query core scopes by an arbitrary column (unit_id | meter_id); the unit-centric public API is retained as thin delegators (Phase-93 byte-identical); a new overviewForConnection(WaterConnection) keys readings by the meter, bounded by connected_at AND landlord_id, with charges empty until Phase 97. DashboardController::waterClientDashboard injects the service and maps each of the client's connections to {meta + history/summary/alert/charges/disconnection + effective_rate}; the Vue composes the four shared components per line, with flat-rate/no-meter lines showing a note. effective_rate = client_rate ?? landlord water_client_rate ?? null (never a fabricated default).",
+    "tests": "Phase-96 tests: WaterClientDashboard 12 (meter aggregation, connected_at isolation floor, decommissioned-meter no-leak, anomaly alert, disconnection, no-meter graceful, unit-path regression, enriched payload, rate fallback, multi-line) + Surface 3. Phase-93 tenant path green (refactor safe). Full Water suite green. Pint/build(exit 0)/eslint(new files 0)/nav-audit clean; lang parity water 281 (more_soon dropped, +5 client_dash).",
+    "review": "Multi-reviewer read-only pass (CodeRabbit + pr-review code-reviewer + silent-failure-hunter). Two cleared it; silent-failure-hunter found + FIXED HIGH: the meter-centric reads were scope-free with no landlord_id backstop and a soft-deleted/foreign meter_id would drive the dashboard (the Phase-93 cross-account class). FIX: overviewForConnection resolves the meter through the soft-delete/tenant-scoped relation (decommissioned/foreign -> empty account), every read bounded by landlord_id, has_meter derived from the scoped relation (agrees with the serial + the empty account), and StoreWaterConnectionRequest meter/unit exists-rules tightened with whereNull(deleted_at). Also dropped the orphaned client_dash.more_soon key.",
+    "constraints_preserved": "Unit-centric Phase-93 API byte-identical (delegators, landlord_id defaults null). Cross-account isolation: readings bounded by connected_at + landlord_id; meter resolved via scoped relation. Honest rate (null shown as \"not set\", never coerced). charges=[] until Phase 97. Money decimal:2. Shared Components/Water/* reused verbatim (the deliberate Phase-93 seam)."
+  }
+}

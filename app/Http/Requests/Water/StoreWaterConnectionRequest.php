@@ -26,8 +26,10 @@ class StoreWaterConnectionRequest extends FormRequest
             'client_name' => ['nullable', 'string', 'max:255'],
             'billing_mode' => ['required', Rule::in(WaterConnection::BILLING_MODES)],
             'client_rate' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
-            'meter_id' => ['nullable', 'integer', Rule::exists('water_meters', 'id')->where('landlord_id', $landlordId)],
-            'unit_id' => ['nullable', 'integer', Rule::exists('units', 'id')->where('landlord_id', $landlordId)],
+            // whereNull(deleted_at): Rule::exists matches soft-deleted rows by default —
+            // don't let a connection be pointed at a decommissioned meter/unit.
+            'meter_id' => ['nullable', 'integer', Rule::exists('water_meters', 'id')->where('landlord_id', $landlordId)->whereNull('deleted_at')],
+            'unit_id' => ['nullable', 'integer', Rule::exists('units', 'id')->where('landlord_id', $landlordId)->whereNull('deleted_at')],
             'status' => ['required', Rule::in(['active', 'inactive'])],
             'connected_at' => ['nullable', 'date', 'before_or_equal:today'],
             'notes' => ['nullable', 'string', 'max:1000'],

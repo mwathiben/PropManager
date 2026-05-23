@@ -212,7 +212,11 @@ return [
         'subtitle' => 'Ugavi wako wa maji',
         'finish_onboarding' => 'Kamilisha kuanzisha akaunti yako →',
         'no_connection' => 'Hakuna laini ya maji iliyounganishwa na akaunti yako bado.',
-        'more_soon' => 'Historia ya matumizi yako na gharama zitaonekana hapa.',
+        'rate_label' => 'Kiwango',
+        'per_unit' => 'kwa kila kipimo',
+        'rate_not_set' => 'Hakijawekwa bado',
+        'flat_rate_note' => 'Laini hii inatozwa kwa kiwango cha kawaida.',
+        'metering_pending' => 'Upimaji wa laini hii haujawekwa bado.',
     ],
     'client_onboarding' => [
         'title' => 'Anzisha akaunti yako ya maji',

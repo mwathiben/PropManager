@@ -315,3 +315,21 @@ A landlord provisions a water client by **inviting** them per connection; the cl
 - **Claim race:** `accept()` links only an *unclaimed* (`whereNull('user_id')`), live connection and throws on a 0-row update, rolling the whole accept back — a duplicate token can never re-point a connection away from its existing owner.
 - **API abilities:** `Api/AuthController::getAbilitiesForUser` gives `water_client` its own `['water_client:read']` arm so it never inherits the default `tenant:read`.
 - `accept()` failures surface on the deep-link page (flash-error banner in `AcceptInvitation.vue`); invite emails are normalized to lowercase.
+
+## Phase 96 — water-client dashboard
+
+A water client's dashboard now shows real data per **water line** (`WaterConnection`), reusing the SAME shared `Components/Water/*` the Phase-93 tenant self-service uses.
+
+| Concept | Where |
+| --- | --- |
+| Service | `WaterAccountService::overviewForConnection(WaterConnection)` — same `{history, summary, alert, charges, disconnection}` contract as the unit-centric `overview()`, but keyed off the connection's **meter** (not a lease). The private query core was generalized to scope by an arbitrary column (`unit_id` \| `meter_id`); the unit-centric public API stays as thin delegators (Phase-93 byte-identical). |
+| Reuse seam | `resources/js/Pages/WaterClient/Dashboard.vue` composes `WaterDisconnectionBanner` / `WaterUsageAlert` / `WaterConsumptionCard` / `WaterChargesCard` per connection — the exact components the tenant page uses. This is why Phase 93 built them presentational. |
+| Controller | `DashboardController::waterClientDashboard` injects the service, resolves the landlord's `water_client_rate` once, and maps each connection to `{id, identifier, status, billing_mode, meter, has_meter, effective_rate, history, summary, alert, charges, disconnection}`. |
+| Rate | `effective_rate = connection.client_rate ?? landlord water_client_rate ?? null`. **Never** a fabricated system default — `null` renders "Not set yet" (the Phase-97 biller refuses a null rate). |
+| Charges | Empty until Phase 97 (no per-connection billing exists yet); `WaterChargesCard` shows its empty state. The surface is ready for Phase 97 to populate. |
+
+### Data-isolation invariants (the Phase-93 lesson, applied to meters)
+- `water_readings` has no connection id, so an unbounded query could surface a prior occupant's history on a re-used meter. The connection path bounds reads by **`connected_at` (?? `created_at`)** AND by **`landlord_id`** (belt-and-suspenders).
+- The meter is resolved through the **soft-delete/tenant-scoped relation** (`$connection->meter`), not the raw `meter_id` — a decommissioned or foreign meter yields an empty account, never leaked data. `has_meter` is derived from the same scoped relation so it agrees with the serial and the empty account.
+- `StoreWaterConnectionRequest` meter/unit `exists` rules use `whereNull('deleted_at')` so a connection can't be pointed at a decommissioned meter/unit in the first place.
+- Flat-rate or not-yet-metered lines (`has_meter = false`) show a note (`flat_rate_note` / `metering_pending`) instead of empty charts.

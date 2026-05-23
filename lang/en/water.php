@@ -212,7 +212,11 @@ return [
         'subtitle' => 'Your water supply',
         'finish_onboarding' => 'Finish setting up your account →',
         'no_connection' => 'No water line is linked to your account yet.',
-        'more_soon' => 'Your consumption history and charges will appear here.',
+        'rate_label' => 'Rate',
+        'per_unit' => 'per unit',
+        'rate_not_set' => 'Not set yet',
+        'flat_rate_note' => 'This line is billed at a flat rate.',
+        'metering_pending' => 'Metering for this line is not set up yet.',
     ],
     'client_onboarding' => [
         'title' => 'Set up your water account',

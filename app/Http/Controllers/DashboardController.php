@@ -2,15 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\PaymentConfiguration;
 use App\Models\Unit;
+use App\Models\WaterConnection;
 use App\Services\DashboardService;
+use App\Services\Water\WaterAccountService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class DashboardController extends Controller
 {
     public function __construct(
-        protected DashboardService $dashboardService
+        protected DashboardService $dashboardService,
+        protected WaterAccountService $waterAccountService,
     ) {}
 
     public function index(Request $request)
@@ -69,17 +73,39 @@ class DashboardController extends Controller
     {
         $user = auth()->user();
 
-        $connections = \App\Models\WaterConnection::query()
+        // The landlord's default client rate; a connection's own client_rate wins.
+        // Never fabricate a system default for a client (Phase-97 biller refuses a
+        // null rate) — show "not set" instead, honestly.
+        $config = PaymentConfiguration::where('landlord_id', $user->landlord_id)->first();
+        $defaultRate = $config?->water_client_rate !== null ? (float) $config->water_client_rate : null;
+
+        $connections = WaterConnection::query()
             ->where('user_id', $user->id)
             ->with(['meter:id,serial_number'])
+            ->orderBy('id')
             ->get()
-            ->map(fn (\App\Models\WaterConnection $c) => [
-                'id' => $c->id,
-                'identifier' => $c->identifier,
-                'status' => $c->status,
-                'billing_mode' => $c->billing_mode,
-                'meter' => $c->meter?->serial_number,
-            ]);
+            ->map(function (WaterConnection $c) use ($defaultRate) {
+                $account = $this->waterAccountService->overviewForConnection($c);
+                $clientRate = $c->client_rate !== null ? (float) $c->client_rate : null;
+
+                return [
+                    'id' => $c->id,
+                    'identifier' => $c->identifier,
+                    'status' => $c->status,
+                    'billing_mode' => $c->billing_mode,
+                    'meter' => $c->meter?->serial_number,
+                    // Derive from the scoped relation (not raw meter_id) so a soft-
+                    // deleted/foreign meter reads as "no meter" — matching the empty
+                    // account overviewForConnection() returns for the same case.
+                    'has_meter' => $c->meter !== null,
+                    'effective_rate' => $clientRate ?? $defaultRate,
+                    'history' => $account['history'],
+                    'summary' => $account['summary'],
+                    'alert' => $account['alert'],
+                    'charges' => $account['charges'],
+                    'disconnection' => $account['disconnection'],
+                ];
+            });
 
         return Inertia::render('WaterClient/Dashboard', [
             'connections' => $connections,

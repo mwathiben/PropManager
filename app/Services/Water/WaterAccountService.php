@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Water;
 
+use App\Models\WaterConnection;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -13,12 +15,17 @@ use Illuminate\Support\Facades\DB;
  * Phase-86 is_anomalous spike flag), the water-charge history, and the meter's
  * disconnection state.
  *
- * Deliberately UNIT-centric (charges by lease) so the Phase-94+ water client
- * dashboard reuses it verbatim — a water client is a unit/water-line without the
- * tenancy. Reading queries are bounded by the occupancy window ($since/$until)
- * because water_readings has no lease_id: without the floor a new tenant would
- * see the PREVIOUS occupant's history (reviewer CRITICAL). DB::table (scope-free)
- * is safe — the caller passes the unit/lease it already resolved + owns.
+ * Two account shapes feed the SAME return contract (so the shared Components/Water/*
+ * render either verbatim):
+ *  - UNIT-centric (tenant, Phase 93): readings scoped by unit_id, charges by lease.
+ *  - CONNECTION/METER-centric (water client, Phase 96): readings scoped by the
+ *    connection's meter_id, charges deferred to Phase 97 (none exist yet).
+ *
+ * Reading queries are bounded by a service window ($since/$until) because
+ * water_readings has no lease/connection id: without the floor a re-let unit or a
+ * re-used meter would surface the PREVIOUS occupant's history (Phase-93 reviewer
+ * CRITICAL). DB::table (scope-free) is safe — the caller passes the unit/meter it
+ * already resolved + owns.
  */
 class WaterAccountService
 {
@@ -36,11 +43,61 @@ class WaterAccountService
     public function overview(int $unitId, ?int $leaseId = null, ?string $since = null, ?string $until = null): array
     {
         return [
-            'history' => $this->consumptionHistory($unitId, $since, $until),
-            'summary' => $this->summary($unitId, $since, $until),
-            'alert' => $this->latestAnomaly($unitId, $since, $until),
+            'history' => $this->historyFor('unit_id', $unitId, $since, $until),
+            'summary' => $this->summaryFor('unit_id', $unitId, $since, $until),
+            'alert' => $this->anomalyFor('unit_id', $unitId, $since, $until),
             'charges' => $leaseId !== null ? $this->chargeHistory($leaseId) : [],
             'disconnection' => $this->disconnection($unitId),
+        ];
+    }
+
+    /**
+     * Phase-96 WATER-CLIENT-DASHBOARD: the same overview for a water client's line.
+     * The connection IS the account — readings come from its meter, bounded to when
+     * the line was connected (so a meter that previously served a tenant doesn't
+     * leak that history). Charges are empty until the Phase-97 biller exists.
+     *
+     * @return array<string, mixed>
+     */
+    public function overviewForConnection(WaterConnection $connection): array
+    {
+        // Resolve the meter through the (soft-delete- and tenant-scoped) relation,
+        // NOT the raw meter_id: a decommissioned or foreign meter must never drive
+        // the account. Belt-and-suspenders, every read below is also bounded by
+        // landlord_id — water_readings has no connection id, so (as in Phase 93) an
+        // unbounded query could otherwise surface another account's history.
+        $meter = $connection->meter;
+        if ($meter === null) {
+            // A flat-rate, not-yet-metered, or decommissioned line has no consumption.
+            return $this->emptyAccount();
+        }
+
+        $since = ($connection->connected_at ?? $connection->created_at)?->toDateString();
+        $landlordId = $connection->landlord_id;
+
+        return [
+            'history' => $this->historyFor('meter_id', $meter->id, $since, null, $landlordId),
+            'summary' => $this->summaryFor('meter_id', $meter->id, $since, null, $landlordId),
+            'alert' => $this->anomalyFor('meter_id', $meter->id, $since, null, $landlordId),
+            'charges' => [], // Phase 97 introduces per-connection water charges.
+            'disconnection' => $this->disconnectionForMeter($meter->id, $landlordId),
+        ];
+    }
+
+    /**
+     * The shared shape for a line with no readable meter (flat-rate, not yet
+     * metered, decommissioned, or — defensively — a foreign meter id).
+     *
+     * @return array<string, mixed>
+     */
+    private function emptyAccount(): array
+    {
+        return [
+            'history' => $this->buildBuckets(collect()),
+            'summary' => ['latest_consumption' => null, 'latest_date' => null, 'avg_monthly' => 0, 'ytd_consumption' => 0],
+            'alert' => null,
+            'charges' => [],
+            'disconnection' => ['disconnected' => false, 'reason' => null],
         ];
     }
 
@@ -49,32 +106,7 @@ class WaterAccountService
      */
     public function consumptionHistory(int $unitId, ?string $since = null, ?string $until = null): array
     {
-        $cacheKey = $this->key($unitId, $since, $until);
-        if (isset($this->historyCache[$cacheKey])) {
-            return $this->historyCache[$cacheKey];
-        }
-
-        $start = Carbon::now()->startOfMonth()->subMonthsNoOverflow(self::HISTORY_MONTHS - 1);
-
-        $rows = $this->boundedReadings($unitId, $since, $until)
-            ->where('reading_date', '>=', $start->toDateString())
-            ->selectRaw('YEAR(reading_date) as y, MONTH(reading_date) as m, SUM(COALESCE(consumption, 0)) as total')
-            ->groupBy('y', 'm')
-            ->get()
-            ->keyBy(fn ($r) => ((int) $r->y).'-'.((int) $r->m));
-
-        $history = [];
-        $cursor = $start->copy();
-        for ($i = 0; $i < self::HISTORY_MONTHS; $i++) {
-            $history[] = [
-                'label' => $cursor->format('M'),
-                'value' => (int) round((float) ($rows[$cursor->year.'-'.$cursor->month]->total ?? 0)),
-                'period' => $cursor->format('Y-m'),
-            ];
-            $cursor->addMonth();
-        }
-
-        return $this->historyCache[$cacheKey] = $history;
+        return $this->historyFor('unit_id', $unitId, $since, $until);
     }
 
     /**
@@ -82,27 +114,7 @@ class WaterAccountService
      */
     public function summary(int $unitId, ?string $since = null, ?string $until = null): array
     {
-        $latest = $this->latestReading($unitId, $since, $until);
-
-        $values = array_column($this->consumptionHistory($unitId, $since, $until), 'value');
-        $nonZero = array_filter($values, fn ($v) => $v > 0);
-        $avgMonthly = $nonZero !== [] ? (int) round(array_sum($nonZero) / count($nonZero)) : 0;
-
-        // Year-to-date, but never before the occupancy window started.
-        $ytdFloor = Carbon::now()->startOfYear()->toDateString();
-        if ($since !== null && $since > $ytdFloor) {
-            $ytdFloor = $since;
-        }
-        $ytd = (float) $this->boundedReadings($unitId, null, $until)
-            ->where('reading_date', '>=', $ytdFloor)
-            ->sum('consumption');
-
-        return [
-            'latest_consumption' => $latest !== null ? (int) round((float) $latest->total) : null,
-            'latest_date' => $latest !== null ? Carbon::parse($latest->reading_date)->toDateString() : null,
-            'avg_monthly' => $avgMonthly,
-            'ytd_consumption' => (int) round($ytd),
-        ];
+        return $this->summaryFor('unit_id', $unitId, $since, $until);
     }
 
     /**
@@ -114,16 +126,7 @@ class WaterAccountService
      */
     public function latestAnomaly(int $unitId, ?string $since = null, ?string $until = null): ?array
     {
-        $latest = $this->latestReading($unitId, $since, $until);
-
-        if ($latest === null || ! (bool) $latest->is_anomalous) {
-            return null;
-        }
-
-        return [
-            'consumption' => (int) round((float) $latest->total),
-            'reading_date' => Carbon::parse($latest->reading_date)->toDateString(),
-        ];
+        return $this->anomalyFor('unit_id', $unitId, $since, $until);
     }
 
     /**
@@ -152,8 +155,7 @@ class WaterAccountService
     }
 
     /**
-     * The unit meter's service-disconnection state (Phase-90). Folded into the
-     * service so the Phase-94+ water-client view ships it from the same surface.
+     * The unit meter's service-disconnection state (Phase-90).
      *
      * @return array{disconnected:bool, reason:?string}
      */
@@ -166,20 +168,134 @@ class WaterAccountService
             ->orderByDesc('id')
             ->first(['disconnected_at', 'disconnect_reason']);
 
+        return $this->disconnectionFrom($meter);
+    }
+
+    /**
+     * @return list<array{label:string, value:int, period:string}>
+     */
+    private function historyFor(string $column, int $id, ?string $since, ?string $until, ?int $landlordId = null): array
+    {
+        $cacheKey = $this->key($column, $id, $since, $until, $landlordId);
+        if (isset($this->historyCache[$cacheKey])) {
+            return $this->historyCache[$cacheKey];
+        }
+
+        $start = Carbon::now()->startOfMonth()->subMonthsNoOverflow(self::HISTORY_MONTHS - 1);
+
+        $rows = $this->boundedReadings($column, $id, $since, $until, $landlordId)
+            ->where('reading_date', '>=', $start->toDateString())
+            ->selectRaw('YEAR(reading_date) as y, MONTH(reading_date) as m, SUM(COALESCE(consumption, 0)) as total')
+            ->groupBy('y', 'm')
+            ->get()
+            ->keyBy(fn ($r) => ((int) $r->y).'-'.((int) $r->m));
+
+        return $this->historyCache[$cacheKey] = $this->buildBuckets($rows);
+    }
+
+    /**
+     * @return array{latest_consumption:?int, latest_date:?string, avg_monthly:int, ytd_consumption:int}
+     */
+    private function summaryFor(string $column, int $id, ?string $since, ?string $until, ?int $landlordId = null): array
+    {
+        $latest = $this->latestReading($column, $id, $since, $until, $landlordId);
+
+        $values = array_column($this->historyFor($column, $id, $since, $until, $landlordId), 'value');
+        $nonZero = array_filter($values, fn ($v) => $v > 0);
+        $avgMonthly = $nonZero !== [] ? (int) round(array_sum($nonZero) / count($nonZero)) : 0;
+
+        // Year-to-date, but never before the service window started.
+        $ytdFloor = Carbon::now()->startOfYear()->toDateString();
+        if ($since !== null && $since > $ytdFloor) {
+            $ytdFloor = $since;
+        }
+        $ytd = (float) $this->boundedReadings($column, $id, null, $until, $landlordId)
+            ->where('reading_date', '>=', $ytdFloor)
+            ->sum('consumption');
+
+        return [
+            'latest_consumption' => $latest !== null ? (int) round((float) $latest->total) : null,
+            'latest_date' => $latest !== null ? Carbon::parse($latest->reading_date)->toDateString() : null,
+            'avg_monthly' => $avgMonthly,
+            'ytd_consumption' => (int) round($ytd),
+        ];
+    }
+
+    /**
+     * @return array{consumption:int, reading_date:?string}|null
+     */
+    private function anomalyFor(string $column, int $id, ?string $since, ?string $until, ?int $landlordId = null): ?array
+    {
+        $latest = $this->latestReading($column, $id, $since, $until, $landlordId);
+
+        if ($latest === null || ! (bool) $latest->is_anomalous) {
+            return null;
+        }
+
+        return [
+            'consumption' => (int) round((float) $latest->total),
+            'reading_date' => Carbon::parse($latest->reading_date)->toDateString(),
+        ];
+    }
+
+    /**
+     * @param  Collection<string, object>  $rows  keyed "Y-n" => {total}
+     * @return list<array{label:string, value:int, period:string}>
+     */
+    private function buildBuckets(Collection $rows): array
+    {
+        $start = Carbon::now()->startOfMonth()->subMonthsNoOverflow(self::HISTORY_MONTHS - 1);
+
+        $history = [];
+        $cursor = $start->copy();
+        for ($i = 0; $i < self::HISTORY_MONTHS; $i++) {
+            $history[] = [
+                'label' => $cursor->format('M'),
+                'value' => (int) round((float) ($rows->get($cursor->year.'-'.$cursor->month)?->total ?? 0)),
+                'period' => $cursor->format('Y-m'),
+            ];
+            $cursor->addMonth();
+        }
+
+        return $history;
+    }
+
+    /**
+     * A specific meter's disconnection state — the water-client line's own meter
+     * (looked up by id, not by unit, since a client line need not anchor a unit).
+     *
+     * @return array{disconnected:bool, reason:?string}
+     */
+    private function disconnectionForMeter(int $meterId, ?int $landlordId = null): array
+    {
+        $meter = DB::table('water_meters')
+            ->where('id', $meterId)
+            ->when($landlordId !== null, fn ($q) => $q->where('landlord_id', $landlordId))
+            ->whereNull('deleted_at')
+            ->first(['disconnected_at', 'disconnect_reason']);
+
+        return $this->disconnectionFrom($meter);
+    }
+
+    /**
+     * @return array{disconnected:bool, reason:?string}
+     */
+    private function disconnectionFrom(?object $meter): array
+    {
         return [
             'disconnected' => $meter !== null && $meter->disconnected_at !== null,
             'reason' => $meter->disconnect_reason ?? null,
         ];
     }
 
-    private function latestReading(int $unitId, ?string $since, ?string $until): ?object
+    private function latestReading(string $column, int $id, ?string $since, ?string $until, ?int $landlordId = null): ?object
     {
-        $cacheKey = $this->key($unitId, $since, $until);
+        $cacheKey = $this->key($column, $id, $since, $until, $landlordId);
         if (array_key_exists($cacheKey, $this->latestCache)) {
             return $this->latestCache[$cacheKey];
         }
 
-        return $this->latestCache[$cacheKey] = $this->boundedReadings($unitId, $since, $until)
+        return $this->latestCache[$cacheKey] = $this->boundedReadings($column, $id, $since, $until, $landlordId)
             ->orderByDesc('reading_date')
             ->orderByDesc('id')
             ->selectRaw('COALESCE(consumption, 0) as total, reading_date, is_anomalous')
@@ -187,20 +303,21 @@ class WaterAccountService
     }
 
     /**
-     * Approved readings for the unit, bounded to the occupancy window so one
-     * account never sees another's history on the same physical unit.
+     * Approved readings for the account, bounded to the service window so one
+     * account never sees another's history on the same physical unit or meter.
      */
-    private function boundedReadings(int $unitId, ?string $since, ?string $until): \Illuminate\Database\Query\Builder
+    private function boundedReadings(string $column, int $id, ?string $since, ?string $until, ?int $landlordId = null): \Illuminate\Database\Query\Builder
     {
         return DB::table('water_readings')
-            ->where('unit_id', $unitId)
+            ->where($column, $id)
             ->where('status', 'approved')
+            ->when($landlordId !== null, fn ($q) => $q->where('landlord_id', $landlordId))
             ->when($since !== null, fn ($q) => $q->where('reading_date', '>=', $since))
             ->when($until !== null, fn ($q) => $q->where('reading_date', '<=', $until));
     }
 
-    private function key(int $unitId, ?string $since, ?string $until): string
+    private function key(string $column, int $id, ?string $since, ?string $until, ?int $landlordId = null): string
     {
-        return $unitId.'|'.($since ?? '').'|'.($until ?? '');
+        return $column.'|'.$id.'|'.($since ?? '').'|'.($until ?? '').'|'.($landlordId ?? '');
     }
 }
