@@ -52,6 +52,11 @@ class WaterHubController extends Controller
         if ($tab === 'compliance' && $isCaretaker) {
             $tab = 'overview';
         }
+        // Phase-94 WATER-CLIENTS: managing external water clients + their water
+        // lines is landlord-only.
+        if ($tab === 'clients' && $isCaretaker) {
+            $tab = 'overview';
+        }
 
         $baseProps = [
             'activeTab' => $tab,
@@ -72,6 +77,7 @@ class WaterHubController extends Controller
             'settings' => $this->getSettingsData($landlordId),
             'intelligence' => $this->getIntelligenceData($landlordId),
             'compliance' => $this->getComplianceData($landlordId),
+            'clients' => $this->getClientsData($landlordId),
             default => $this->getOverviewData($landlordId),
         };
 
@@ -220,6 +226,57 @@ class WaterHubController extends Controller
     {
         return [
             'compliance' => app(\App\Services\Water\WaterComplianceService::class)->forLandlord($landlordId),
+        ];
+    }
+
+    /**
+     * Phase-94 WATER-CLIENTS: the landlord-only setup + water-line management
+     * payload — the opt-in flag + default client rate, the connections (water
+     * lines), and the meters available to attach. Onboarding a real water_client
+     * user + billing land in Phases 95 / 97.
+     */
+    private function getClientsData(int $landlordId): array
+    {
+        $config = \App\Models\PaymentConfiguration::where('landlord_id', $landlordId)->first();
+
+        $connections = \App\Models\WaterConnection::query()
+            ->where('landlord_id', $landlordId)
+            ->with(['meter:id,serial_number', 'unit:id,unit_number', 'client:id,name'])
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn (\App\Models\WaterConnection $c) => [
+                'id' => $c->id,
+                'identifier' => $c->identifier,
+                'client_name' => $c->client?->name ?? $c->client_name,
+                'has_account' => $c->user_id !== null,
+                'billing_mode' => $c->billing_mode,
+                'client_rate' => $c->client_rate !== null ? (float) $c->client_rate : null,
+                'status' => $c->status,
+                'meter_id' => $c->meter_id,
+                'meter' => $c->meter?->serial_number,
+                'unit_id' => $c->unit_id,
+                'unit' => $c->unit?->unit_number,
+                'connected_at' => $c->connected_at?->toDateString(),
+                'notes' => $c->notes,
+            ]);
+
+        $meters = \App\Models\Meter::query()
+            ->where('landlord_id', $landlordId)
+            ->orderBy('serial_number')
+            ->get(['id', 'serial_number', 'unit_id'])
+            ->map(fn (\App\Models\Meter $m) => [
+                'id' => $m->id,
+                'label' => $m->serial_number ?: '#'.$m->id,
+            ]);
+
+        return [
+            'clients' => [
+                'supplies_water_clients' => (bool) ($config->supplies_water_clients ?? false),
+                'water_client_rate' => $config && $config->water_client_rate !== null ? (float) $config->water_client_rate : null,
+                'connections' => $connections,
+                'meters' => $meters,
+                'billing_modes' => \App\Models\WaterConnection::BILLING_MODES,
+            ],
         ];
     }
 

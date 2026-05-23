@@ -638,6 +638,13 @@ Route::middleware('auth')->group(function () {
             // abstraction limit (landlord-only). Permit/cert files upload via
             // documents.store (documentable_type=Building).
             Route::put('/water/compliance/buildings/{building}/limit', [\App\Http\Controllers\WaterComplianceController::class, 'updateLimit'])->whereNumber('building')->name('water.compliance.limit');
+
+            // Phase-94 WATER-CLIENTS-FOUNDATION: opt-in setup + water-line (connection)
+            // management for non-tenant water clients (landlord-only).
+            Route::put('/water/clients/setup', [\App\Http\Controllers\WaterConnectionController::class, 'setup'])->name('water.clients.setup');
+            Route::post('/water/connections', [\App\Http\Controllers\WaterConnectionController::class, 'store'])->name('water.connections.store');
+            Route::put('/water/connections/{waterConnection}', [\App\Http\Controllers\WaterConnectionController::class, 'update'])->whereNumber('waterConnection')->name('water.connections.update');
+            Route::delete('/water/connections/{waterConnection}', [\App\Http\Controllers\WaterConnectionController::class, 'destroy'])->whereNumber('waterConnection')->name('water.connections.destroy');
         });
     });
 

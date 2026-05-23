@@ -178,6 +178,15 @@ class User extends Authenticatable implements HasLocalePreference
         return $this->role === 'tenant';
     }
 
+    /**
+     * Phase-94 WATER-CLIENTS: a non-tenant who only receives a water supply from
+     * a landlord (a borehole neighbour). Scoped to their supplier landlord_id.
+     */
+    public function isWaterClient(): bool
+    {
+        return $this->role === 'water_client';
+    }
+
     public function isArchived(): bool
     {
         return $this->is_archived === true;

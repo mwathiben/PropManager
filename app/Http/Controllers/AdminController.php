@@ -50,9 +50,7 @@ class AdminController extends Controller implements HasMiddleware
         ];
     }
 
-    public function __construct(private readonly SecurityLogger $securityLogger)
-    {
-    }
+    public function __construct(private readonly SecurityLogger $securityLogger) {}
 
     /**
      * Display the list of all landlords.
@@ -126,6 +124,7 @@ class AdminController extends Controller implements HasMiddleware
                 'landlord' => 'Landlord',
                 'caretaker' => 'Caretaker',
                 'tenant' => 'Tenant',
+                'water_client' => 'Water Client',
             ],
         ]);
     }

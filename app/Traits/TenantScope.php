@@ -53,6 +53,10 @@ trait TenantScope
                     // Tenant scoped to their landlord for general queries
                     // (tenant-specific filtering done at controller level)
                     $builder->where('landlord_id', $user->landlord_id);
+                } elseif ($user->role === 'water_client') {
+                    // Phase-94: a water client is scoped to their supplier landlord
+                    // (account-specific filtering done at controller level).
+                    $builder->where('landlord_id', $user->landlord_id);
                 }
             });
         }

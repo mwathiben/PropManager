@@ -62,6 +62,9 @@ class RegisteredUserController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|lowercase|email|max:255|unique:'.User::class,
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            // Water clients are landlord-provisioned at onboarding (Phase 95), NOT
+            // self-registered — self-registering one would fail the onboarding_sessions
+            // role ENUM and dead-end with no dashboard. Keep it off the public gate.
             'role' => ['nullable', 'string', 'in:landlord,caretaker,tenant'],
             'invitation_token' => ['nullable', 'string'],
         ]);
