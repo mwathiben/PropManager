@@ -252,3 +252,23 @@ annual abstraction limit vs actual abstraction.
 - Permit/cert renewal reminders are the **same** machinery as every other document expiry — set the doc renewable with an expiry + reminder days and the daily scan handles it.
 - Abstraction "used" is metered consumption. Where a building has a borehole **main meter** (a metered parent feeding sub-meters), that reading is the true abstraction total; otherwise it is estimated from unit meters and **understates** real abstraction (leaks/common areas not metered) — sub-meter the building for an accurate compliance figure.
 - A single borehole supplying multiple buildings: model the limit per building (split it, or set it on the building carrying the main meter). A first-class shared-source model arrives with the water-clients epic (Phase 94+).
+
+## Phase 93 — tenant water self-service
+
+The tenant water view (`/water`, `tenant.water`, water.module gated) is now a self-service dashboard, not a flat readings table.
+
+| Concept | Where |
+| --- | --- |
+| Service | `App\Services\Water\WaterAccountService` — **unit-centric** (charges by lease), so the Phase-94+ water-client dashboard reuses it verbatim |
+| Data | `overview(unitId, ?leaseId)` → 12-month consumption history + summary (latest / monthly average / year-to-date) + leak self-alert + per-period water-charge history |
+| Surface | `TenantPortalController::water` + `resources/js/Pages/Tenant/Water.vue` |
+| Shared components | `resources/js/Components/Water/` — `WaterDisconnectionBanner` (payUrl prop), `WaterUsageAlert`, `WaterConsumptionCard` (reuses ChartCard — the first chart on the tenant side), `WaterChargesCard`. **Pure presentational, data-only props** → reused as-is by the water-client dashboard. |
+| Leak self-alert | surfaces the tenant's latest reading's Phase-86 `is_anomalous` spike flag as a non-alarming advisory (check for leaks / running taps) — only when actually flagged |
+
+### Operator notes
+- The tenant sees only **approved** readings (pending/rejected never appear), consistent with the rest of the tenant portal.
+- The leak self-alert is the same `is_anomalous` flag the landlord reviews — no separate detection. It reflects the LATEST reading only.
+- Charges show water_due per billing period with a settled/outstanding chip; "settled" means the whole invoice is paid (water isn't separable from rent at payment time).
+- The four `Components/Water/*` cards are the deliberate reuse seam for the water-clients epic — a water-client dashboard (Phase 96) composes the same components with a different pay route and no rent context.
+- Readings are scoped to the tenant's **occupancy window** (lease `start_date` onward) — `water_readings` has no `lease_id`, so a tenant on a previously-occupied unit must not see the prior occupant's history. The water-client reuse passes its service-start date the same way.
+- Known limitation: **imported** historical readings (Phase-89) are not spike-flagged (`is_anomalous` defaults false, the import bypasses the spike check), so the leak self-alert reflects normally-recorded readings, not bulk-imported history.

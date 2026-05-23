@@ -1,0 +1,77 @@
+{
+  "phase": 93,
+  "title": "WATER-TENANT-SELFSERVICE",
+  "opened_at": "2026-05-23",
+  "tier": 7,
+  "scope": "USER-DIRECTED water domain, phase 8 of 12 — deepen the tenant water dashboard (consumption history + charges + a high-usage/leak self-alert) and extract SHARED, reusable components so the Phase 94-97 water-CLIENT dashboard is largely composition (the directive: tenant + water-client dashboards 'identical... minus rent... what they'll have is a specific water line'). Scout facts: TenantPortalController::water() (lines 110-140) currently passes hasUnit + last-36 approved readings + Phase-90 meterDisconnected/reason; resolves $user->lease()->with('unit'). Tenant/Water.vue = AuthenticatedLayout + readings table + disconnection banner (uses formatDate/formatCurrency). ChartCard (points:[{label,value}]) reused in Phase-91/92 — reuse for a consumption mini-chart (FIRST chart on the tenant side). WaterReadingService::isSpike + water_readings.is_anomalous (Phase-86, >5x trailing avg) — currently NOT passed to the tenant; surface the latest approved reading's is_anomalous as a self-alert. Charges: invoices.water_due per billing_period (lease-scoped). Shared components live in resources/js/Components/Water/ (WaterSettingsForm precedent). NO migration (all data exists). The water components are inherently water-only (no rent) -> build them as pure presentational components reusable by the future water-client page (capability-gating is at the PAGE level, not inside the components). Mirror WaterIntelligenceService.consumptionTrend (monthly buckets, approved, soft-delete-guarded) but UNIT-scoped.",
+  "categories": [
+    "SERVICE",
+    "SHARED-COMPONENTS",
+    "SELFSERVICE-SURFACE",
+    "CI"
+  ],
+  "findings": [
+    {
+      "id": "SERVICE-1",
+      "severity": "HIGH",
+      "category": "SERVICE",
+      "title": "Unit-scoped WaterAccountService (reusable for water-clients)",
+      "evidence": "No service computes a single unit/account's water history, charges, or anomaly self-alert.",
+      "remediation": "WaterAccountService::overview(unitId, ?leaseId): consumptionHistory (12 monthly buckets, approved readings, unit-scoped, soft-delete-guarded — mirror WaterIntelligenceService) + summary (latest reading value+date, avg monthly, year-to-date) + latestAnomaly (the latest approved reading's is_anomalous + value + date) + chargeHistory (per-period invoices.water_due for the lease, paid status). Unit-centric so the Phase-94+ water-client reuses it. Phase93 test: history buckets + summary + anomaly + charges computed for a unit/lease.",
+      "passes": true
+    },
+    {
+      "id": "SHARED-COMPONENTS-1",
+      "severity": "HIGH",
+      "category": "SHARED-COMPONENTS",
+      "title": "Shared water display components (Components/Water/*)",
+      "evidence": "The tenant water view is a bespoke table; nothing is reusable by the future water-client dashboard.",
+      "remediation": "Pure presentational components in resources/js/Components/Water/: WaterUsageAlert.vue (high-usage/leak banner), WaterConsumptionCard.vue (ChartCard history + summary stats + recent-readings table), WaterChargesCard.vue (per-period water charges table), WaterDisconnectionBanner.vue (extract the Phase-90 banner; payUrl prop so routes differ per consumer). Data-only props, no role logic — reused as-is by the Phase-96 water-client dashboard. i18n. Phase93 test (surface): components exist + imported by Tenant/Water.vue.",
+      "passes": true
+    },
+    {
+      "id": "SELFSERVICE-SURFACE-1",
+      "severity": "HIGH",
+      "category": "SELFSERVICE-SURFACE",
+      "title": "Tenant water dashboard rebuilt from shared components",
+      "evidence": "Tenant/Water.vue shows only a flat readings table — no trend, charges, or leak alert.",
+      "remediation": "TenantPortalController::water() enriched to pass the WaterAccountService payload (history/summary/alert/charges) alongside the existing readings + disconnection state. Tenant/Water.vue composes WaterDisconnectionBanner + WaterUsageAlert + WaterConsumptionCard + WaterChargesCard (AuthenticatedLayout, tenant styling). Empty state preserved. nav-audit clean. Phase93 test: a tenant sees history+charges+alert in the payload; non-tenant 403; a tenant without a lease gets the empty state.",
+      "passes": true
+    },
+    {
+      "id": "SELFSERVICE-SURFACE-2",
+      "severity": "MEDIUM",
+      "category": "SELFSERVICE-SURFACE",
+      "title": "High-usage / leak self-alert",
+      "evidence": "The Phase-86 is_anomalous spike flag is landlord-only; a tenant gets no leak warning.",
+      "remediation": "Surface the latest approved reading's is_anomalous to the tenant as a non-alarming advisory (check for leaks / running taps; contact caretaker) via WaterUsageAlert. Honest: only when the latest reading is actually flagged; no alert otherwise. Phase93 test: a tenant whose latest reading is anomalous sees the alert; a normal reading shows none.",
+      "passes": true
+    },
+    {
+      "id": "CI-1",
+      "severity": "MEDIUM",
+      "category": "CI",
+      "title": "Phase 93 behavioral + surface tests",
+      "evidence": "The service + tenant payload + alert + role gate need regression guards.",
+      "remediation": "Phase93WaterSelfServiceTest (service history/summary/charges/anomaly; tenant payload has them; anomalous self-alert; non-tenant 403; no-lease empty state; only approved readings shown) + Phase93 surface (service resolvable, shared components present, tenant.water route, lang parity). Existing tenant + water suites stay green.",
+      "passes": true
+    },
+    {
+      "id": "CI-2",
+      "severity": "LOW",
+      "category": "CI",
+      "title": "Runbook + closeout + memory + multi-reviewer pass",
+      "evidence": "Self-service needs operator docs + per-phase review.",
+      "remediation": "docs/runbooks/water.md tenant self-service section (what the tenant sees, the leak alert source, the shared-components-for-clients note). Multi-reviewer read-only pass. Memory: phase93 plan + forward-path + pending-path. Name next = Phase 94 [WATER-CLIENTS-FOUNDATION].",
+      "passes": true
+    }
+  ],
+  "closeout": {
+    "closed_at": "2026-05-23",
+    "result": "6/6 findings pass — zero PRD-finding deferrals",
+    "summary": "The tenant water view becomes a self-service dashboard, built from SHARED components the Phase-94+ water-client dashboard reuses. SERVICE: WaterAccountService::overview(unitId, ?leaseId) — UNIT-centric (charges by lease) so a water client reuses it verbatim: 12-month consumption history (approved readings, monthly buckets, mirrors WaterIntelligenceService) + summary (latest reading, monthly average, year-to-date) + latestAnomaly (the Phase-86 is_anomalous spike flag of the latest reading = the leak self-alert) + chargeHistory (per-period invoices.water_due + settled status). DB::table throughout (scope-free, safe under tenant auth). SHARED-COMPONENTS: pure presentational resources/js/Components/Water/ — WaterDisconnectionBanner (payUrl prop), WaterUsageAlert, WaterConsumptionCard (reuses Components/Dashboard/ChartCard — first chart on the tenant side), WaterChargesCard; data-only props, no role logic. SELFSERVICE-SURFACE: TenantPortalController::water enriched with the account payload + Tenant/Water.vue composes the four shared components; high-usage/leak self-alert surfaces is_anomalous (only when actually flagged); empty state preserved; non-tenant 403. i18n net-new water.account.* en/sw/ar. NO migration (all data exists). CI surface + behavioral tests + runbook.",
+    "tests": "Phase-93 tests: WaterSelfService 10 + Surface 4 (14 / 59 assertions). Water + TenantPortal regression 286 / 1027 green. Pint/build/eslint(0)/nav-audit clean. Lang parity water 188.",
+    "review": "Multi-reviewer read-only pass (CodeRabbit + pr-review-toolkit code-reviewer + silent-failure-hunter). Fixed: CRITICAL cross-tenancy readings leak (water_readings has no lease_id — a new tenant on a previously-occupied unit saw the prior occupant's history; now all reading queries are bounded by the lease start_date / occupancy window, controller passes $since, isolation test added); HIGH/MEDIUM the per-row \"paid\" chip reflected the whole invoice next to a water-only amount (relabelled Invoice paid/due — water isn't payment-separable); reusability — disconnection lookup folded from the controller into WaterAccountService so Phase-94 reuses it; LOW redundant double-queries memoized; responsive grid-cols-1 sm:grid-cols-3. Documented limitation: imported readings are not spike-flagged.",
+    "constraints_preserved": "Tenant sees only approved readings (pending/rejected never appear). Leak self-alert reflects ONLY the latest reading is_anomalous (no separate detection). Charges show water_due per period; settled = whole invoice paid (water not payment-separable). WaterAccountService is unit-centric + DB::table scope-free = reusable by the water client without rewrite; the four Components/Water/* cards are the reuse seam for the Phase-94+ epic. NO migration. Money decimal:2."
+  }
+}
