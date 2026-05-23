@@ -41,6 +41,8 @@ return [
         'title_deed' => 'سند الملكية',
         'inspection_report' => 'تقرير تفتيش',
         'notice' => 'إشعار',
+        'wra_abstraction_permit' => 'تصريح سحب المياه (WRA)',
+        'water_quality_certificate' => 'شهادة جودة المياه',
         'other' => 'أخرى',
     ],
     'expiry' => [

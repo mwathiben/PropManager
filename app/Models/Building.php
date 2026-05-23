@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
@@ -74,6 +75,7 @@ class Building extends Model
         'water_reading_day',
         'water_review_days',
         'water_reconnection_fee',
+        'water_abstraction_limit',
         'coordinates',
         'amenities',
         'photos',
@@ -99,6 +101,7 @@ class Building extends Model
         'water_reading_day' => 'integer',
         'water_review_days' => 'integer',
         'water_reconnection_fee' => 'decimal:2',
+        'water_abstraction_limit' => 'decimal:2',
         'coordinates' => 'array',
         'amenities' => 'array',
         'photos' => 'array',
@@ -195,6 +198,16 @@ class Building extends Model
     public function units(): HasMany
     {
         return $this->hasMany(Unit::class)->orderBy('floor_number')->orderBy('unit_number');
+    }
+
+    /**
+     * Phase-92 WATER-COMPLIANCE: documents attached directly to the building
+     * (e.g. WRA abstraction permits, water-quality certificates, title deeds,
+     * insurance) — polymorphic, reusing the Phase-82 document lifecycle + expiry.
+     */
+    public function documents(): MorphMany
+    {
+        return $this->morphMany(Document::class, 'documentable');
     }
 
     public function caretaker(): BelongsTo

@@ -4,7 +4,7 @@ import HubShell from '@/Components/Hub/HubShell.vue';
 import HubOverview from '@/Components/Hub/HubOverview.vue';
 import { TabLoadingPlaceholder } from '@/Components/Finances';
 import { useI18n } from '@/composables/useI18n';
-import { BeakerIcon, ClipboardDocumentListIcon, ClockIcon, Cog6ToothIcon, CheckBadgeIcon, Squares2X2Icon, ArrowUpTrayIcon, ChartBarIcon } from '@heroicons/vue/24/outline';
+import { BeakerIcon, ClipboardDocumentListIcon, ClockIcon, Cog6ToothIcon, CheckBadgeIcon, Squares2X2Icon, ArrowUpTrayIcon, ChartBarIcon, ShieldCheckIcon } from '@heroicons/vue/24/outline';
 
 interface Props {
     activeTab?: string;
@@ -22,6 +22,7 @@ interface Props {
     settings?: Record<string, unknown>;
     intelligence?: Record<string, unknown>;
     costCategories?: string[];
+    compliance?: Record<string, unknown>;
     overviewStats?: Array<{ label: string; value: string | number; tone?: string }>;
 }
 
@@ -33,6 +34,7 @@ const ReviewTab = defineAsyncComponent({ loader: () => import('./tabs/ReviewTab.
 const HistoryTab = defineAsyncComponent({ loader: () => import('./tabs/HistoryTab.vue'), loadingComponent: TabLoadingPlaceholder, delay: 100 });
 const SettingsTab = defineAsyncComponent({ loader: () => import('./tabs/SettingsTab.vue'), loadingComponent: TabLoadingPlaceholder, delay: 100 });
 const IntelligenceTab = defineAsyncComponent({ loader: () => import('./tabs/IntelligenceTab.vue'), loadingComponent: TabLoadingPlaceholder, delay: 100 });
+const ComplianceTab = defineAsyncComponent({ loader: () => import('./tabs/ComplianceTab.vue'), loadingComponent: TabLoadingPlaceholder, delay: 100 });
 
 // Phase-79 WATER-ROLES-1: caretaker records, landlord reviews — each role only
 // sees its own primary tab. Phase-83 follow-up: an Overview homepage leads.
@@ -51,6 +53,8 @@ const tabs = computed(() => {
     // doubles as the landlord flag), placed before Settings.
     if (props.canSettings) {
         list.push({ id: 'intelligence', name: t('water.tabs.intelligence'), icon: ChartBarIcon });
+        // Phase-92: borehole compliance (permits/certs/abstraction) — landlord-only.
+        list.push({ id: 'compliance', name: t('water.tabs.compliance'), icon: ShieldCheckIcon });
     }
     // Phase-86 ROLE-SPLIT: Settings is landlord-only — a caretaker never sees
     // the water billing configuration tab or its quick-link.
@@ -66,6 +70,7 @@ const tabComponents: Record<string, ReturnType<typeof defineAsyncComponent>> = {
     history: HistoryTab,
     settings: SettingsTab,
     intelligence: IntelligenceTab,
+    compliance: ComplianceTab,
 };
 
 const currentTab = computed(() => props.activeTab || 'overview');
@@ -111,6 +116,7 @@ const subtitle = computed(() =>
             :settings="settings"
             :intelligence="intelligence"
             :cost-categories="costCategories"
+            :compliance="compliance"
             :buildings="buildings"
             :filters="filters"
         />

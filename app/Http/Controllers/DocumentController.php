@@ -159,7 +159,9 @@ class DocumentController extends Controller
             'file' => ['required', 'file', new SecureFile(10, ['application/pdf', 'image/jpeg', 'image/png', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'], ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'])],
             'title' => 'required|string|max:255',
             'document_type' => ['required', \Illuminate\Validation\Rule::in(array_keys(Document::DOCUMENT_TYPES))],
-            'documentable_type' => 'required|in:Lease,User',
+            // Phase-92: Building added so borehole compliance docs (and title
+            // deeds / insurance) can attach directly to a building.
+            'documentable_type' => 'required|in:Lease,User,Building',
             'documentable_id' => 'required|integer',
             'description' => 'nullable|string|max:1000',
             // Phase-82 DOC-META-2: lifecycle fields.
@@ -184,6 +186,12 @@ class DocumentController extends Controller
             // Can only upload documents for tenants belonging to this landlord
             if ($documentable->role !== 'tenant' || $documentable->landlord_id !== $landlordId) {
                 abort(403, 'Unauthorized to upload documents for this user');
+            }
+        } elseif ($request->documentable_type === 'Building') {
+            // Phase-92: building-attached docs (compliance permits/certs) must
+            // belong to the acting landlord.
+            if ($documentable->landlord_id !== $landlordId) {
+                abort(403, 'Unauthorized to upload documents for this building');
             }
         }
 

@@ -633,6 +633,11 @@ Route::middleware('auth')->group(function () {
             // landlord water intelligence margin metric (landlord-only).
             Route::post('/water/production-costs', [\App\Http\Controllers\WaterProductionCostController::class, 'store'])->name('water.production-costs.store');
             Route::delete('/water/production-costs/{productionCost}', [\App\Http\Controllers\WaterProductionCostController::class, 'destroy'])->whereNumber('productionCost')->name('water.production-costs.destroy');
+
+            // Phase-92 WATER-COMPLIANCE: set a borehole building's annual WRA
+            // abstraction limit (landlord-only). Permit/cert files upload via
+            // documents.store (documentable_type=Building).
+            Route::put('/water/compliance/buildings/{building}/limit', [\App\Http\Controllers\WaterComplianceController::class, 'updateLimit'])->whereNumber('building')->name('water.compliance.limit');
         });
     });
 

@@ -47,6 +47,11 @@ class WaterHubController extends Controller
         if ($tab === 'intelligence' && $isCaretaker) {
             $tab = 'overview';
         }
+        // Phase-92 WATER-COMPLIANCE: the borehole compliance surface (permits,
+        // certificates, abstraction limits) is landlord-only too.
+        if ($tab === 'compliance' && $isCaretaker) {
+            $tab = 'overview';
+        }
 
         $baseProps = [
             'activeTab' => $tab,
@@ -66,6 +71,7 @@ class WaterHubController extends Controller
             'history' => $this->getHistoryData($request, $landlordId),
             'settings' => $this->getSettingsData($landlordId),
             'intelligence' => $this->getIntelligenceData($landlordId),
+            'compliance' => $this->getComplianceData($landlordId),
             default => $this->getOverviewData($landlordId),
         };
 
@@ -202,6 +208,18 @@ class WaterHubController extends Controller
         return [
             'intelligence' => app(\App\Services\Water\WaterIntelligenceService::class)->forLandlord($landlordId),
             'costCategories' => \App\Models\WaterProductionCost::CATEGORIES,
+        ];
+    }
+
+    /**
+     * Phase-92 WATER-COMPLIANCE: the landlord-only borehole compliance payload —
+     * per borehole building, the WRA permit + quality cert (expiry tracked via the
+     * Phase-82 document lifecycle) and abstraction limit vs actual abstraction.
+     */
+    private function getComplianceData(int $landlordId): array
+    {
+        return [
+            'compliance' => app(\App\Services\Water\WaterComplianceService::class)->forLandlord($landlordId),
         ];
     }
 

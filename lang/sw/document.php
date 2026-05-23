@@ -41,6 +41,8 @@ return [
         'title_deed' => 'Hati ya Umiliki',
         'inspection_report' => 'Ripoti ya Ukaguzi',
         'notice' => 'Ilani',
+        'wra_abstraction_permit' => 'Kibali cha Uchotaji Maji (WRA)',
+        'water_quality_certificate' => 'Cheti cha Ubora wa Maji',
         'other' => 'Nyingine',
     ],
     'expiry' => [

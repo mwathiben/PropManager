@@ -41,6 +41,8 @@ return [
         'title_deed' => 'Title Deed',
         'inspection_report' => 'Inspection Report',
         'notice' => 'Notice',
+        'wra_abstraction_permit' => 'WRA Abstraction Permit',
+        'water_quality_certificate' => 'Water Quality Certificate',
         'other' => 'Other',
     ],
     'expiry' => [

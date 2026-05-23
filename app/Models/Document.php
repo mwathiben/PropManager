@@ -54,6 +54,10 @@ class Document extends Model
         'title_deed' => 'Title Deed',
         'inspection_report' => 'Inspection Report',
         'notice' => 'Notice',
+        // Phase-92 WATER-COMPLIANCE: borehole regulatory documents (attached to a
+        // building) — they carry an expiry and flow through documents:scan-expiring.
+        'wra_abstraction_permit' => 'WRA Abstraction Permit',
+        'water_quality_certificate' => 'Water Quality Certificate',
         'other' => 'Other',
     ];
 
