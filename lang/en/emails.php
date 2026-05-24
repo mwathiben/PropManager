@@ -129,6 +129,7 @@ return [
         'invoice_reminder' => 'Payment Reminder - Invoice :number',
         'invoice_overdue' => 'Payment Overdue - Invoice :number',
         'credit_note_issued' => 'Credit Note Issued - :number',
+        'owner_statement' => 'Owner Statement - :period',
         'data_export_ready' => 'Your Data Export is Ready - :app',
         'deposit_refunded' => 'Your Security Deposit Has Been Refunded',
         'deposit_partial_refund' => 'Your Security Deposit Has Been Partially Refunded',

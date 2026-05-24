@@ -11,6 +11,7 @@ return [
         'title' => 'Mali',
         'subtitle' => 'Muhtasari wa kundi lako la mali',
         'empty' => 'Hakuna mali bado.',
+        'owners' => 'Wamiliki',
         'buildings' => 'majengo',
         'units' => 'vyumba',
         'occupancy' => 'Ukaaji',

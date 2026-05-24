@@ -14,6 +14,8 @@ class Property extends Model
 
     protected $fillable = [
         'landlord_id',
+        // Phase-101 OWNER-FOUNDATION: the owner this property is managed for (nullable).
+        'property_owner_id',
         'name',
         'type',
         'address',
@@ -46,5 +48,11 @@ class Property extends Model
     public function landlord()
     {
         return $this->belongsTo(User::class, 'landlord_id');
+    }
+
+    /** Phase-101: the owner this property is managed on behalf of (nullable). */
+    public function owner()
+    {
+        return $this->belongsTo(PropertyOwner::class, 'property_owner_id');
     }
 }

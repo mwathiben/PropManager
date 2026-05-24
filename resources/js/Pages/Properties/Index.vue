@@ -2,7 +2,7 @@
 import { Head, Link } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { useI18n } from '@/composables/useI18n';
-import { BuildingOffice2Icon } from '@heroicons/vue/24/outline';
+import { BuildingOffice2Icon, UsersIcon } from '@heroicons/vue/24/outline';
 
 interface PropertyRow {
     property_id: number;
@@ -28,14 +28,24 @@ const money = (v: number) => v.toLocaleString(undefined, { minimumFractionDigits
         <Head :title="t('property.index.title')" />
 
         <template #header>
-            <div class="flex items-center gap-3">
-                <div class="p-2 bg-indigo-100 rounded-lg">
-                    <BuildingOffice2Icon class="w-6 h-6 text-indigo-600" />
+            <div class="flex items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 bg-indigo-100 rounded-lg">
+                        <BuildingOffice2Icon class="w-6 h-6 text-indigo-600" />
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-semibold text-gray-900">{{ t('property.index.title') }}</h1>
+                        <p class="text-sm text-gray-500">{{ t('property.index.subtitle') }}</p>
+                    </div>
                 </div>
-                <div>
-                    <h1 class="text-lg font-semibold text-gray-900">{{ t('property.index.title') }}</h1>
-                    <p class="text-sm text-gray-500">{{ t('property.index.subtitle') }}</p>
-                </div>
+                <Link
+                    :href="route('finances.owners.index')"
+                    class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    data-testid="owners-link"
+                >
+                    <UsersIcon class="h-4 w-4" />
+                    {{ t('property.index.owners') }}
+                </Link>
             </div>
         </template>
 

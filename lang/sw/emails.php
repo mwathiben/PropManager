@@ -130,6 +130,7 @@ return [
         'invoice_reminder' => 'Kumbusho la Malipo - Ankara :number',
         'invoice_overdue' => 'Malipo Yamepitwa na Wakati - Ankara :number',
         'credit_note_issued' => 'Hati ya Mkopo Imetolewa - :number',
+        'owner_statement' => 'Taarifa ya Mmiliki - :period',
         'data_export_ready' => 'Hifadhi Yako ya Data Iko Tayari - :app',
         'deposit_refunded' => 'Amana Yako ya Usalama Imerejeshwa',
         'deposit_partial_refund' => 'Amana Yako ya Usalama Imerejeshwa Sehemu',

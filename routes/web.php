@@ -517,6 +517,11 @@ Route::middleware('auth')->group(function () {
         // PROPERTY-VIEW-1: single-property dashboard.
         Route::get('/properties/{property}', [\App\Http\Controllers\PropertyController::class, 'show'])
             ->whereNumber('property')->name('properties.show');
+        // Phase-101 OWNER-FOUNDATION: assign/clear the owner a property is managed for.
+        Route::put('/properties/{property}/owner/{owner}', [\App\Http\Controllers\PropertyOwnerController::class, 'assign'])
+            ->whereNumber('property')->whereNumber('owner')->name('properties.owner.assign');
+        Route::delete('/properties/{property}/owner', [\App\Http\Controllers\PropertyOwnerController::class, 'unassign'])
+            ->whereNumber('property')->name('properties.owner.unassign');
     });
 
     // Building Details & Dashboard
@@ -1352,6 +1357,16 @@ Route::middleware('auth')->group(function () {
         // Phase-70 VENDOR-AUTH-3: re-send a fresh signed portal link.
         Route::post('/vendors/{vendor}/portal-link', [\App\Http\Controllers\VendorPortalController::class, 'reissue'])
             ->name('vendors.portal-link');
+
+        // Phase-101 OWNER-FOUNDATION: property owners (a PM manages on their behalf).
+        Route::get('/owners', [\App\Http\Controllers\PropertyOwnerController::class, 'index'])->name('owners.index');
+        Route::post('/owners', [\App\Http\Controllers\PropertyOwnerController::class, 'store'])->name('owners.store');
+        Route::put('/owners/{owner}', [\App\Http\Controllers\PropertyOwnerController::class, 'update'])->name('owners.update');
+        Route::delete('/owners/{owner}', [\App\Http\Controllers\PropertyOwnerController::class, 'destroy'])->name('owners.destroy');
+        Route::get('/owners/{owner}/statement', [\App\Http\Controllers\PropertyOwnerController::class, 'statement'])
+            ->middleware('throttle:export')->name('owners.statement');
+        Route::post('/owners/{owner}/statement/email', [\App\Http\Controllers\PropertyOwnerController::class, 'emailStatement'])
+            ->middleware('throttle:notification-send')->name('owners.statement.email');
     });
 
     // 16. Deposits (Security Deposits Tracking) — superseded by the Finances

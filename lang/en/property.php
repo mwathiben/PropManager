@@ -11,6 +11,7 @@ return [
         'title' => 'Properties',
         'subtitle' => 'Your portfolio at a glance',
         'empty' => 'No properties yet.',
+        'owners' => 'Owners',
         'buildings' => 'buildings',
         'units' => 'units',
         'occupancy' => 'Occupancy',
