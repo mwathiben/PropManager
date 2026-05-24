@@ -74,6 +74,7 @@
         "caretaker": "الحارس",
         "tenant": "المستأجر",
         "water_client": "عميل المياه",
+        "owner": "مالك العقار",
         "user": "المستخدم"
     },
     "banner": {

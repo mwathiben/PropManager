@@ -169,6 +169,7 @@ const roleConfig = computed(() => {
         'caretaker': { label: t('role.caretaker'), color: 'bg-green-600', icon: WrenchScrewdriverIcon },
         'tenant': { label: t('role.tenant'), color: 'bg-amber-600', icon: HomeIcon },
         'water_client': { label: t('role.water_client'), color: 'bg-cyan-600', icon: BeakerIcon },
+        'owner': { label: t('role.owner'), color: 'bg-indigo-600', icon: BuildingOffice2Icon },
     };
     return configs[user.value?.role] || { label: t('role.user'), color: 'bg-gray-600', icon: UserCircleIcon };
 });
@@ -304,6 +305,14 @@ const navigationItems = computed(() => {
         return [
             { name: t('nav.dashboard'), href: route('dashboard'), icon: HomeIcon, active: route().current('dashboard'), tour: 'nav-dashboard' },
             { name: t('nav.my_water_charges'), href: route('water-client.finances'), icon: BanknotesIcon, active: route().current('water-client.finances') },
+        ];
+    }
+
+    // Phase-102 OWNER-PORTAL: a property owner sees their properties + statements.
+    if (role === 'owner') {
+        return [
+            { name: t('owners.portal.dashboard_title'), href: route('owner-portal.dashboard'), icon: BuildingOffice2Icon, active: route().current('owner-portal.dashboard') },
+            { name: t('owners.portal.statements_title'), href: route('owner-portal.statements'), icon: DocumentTextIcon, active: route().current('owner-portal.statements') },
         ];
     }
 

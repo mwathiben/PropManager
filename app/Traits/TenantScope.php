@@ -57,6 +57,11 @@ trait TenantScope
                     // Phase-94: a water client is scoped to their supplier landlord
                     // (account-specific filtering done at controller level).
                     $builder->where('landlord_id', $user->landlord_id);
+                } elseif ($user->role === 'owner') {
+                    // Phase-102: an owner is scoped to their PM (landlord_id). The
+                    // per-owner filter (only THEIR properties) is enforced explicitly
+                    // in the owner-portal controllers — TenantScope alone is not enough.
+                    $builder->where('landlord_id', $user->landlord_id);
                 }
             });
         }

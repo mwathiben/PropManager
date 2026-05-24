@@ -27,6 +27,8 @@ class DashboardController extends Controller
             'caretaker' => $this->caretakerDashboard(),
             'tenant' => $this->tenantDashboard(),
             'water_client' => $this->waterClientDashboard(),
+            // Phase-102: an owner's home is their portal (its own role-gated prefix).
+            'owner' => redirect()->route('owner-portal.dashboard'),
             default => abort(403, 'Unknown user role.'),
         };
     }

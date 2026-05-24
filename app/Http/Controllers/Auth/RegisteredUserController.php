@@ -46,6 +46,10 @@ class RegisteredUserController extends Controller
             if ($invitation?->role === 'water_client') {
                 return redirect()->route('water-invite.show', $invitationToken);
             }
+            // Phase-102: owners are landlord-provisioned via their own deep-link too.
+            if ($invitation?->role === 'owner') {
+                return redirect()->route('owner-invite.show', $invitationToken);
+            }
 
             $invitationRole = $invitation?->role;
             $invitationEmail = $invitation?->email;
@@ -93,7 +97,7 @@ class RegisteredUserController extends Controller
                 // /register never sets landlord_id, so it would orphan the account
                 // (unscoped, null currency) AND burn the one-time token, denying the
                 // legitimate deep-link accept. They onboard via WaterClientInvitationController.
-                abort_if($invitation->role === 'water_client', 403);
+                abort_if(in_array($invitation->role, ['water_client', 'owner'], true), 403);
                 $resolvedRole = $invitation->role;
             }
         }

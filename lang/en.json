@@ -74,6 +74,7 @@
         "caretaker": "Caretaker",
         "tenant": "Tenant",
         "water_client": "Water Client",
+        "owner": "Owner",
         "user": "User"
     },
     "banner": {

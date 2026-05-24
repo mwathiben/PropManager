@@ -6,7 +6,7 @@
 import { computed, type ComputedRef } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 
-type UserRole = 'landlord' | 'caretaker' | 'tenant' | 'super_admin' | 'water_client';
+type UserRole = 'landlord' | 'caretaker' | 'tenant' | 'super_admin' | 'water_client' | 'owner';
 
 /**
  * Phase-20 AUTHZ-FRONT-6: slim DTO mirror of App\Support\UserDto.
@@ -37,6 +37,7 @@ export interface UseAuthReturn {
     isCaretaker: ComputedRef<boolean>;
     isTenant: ComputedRef<boolean>;
     isSuperAdmin: ComputedRef<boolean>;
+    isOwner: ComputedRef<boolean>;
     isRestricted: ComputedRef<boolean>;
     can: (ability: string) => boolean;
     canManageProperty: ComputedRef<boolean>;
@@ -61,6 +62,7 @@ export function useAuth(): UseAuthReturn {
     const isCaretaker = computed(() => role.value === 'caretaker');
     const isTenant = computed(() => role.value === 'tenant');
     const isSuperAdmin = computed(() => role.value === 'super_admin');
+    const isOwner = computed(() => role.value === 'owner');
 
     // Phase-20 AUTHZ-FRONT-4: DPA-4 restricted-user surface for the UI.
     const isRestricted = computed(() => user.value?.is_restricted === true);
@@ -123,6 +125,7 @@ export function useAuth(): UseAuthReturn {
         isCaretaker,
         isTenant,
         isSuperAdmin,
+        isOwner,
         isRestricted,
 
         // Ability check (Phase-20 AUTHZ-FRONT-1)

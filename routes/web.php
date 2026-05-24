@@ -120,6 +120,14 @@ Route::post('/water-invite/{token}/accept', [\App\Http\Controllers\WaterClientIn
     ->middleware('throttle:invitation')
     ->name('water-invite.accept');
 
+// Phase-102 Owner-Portal Invitations (deep-link accept)
+Route::get('/owner-invite/{token}', [\App\Http\Controllers\OwnerInvitationController::class, 'show'])
+    ->middleware('throttle:invitation')
+    ->name('owner-invite.show');
+Route::post('/owner-invite/{token}/accept', [\App\Http\Controllers\OwnerInvitationController::class, 'accept'])
+    ->middleware('throttle:invitation')
+    ->name('owner-invite.accept');
+
 // Tenant Invitations
 Route::get('/tenant-invite/{token}', [TenantInvitationController::class, 'show'])->name('tenant-invitations.show');
 Route::post('/tenant-invite/{token}/accept', [TenantInvitationController::class, 'accept'])
@@ -1367,6 +1375,9 @@ Route::middleware('auth')->group(function () {
             ->middleware('throttle:export')->name('owners.statement');
         Route::post('/owners/{owner}/statement/email', [\App\Http\Controllers\PropertyOwnerController::class, 'emailStatement'])
             ->middleware('throttle:notification-send')->name('owners.statement.email');
+        // Phase-102: invite an owner to create a portal login.
+        Route::post('/owners/{owner}/invite', [\App\Http\Controllers\OwnerInvitationController::class, 'store'])
+            ->whereNumber('owner')->middleware('throttle:invitation')->name('owners.invite');
     });
 
     // 16. Deposits (Security Deposits Tracking) — superseded by the Finances
@@ -1588,6 +1599,15 @@ Route::middleware(['auth', 'verified', 'role:water_client'])->prefix('water-clie
     // Phase-99: a water client pays their own invoice online (gateway-agnostic checkout).
     Route::get('/finances/pay/{invoice}', [\App\Http\Controllers\WaterClientFinancesController::class, 'pay'])
         ->whereNumber('invoice')->name('finances.pay');
+});
+
+// --- OWNER-PORTAL ROUTES (Phase-102) — the owner's own view of the properties a PM
+// manages for them + their statements. No lease/KYC; scoped to their PropertyOwner.
+Route::middleware(['auth', 'verified', 'role:owner'])->prefix('owner-portal')->name('owner-portal.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\OwnerPortalDashboardController::class, 'index'])->name('dashboard');
+    Route::get('/statements', [\App\Http\Controllers\OwnerPortalStatementsController::class, 'index'])->name('statements');
+    Route::get('/statements/download', [\App\Http\Controllers\OwnerPortalStatementsController::class, 'download'])
+        ->middleware('throttle:export')->name('statements.download');
 });
 
 // --- TENANT KYC ROUTES (Accessible without KYC completion but requires payment verification) ---

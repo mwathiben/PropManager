@@ -187,6 +187,21 @@ class User extends Authenticatable implements HasLocalePreference
         return $this->role === 'water_client';
     }
 
+    /**
+     * Phase-102 OWNER-PORTAL: a property owner who logs in to view the properties a PM
+     * manages on their behalf. Scoped to their PM (landlord_id); linked to a PropertyOwner.
+     */
+    public function isOwner(): bool
+    {
+        return $this->role === 'owner';
+    }
+
+    /** Phase-102: the PropertyOwner contact this login is linked to (owner role). */
+    public function propertyOwner(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(PropertyOwner::class, 'user_id');
+    }
+
     public function isArchived(): bool
     {
         return $this->is_archived === true;

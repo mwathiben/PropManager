@@ -41,6 +41,12 @@ class PropertyOwner extends Model
         return $this->belongsTo(User::class, 'landlord_id');
     }
 
+    /** Phase-102 OWNER-PORTAL: the login linked to this owner (null until invited+accepted). */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
     /** The properties this owner holds (managed by the landlord). */
     public function properties(): HasMany
     {

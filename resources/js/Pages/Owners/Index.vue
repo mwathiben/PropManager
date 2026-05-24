@@ -7,7 +7,7 @@ import { ref } from 'vue';
 import { Head, useForm, router, usePage } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { useI18n } from '@/composables/useI18n';
-import { UsersIcon, DocumentArrowDownIcon, EnvelopeIcon, PencilSquareIcon, TrashIcon } from '@heroicons/vue/24/outline';
+import { UsersIcon, DocumentArrowDownIcon, EnvelopeIcon, PencilSquareIcon, TrashIcon, UserPlusIcon } from '@heroicons/vue/24/outline';
 
 interface Owner {
     id: number;
@@ -18,6 +18,7 @@ interface Owner {
     notes: string | null;
     is_active: boolean;
     properties_count: number;
+    has_login: boolean;
 }
 interface PropertyRow {
     id: number;
@@ -94,6 +95,10 @@ const downloadStatement = (owner: Owner) => {
 const emailStatement = (owner: Owner) => {
     router.post(route('finances.owners.statement.email', owner.id), { period: '12' }, { preserveScroll: true });
 };
+
+const invite = (owner: Owner) => {
+    router.post(route('finances.owners.invite', owner.id), {}, { preserveScroll: true });
+};
 </script>
 
 <template>
@@ -152,6 +157,17 @@ const emailStatement = (owner: Owner) => {
                             <td class="px-4 py-3 text-center text-gray-700">{{ owner.properties_count }}</td>
                             <td class="px-4 py-3">
                                 <div class="flex items-center justify-end gap-1.5">
+                                    <button
+                                        v-if="!owner.has_login"
+                                        type="button"
+                                        class="rounded p-1.5 text-indigo-600 hover:bg-indigo-50 disabled:opacity-40"
+                                        :title="t('owners.actions.invite')"
+                                        :disabled="!owner.email"
+                                        data-testid="owner-invite"
+                                        @click="invite(owner)"
+                                    >
+                                        <UserPlusIcon class="h-4 w-4" />
+                                    </button>
                                     <button type="button" class="rounded p-1.5 text-gray-500 hover:bg-gray-100" :title="t('owners.actions.download_statement')" @click="downloadStatement(owner)">
                                         <DocumentArrowDownIcon class="h-4 w-4" />
                                     </button>

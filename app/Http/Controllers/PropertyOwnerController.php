@@ -55,6 +55,7 @@ class PropertyOwnerController extends Controller
                 'notes' => $o->notes,
                 'is_active' => $o->is_active,
                 'properties_count' => $o->properties_count,
+                'has_login' => $o->user_id !== null,
             ]);
 
         $properties = Property::query()

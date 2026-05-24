@@ -18,6 +18,7 @@ class Invitation extends Model
         'token',
         'property_id',
         'water_connection_id',
+        'property_owner_id',
         'accepted_at',
         'viewed_at',
     ];
@@ -57,6 +58,14 @@ class Invitation extends Model
     public function waterConnection()
     {
         return $this->belongsTo(WaterConnection::class);
+    }
+
+    /**
+     * Phase-102: the property owner an owner invitation provisions a login for.
+     */
+    public function propertyOwner()
+    {
+        return $this->belongsTo(PropertyOwner::class);
     }
 
     /**
