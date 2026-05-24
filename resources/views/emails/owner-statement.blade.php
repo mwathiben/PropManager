@@ -7,7 +7,7 @@ Your statement for **{{ $statement['period']['start'] }} – {{ $statement['peri
 
 <x-mail::panel>
 **Net to you:** {{ $currencySymbol }} {{ number_format($statement['net'], 2) }}
-(collected {{ $currencySymbol }} {{ number_format($statement['collected'], 2) }} less expenses {{ $currencySymbol }} {{ number_format($statement['total_expenses'], 2) }})
+(collected {{ $currencySymbol }} {{ number_format($statement['collected'], 2) }} less expenses {{ $currencySymbol }} {{ number_format($statement['total_expenses'], 2) }}{{ ($statement['management_fee'] ?? 0) > 0 ? ' less management fee '.$currencySymbol.' '.number_format($statement['management_fee'], 2) : '' }})
 </x-mail::panel>
 
 The full breakdown by property is in the attached PDF.

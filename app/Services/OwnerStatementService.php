@@ -46,7 +46,7 @@ class OwnerStatementService
     /**
      * Phase-101: a consolidated statement across every property an owner holds.
      *
-     * @return array{owner: array{id:int, name:string, email:?string}, period: array{start:string, end:string}, collected: float, expenses: array<int, array{category:string, amount:float}>, total_expenses: float, net: float, properties: array<int, array{name:string, collected:float, expenses:float, net:float}>, generated_at: string}|null
+     * @return array{owner: array{id:int, name:string, email:?string}, period: array{start:string, end:string}, collected: float, expenses: array<int, array{category:string, amount:float}>, total_expenses: float, management_fee: float, fee_type: string, fee_value: float, net: float, properties: array<int, array{name:string, collected:float, expenses:float, net:float}>, generated_at: string}|null
      */
     public function forOwner(int $landlordId, int $ownerId, CarbonInterface $start, CarbonInterface $end): ?array
     {
@@ -63,7 +63,9 @@ class OwnerStatementService
         $propertyIds = $properties->pluck('id')->all();
         $agg = $this->aggregate($landlordId, $propertyIds, $start, $end);
 
-        // Per-property breakdown so the owner sees each property's contribution.
+        // Per-property breakdown so the owner sees each property's contribution. These rows
+        // stay pre-fee (collected - expenses) — the management fee is a portfolio-level
+        // deduction on total collected, shown as its own line, not split per property.
         $breakdown = $properties->map(function (Property $p) use ($landlordId, $start, $end): array {
             $one = $this->aggregate($landlordId, [$p->id], $start, $end);
 
@@ -75,13 +77,20 @@ class OwnerStatementService
             ];
         })->all();
 
+        // Phase-103: the PM's management fee (the owner-facing deduction only — forProperty,
+        // which feeds the landlord's own reports, stays fee-free). Default type 'none' => 0.
+        $managementFee = $owner->managementFeeOn($agg['collected']);
+
         return [
             'owner' => ['id' => $owner->id, 'name' => $owner->name, 'email' => $owner->email],
             'period' => ['start' => $start->format('Y-m-d'), 'end' => $end->format('Y-m-d')],
             'collected' => $agg['collected'],
             'expenses' => $agg['expenses'],
             'total_expenses' => $agg['total_expenses'],
-            'net' => round($agg['collected'] - $agg['total_expenses'], 2),
+            'management_fee' => $managementFee,
+            'fee_type' => (string) $owner->management_fee_type,
+            'fee_value' => (float) $owner->management_fee_value,
+            'net' => round($agg['collected'] - $agg['total_expenses'] - $managementFee, 2),
             'properties' => $breakdown,
             'generated_at' => now()->format('Y-m-d H:i'),
         ];

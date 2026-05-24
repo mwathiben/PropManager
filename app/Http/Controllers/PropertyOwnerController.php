@@ -9,10 +9,12 @@ use App\Http\Requests\Finance\StorePropertyOwnerRequest;
 use App\Http\Requests\Finance\UpdatePropertyOwnerRequest;
 use App\Http\Traits\WithLandlordScope;
 use App\Mail\OwnerStatementMail;
+use App\Models\OwnerPayout;
 use App\Models\PaymentConfiguration;
 use App\Models\Property;
 use App\Models\PropertyOwner;
 use App\Services\FinanceReportService;
+use App\Services\OwnerLedgerService;
 use App\Services\OwnerStatementService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
@@ -73,6 +75,55 @@ class PropertyOwnerController extends Controller
         return Inertia::render('Owners/Index', [
             'owners' => $owners->values(),
             'properties' => $properties->values(),
+        ]);
+    }
+
+    public function show(PropertyOwner $owner, OwnerLedgerService $ledger): Response
+    {
+        $this->authorize('view', $owner);
+        $landlordId = $this->getLandlordId();
+        abort_unless((int) $owner->landlord_id === $landlordId, 404);
+
+        $currency = PaymentConfiguration::where('landlord_id', $landlordId)->first()?->default_currency
+            ?? Currency::default();
+
+        $payouts = OwnerPayout::query()
+            ->where('landlord_id', $landlordId)
+            ->where('property_owner_id', $owner->id)
+            ->orderByDesc('paid_on')
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn (OwnerPayout $p) => [
+                'id' => $p->id,
+                'amount' => (float) $p->amount,
+                'paid_on' => $p->paid_on?->format('Y-m-d'),
+                'method' => $p->method,
+                'reference' => $p->reference,
+                'notes' => $p->notes,
+                'voided' => $p->voided_at !== null,
+            ]);
+
+        $properties = Property::query()
+            ->where('landlord_id', $landlordId)
+            ->where('property_owner_id', $owner->id)
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn (Property $p) => ['id' => $p->id, 'name' => $p->name]);
+
+        return Inertia::render('Owners/Show', [
+            'owner' => [
+                'id' => $owner->id,
+                'name' => $owner->name,
+                'email' => $owner->email,
+                'phone' => $owner->phone,
+                'has_login' => $owner->user_id !== null,
+                'management_fee_type' => $owner->management_fee_type,
+                'management_fee_value' => (float) $owner->management_fee_value,
+            ],
+            'summary' => $ledger->summary($landlordId, $owner->id),
+            'payouts' => $payouts->values(),
+            'properties' => $properties->values(),
+            'currencySymbol' => $currency->symbol(),
         ]);
     }
 

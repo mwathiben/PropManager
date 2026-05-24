@@ -52,11 +52,12 @@
             @empty
             <tr><td colspan="4">No properties assigned to this owner.</td></tr>
             @endforelse
+            @php($subtotal = round($data['collected'] - $data['total_expenses'], 2))
             <tr class="total-row">
                 <td>Total</td>
                 <td class="text-right">{{ $currency_symbol }} {{ number_format($data['collected'], 2) }}</td>
                 <td class="text-right">{{ $currency_symbol }} {{ number_format($data['total_expenses'], 2) }}</td>
-                <td class="text-right {{ $data['net'] < 0 ? 'neg' : '' }}">{{ $currency_symbol }} {{ number_format($data['net'], 2) }}</td>
+                <td class="text-right {{ $subtotal < 0 ? 'neg' : '' }}">{{ $currency_symbol }} {{ number_format($subtotal, 2) }}</td>
             </tr>
         </table>
     </div>
@@ -80,6 +81,16 @@
         <table>
             <tr>
                 <td>Collected less expenses</td>
+                <td class="text-right">{{ $currency_symbol }} {{ number_format(round($data['collected'] - $data['total_expenses'], 2), 2) }}</td>
+            </tr>
+            @if(($data['management_fee'] ?? 0) > 0)
+            <tr>
+                <td>Less management fee{{ ($data['fee_type'] ?? '') === 'percentage' ? ' ('.rtrim(rtrim(number_format($data['fee_value'], 2), '0'), '.').'%)' : '' }}</td>
+                <td class="text-right neg">- {{ $currency_symbol }} {{ number_format($data['management_fee'], 2) }}</td>
+            </tr>
+            @endif
+            <tr>
+                <td><strong>Net to owner</strong></td>
                 <td class="text-right net {{ $data['net'] < 0 ? 'neg' : '' }}">{{ $currency_symbol }} {{ number_format($data['net'], 2) }}</td>
             </tr>
         </table>

@@ -30,11 +30,32 @@ class PropertyOwner extends Model
         'id_number',
         'notes',
         'is_active',
+        'management_fee_type',
+        'management_fee_value',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'management_fee_value' => 'decimal:2',
     ];
+
+    /**
+     * Phase-103 OWNER-PAYOUTS: the PM's management fee on a period's collected (gross)
+     * rent — the standard property-management model (% of rent collected, or a flat
+     * amount per statement). 'none' (the default) yields 0, so the owner's net is
+     * unchanged from before fees existed.
+     */
+    public function managementFeeOn(float $collected): float
+    {
+        return round(match ($this->management_fee_type) {
+            // Clamp the rate at 100% here (not only in the FormRequest) so a value set by a
+            // seeder/import/tinker can never drive the owner's net negative.
+            'percentage' => $collected * min((float) $this->management_fee_value, 100.0) / 100,
+            'flat' => (float) $this->management_fee_value,
+            'none' => 0.0,
+            default => 0.0,
+        }, 2);
+    }
 
     public function landlord(): BelongsTo
     {
@@ -51,6 +72,12 @@ class PropertyOwner extends Model
     public function properties(): HasMany
     {
         return $this->hasMany(Property::class, 'property_owner_id');
+    }
+
+    /** Phase-103 OWNER-PAYOUTS: disbursements the landlord has remitted to this owner. */
+    public function payouts(): HasMany
+    {
+        return $this->hasMany(OwnerPayout::class, 'property_owner_id');
     }
 
     /**

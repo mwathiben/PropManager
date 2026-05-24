@@ -4,7 +4,7 @@
  * assigns properties to them, and emails/downloads each owner's statement.
  */
 import { ref } from 'vue';
-import { Head, useForm, router, usePage } from '@inertiajs/vue3';
+import { Head, Link, useForm, router, usePage } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { useI18n } from '@/composables/useI18n';
 import { UsersIcon, DocumentArrowDownIcon, EnvelopeIcon, PencilSquareIcon, TrashIcon, UserPlusIcon } from '@heroicons/vue/24/outline';
@@ -150,8 +150,8 @@ const invite = (owner: Owner) => {
                     <tbody class="divide-y divide-gray-100">
                         <tr v-for="owner in owners" :key="owner.id" :data-testid="`owner-row-${owner.id}`">
                             <td class="px-4 py-3">
-                                <span class="font-medium text-gray-900">{{ owner.name }}</span>
-                                <span v-if="!owner.is_active" class="ml-2 rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500">{{ t('owners.fields.active') }}: —</span>
+                                <Link :href="route('finances.owners.show', owner.id)" class="font-medium text-indigo-600 hover:text-indigo-800" :data-testid="`owner-link-${owner.id}`">{{ owner.name }}</Link>
+                                <span v-if="!owner.is_active" class="ms-2 rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500">{{ t('owners.fields.active') }}: —</span>
                             </td>
                             <td class="px-4 py-3 text-gray-600">{{ owner.email || '—' }}</td>
                             <td class="px-4 py-3 text-center text-gray-700">{{ owner.properties_count }}</td>

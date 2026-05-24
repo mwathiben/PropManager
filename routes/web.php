@@ -1378,6 +1378,13 @@ Route::middleware('auth')->group(function () {
         // Phase-102: invite an owner to create a portal login.
         Route::post('/owners/{owner}/invite', [\App\Http\Controllers\OwnerInvitationController::class, 'store'])
             ->whereNumber('owner')->middleware('throttle:invitation')->name('owners.invite');
+        // Phase-103 OWNER-PAYOUTS: owner detail (fee + balance + payout history) + record/void.
+        Route::get('/owners/{owner}', [\App\Http\Controllers\PropertyOwnerController::class, 'show'])
+            ->whereNumber('owner')->name('owners.show');
+        Route::post('/owners/{owner}/payouts', [\App\Http\Controllers\OwnerPayoutController::class, 'store'])
+            ->whereNumber('owner')->name('owners.payouts.store');
+        Route::post('/owners/{owner}/payouts/{payout}/void', [\App\Http\Controllers\OwnerPayoutController::class, 'void'])
+            ->whereNumber('owner')->whereNumber('payout')->name('owners.payouts.void');
     });
 
     // 16. Deposits (Security Deposits Tracking) — superseded by the Finances
@@ -1608,6 +1615,8 @@ Route::middleware(['auth', 'verified', 'role:owner'])->prefix('owner-portal')->n
     Route::get('/statements', [\App\Http\Controllers\OwnerPortalStatementsController::class, 'index'])->name('statements');
     Route::get('/statements/download', [\App\Http\Controllers\OwnerPortalStatementsController::class, 'download'])
         ->middleware('throttle:export')->name('statements.download');
+    // Phase-103 OWNER-PAYOUTS: the owner's read-only view of what's been remitted + balance.
+    Route::get('/payouts', [\App\Http\Controllers\OwnerPortalPayoutsController::class, 'index'])->name('payouts');
 });
 
 // --- TENANT KYC ROUTES (Accessible without KYC completion but requires payment verification) ---

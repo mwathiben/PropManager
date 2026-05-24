@@ -17,6 +17,9 @@ interface Statement {
     collected: number;
     expenses: { category: string; amount: number }[];
     total_expenses: number;
+    management_fee: number;
+    fee_type: string;
+    fee_value: number;
     net: number;
     properties: PropertyRow[];
 }
@@ -88,6 +91,11 @@ const download = () => {
                     <p class="mt-1 text-xl font-semibold" :class="statement.net < 0 ? 'text-rose-600' : 'text-emerald-700'">{{ formatMoney(statement.net) }}</p>
                 </div>
             </div>
+
+            <p v-if="statement.management_fee > 0" class="text-sm text-gray-500" data-testid="statement-fee">
+                {{ t('owners.portal.management_fee') }}<span v-if="statement.fee_type === 'percentage'"> ({{ statement.fee_value }}%)</span>:
+                <span class="font-medium text-rose-600">− {{ formatMoney(statement.management_fee) }}</span>
+            </p>
 
             <div v-if="statement.properties.length" class="overflow-hidden rounded-xl border border-gray-200 bg-white">
                 <table class="min-w-full divide-y divide-gray-200 text-sm">
