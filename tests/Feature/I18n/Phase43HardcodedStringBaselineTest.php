@@ -20,15 +20,21 @@ use Tests\TestCase;
 class Phase43HardcodedStringBaselineTest extends TestCase
 {
     /**
-     * Initial baseline computed 2026-05-17 against
-     * resources/js/. Lowering the constant requires the
-     * scanner to confirm the new floor.
+     * Baseline of hardcoded English text-node lines under resources/js/.
+     *
+     * - 2026-05-17: initial 3263.
+     * - 2026-05-24: recalibrated to 2078 after (a) fixing a scanner
+     *   false-positive — line-leading `class="..."` Tailwind attributes
+     *   survived stripNoise's `\s`-anchored attribute strip and were
+     *   mis-counted as English prose (~1400 of them), and (b) migrating
+     *   TenantInvitations/Index.vue to $t(). Lowering the constant
+     *   requires the scanner to confirm the new floor.
      */
-    private const BASELINE = 3263;
+    private const BASELINE = 2078;
 
     public function test_hardcoded_english_count_does_not_grow_beyond_baseline(): void
     {
-        $scanner = new HardcodedEnglishScanner();
+        $scanner = new HardcodedEnglishScanner;
         $result = $scanner->scan(resource_path('js'));
 
         $this->assertLessThanOrEqual(
@@ -47,22 +53,35 @@ class Phase43HardcodedStringBaselineTest extends TestCase
 
     public function test_scanner_recognises_unwrapped_english(): void
     {
-        $scanner = new HardcodedEnglishScanner();
+        $scanner = new HardcodedEnglishScanner;
         $template = '<template><p>Please confirm your password.</p></template>';
         $this->assertSame(1, $scanner->scanContents($template));
     }
 
     public function test_scanner_ignores_wrapped_t_call(): void
     {
-        $scanner = new HardcodedEnglishScanner();
+        $scanner = new HardcodedEnglishScanner;
         $template = '<template><p>{{ $t("auth.login.title") }}</p></template>';
         $this->assertSame(0, $scanner->scanContents($template));
     }
 
     public function test_scanner_ignores_i18n_ignore_comment(): void
     {
-        $scanner = new HardcodedEnglishScanner();
-        $template = "<template><p><!-- i18n-ignore -->Brand name PropManager</p></template>";
+        $scanner = new HardcodedEnglishScanner;
+        $template = '<template><p><!-- i18n-ignore -->Brand name PropManager</p></template>';
+        $this->assertSame(0, $scanner->scanContents($template));
+    }
+
+    /**
+     * A Tailwind class attribute that *leads* a wrapped attribute line is not
+     * English prose — stripNoise must drop it even without preceding whitespace.
+     * Before this fix the `\s`-anchored strip missed line-leading attributes and
+     * counted ~1400 class strings as violations.
+     */
+    public function test_scanner_ignores_line_leading_class_attribute(): void
+    {
+        $scanner = new HardcodedEnglishScanner;
+        $template = "<template>\n<button\nclass=\"inline-flex items-center bg-indigo-600 text-white rounded-lg\"\n>{{ t('a.b') }}</button>\n</template>";
         $this->assertSame(0, $scanner->scanContents($template));
     }
 

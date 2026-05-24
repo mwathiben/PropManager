@@ -39,7 +39,7 @@ final class HardcodedEnglishScanner
             return ['count' => 0, 'files' => []];
         }
 
-        $finder = (new Finder())
+        $finder = (new Finder)
             ->files()
             ->in($dir)
             ->name('*.vue');
@@ -83,6 +83,7 @@ final class HardcodedEnglishScanner
             foreach ($lines as $rawLine) {
                 if ($skipNext) {
                     $skipNext = false;
+
                     continue;
                 }
                 $line = trim($rawLine);
@@ -93,6 +94,7 @@ final class HardcodedEnglishScanner
                     // Two valid placements: previous-line comment OR
                     // inline same-line. Either way, skip this line.
                     $skipNext = ! preg_match('/i18n-ignore.*?[A-Za-z]/', $line);
+
                     continue;
                 }
                 $stripped = $this->stripNoise($line);
@@ -131,8 +133,8 @@ final class HardcodedEnglishScanner
         $patterns = [
             '/<!--.*?-->/s',                              // HTML comments
             '/\{\{.*?\}\}/s',                             // {{ expressions }}
-            '/\b(?:v-\w+|:\w+|@\w+)="[^"]*"/',            // Vue directives
-            '/\s(?:class|style|id|ref|name|type|placeholder|aria-[a-z-]+|data-[a-z-]+|role|tabindex)="[^"]*"/i',
+            '/(?:^|\s)(?:v-\w+|:\w+|@\w+)="[^"]*"/',      // Vue directives (also when leading a wrapped attribute line)
+            '/(?:^|\s)(?:class|style|id|ref|name|type|placeholder|aria-[a-z-]+|data-[a-z-]+|role|tabindex)="[^"]*"/i',
             '/<\/?[a-zA-Z][^>]*>/',                       // element tags themselves
         ];
 
