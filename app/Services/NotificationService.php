@@ -116,6 +116,47 @@ class NotificationService
         return [$primaryChannel => $status];
     }
 
+    /**
+     * Create an IN-APP-ONLY notification (bell + notifications page), bypassing the
+     * urgency channel selector so it never also sends an email/SMS. Used when the caller
+     * already sends the real document via a dedicated mailable (e.g. an owner remittance
+     * advice or statement PDF) and only wants the in-app companion. Honors the recipient's
+     * per-type + in_app preference.
+     *
+     * Pass $landlordId explicitly for non-tenant recipients (owners/caretakers): the
+     * default resolveLandlordId() returns the recipient's OWN id for non-tenants.
+     *
+     * @return array{0: bool, 1: string} [dispatched, reason]
+     */
+    public function notifyInApp(
+        int $recipientId,
+        string $type,
+        string $subject,
+        string $message,
+        ?array $data = null,
+        ?int $landlordId = null,
+    ): array {
+        $recipient = User::findOrFail($recipientId);
+        $landlordId = $landlordId ?? $this->resolveLandlordId($recipient);
+
+        $preferences = NotificationPreference::getOrCreate($recipientId, $landlordId);
+        // A just-created preference row holds only the keys we queried by; its per-type/
+        // channel columns are DB defaults (all on) not yet hydrated in memory, so canReceive
+        // would read them as null→false. Only gate on a preference the user actually has
+        // (and may have customised); a brand-new one means "never opted out" → notify.
+        if (! $preferences->wasRecentlyCreated && ! $preferences->canReceive($type, Notification::CHANNEL_IN_APP)) {
+            return [false, 'opted_out'];
+        }
+
+        $notification = $this->createNotification(
+            $landlordId, $recipientId, $type, Notification::CHANNEL_IN_APP, $subject, $message, $data
+        );
+
+        $this->sendInApp($notification, $recipient);
+
+        return [true, 'sent'];
+    }
+
     private function resolveLandlordId(User $recipient): int
     {
         return $recipient->role === 'tenant' ? $recipient->landlord_id : $recipient->id;

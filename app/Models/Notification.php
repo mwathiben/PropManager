@@ -56,6 +56,12 @@ class Notification extends Model
     // Phase-97: water client billed for a period (a new water-client charge).
     public const TYPE_WATER_BILL_DUE = 'water_bill_due';
 
+    // Phase-104: a property owner was sent a payout (remittance advice).
+    public const TYPE_OWNER_PAYOUT_SENT = 'owner_payout_sent';
+
+    // Phase-104: a property owner's statement was issued/emailed.
+    public const TYPE_OWNER_STATEMENT_SENT = 'owner_statement_sent';
+
     // Channel constants
     public const CHANNEL_EMAIL = 'email';
 
@@ -132,6 +138,10 @@ class Notification extends Model
         self::TYPE_MAINTENANCE_NOTICE => self::URGENCY_INFORMATIONAL,
         self::TYPE_GENERAL => self::URGENCY_INFORMATIONAL,
         self::TYPE_NEW_MESSAGE => self::URGENCY_IMPORTANT,
+        // Phase-104: informational — the owner is reached in-app (the PDF advice / statement
+        // carries its own dedicated email, so these must not trigger a second generic email).
+        self::TYPE_OWNER_PAYOUT_SENT => self::URGENCY_INFORMATIONAL,
+        self::TYPE_OWNER_STATEMENT_SENT => self::URGENCY_INFORMATIONAL,
     ];
 
     protected $fillable = [

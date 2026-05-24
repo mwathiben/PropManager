@@ -7,7 +7,11 @@ namespace Database\Seeders;
 use App\Models\Building;
 use App\Models\Invoice;
 use App\Models\Lease;
+use App\Models\Notification;
+use App\Models\OwnerPayout;
+use App\Models\Payment;
 use App\Models\Property;
+use App\Models\PropertyOwner;
 use App\Models\Unit;
 use App\Models\User;
 use Illuminate\Database\Seeder;
@@ -37,6 +41,7 @@ use Illuminate\Support\Facades\Hash;
  *   landlord@propmanager.test   landlord     (the main dev login)
  *   caretaker@propmanager.test  caretaker    (under the landlord above)
  *   tenant@propmanager.test     tenant       (+ tenant2, tenant3)
+ *   owner@propmanager.test      owner        (PM-company owner portal — Phase 101-104)
  *
  * This is DEV data, distinct from LoadTestSeeder (which seeds the
  * dedicated k6 load-test landlord — keep the two separate).
@@ -47,7 +52,7 @@ class DevelopmentSeeder extends Seeder
 
     public function run(): void
     {
-        $admin = $this->ensureUser('admin@propmanager.test', 'Demo Admin', 'super_admin');
+        $this->ensureUser('admin@propmanager.test', 'Demo Admin', 'super_admin');
 
         $landlord = $this->ensureUser('landlord@propmanager.test', 'Demo Landlord', 'landlord');
 
@@ -59,15 +64,30 @@ class DevelopmentSeeder extends Seeder
             $this->ensureUser('tenant3@propmanager.test', 'Demo Tenant Three', 'tenant', $landlord->id),
         ];
 
-        // The property graph is built once. If it already exists for
-        // this landlord, the users above are still re-ensured but the
-        // graph is left untouched — keeps the seeder fully re-runnable.
-        if (Property::where('landlord_id', $landlord->id)->where('name', 'Demo Property')->exists()) {
-            $this->command?->info('DevelopmentSeeder: dev accounts ensured; property graph already present — skipping graph.');
+        // Phase 101-104: a property OWNER the PM manages on behalf of, with a portal login.
+        $ownerUser = $this->ensureUser('owner@propmanager.test', 'Demo Owner', 'owner', $landlord->id);
 
-            return;
-        }
+        // The property graph is built once. On a re-run the existing graph is reused; the
+        // owner demo is (re-)ensured against it either way so the owner portal always has data.
+        $property = Property::where('landlord_id', $landlord->id)->where('name', 'Demo Property')->first()
+            ?? $this->buildPropertyGraph($landlord, $tenants);
 
+        $this->ensureOwnerDemo($landlord, $ownerUser, $property);
+
+        $this->command?->info(
+            'DevelopmentSeeder: dev accounts ensured (admin/landlord/caretaker/3 tenants/owner) + Demo Property '
+            .'with an owner portal demo (assigned property, 10% fee, payouts, notifications). Logins use password "'.self::PASSWORD.'".'
+        );
+    }
+
+    /**
+     * Build the demo property graph: 6 units (3 occupied), 3 leases, 9 invoices, and a
+     * payment per paid invoice (so the owner statement has real collected figures).
+     *
+     * @param  array<int, User>  $tenants
+     */
+    private function buildPropertyGraph(User $landlord, array $tenants): Property
+    {
         $property = Property::create([
             'name' => 'Demo Property',
             'address' => '12 Demo Lane, Nairobi',
@@ -84,8 +104,6 @@ class DevelopmentSeeder extends Seeder
             'building_type' => 'residential_apartment',
         ]);
 
-        // 6 units: the first 3 occupied by the demo tenants, the rest
-        // vacant — enough to exercise occupied + vacant code paths.
         $unitIndex = 0;
         for ($floor = 1; $floor <= 2; $floor++) {
             for ($num = 1; $num <= 3; $num++) {
@@ -119,10 +137,10 @@ class DevelopmentSeeder extends Seeder
                     'wallet_balance' => 0,
                 ]);
 
-                // Three invoices per lease: two paid, one outstanding —
-                // a realistic ledger for the dashboard + finances pages.
+                // Three invoices per lease: two paid, one outstanding. Each paid invoice
+                // gets a real Payment so the owner statement's "collected" is non-zero.
                 foreach (['paid', 'paid', 'sent'] as $i => $status) {
-                    Invoice::create([
+                    $invoice = Invoice::create([
                         'lease_id' => $lease->id,
                         'landlord_id' => $landlord->id,
                         'invoice_number' => 'DEMO-'.$unit->unit_number.'-'.$i,
@@ -136,16 +154,105 @@ class DevelopmentSeeder extends Seeder
                         'due_date' => now()->subMonths(2 - $i)->addDays(7),
                         'billing_period_start' => now()->subMonths(2 - $i)->startOfMonth(),
                     ]);
+
+                    if ($status === 'paid') {
+                        $this->ensurePayment($lease, $invoice);
+                    }
                 }
 
                 $unitIndex++;
             }
         }
 
-        $this->command?->info(
-            'DevelopmentSeeder: seeded dev accounts (admin/landlord/caretaker/3 tenants) + Demo Property '
-            .'(6 units, 3 leases, 9 invoices). Logins use password "'.self::PASSWORD.'".'
-        );
+        return $property;
+    }
+
+    /**
+     * Wire the owner portal demo: a PropertyOwner contact linked to the owner login, the
+     * demo property assigned to them, a management fee, a couple of payouts, and a couple of
+     * in-app notices. Idempotent + backfills payments so it also works on an older dev DB
+     * whose paid invoices predate this seeder's payment rows.
+     */
+    private function ensureOwnerDemo(User $landlord, User $ownerUser, Property $property): void
+    {
+        $contact = PropertyOwner::where('landlord_id', $landlord->id)->where('name', 'Demo Owner')->first()
+            ?? new PropertyOwner;
+
+        $contact->forceFill([
+            'landlord_id' => $landlord->id,
+            'user_id' => $ownerUser->id,
+            'name' => 'Demo Owner',
+            'email' => $ownerUser->email,
+            'is_active' => true,
+            'management_fee_type' => 'percentage',
+            'management_fee_value' => 10,
+        ])->save();
+
+        if ((int) $property->property_owner_id !== (int) $contact->id) {
+            $property->update(['property_owner_id' => $contact->id]);
+        }
+
+        // Backfill a payment for any paid invoice on the property that lacks one (older DBs).
+        $leaseIds = Lease::whereHas('unit.building', fn ($q) => $q->where('property_id', $property->id))->pluck('id');
+        Invoice::whereIn('lease_id', $leaseIds)->where('status', 'paid')->each(function (Invoice $invoice) {
+            $lease = $invoice->lease;
+            if ($lease && ! Payment::where('invoice_id', $invoice->id)->exists()) {
+                $this->ensurePayment($lease, $invoice);
+            }
+        });
+
+        if (OwnerPayout::where('property_owner_id', $contact->id)->count() === 0) {
+            foreach ([2, 1] as $monthsAgo) {
+                OwnerPayout::create([
+                    'landlord_id' => $landlord->id,
+                    'property_owner_id' => $contact->id,
+                    'amount' => 45000,
+                    'currency' => 'KES',
+                    'paid_on' => now()->subMonths($monthsAgo),
+                    'method' => 'bank_transfer',
+                    'reference' => 'DEMO-PO-'.$monthsAgo,
+                    'created_by' => $landlord->id,
+                ]);
+            }
+        }
+
+        $hasNotices = Notification::withoutGlobalScope('landlord')
+            ->where('recipient_id', $ownerUser->id)
+            ->whereIn('type', [Notification::TYPE_OWNER_PAYOUT_SENT, Notification::TYPE_OWNER_STATEMENT_SENT])
+            ->exists();
+        if (! $hasNotices) {
+            $this->ensureNotice($landlord, $ownerUser, Notification::TYPE_OWNER_PAYOUT_SENT, 'Payout sent', 'A payout of KSh 45,000.00 has been sent to you.');
+            $this->ensureNotice($landlord, $ownerUser, Notification::TYPE_OWNER_STATEMENT_SENT, 'New statement available', 'A new statement has been issued for your account.');
+        }
+    }
+
+    private function ensurePayment(Lease $lease, Invoice $invoice): void
+    {
+        Payment::create([
+            'invoice_id' => $invoice->id,
+            'lease_id' => $lease->id,
+            'landlord_id' => $lease->landlord_id,
+            'amount' => $lease->rent_amount,
+            'payment_method' => 'mpesa',
+            'reference' => 'DEMO-PAY-'.$invoice->invoice_number,
+            'payment_date' => $invoice->due_date,
+        ]);
+    }
+
+    private function ensureNotice(User $landlord, User $recipient, string $type, string $subject, string $message): void
+    {
+        Notification::create([
+            'landlord_id' => $landlord->id,
+            'recipient_id' => $recipient->id,
+            'type' => $type,
+            'urgency' => Notification::getUrgencyForType($type),
+            'channel' => 'in_app',
+            'subject' => $subject,
+            'message' => $message,
+            'data' => [],
+            'status' => 'sent',
+            'sent_at' => now(),
+        ]);
     }
 
     /**

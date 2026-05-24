@@ -9,11 +9,13 @@ use App\Http\Requests\Finance\StorePropertyOwnerRequest;
 use App\Http\Requests\Finance\UpdatePropertyOwnerRequest;
 use App\Http\Traits\WithLandlordScope;
 use App\Mail\OwnerStatementMail;
+use App\Models\Notification;
 use App\Models\OwnerPayout;
 use App\Models\PaymentConfiguration;
 use App\Models\Property;
 use App\Models\PropertyOwner;
 use App\Services\FinanceReportService;
+use App\Services\NotificationService;
 use App\Services\OwnerLedgerService;
 use App\Services\OwnerStatementService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -203,7 +205,7 @@ class PropertyOwnerController extends Controller
         ])->download('owner_statement_'.Str::slug($owner->name).'_'.$start->format('Y_m_d').'.pdf');
     }
 
-    public function emailStatement(Request $request, PropertyOwner $owner, OwnerStatementService $statements, FinanceReportService $reports): RedirectResponse
+    public function emailStatement(Request $request, PropertyOwner $owner, OwnerStatementService $statements, FinanceReportService $reports, NotificationService $notifications): RedirectResponse
     {
         $this->authorize('view', $owner);
 
@@ -227,6 +229,19 @@ class PropertyOwnerController extends Controller
             $currency->value,
             $owner->landlord?->name ?? config('app.name'),
         ));
+
+        // Phase-104: an in-app companion for an owner with a portal login (the email above
+        // is the document — notifyInApp is in-app only, so no second email).
+        if ($owner->user_id !== null) {
+            $notifications->notifyInApp(
+                recipientId: (int) $owner->user_id,
+                type: Notification::TYPE_OWNER_STATEMENT_SENT,
+                subject: __('owners.payouts.statement_notify_subject'),
+                message: __('owners.payouts.statement_notify_body'),
+                data: ['owner_id' => $owner->id],
+                landlordId: $landlordId,
+            );
+        }
 
         return back()->with('success', __('owners.messages.statement_sent', ['email' => $owner->email]));
     }

@@ -26,6 +26,9 @@ class NotificationDefaults extends Model
         'eviction_notice' => true,
         'caretaker_invitation' => true,
         'tenant_invitation' => true,
+        // Phase-104 OWNER-REMITTANCE-NOTIFY: owners are told about payouts + statements by default.
+        'owner_payout_sent' => true,
+        'owner_statement_sent' => true,
     ];
 
     protected $fillable = [

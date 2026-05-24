@@ -314,6 +314,7 @@ const navigationItems = computed(() => {
             { name: t('owners.portal.dashboard_title'), href: route('owner-portal.dashboard'), icon: BuildingOffice2Icon, active: route().current('owner-portal.dashboard') },
             { name: t('owners.portal.statements_title'), href: route('owner-portal.statements'), icon: DocumentTextIcon, active: route().current('owner-portal.statements') },
             { name: t('owners.portal.payouts_title'), href: route('owner-portal.payouts'), icon: BanknotesIcon, active: route().current('owner-portal.payouts') },
+            { name: t('owners.portal.notifications_title'), href: route('owner-portal.notifications'), icon: BellIcon, active: route().current('owner-portal.notifications'), badgeKey: 'notifications', badgeColor: 'bg-indigo-500' },
         ];
     }
 

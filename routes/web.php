@@ -1385,6 +1385,9 @@ Route::middleware('auth')->group(function () {
             ->whereNumber('owner')->name('owners.payouts.store');
         Route::post('/owners/{owner}/payouts/{payout}/void', [\App\Http\Controllers\OwnerPayoutController::class, 'void'])
             ->whereNumber('owner')->whereNumber('payout')->name('owners.payouts.void');
+        // Phase-104: re-send a payout's remittance advice (email + in-app).
+        Route::post('/owners/{owner}/payouts/{payout}/advice', [\App\Http\Controllers\OwnerPayoutController::class, 'advice'])
+            ->whereNumber('owner')->whereNumber('payout')->middleware('throttle:notification-send')->name('owners.payouts.advice');
     });
 
     // 16. Deposits (Security Deposits Tracking) — superseded by the Finances
@@ -1617,6 +1620,10 @@ Route::middleware(['auth', 'verified', 'role:owner'])->prefix('owner-portal')->n
         ->middleware('throttle:export')->name('statements.download');
     // Phase-103 OWNER-PAYOUTS: the owner's read-only view of what's been remitted + balance.
     Route::get('/payouts', [\App\Http\Controllers\OwnerPortalPayoutsController::class, 'index'])->name('payouts');
+    // Phase-104 OWNER-REMITTANCE-NOTIFY: the owner's notifications (payouts + statements).
+    Route::get('/notifications', [\App\Http\Controllers\OwnerPortalNotificationsController::class, 'index'])->name('notifications');
+    Route::patch('/notifications/read-all', [\App\Http\Controllers\OwnerPortalNotificationsController::class, 'markAllAsRead'])->name('notifications.read-all');
+    Route::patch('/notifications/{notification}/read', [\App\Http\Controllers\OwnerPortalNotificationsController::class, 'markAsRead'])->whereNumber('notification')->name('notifications.read');
 });
 
 // --- TENANT KYC ROUTES (Accessible without KYC completion but requires payment verification) ---

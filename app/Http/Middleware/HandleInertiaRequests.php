@@ -445,6 +445,13 @@ class HandleInertiaRequests extends Middleware
                     ->whereNull('read_at')
                     ->count(),
             ],
+            // Phase-104 OWNER-REMITTANCE-NOTIFY: the owner's unread payout/statement notices.
+            'owner' => [
+                'notifications' => Notification::withoutGlobalScope('landlord')
+                    ->where('recipient_id', $user->id)
+                    ->whereNull('read_at')
+                    ->count(),
+            ],
             default => null,
         };
     }

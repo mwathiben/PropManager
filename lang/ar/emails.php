@@ -115,6 +115,7 @@ return [
         'invoice_overdue' => '[TODO-ar] Payment Overdue - Invoice :number',
         'credit_note_issued' => '[TODO-ar] Credit Note Issued - :number',
         'owner_statement' => 'بيان المالك - :period',
+        'owner_payout_advice' => 'إشعار تحويل - :date',
         'data_export_ready' => '[TODO-ar] Your Data Export is Ready - :app',
         'deposit_refunded' => '[TODO-ar] Your Security Deposit Has Been Refunded',
         'deposit_partial_refund' => '[TODO-ar] Your Security Deposit Has Been Partially Refunded',

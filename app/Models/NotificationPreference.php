@@ -42,6 +42,9 @@ class NotificationPreference extends Model
         'water_review_due_enabled',
         'water_arrears_enabled',
         'water_bill_due_enabled',
+        // Phase-104 OWNER-REMITTANCE-NOTIFY: opt-out for owner payout/statement notices.
+        'owner_payout_sent_enabled',
+        'owner_statement_sent_enabled',
         // Channel preferences
         'email_enabled',
         'sms_enabled',
@@ -80,6 +83,8 @@ class NotificationPreference extends Model
         'water_review_due_enabled' => 'boolean',
         'water_arrears_enabled' => 'boolean',
         'water_bill_due_enabled' => 'boolean',
+        'owner_payout_sent_enabled' => 'boolean',
+        'owner_statement_sent_enabled' => 'boolean',
         // Channel casts
         'email_enabled' => 'boolean',
         'sms_enabled' => 'boolean',
