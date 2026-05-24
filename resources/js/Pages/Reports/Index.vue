@@ -4,6 +4,7 @@ import Modal from '@/Components/Modal.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import { useFormatters } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import type { ReportsIndexPageProps } from '@/types/operations';
 import {
     CalendarIcon,
@@ -69,9 +70,11 @@ const clearDateRange = () => {
     changePeriod('month');
 };
 
+const { t } = useI18n();
+
 const formatDateRangeLabel = computed(() => {
     if (dateRange.value.from && dateRange.value.to) {
-        return `${dateRange.value.from} to ${dateRange.value.to}`;
+        return t('reports.index.date_range_label', { from: dateRange.value.from, to: dateRange.value.to });
     }
     return null;
 });
@@ -81,7 +84,7 @@ const { formatMoney: formatCurrency, formatPercent: formatPercentage } = useForm
 </script>
 
 <template>
-    <Head title="Reports & Analytics" />
+    <Head :title="t('reports.index.page_title')" />
 
     <AuthenticatedLayout>
         <div class="py-6">
@@ -92,8 +95,8 @@ const { formatMoney: formatCurrency, formatPercent: formatPercentage } = useForm
                     <div class="p-6 bg-white border-b border-gray-200">
                         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
                             <div>
-                                <h1 class="text-2xl font-bold text-gray-900">Reports & Analytics</h1>
-                                <p class="mt-1 text-sm text-gray-600">Comprehensive insights into your property performance</p>
+                                <h1 class="text-2xl font-bold text-gray-900">{{ t('reports.index.heading') }}</h1>
+                                <p class="mt-1 text-sm text-gray-600">{{ t('reports.index.subtitle') }}</p>
                             </div>
 
                             <!-- Period Selector - scrollable on mobile -->
@@ -103,7 +106,7 @@ const { formatMoney: formatCurrency, formatPercent: formatPercentage } = useForm
                                     :key="key"
                                     @click="changePeriod(key)"
                                     :class="[
-                                        'px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap shrink-0',
+                                        /* i18n-ignore */ 'px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap shrink-0',
                                         selectedPeriod === key && !formatDateRangeLabel
                                             ? 'bg-indigo-600 text-white'
                                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -114,20 +117,20 @@ const { formatMoney: formatCurrency, formatPercent: formatPercentage } = useForm
                                 <button
                                     @click="showDateRangeModal = true"
                                     :class="[
-                                        'px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap shrink-0 flex items-center gap-2',
+                                        /* i18n-ignore */ 'px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap shrink-0 flex items-center gap-2',
                                         formatDateRangeLabel
                                             ? 'bg-indigo-600 text-white'
                                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                     ]"
                                 >
                                     <CalendarIcon class="w-4 h-4" />
-                                    {{ formatDateRangeLabel || 'Custom' }}
+                                    {{ formatDateRangeLabel || t('reports.index.custom') }}
                                 </button>
                                 <button
                                     v-if="formatDateRangeLabel"
                                     @click="clearDateRange"
                                     class="px-2 py-2 text-gray-500 hover:text-gray-700"
-                                    title="Clear date range"
+                                    :title="t('reports.index.clear_date_range')"
                                 >
                                     ✕
                                 </button>
@@ -143,7 +146,7 @@ const { formatMoney: formatCurrency, formatPercent: formatPercentage } = useForm
                         <div class="p-6">
                             <div class="flex items-center justify-between">
                                 <div>
-                                    <p class="text-sm font-medium text-gray-600">Total Revenue</p>
+                                    <p class="text-sm font-medium text-gray-600">{{ t('reports.index.total_revenue') }}</p>
                                     <p class="mt-2 text-3xl font-bold text-gray-900">
                                         {{ formatCurrency(analytics.financial.total_revenue) }}
                                     </p>
@@ -155,7 +158,7 @@ const { formatMoney: formatCurrency, formatPercent: formatPercentage } = useForm
                                 </div>
                             </div>
                             <p class="mt-2 text-sm text-green-600">
-                                Collection: {{ formatPercentage(analytics.financial.collection_percentage) }}
+                                {{ t('reports.index.collection', { percentage: formatPercentage(analytics.financial.collection_percentage) }) }}
                             </p>
                         </div>
                     </div>
@@ -165,7 +168,7 @@ const { formatMoney: formatCurrency, formatPercent: formatPercentage } = useForm
                         <div class="p-6">
                             <div class="flex items-center justify-between">
                                 <div>
-                                    <p class="text-sm font-medium text-gray-600">Occupancy Rate</p>
+                                    <p class="text-sm font-medium text-gray-600">{{ t('reports.index.occupancy_rate') }}</p>
                                     <p class="mt-2 text-3xl font-bold text-gray-900">
                                         {{ formatPercentage(analytics.occupancy.occupancy_rate) }}
                                     </p>
@@ -177,7 +180,7 @@ const { formatMoney: formatCurrency, formatPercent: formatPercentage } = useForm
                                 </div>
                             </div>
                             <p class="mt-2 text-sm text-gray-600">
-                                {{ analytics.occupancy.occupied }}/{{ analytics.occupancy.total_units }} units occupied
+                                {{ t('reports.index.units_occupied', { occupied: analytics.occupancy.occupied, total: analytics.occupancy.total_units }) }}
                             </p>
                         </div>
                     </div>
@@ -187,7 +190,7 @@ const { formatMoney: formatCurrency, formatPercent: formatPercentage } = useForm
                         <div class="p-6">
                             <div class="flex items-center justify-between">
                                 <div>
-                                    <p class="text-sm font-medium text-gray-600">Outstanding Arrears</p>
+                                    <p class="text-sm font-medium text-gray-600">{{ t('reports.index.outstanding_arrears') }}</p>
                                     <p class="mt-2 text-3xl font-bold text-gray-900">
                                         {{ formatCurrency(analytics.arrears.total_arrears) }}
                                     </p>
@@ -199,7 +202,7 @@ const { formatMoney: formatCurrency, formatPercent: formatPercentage } = useForm
                                 </div>
                             </div>
                             <p class="mt-2 text-sm text-red-600">
-                                {{ analytics.arrears.count }} overdue invoice(s)
+                                {{ t('reports.index.overdue_invoices', { count: analytics.arrears.count }) }}
                             </p>
                         </div>
                     </div>
@@ -209,9 +212,9 @@ const { formatMoney: formatCurrency, formatPercent: formatPercentage } = useForm
                         <div class="p-6">
                             <div class="flex items-center justify-between">
                                 <div>
-                                    <p class="text-sm font-medium text-gray-600">Water Consumption</p>
+                                    <p class="text-sm font-medium text-gray-600">{{ t('reports.index.water_consumption') }}</p>
                                     <p class="mt-2 text-3xl font-bold text-gray-900">
-                                        {{ analytics.water_consumption.total_consumption }} <span class="text-lg">units</span>
+                                        {{ analytics.water_consumption.total_consumption }} <span class="text-lg">{{ t('reports.index.units') }}</span>
                                     </p>
                                 </div>
                                 <div class="p-3 bg-cyan-100 rounded-full">
@@ -221,7 +224,7 @@ const { formatMoney: formatCurrency, formatPercent: formatPercentage } = useForm
                                 </div>
                             </div>
                             <p class="mt-2 text-sm text-gray-600">
-                                Cost: {{ formatCurrency(analytics.water_consumption.total_cost) }}
+                                {{ t('reports.index.cost', { cost: formatCurrency(analytics.water_consumption.total_cost) }) }}
                             </p>
                         </div>
                     </div>
@@ -231,14 +234,14 @@ const { formatMoney: formatCurrency, formatPercent: formatPercentage } = useForm
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
                     <div class="p-6 border-b border-gray-200">
                         <div class="flex justify-between items-center mb-4">
-                            <h2 class="text-xl font-bold text-gray-900">Financial Summary</h2>
+                            <h2 class="text-xl font-bold text-gray-900">{{ t('reports.index.financial_summary') }}</h2>
                             <div class="relative">
                                 <button
                                     @click="toggleExportDropdown('financial')"
                                     class="px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-md hover:bg-indigo-700 transition-colors flex items-center gap-1"
                                 >
                                     <DocumentArrowDownIcon class="w-4 h-4" />
-                                    Export
+                                    {{ t('reports.index.export') }}
                                     <ChevronDownIcon class="w-4 h-4" />
                                 </button>
                                 <div
@@ -246,13 +249,13 @@ const { formatMoney: formatCurrency, formatPercent: formatPercentage } = useForm
                                     class="absolute end-0 mt-2 w-40 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-10"
                                 >
                                     <button @click="exportReport('financial', 'pdf')" class="block w-full px-4 py-2 text-start text-sm text-gray-700 hover:bg-gray-100">
-                                        <span class="text-red-500 me-2">PDF</span> Document
+                                        <span class="text-red-500 me-2">PDF</span> {{ t('reports.index.export_pdf_document') }}
                                     </button>
                                     <button @click="exportReport('financial', 'xlsx')" class="block w-full px-4 py-2 text-start text-sm text-gray-700 hover:bg-gray-100">
-                                        <span class="text-green-500 me-2">XLSX</span> Excel
+                                        <span class="text-green-500 me-2">XLSX</span> {{ t('reports.index.export_xlsx_excel') }}
                                     </button>
                                     <button @click="exportReport('financial', 'csv')" class="block w-full px-4 py-2 text-start text-sm text-gray-700 hover:bg-gray-100">
-                                        <span class="text-blue-500 me-2">CSV</span> Spreadsheet
+                                        <span class="text-blue-500 me-2">CSV</span> {{ t('reports.index.export_csv_spreadsheet') }}
                                     </button>
                                 </div>
                             </div>
@@ -262,26 +265,26 @@ const { formatMoney: formatCurrency, formatPercent: formatPercentage } = useForm
                             <div>
                                 <div class="space-y-3">
                                     <div class="flex justify-between py-2 border-b">
-                                        <span class="text-sm text-gray-600">Expected Rent</span>
+                                        <span class="text-sm text-gray-600">{{ t('reports.index.expected_rent') }}</span>
                                         <span class="text-sm font-semibold">{{ formatCurrency(analytics.financial.expected_rent) }}</span>
                                     </div>
                                     <div class="flex justify-between py-2 border-b">
-                                        <span class="text-sm text-gray-600">Collected Rent</span>
+                                        <span class="text-sm text-gray-600">{{ t('reports.index.collected_rent') }}</span>
                                         <span class="text-sm font-semibold text-green-600">{{ formatCurrency(analytics.financial.collected_rent) }}</span>
                                     </div>
                                     <div class="flex justify-between py-2 border-b">
-                                        <span class="text-sm text-gray-600">Water Charges</span>
+                                        <span class="text-sm text-gray-600">{{ t('reports.index.water_charges') }}</span>
                                         <span class="text-sm font-semibold">{{ formatCurrency(analytics.financial.water_charges) }}</span>
                                     </div>
                                     <div class="flex justify-between py-2">
-                                        <span class="text-sm text-gray-600">Outstanding</span>
+                                        <span class="text-sm text-gray-600">{{ t('reports.index.outstanding') }}</span>
                                         <span class="text-sm font-semibold text-red-600">{{ formatCurrency(analytics.financial.outstanding) }}</span>
                                     </div>
                                 </div>
                             </div>
 
                             <div class="md:col-span-2">
-                                <h3 class="text-sm font-semibold text-gray-700 mb-3">Revenue Breakdown</h3>
+                                <h3 class="text-sm font-semibold text-gray-700 mb-3">{{ t('reports.index.revenue_breakdown') }}</h3>
                                 <div class="space-y-2">
                                     <div v-for="(amount, category) in analytics.financial.revenue_breakdown" :key="category" class="flex items-center gap-3">
                                         <div class="flex-1">
@@ -312,12 +315,12 @@ const { formatMoney: formatCurrency, formatPercent: formatPercentage } = useForm
                     <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                         <div class="p-6">
                             <div class="flex justify-between items-center mb-4">
-                                <h2 class="text-xl font-bold text-gray-900">Occupancy Breakdown</h2>
+                                <h2 class="text-xl font-bold text-gray-900">{{ t('reports.index.occupancy_breakdown') }}</h2>
                                 <button
                                     @click="exportReport('occupancy', 'csv')"
                                     class="px-3 py-1.5 bg-gray-600 text-white text-sm rounded-md hover:bg-gray-700 transition-colors"
                                 >
-                                    Export
+                                    {{ t('reports.index.export') }}
                                 </button>
                             </div>
 
@@ -344,18 +347,18 @@ const { formatMoney: formatCurrency, formatPercent: formatPercentage } = useForm
                     <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                         <div class="p-6">
                             <div class="flex justify-between items-center mb-4">
-                                <h2 class="text-xl font-bold text-gray-900">Arrears Aging</h2>
+                                <h2 class="text-xl font-bold text-gray-900">{{ t('reports.index.arrears_aging') }}</h2>
                                 <button
                                     @click="exportReport('arrears', 'pdf')"
                                     class="px-3 py-1.5 bg-gray-600 text-white text-sm rounded-md hover:bg-gray-700 transition-colors"
                                 >
-                                    Export
+                                    {{ t('reports.index.export') }}
                                 </button>
                             </div>
 
                             <div class="space-y-3">
                                 <div v-for="(amount, period) in analytics.arrears.aging" :key="period" class="flex items-center justify-between py-2 border-b">
-                                    <span class="text-sm font-medium">{{ period }} days</span>
+                                    <span class="text-sm font-medium">{{ t('reports.index.aging_days', { period }) }}</span>
                                     <span class="text-sm font-bold text-red-600">{{ formatCurrency(amount) }}</span>
                                 </div>
                             </div>
@@ -368,10 +371,10 @@ const { formatMoney: formatCurrency, formatPercent: formatPercentage } = useForm
                     <!-- Top Performing Units -->
                     <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                         <div class="p-6">
-                            <h2 class="text-xl font-bold text-gray-900 mb-4">Top Performing Units</h2>
+                            <h2 class="text-xl font-bold text-gray-900 mb-4">{{ t('reports.index.top_performing_units') }}</h2>
 
                             <div v-if="analytics.top_performing_units.length === 0" class="text-center py-8 text-gray-500">
-                                <p>No performance data available</p>
+                                <p>{{ t('reports.index.no_performance_data') }}</p>
                             </div>
 
                             <div v-else class="space-y-3 max-h-80 overflow-y-auto">
@@ -383,7 +386,7 @@ const { formatMoney: formatCurrency, formatPercent: formatPercentage } = useForm
                                         </div>
                                         <div class="text-end">
                                             <div class="text-lg font-bold text-green-600">{{ formatPercentage(unit.collection_rate) }}</div>
-                                            <div class="text-xs text-gray-500">{{ unit.on_time_payments }}/{{ unit.total_invoices }} on-time</div>
+                                            <div class="text-xs text-gray-500">{{ t('reports.index.on_time_payments', { onTime: unit.on_time_payments, total: unit.total_invoices }) }}</div>
                                         </div>
                                     </div>
                                 </div>
@@ -395,24 +398,24 @@ const { formatMoney: formatCurrency, formatPercent: formatPercentage } = useForm
                     <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                         <div class="p-6">
                             <div class="flex justify-between items-center mb-4">
-                                <h2 class="text-xl font-bold text-gray-900">Top Water Consumers</h2>
+                                <h2 class="text-xl font-bold text-gray-900">{{ t('reports.index.top_water_consumers') }}</h2>
                                 <button
                                     @click="exportReport('water', 'csv')"
                                     class="px-3 py-1.5 bg-gray-600 text-white text-sm rounded-md hover:bg-gray-700 transition-colors"
                                 >
-                                    Export
+                                    {{ t('reports.index.export') }}
                                 </button>
                             </div>
 
                             <div v-if="analytics.water_consumption.top_consumers.length === 0" class="text-center py-8 text-gray-500">
-                                <p>No water consumption data available</p>
+                                <p>{{ t('reports.index.no_water_data') }}</p>
                             </div>
 
                             <div v-else class="space-y-3 max-h-80 overflow-y-auto">
                                 <div v-for="(consumer, index) in analytics.water_consumption.top_consumers" :key="index" class="flex justify-between items-center py-2 border-b">
                                     <div>
                                         <div class="font-bold text-gray-900">{{ consumer.unit }}</div>
-                                        <div class="text-xs text-gray-500">{{ consumer.consumption }} units</div>
+                                        <div class="text-xs text-gray-500">{{ t('reports.index.consumption_units', { consumption: consumer.consumption }) }}</div>
                                     </div>
                                     <div class="text-end">
                                         <div class="font-semibold text-cyan-600">{{ formatCurrency(consumer.cost) }}</div>
@@ -429,10 +432,10 @@ const { formatMoney: formatCurrency, formatPercent: formatPercentage } = useForm
         <!-- Date Range Modal -->
         <Modal :show="showDateRangeModal" @close="showDateRangeModal = false" max-width="md">
             <div class="p-6">
-                <h3 class="text-lg font-semibold text-gray-900 mb-4">Custom Date Range</h3>
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">{{ t('reports.index.custom_date_range') }}</h3>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">From</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('reports.index.from') }}</label>
                         <input
                             type="date"
                             v-model="dateRange.from"
@@ -440,7 +443,7 @@ const { formatMoney: formatCurrency, formatPercent: formatPercentage } = useForm
                         />
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">To</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('reports.index.to') }}</label>
                         <input
                             type="date"
                             v-model="dateRange.to"
@@ -449,21 +452,21 @@ const { formatMoney: formatCurrency, formatPercent: formatPercentage } = useForm
                     </div>
                 </div>
                 <p class="mt-2 text-sm text-gray-500">
-                    Select a custom date range for your reports. This will apply to all exports until cleared.
+                    {{ t('reports.index.date_range_hint') }}
                 </p>
                 <div class="mt-6 flex justify-end gap-3">
                     <button
                         @click="showDateRangeModal = false"
                         class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
                     >
-                        Cancel
+                        {{ t('reports.index.cancel') }}
                     </button>
                     <button
                         @click="applyDateRange"
                         :disabled="!dateRange.from || !dateRange.to"
                         class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
                     >
-                        Apply
+                        {{ t('reports.index.apply') }}
                     </button>
                 </div>
             </div>

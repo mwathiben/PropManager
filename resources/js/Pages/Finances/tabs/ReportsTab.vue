@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue';
 import { router, Link } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import { MetricCard, AmountDisplay, ExportDropdown } from '@/Components/Finances';
 import {
     ChartBarIcon,
@@ -22,6 +23,8 @@ import {
 } from '@heroicons/vue/24/outline';
 import type { Building } from '@/types/finances';
 
+const { t } = useI18n();
+
 // Phase-73 REPORTS-DEPTH-2: entry points to the report-tool suite. These
 // full pages (builder, dashboards, templates, scheduled, shares, metrics)
 // previously had no UI link and were reachable only by typing the URL.
@@ -34,24 +37,12 @@ const reportTools = [
     { key: 'metrics', route: 'reports.metrics.manage', icon: VariableIcon },
 ] as const;
 
-const TOOL_LABELS: Record<string, { name: string; desc: string }> = {
-    builder: { name: 'Report Builder', desc: 'Compose custom reports from your data' },
-    dashboards: { name: 'Dashboards', desc: 'Build dashboards from saved reports + metrics' },
-    templates: { name: 'Templates', desc: 'Clone a curated report to get started' },
-    scheduled: { name: 'Scheduled', desc: 'Email reports on a recurring cadence' },
-    shares: { name: 'Shared Links', desc: 'Read-only links to a saved report' },
-    metrics: { name: 'Custom Metrics', desc: 'Author formulas as derived columns' },
-};
+const toolLabel = (key: string): { name: string; desc: string } => ({
+    name: t(`finances_reports.tools.${key}.name`),
+    desc: t(`finances_reports.tools.${key}.desc`),
+});
 
 const AGING_BUCKET_KEYS = ['current', '1-30', '31-60', '61-90', '90+'] as const;
-
-const AGING_LABELS: Record<string, string> = {
-    'current': 'Current',
-    '1-30': '1-30 Days',
-    '31-60': '31-60 Days',
-    '61-90': '61-90 Days',
-    '90+': '90+ Days',
-};
 
 const AGING_COLORS: Record<string, string> = {
     'current': 'bg-emerald-500',
@@ -196,25 +187,25 @@ const localFilters = ref({
 
 const showFilters = ref(false);
 
-const exportFormats = [
-    { value: 'xlsx', label: 'Excel (.xlsx)' },
-    { value: 'pdf', label: 'PDF' },
-    { value: 'csv', label: 'CSV' },
-];
+const exportFormats = computed(() => [
+    { value: 'xlsx', label: t('finances_reports.export_formats.xlsx') },
+    { value: 'pdf', label: t('finances_reports.export_formats.pdf') },
+    { value: 'csv', label: t('finances_reports.export_formats.csv') },
+]);
 
-const periodOptions = [
-    { value: 'this_month', label: 'This Month' },
-    { value: 'last_month', label: 'Last Month' },
-    { value: 'this_quarter', label: 'This Quarter' },
-    { value: 'last_quarter', label: 'Last Quarter' },
-    { value: 'ytd', label: 'Year to Date' },
-    { value: 'this_fy', label: 'This Fiscal Year' },
-    { value: 'last_fy', label: 'Last Fiscal Year' },
-    { value: '12', label: 'Last 12 Months' },
-    { value: '6', label: 'Last 6 Months' },
-    { value: '3', label: 'Last 3 Months' },
-    { value: 'custom', label: 'Custom Range' },
-];
+const periodOptions = computed(() => [
+    { value: 'this_month', label: t('finances_reports.periods.this_month') },
+    { value: 'last_month', label: t('finances_reports.periods.last_month') },
+    { value: 'this_quarter', label: t('finances_reports.periods.this_quarter') },
+    { value: 'last_quarter', label: t('finances_reports.periods.last_quarter') },
+    { value: 'ytd', label: t('finances_reports.periods.ytd') },
+    { value: 'this_fy', label: t('finances_reports.periods.this_fy') },
+    { value: 'last_fy', label: t('finances_reports.periods.last_fy') },
+    { value: '12', label: t('finances_reports.periods.12') },
+    { value: '6', label: t('finances_reports.periods.6') },
+    { value: '3', label: t('finances_reports.periods.3') },
+    { value: 'custom', label: t('finances_reports.periods.custom') },
+]);
 
 const isCustomPeriod = computed(() => localFilters.value.period === 'custom');
 
@@ -293,7 +284,7 @@ const agingBuckets = computed(() => {
 
     return AGING_BUCKET_KEYS.map(key => ({
         key,
-        label: AGING_LABELS[key],
+        label: t(`finances_reports.arrears.buckets.${key}`),
         color: AGING_COLORS[key],
         count: props.arrearsAging[key]?.count || 0,
         amount: props.arrearsAging[key]?.amount || 0,
@@ -393,8 +384,8 @@ watch(() => localFilters.value.period, (newVal) => {
     <div class="space-y-6">
         <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div>
-                <h2 class="text-lg font-semibold text-gray-900">Financial Reports</h2>
-                <p class="text-sm text-gray-500">Analyze revenue, expenses, and collection performance</p>
+                <h2 class="text-lg font-semibold text-gray-900">{{ t('finances_reports.heading') }}</h2>
+                <p class="text-sm text-gray-500">{{ t('finances_reports.subheading') }}</p>
             </div>
 
             <div class="flex flex-wrap items-center gap-3">
@@ -410,20 +401,22 @@ watch(() => localFilters.value.period, (newVal) => {
                 <button
                     @click="showFilters = !showFilters"
                     :class="[
+                        /* i18n-ignore */
                         'inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border transition-colors',
                         hasActiveFilters
                             ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
+                            /* i18n-ignore */
                             : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
                     ]"
                 >
                     <FunnelIcon class="w-4 h-4" />
-                    Filters
+                    {{ t('finances_reports.filters_button') }}
                     <span v-if="hasActiveFilters" class="w-2 h-2 bg-emerald-500 rounded-full" />
                 </button>
 
                 <ExportDropdown :formats="exportFormats" @export="exportReport" />
-                <ExportDropdown :formats="exportFormats" button-text="Rent Roll" @export="exportRentRoll" />
-                <ExportDropdown :formats="exportFormats" button-text="Property P&L" @export="exportPropertyPnl" />
+                <ExportDropdown :formats="exportFormats" :button-text="t('finances_reports.export_buttons.rent_roll')" @export="exportRentRoll" />
+                <ExportDropdown :formats="exportFormats" :button-text="t('finances_reports.export_buttons.property_pnl')" @export="exportPropertyPnl" />
             </div>
         </div>
 
@@ -436,20 +429,20 @@ watch(() => localFilters.value.period, (newVal) => {
                 class="group flex flex-col gap-2 rounded-xl border border-gray-200 bg-white p-4 transition-colors hover:border-indigo-300 hover:bg-indigo-50"
             >
                 <component :is="tool.icon" class="h-6 w-6 text-gray-400 group-hover:text-indigo-600" />
-                <span class="text-sm font-semibold text-gray-900 group-hover:text-indigo-700">{{ TOOL_LABELS[tool.key].name }}</span>
-                <span class="text-xs text-gray-500">{{ TOOL_LABELS[tool.key].desc }}</span>
+                <span class="text-sm font-semibold text-gray-900 group-hover:text-indigo-700">{{ toolLabel(tool.key).name }}</span>
+                <span class="text-xs text-gray-500">{{ toolLabel(tool.key).desc }}</span>
             </Link>
         </div>
 
         <div v-if="showFilters" class="bg-gray-50 rounded-xl p-4 border border-gray-200">
             <div class="flex flex-wrap items-end gap-4">
                 <div v-if="buildings?.length > 1" class="flex-1 min-w-[200px]">
-                    <label class="block text-xs font-medium text-gray-600 mb-1">Building</label>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">{{ t('finances_reports.filters.building') }}</label>
                     <select
                         v-model="localFilters.buildingId"
                         class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500"
                     >
-                        <option value="">All Buildings</option>
+                        <option value="">{{ t('finances_reports.filters.all_buildings') }}</option>
                         <option v-for="building in buildings" :key="building.id" :value="building.id">
                             {{ building.name }}
                         </option>
@@ -457,7 +450,7 @@ watch(() => localFilters.value.period, (newVal) => {
                 </div>
 
                 <div v-if="isCustomPeriod" class="flex-1 min-w-[150px]">
-                    <label class="block text-xs font-medium text-gray-600 mb-1">From</label>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">{{ t('finances_reports.filters.from') }}</label>
                     <input
                         type="date"
                         v-model="localFilters.dateFrom"
@@ -466,7 +459,7 @@ watch(() => localFilters.value.period, (newVal) => {
                 </div>
 
                 <div v-if="isCustomPeriod" class="flex-1 min-w-[150px]">
-                    <label class="block text-xs font-medium text-gray-600 mb-1">To</label>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">{{ t('finances_reports.filters.to') }}</label>
                     <input
                         type="date"
                         v-model="localFilters.dateTo"
@@ -481,7 +474,7 @@ watch(() => localFilters.value.period, (newVal) => {
                             v-model="localFilters.compare"
                             class="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
                         />
-                        <span class="text-sm text-gray-700">Compare to previous period</span>
+                        <span class="text-sm text-gray-700">{{ t('finances_reports.filters.compare') }}</span>
                     </label>
                 </div>
 
@@ -490,14 +483,14 @@ watch(() => localFilters.value.period, (newVal) => {
                         @click="applyFilters"
                         class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700"
                     >
-                        Apply
+                        {{ t('finances_reports.filters.apply') }}
                     </button>
                     <button
                         v-if="hasActiveFilters"
                         @click="clearFilters"
                         class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
                     >
-                        Clear
+                        {{ t('finances_reports.filters.clear') }}
                     </button>
                 </div>
             </div>
@@ -516,7 +509,7 @@ watch(() => localFilters.value.period, (newVal) => {
                     </div>
                 </div>
                 <p class="mt-3 text-2xl font-semibold text-gray-900">{{ formatMoney(summaryStats.totalInvoiced) }}</p>
-                <p class="text-sm text-gray-500">Total Invoiced</p>
+                <p class="text-sm text-gray-500">{{ t('finances_reports.metrics.total_invoiced') }}</p>
             </div>
 
             <div class="bg-white rounded-xl border border-gray-200 p-4">
@@ -531,7 +524,7 @@ watch(() => localFilters.value.period, (newVal) => {
                     </div>
                 </div>
                 <p class="mt-3 text-2xl font-semibold text-gray-900">{{ formatMoney(summaryStats.totalCollected) }}</p>
-                <p class="text-sm text-gray-500">Total Collected</p>
+                <p class="text-sm text-gray-500">{{ t('finances_reports.metrics.total_collected') }}</p>
             </div>
 
             <div class="bg-white rounded-xl border border-gray-200 p-4">
@@ -546,7 +539,7 @@ watch(() => localFilters.value.period, (newVal) => {
                     </div>
                 </div>
                 <p class="mt-3 text-2xl font-semibold text-gray-900">{{ formatMoney(summaryStats.totalExpenses) }}</p>
-                <p class="text-sm text-gray-500">Total Expenses</p>
+                <p class="text-sm text-gray-500">{{ t('finances_reports.metrics.total_expenses') }}</p>
             </div>
 
             <div class="bg-white rounded-xl border border-gray-200 p-4">
@@ -561,58 +554,58 @@ watch(() => localFilters.value.period, (newVal) => {
                     </div>
                 </div>
                 <p class="mt-3 text-2xl font-semibold text-gray-900">{{ summaryStats.avgCollectionRate }}%</p>
-                <p class="text-sm text-gray-500">Avg Collection Rate</p>
+                <p class="text-sm text-gray-500">{{ t('finances_reports.metrics.avg_collection_rate') }}</p>
             </div>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div class="bg-white rounded-xl border border-gray-200 p-5">
-                <h3 class="text-sm font-semibold text-gray-900 mb-4">Revenue vs Expenses</h3>
+                <h3 class="text-sm font-semibold text-gray-900 mb-4">{{ t('finances_reports.revenue.title') }}</h3>
                 <div v-if="revenueData?.length" class="space-y-3">
                     <div v-for="month in revenueData" :key="month.month" class="space-y-1">
                         <div class="flex items-center justify-between text-xs text-gray-500">
                             <span>{{ month.month }}</span>
                             <span class="font-medium" :class="month.net >= 0 ? 'text-emerald-600' : 'text-red-600'">
-                                Net: {{ formatMoney(month.net) }}
+                                {{ t('finances_reports.revenue.net', { amount: formatMoney(month.net) }) }}
                             </span>
                         </div>
                         <div class="flex gap-1 h-6">
                             <div
                                 class="bg-blue-500 rounded-l transition-all duration-300"
                                 :style="{ width: `${(month.invoiced / maxRevenue) * 45}%` }"
-                                :title="`Invoiced: ${formatMoney(month.invoiced)}`"
+                                :title="t('finances_reports.revenue.invoiced_tooltip', { amount: formatMoney(month.invoiced) })"
                             />
                             <div
                                 class="bg-emerald-500 transition-all duration-300"
                                 :style="{ width: `${(month.collected / maxRevenue) * 45}%` }"
-                                :title="`Collected: ${formatMoney(month.collected)}`"
+                                :title="t('finances_reports.revenue.collected_tooltip', { amount: formatMoney(month.collected) })"
                             />
                             <div
                                 class="bg-red-400 rounded-r transition-all duration-300"
                                 :style="{ width: `${(month.expenses / maxRevenue) * 45}%` }"
-                                :title="`Expenses: ${formatMoney(month.expenses)}`"
+                                :title="t('finances_reports.revenue.expenses_tooltip', { amount: formatMoney(month.expenses) })"
                             />
                         </div>
                     </div>
                     <div class="flex items-center gap-4 pt-2 text-xs border-t border-gray-100">
-                        <span class="flex items-center gap-1"><span class="w-3 h-3 bg-blue-500 rounded" /> Invoiced</span>
-                        <span class="flex items-center gap-1"><span class="w-3 h-3 bg-emerald-500 rounded" /> Collected</span>
-                        <span class="flex items-center gap-1"><span class="w-3 h-3 bg-red-400 rounded" /> Expenses</span>
+                        <span class="flex items-center gap-1"><span class="w-3 h-3 bg-blue-500 rounded" /> {{ t('finances_reports.revenue.invoiced') }}</span>
+                        <span class="flex items-center gap-1"><span class="w-3 h-3 bg-emerald-500 rounded" /> {{ t('finances_reports.revenue.collected') }}</span>
+                        <span class="flex items-center gap-1"><span class="w-3 h-3 bg-red-400 rounded" /> {{ t('finances_reports.revenue.expenses') }}</span>
                     </div>
                 </div>
                 <div v-else class="text-center py-12">
                     <ChartBarIcon class="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                    <p class="text-sm font-medium text-gray-500">No revenue data</p>
-                    <p class="text-xs text-gray-400 mt-1">Try adjusting your filters or date range</p>
+                    <p class="text-sm font-medium text-gray-500">{{ t('finances_reports.revenue.empty_title') }}</p>
+                    <p class="text-xs text-gray-400 mt-1">{{ t('finances_reports.revenue.empty_body') }}</p>
                 </div>
             </div>
 
             <div class="bg-white rounded-xl border border-gray-200 p-5">
                 <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-sm font-semibold text-gray-900">Collection Rate Trend</h3>
+                    <h3 class="text-sm font-semibold text-gray-900">{{ t('finances_reports.collection.title') }}</h3>
                     <div class="flex items-center gap-2 text-xs text-gray-500">
                         <span class="w-6 border-t-2 border-dashed border-emerald-400" />
-                        <span>85% Target</span>
+                        <span>{{ t('finances_reports.collection.target') }}</span>
                     </div>
                 </div>
                 <div v-if="collectionRate?.length" class="space-y-3 relative">
@@ -626,7 +619,7 @@ watch(() => localFilters.value.period, (newVal) => {
                         <div class="relative h-4 bg-gray-100 rounded-full overflow-hidden">
                             <div
                                 class="absolute start-[85%] top-0 bottom-0 w-0.5 bg-emerald-400 opacity-50"
-                                title="85% Target"
+                                :title="t('finances_reports.collection.target')"
                             />
                             <div
                                 :class="['h-full rounded-full transition-all duration-300', getRateBgClass(month.rate)]"
@@ -637,8 +630,8 @@ watch(() => localFilters.value.period, (newVal) => {
                 </div>
                 <div v-else class="text-center py-12">
                     <ArrowTrendingUpIcon class="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                    <p class="text-sm font-medium text-gray-500">No collection data</p>
-                    <p class="text-xs text-gray-400 mt-1">Data will appear when invoices are created</p>
+                    <p class="text-sm font-medium text-gray-500">{{ t('finances_reports.collection.empty_title') }}</p>
+                    <p class="text-xs text-gray-400 mt-1">{{ t('finances_reports.collection.empty_body') }}</p>
                 </div>
             </div>
         </div>
@@ -647,17 +640,17 @@ watch(() => localFilters.value.period, (newVal) => {
             <div class="bg-white rounded-xl border border-gray-200 p-5">
                 <div class="flex items-center gap-2 mb-4">
                     <BuildingOfficeIcon class="w-5 h-5 text-gray-400" />
-                    <h3 class="text-sm font-semibold text-gray-900">Occupancy by Building</h3>
+                    <h3 class="text-sm font-semibold text-gray-900">{{ t('finances_reports.occupancy.title') }}</h3>
                 </div>
                 <div v-if="occupancyData?.buildings?.length" class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead>
                             <tr class="text-start text-xs text-gray-500 border-b border-gray-100">
-                                <th class="pb-2 font-medium">Building</th>
-                                <th class="pb-2 font-medium text-center">Units</th>
-                                <th class="pb-2 font-medium text-center">Occupied</th>
-                                <th class="pb-2 font-medium text-center">Vacant</th>
-                                <th class="pb-2 font-medium text-end">Rate</th>
+                                <th class="pb-2 font-medium">{{ t('finances_reports.occupancy.building') }}</th>
+                                <th class="pb-2 font-medium text-center">{{ t('finances_reports.occupancy.units') }}</th>
+                                <th class="pb-2 font-medium text-center">{{ t('finances_reports.occupancy.occupied') }}</th>
+                                <th class="pb-2 font-medium text-center">{{ t('finances_reports.occupancy.vacant') }}</th>
+                                <th class="pb-2 font-medium text-end">{{ t('finances_reports.occupancy.rate') }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-50">
@@ -675,7 +668,7 @@ watch(() => localFilters.value.period, (newVal) => {
                         </tbody>
                         <tfoot v-if="occupancyData.totals" class="border-t-2 border-gray-200">
                             <tr class="font-semibold">
-                                <td class="pt-2 text-gray-900">Total</td>
+                                <td class="pt-2 text-gray-900">{{ t('finances_reports.occupancy.total') }}</td>
                                 <td class="pt-2 text-center">{{ occupancyData.totals.total_units }}</td>
                                 <td class="pt-2 text-center text-emerald-600">{{ occupancyData.totals.occupied }}</td>
                                 <td class="pt-2 text-center text-gray-400">{{ occupancyData.totals.vacant }}</td>
@@ -690,19 +683,19 @@ watch(() => localFilters.value.period, (newVal) => {
                 </div>
                 <div v-else class="text-center py-12">
                     <BuildingOfficeIcon class="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                    <p class="text-sm font-medium text-gray-500">No buildings found</p>
-                    <p class="text-xs text-gray-400 mt-1">Add properties to see occupancy data</p>
+                    <p class="text-sm font-medium text-gray-500">{{ t('finances_reports.occupancy.empty_title') }}</p>
+                    <p class="text-xs text-gray-400 mt-1">{{ t('finances_reports.occupancy.empty_body') }}</p>
                 </div>
             </div>
 
             <div class="bg-white rounded-xl border border-gray-200 p-5">
                 <div class="flex items-center gap-2 mb-4">
                     <ClockIcon class="w-5 h-5 text-gray-400" />
-                    <h3 class="text-sm font-semibold text-gray-900">Arrears Aging</h3>
+                    <h3 class="text-sm font-semibold text-gray-900">{{ t('finances_reports.arrears.title') }}</h3>
                 </div>
                 <div v-if="arrearsTotal > 0" class="space-y-4">
                     <div class="text-center pb-3 border-b border-gray-100">
-                        <p class="text-xs text-gray-500 mb-1">Total Outstanding</p>
+                        <p class="text-xs text-gray-500 mb-1">{{ t('finances_reports.arrears.total_outstanding') }}</p>
                         <p class="text-2xl font-semibold text-gray-900">{{ formatMoney(arrearsTotal) }}</p>
                     </div>
                     <div class="space-y-2">
@@ -722,8 +715,8 @@ watch(() => localFilters.value.period, (newVal) => {
                     <div class="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
                         <ArrowTrendingUpIcon class="w-6 h-6 text-emerald-600" />
                     </div>
-                    <p class="text-sm font-medium text-gray-900">No Outstanding Arrears</p>
-                    <p class="text-xs text-gray-500 mt-1">All invoices are paid on time</p>
+                    <p class="text-sm font-medium text-gray-900">{{ t('finances_reports.arrears.empty_title') }}</p>
+                    <p class="text-xs text-gray-500 mt-1">{{ t('finances_reports.arrears.empty_body') }}</p>
                 </div>
             </div>
         </div>
@@ -731,20 +724,21 @@ watch(() => localFilters.value.period, (newVal) => {
         <div class="bg-white rounded-xl border border-gray-200 p-5">
             <div class="flex items-center gap-2 mb-4">
                 <ChartPieIcon class="w-5 h-5 text-gray-400" />
-                <h3 class="text-sm font-semibold text-gray-900">Expenses by Category</h3>
+                <h3 class="text-sm font-semibold text-gray-900">{{ t('finances_reports.expenses_by_category.title') }}</h3>
             </div>
             <div v-if="expensesByCategory?.categories?.length" class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="flex items-center justify-center">
                     <div class="relative w-48 h-48">
                         <svg viewBox="0 0 100 100" class="w-full h-full -rotate-90">
                             <template v-for="(cat, index) in expensesByCategory.categories" :key="cat.category">
+                                <!-- i18n-ignore -->
                                 <circle cx="50" cy="50" r="40" fill="none" :stroke="cat.color" stroke-width="20"
                                     :stroke-dasharray="`${cat.percentage * 2.51} 251`"
                                     :stroke-dashoffset="`${-expensesByCategory.categories.slice(0, index).reduce((sum, c) => sum + c.percentage, 0) * 2.51}`" />
                             </template>
                         </svg>
                         <div class="absolute inset-0 flex flex-col items-center justify-center">
-                            <p class="text-xs text-gray-500">Total</p>
+                            <p class="text-xs text-gray-500">{{ t('finances_reports.expenses_by_category.total') }}</p>
                             <p class="text-lg font-semibold text-gray-900">{{ formatMoney(expensesByCategory.total) }}</p>
                         </div>
                     </div>
@@ -754,7 +748,7 @@ watch(() => localFilters.value.period, (newVal) => {
                         <div class="w-3 h-3 rounded-full" :style="{ backgroundColor: cat.color }" />
                         <div class="flex-1">
                             <p class="text-sm font-medium text-gray-900">{{ cat.category }}</p>
-                            <p class="text-xs text-gray-500">{{ cat.count }} expense{{ cat.count !== 1 ? 's' : '' }}</p>
+                            <p class="text-xs text-gray-500">{{ t('finances_reports.expenses_by_category.expense_count', cat.count) }}</p>
                         </div>
                         <div class="text-end">
                             <p class="text-sm font-medium text-gray-900">{{ formatMoney(cat.amount) }}</p>
@@ -765,8 +759,8 @@ watch(() => localFilters.value.period, (newVal) => {
             </div>
             <div v-else class="text-center py-12">
                 <ChartPieIcon class="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                <p class="text-sm font-medium text-gray-500">No expenses recorded</p>
-                <p class="text-xs text-gray-400 mt-1">Expenses will appear here when added</p>
+                <p class="text-sm font-medium text-gray-500">{{ t('finances_reports.expenses_by_category.empty_title') }}</p>
+                <p class="text-xs text-gray-400 mt-1">{{ t('finances_reports.expenses_by_category.empty_body') }}</p>
             </div>
         </div>
 
@@ -777,35 +771,35 @@ watch(() => localFilters.value.period, (newVal) => {
                         <svg class="w-5 h-5 text-cyan-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                         </svg>
-                        <h3 class="text-sm font-semibold text-gray-900">Water Consumption</h3>
+                        <h3 class="text-sm font-semibold text-gray-900">{{ t('finances_reports.water.title') }}</h3>
                     </div>
                     <div class="text-end">
-                        <p class="text-lg font-semibold text-cyan-600">{{ formatNumber(waterConsumption?.total_consumption || 0) }} <span class="text-xs font-normal">units</span></p>
-                        <p class="text-xs text-gray-500">{{ formatMoney(waterConsumption?.total_cost || 0) }} total cost</p>
+                        <p class="text-lg font-semibold text-cyan-600">{{ formatNumber(waterConsumption?.total_consumption || 0) }} <span class="text-xs font-normal">{{ t('finances_reports.water.units') }}</span></p>
+                        <p class="text-xs text-gray-500">{{ t('finances_reports.water.total_cost', { amount: formatMoney(waterConsumption?.total_cost || 0) }) }}</p>
                     </div>
                 </div>
                 <div v-if="waterConsumption?.top_consumers?.length" class="space-y-2 max-h-64 overflow-y-auto">
-                    <p class="text-xs font-medium text-gray-500 mb-2">Top Consumers</p>
+                    <p class="text-xs font-medium text-gray-500 mb-2">{{ t('finances_reports.water.top_consumers') }}</p>
                     <div v-for="(consumer, index) in waterConsumption.top_consumers" :key="index" class="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50">
                         <div>
                             <p class="text-sm font-medium text-gray-900">{{ consumer.unit }}</p>
                             <p class="text-xs text-gray-500">{{ consumer.building }}</p>
                         </div>
                         <div class="text-end">
-                            <p class="text-sm font-semibold text-cyan-600">{{ formatNumber(consumer.consumption) }} units</p>
+                            <p class="text-sm font-semibold text-cyan-600">{{ t('finances_reports.water.consumer_units', { count: formatNumber(consumer.consumption) }) }}</p>
                             <p class="text-xs text-gray-500">{{ formatMoney(consumer.cost) }}</p>
                         </div>
                     </div>
                 </div>
                 <div v-else class="text-center py-8">
-                    <p class="text-sm text-gray-500">No water consumption data</p>
+                    <p class="text-sm text-gray-500">{{ t('finances_reports.water.empty') }}</p>
                 </div>
             </div>
 
             <div class="bg-white rounded-xl border border-gray-200 p-5">
                 <div class="flex items-center gap-2 mb-4">
                     <ArrowTrendingUpIcon class="w-5 h-5 text-emerald-500" />
-                    <h3 class="text-sm font-semibold text-gray-900">Top Performing Units</h3>
+                    <h3 class="text-sm font-semibold text-gray-900">{{ t('finances_reports.top_units.title') }}</h3>
                 </div>
                 <div v-if="topPerformingUnits?.length" class="space-y-2 max-h-64 overflow-y-auto">
                     <div v-for="(unit, index) in topPerformingUnits" :key="index" class="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50">
@@ -817,14 +811,14 @@ watch(() => localFilters.value.period, (newVal) => {
                             <p class="text-lg font-semibold" :class="unit.collection_rate >= 90 ? 'text-emerald-600' : unit.collection_rate >= 70 ? 'text-yellow-600' : 'text-red-600'">
                                 {{ unit.collection_rate }}%
                             </p>
-                            <p class="text-xs text-gray-500">{{ unit.on_time_payments }}/{{ unit.total_invoices }} on-time</p>
+                            <p class="text-xs text-gray-500">{{ t('finances_reports.top_units.on_time', { onTime: unit.on_time_payments, total: unit.total_invoices }) }}</p>
                         </div>
                     </div>
                 </div>
                 <div v-else class="text-center py-8">
                     <ArrowTrendingUpIcon class="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                    <p class="text-sm font-medium text-gray-500">No performance data</p>
-                    <p class="text-xs text-gray-400 mt-1">Data appears when invoices are generated</p>
+                    <p class="text-sm font-medium text-gray-500">{{ t('finances_reports.top_units.empty_title') }}</p>
+                    <p class="text-xs text-gray-400 mt-1">{{ t('finances_reports.top_units.empty_body') }}</p>
                 </div>
             </div>
         </div>

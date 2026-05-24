@@ -16,6 +16,9 @@ import {
     EyeSlashIcon
 } from '@heroicons/vue/24/outline';
 import type { ProviderSettings } from '@/types';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 const props = withDefaults(defineProps<{
     show?: boolean;
@@ -31,18 +34,25 @@ const currentStep = ref(0);
 const showPassword = ref({});
 const selectedChannels = ref(['email']);
 
-const steps = [
-    { id: 'welcome', title: 'Welcome', icon: SparklesIcon },
-    { id: 'channels', title: 'Choose Channels', icon: RocketLaunchIcon },
-    { id: 'email', title: 'Email Setup', icon: EnvelopeIcon, channel: 'email' },
-    { id: 'sms', title: 'SMS Setup', icon: DevicePhoneMobileIcon, channel: 'sms' },
-    { id: 'whatsapp', title: 'WhatsApp Setup', icon: ChatBubbleLeftRightIcon, channel: 'whatsapp' },
-    { id: 'push', title: 'Push Setup', icon: BellIcon, channel: 'push' },
-    { id: 'complete', title: 'All Done!', icon: CheckIcon },
-];
+const steps = computed(() => [
+    { id: 'welcome', title: t('notifications_setup_wizard.steps.welcome'), icon: SparklesIcon },
+    { id: 'channels', title: t('notifications_setup_wizard.steps.channels'), icon: RocketLaunchIcon },
+    { id: 'email', title: t('notifications_setup_wizard.steps.email'), icon: EnvelopeIcon, channel: 'email' },
+    { id: 'sms', title: t('notifications_setup_wizard.steps.sms'), icon: DevicePhoneMobileIcon, channel: 'sms' },
+    { id: 'whatsapp', title: t('notifications_setup_wizard.steps.whatsapp'), icon: ChatBubbleLeftRightIcon, channel: 'whatsapp' },
+    { id: 'push', title: t('notifications_setup_wizard.steps.push'), icon: BellIcon, channel: 'push' },
+    { id: 'complete', title: t('notifications_setup_wizard.steps.complete'), icon: CheckIcon },
+]);
+
+const channelOptions = computed(() => [
+    { id: 'email', name: t('notifications_setup_wizard.channel_options.email_name'), icon: EnvelopeIcon, desc: t('notifications_setup_wizard.channel_options.email_desc') },
+    { id: 'sms', name: t('notifications_setup_wizard.channel_options.sms_name'), icon: DevicePhoneMobileIcon, desc: t('notifications_setup_wizard.channel_options.sms_desc') },
+    { id: 'whatsapp', name: t('notifications_setup_wizard.channel_options.whatsapp_name'), icon: ChatBubbleLeftRightIcon, desc: t('notifications_setup_wizard.channel_options.whatsapp_desc') },
+    { id: 'push', name: t('notifications_setup_wizard.channel_options.push_name'), icon: BellIcon, desc: t('notifications_setup_wizard.channel_options.push_desc') },
+]);
 
 const activeSteps = computed(() => {
-    return steps.filter(step => {
+    return steps.value.filter(step => {
         if (!step.channel) return true;
         return selectedChannels.value.includes(step.channel);
     });
@@ -167,10 +177,10 @@ const generateVapidKeys = async () => {
         });
         const data = await response.json();
         if (data.success) {
-            alert('VAPID keys generated successfully!');
+            alert(t('notifications_setup_wizard.alert.vapid_generated'));
         }
     } catch (error) {
-        alert('Failed to generate VAPID keys: ' + error.message);
+        alert(t('notifications_setup_wizard.alert.vapid_failed', { error: error.message }));
     }
 };
 
@@ -209,7 +219,7 @@ watch(() => props.show, (newVal) => {
                                     <component :is="currentStepData?.icon || SparklesIcon" class="w-6 h-6" />
                                 </div>
                                 <div>
-                                    <p class="text-sm text-gray-500">Step {{ currentStep + 1 }} of {{ activeSteps.length }}</p>
+                                    <p class="text-sm text-gray-500">{{ t('notifications_setup_wizard.header.step_progress', { current: currentStep + 1, total: activeSteps.length }) }}</p>
                                     <h2 class="text-xl font-bold text-gray-900">{{ currentStepData?.title }}</h2>
                                 </div>
                             </div>
@@ -229,34 +239,27 @@ watch(() => props.show, (newVal) => {
                             <div class="p-6 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-3xl w-24 h-24 mx-auto mb-6 flex items-center justify-center">
                                 <SparklesIcon class="w-12 h-12 text-indigo-600" />
                             </div>
-                            <h3 class="text-2xl font-bold text-gray-900 mb-3">Welcome to Notifications</h3>
+                            <h3 class="text-2xl font-bold text-gray-900 mb-3">{{ t('notifications_setup_wizard.welcome.heading') }}</h3>
                             <p class="text-gray-600 max-w-md mx-auto mb-6">
-                                Let's set up your notification channels. You'll be able to send rent reminders,
-                                arrears notices, and more via Email, SMS, WhatsApp, and Push notifications.
+                                {{ t('notifications_setup_wizard.welcome.intro') }}
                             </p>
                             <p class="text-sm text-gray-500">
-                                This wizard will guide you through configuring each channel. You can skip any channel
-                                and configure it later from the Settings tab.
+                                {{ t('notifications_setup_wizard.welcome.guide') }}
                             </p>
                         </div>
 
                         <!-- Channel Selection Step -->
                         <div v-else-if="currentStepData?.id === 'channels'" class="space-y-4">
                             <p class="text-gray-600 mb-6">
-                                Select which notification channels you want to configure. You can always add more later.
+                                {{ t('notifications_setup_wizard.channels.intro') }}
                             </p>
 
                             <div class="grid grid-cols-2 gap-4">
                                 <button
-                                    v-for="channel in [
-                                        { id: 'email', name: 'Email', icon: EnvelopeIcon, desc: 'Send via SMTP or mail service' },
-                                        { id: 'sms', name: 'SMS', icon: DevicePhoneMobileIcon, desc: 'Text messages via AT or Twilio' },
-                                        { id: 'whatsapp', name: 'WhatsApp', icon: ChatBubbleLeftRightIcon, desc: 'Messages via Twilio WhatsApp' },
-                                        { id: 'push', name: 'Push', icon: BellIcon, desc: 'Browser push notifications' },
-                                    ]"
+                                    v-for="channel in channelOptions"
                                     :key="channel.id"
                                     @click="toggleChannel(channel.id)"
-                                    :class="[
+                                    :class="[ /* i18n-ignore */
                                         'p-4 rounded-2xl border-2 text-start transition-all',
                                         selectedChannels.includes(channel.id)
                                             ? 'border-indigo-500 bg-indigo-50'
@@ -295,37 +298,37 @@ watch(() => props.show, (newVal) => {
 
                         <!-- Email Setup Step -->
                         <div v-else-if="currentStepData?.id === 'email'" class="space-y-4">
-                            <p class="text-gray-600 mb-4">Configure your email settings for sending notifications.</p>
+                            <p class="text-gray-600 mb-4">{{ t('notifications_setup_wizard.email.intro') }}</p>
 
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Mail Driver</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.email.mail_driver') }}</label>
                                     <select
                                         v-model="emailForm.mail_mailer"
                                         class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                                     >
-                                        <option value="smtp">SMTP</option>
-                                        <option value="mailgun">Mailgun</option>
-                                        <option value="postmark">Postmark</option>
-                                        <option value="ses">Amazon SES</option>
+                                        <option value="smtp">{{ t('notifications_setup_wizard.email.driver_smtp') }}</option>
+                                        <option value="mailgun">{{ t('notifications_setup_wizard.email.driver_mailgun') }}</option>
+                                        <option value="postmark">{{ t('notifications_setup_wizard.email.driver_postmark') }}</option>
+                                        <option value="ses">{{ t('notifications_setup_wizard.email.driver_ses') }}</option>
                                     </select>
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Encryption</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.email.encryption') }}</label>
                                     <select
                                         v-model="emailForm.mail_encryption"
                                         class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                                     >
-                                        <option value="tls">TLS</option>
-                                        <option value="ssl">SSL</option>
-                                        <option value="none">None</option>
+                                        <option value="tls">{{ t('notifications_setup_wizard.email.encryption_tls') }}</option>
+                                        <option value="ssl">{{ t('notifications_setup_wizard.email.encryption_ssl') }}</option>
+                                        <option value="none">{{ t('notifications_setup_wizard.email.encryption_none') }}</option>
                                     </select>
                                 </div>
                             </div>
 
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">SMTP Host</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.email.smtp_host') }}</label>
                                     <input
                                         v-model="emailForm.mail_host"
                                         type="text"
@@ -334,7 +337,7 @@ watch(() => props.show, (newVal) => {
                                     />
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">SMTP Port</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.email.smtp_port') }}</label>
                                     <input
                                         v-model="emailForm.mail_port"
                                         type="text"
@@ -346,7 +349,7 @@ watch(() => props.show, (newVal) => {
 
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.email.username') }}</label>
                                     <input
                                         v-model="emailForm.mail_username"
                                         type="text"
@@ -354,7 +357,7 @@ watch(() => props.show, (newVal) => {
                                     />
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.email.password') }}</label>
                                     <div class="relative">
                                         <input
                                             v-model="emailForm.mail_password"
@@ -375,7 +378,7 @@ watch(() => props.show, (newVal) => {
 
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">From Address</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.email.from_address') }}</label>
                                     <input
                                         v-model="emailForm.mail_from_address"
                                         type="email"
@@ -384,11 +387,11 @@ watch(() => props.show, (newVal) => {
                                     />
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">From Name</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.email.from_name') }}</label>
                                     <input
                                         v-model="emailForm.mail_from_name"
                                         type="text"
-                                        placeholder="Property Manager"
+                                        :placeholder="t('notifications_setup_wizard.email.from_name_placeholder')"
                                         class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                                     />
                                 </div>
@@ -397,32 +400,32 @@ watch(() => props.show, (newVal) => {
 
                         <!-- SMS Setup Step -->
                         <div v-else-if="currentStepData?.id === 'sms'" class="space-y-4">
-                            <p class="text-gray-600 mb-4">Configure your SMS provider for sending text messages.</p>
+                            <p class="text-gray-600 mb-4">{{ t('notifications_setup_wizard.sms.intro') }}</p>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">SMS Provider</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.sms.provider') }}</label>
                                 <select
                                     v-model="smsForm.sms_provider"
                                     class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                                 >
-                                    <option value="africastalking">Africa's Talking</option>
-                                    <option value="twilio">Twilio</option>
+                                    <option value="africastalking">{{ t('notifications_setup_wizard.sms.provider_africastalking') }}</option>
+                                    <option value="twilio">{{ t('notifications_setup_wizard.sms.provider_twilio') }}</option>
                                 </select>
                             </div>
 
                             <!-- Africa's Talking Fields -->
                             <template v-if="smsForm.sms_provider === 'africastalking'">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.sms.username') }}</label>
                                     <input
                                         v-model="smsForm.africastalking_username"
                                         type="text"
-                                        placeholder="sandbox or your username"
+                                        :placeholder="t('notifications_setup_wizard.sms.username_placeholder')"
                                         class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                                     />
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">API Key</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.sms.api_key') }}</label>
                                     <div class="relative">
                                         <input
                                             v-model="smsForm.africastalking_api_key"
@@ -440,11 +443,11 @@ watch(() => props.show, (newVal) => {
                                     </div>
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Sender ID (Optional)</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.sms.sender_id') }}</label>
                                     <input
                                         v-model="smsForm.africastalking_sender_id"
                                         type="text"
-                                        placeholder="Your approved sender ID"
+                                        :placeholder="t('notifications_setup_wizard.sms.sender_id_placeholder')"
                                         class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                                     />
                                 </div>
@@ -453,7 +456,7 @@ watch(() => props.show, (newVal) => {
                             <!-- Twilio Fields -->
                             <template v-else>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Account SID</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.sms.account_sid') }}</label>
                                     <input
                                         v-model="smsForm.twilio_sid"
                                         type="text"
@@ -461,7 +464,7 @@ watch(() => props.show, (newVal) => {
                                     />
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Auth Token</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.sms.auth_token') }}</label>
                                     <div class="relative">
                                         <input
                                             v-model="smsForm.twilio_token"
@@ -479,7 +482,7 @@ watch(() => props.show, (newVal) => {
                                     </div>
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">From Number</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.sms.from_number') }}</label>
                                     <input
                                         v-model="smsForm.twilio_from"
                                         type="text"
@@ -492,10 +495,10 @@ watch(() => props.show, (newVal) => {
 
                         <!-- WhatsApp Setup Step -->
                         <div v-else-if="currentStepData?.id === 'whatsapp'" class="space-y-4">
-                            <p class="text-gray-600 mb-4">Configure Twilio WhatsApp for sending messages.</p>
+                            <p class="text-gray-600 mb-4">{{ t('notifications_setup_wizard.whatsapp.intro') }}</p>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Account SID</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.whatsapp.account_sid') }}</label>
                                 <input
                                     v-model="whatsappForm.whatsapp_twilio_sid"
                                     type="text"
@@ -503,7 +506,7 @@ watch(() => props.show, (newVal) => {
                                 />
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Auth Token</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.whatsapp.auth_token') }}</label>
                                 <div class="relative">
                                     <input
                                         v-model="whatsappForm.whatsapp_twilio_token"
@@ -521,43 +524,43 @@ watch(() => props.show, (newVal) => {
                                 </div>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">WhatsApp From Number</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.whatsapp.from_number') }}</label>
                                 <input
                                     v-model="whatsappForm.whatsapp_from"
                                     type="text"
                                     placeholder="+14155238886"
                                     class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                                 />
-                                <p class="text-xs text-gray-500 mt-1">Use your Twilio WhatsApp sandbox number for testing</p>
+                                <p class="text-xs text-gray-500 mt-1">{{ t('notifications_setup_wizard.whatsapp.sandbox_hint') }}</p>
                             </div>
                         </div>
 
                         <!-- Push Setup Step -->
                         <div v-else-if="currentStepData?.id === 'push'" class="space-y-4">
-                            <p class="text-gray-600 mb-4">Configure Web Push notifications.</p>
+                            <p class="text-gray-600 mb-4">{{ t('notifications_setup_wizard.push.intro') }}</p>
 
                             <div class="bg-purple-50 border border-purple-200 rounded-xl p-4 mb-4">
-                                <h4 class="font-medium text-purple-900 mb-2">VAPID Keys Required</h4>
+                                <h4 class="font-medium text-purple-900 mb-2">{{ t('notifications_setup_wizard.push.vapid_required') }}</h4>
                                 <p class="text-sm text-purple-700 mb-3">
-                                    Web Push requires VAPID keys for authentication. Click below to generate keys automatically.
+                                    {{ t('notifications_setup_wizard.push.vapid_explainer') }}
                                 </p>
                                 <button
                                     @click="generateVapidKeys"
                                     class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
                                 >
-                                    Generate VAPID Keys
+                                    {{ t('notifications_setup_wizard.push.generate_keys') }}
                                 </button>
                             </div>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">VAPID Subject (Email)</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.push.vapid_subject') }}</label>
                                 <input
                                     v-model="pushForm.vapid_subject"
                                     type="email"
                                     placeholder="mailto:admin@example.com"
                                     class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                                 />
-                                <p class="text-xs text-gray-500 mt-1">Must be a mailto: URL or https:// URL</p>
+                                <p class="text-xs text-gray-500 mt-1">{{ t('notifications_setup_wizard.push.vapid_subject_hint') }}</p>
                             </div>
                         </div>
 
@@ -566,10 +569,9 @@ watch(() => props.show, (newVal) => {
                             <div class="p-6 bg-gradient-to-br from-green-100 to-emerald-100 rounded-3xl w-24 h-24 mx-auto mb-6 flex items-center justify-center">
                                 <CheckIcon class="w-12 h-12 text-green-600" />
                             </div>
-                            <h3 class="text-2xl font-bold text-gray-900 mb-3">You're All Set!</h3>
+                            <h3 class="text-2xl font-bold text-gray-900 mb-3">{{ t('notifications_setup_wizard.complete.heading') }}</h3>
                             <p class="text-gray-600 max-w-md mx-auto mb-6">
-                                Your notification channels have been configured. You can now send rent reminders,
-                                arrears notices, and other notifications to your tenants.
+                                {{ t('notifications_setup_wizard.complete.body') }}
                             </p>
                             <div class="flex flex-wrap justify-center gap-2 mb-6">
                                 <span
@@ -581,7 +583,7 @@ watch(() => props.show, (newVal) => {
                                 </span>
                             </div>
                             <p class="text-sm text-gray-500">
-                                You can modify these settings anytime from the Settings tab.
+                                {{ t('notifications_setup_wizard.complete.footer') }}
                             </p>
                         </div>
                     </div>
@@ -594,7 +596,7 @@ watch(() => props.show, (newVal) => {
                             class="inline-flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
                         >
                             <ArrowLeftIcon class="w-4 h-4" />
-                            Back
+                            {{ t('notifications_setup_wizard.footer.back') }}
                         </button>
                         <div v-else></div>
 
@@ -604,7 +606,7 @@ watch(() => props.show, (newVal) => {
                                 @click="skipStep"
                                 class="px-4 py-2 text-gray-500 hover:text-gray-700 transition-colors"
                             >
-                                Skip this channel
+                                {{ t('notifications_setup_wizard.footer.skip') }}
                             </button>
 
                             <button
@@ -612,7 +614,7 @@ watch(() => props.show, (newVal) => {
                                 @click="nextStep"
                                 class="inline-flex items-center gap-2 px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
                             >
-                                {{ currentStepData?.id === 'welcome' ? 'Get Started' : 'Continue' }}
+                                {{ currentStepData?.id === 'welcome' ? t('notifications_setup_wizard.footer.get_started') : t('notifications_setup_wizard.footer.continue') }}
                                 <ArrowRightIcon class="w-4 h-4" />
                             </button>
 
@@ -622,7 +624,7 @@ watch(() => props.show, (newVal) => {
                                 class="inline-flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
                             >
                                 <CheckIcon class="w-4 h-4" />
-                                Complete Setup
+                                {{ t('notifications_setup_wizard.footer.complete_setup') }}
                             </button>
                         </div>
                     </div>
