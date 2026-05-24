@@ -22,12 +22,15 @@ class PaymentReceived implements ShouldBroadcast
 
     public function broadcastOn(): array
     {
-        $lease = $this->invoice->lease;
+        // Phase-99: a water-client invoice has no lease/tenant — broadcast to the
+        // landlord (for the dashboard) and only add the tenant channel when there is one.
+        $channels = [new PrivateChannel('landlord.'.$this->invoice->landlord_id)];
 
-        return [
-            new PrivateChannel('landlord.'.$lease->landlord_id),
-            new PrivateChannel('tenant.'.$lease->tenant_id),
-        ];
+        if ($tenantId = $this->invoice->lease?->tenant_id) {
+            $channels[] = new PrivateChannel('tenant.'.$tenantId);
+        }
+
+        return $channels;
     }
 
     public function broadcastWith(): array
@@ -35,7 +38,7 @@ class PaymentReceived implements ShouldBroadcast
         $lease = $this->invoice->lease;
 
         $updatedMetrics = app(DashboardService::class)
-            ->calculateQuickMetrics($lease->landlord_id);
+            ->calculateQuickMetrics($this->invoice->landlord_id);
 
         // Load platform fee relationship if not already loaded (per laraveleloquent-relationships skill)
         $this->payment->loadMissing('platformFee');
@@ -58,8 +61,11 @@ class PaymentReceived implements ShouldBroadcast
             'invoice_id' => $this->invoice->id,
             'invoice_status' => $this->invoice->status,
             'remaining_balance' => $this->invoice->getOutstandingAmount(),
-            'tenant_name' => $lease->tenant->name,
-            'unit_name' => $lease->unit->name,
+            'tenant_name' => $lease?->tenant?->name
+                ?? $this->invoice->waterConnection?->client?->name
+                ?? $this->invoice->waterConnection?->client_name,
+            'unit_name' => $lease?->unit?->unit_number
+                ?? $this->invoice->waterConnection?->identifier,
             'updated_metrics' => $updatedMetrics,
             // Split payment details
             'platform_fee' => $platformFee?->fee_amount !== null

@@ -122,13 +122,16 @@ class ReceiptService
             'payment',
             'invoice.lease.tenant',
             'invoice.lease.unit.building',
+            'invoice.waterConnection.client',
+            'invoice.waterConnection.unit.building',
             'invoice.items',
         ]);
 
         $payment = $receipt->payment;
         $invoice = $receipt->invoice;
-        $tenant = $invoice?->lease?->tenant;
-        $unit = $invoice?->lease?->unit;
+        // Phase-99: the billed party is the lease's tenant OR the water connection's client.
+        $tenant = $invoice?->recipientUser();
+        $unit = $invoice?->lease?->unit ?? $invoice?->waterConnection?->unit;
         $building = $unit?->building;
         $business = $this->getBusinessSettings($receipt);
 

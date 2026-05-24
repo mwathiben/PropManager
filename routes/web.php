@@ -1560,6 +1560,9 @@ Route::middleware(['auth', 'role:tenant'])->prefix('tenant')->name('tenant.')->g
 // No lease/payment-verification/KYC: a water client is a billed connection, not a tenant.
 Route::middleware(['auth', 'verified', 'role:water_client'])->prefix('water-client')->name('water-client.')->group(function () {
     Route::get('/finances', [\App\Http\Controllers\WaterClientFinancesController::class, 'index'])->name('finances');
+    // Phase-99: a water client pays their own invoice online (gateway-agnostic checkout).
+    Route::get('/finances/pay/{invoice}', [\App\Http\Controllers\WaterClientFinancesController::class, 'pay'])
+        ->whereNumber('invoice')->name('finances.pay');
 });
 
 // --- TENANT KYC ROUTES (Accessible without KYC completion but requires payment verification) ---

@@ -39,6 +39,9 @@ class Phase41CheckoutTest extends TestCase
             'landlord_id' => $landlord->id,
             'lease_id' => $lease->id,
             'currency' => 'USD',
+            // Must be payable so the request passes the status gate and reaches the
+            // unconfigured-gateway check (Phase-99 added a payable-status guard).
+            'status' => \App\Enums\InvoiceStatus::Sent,
         ]);
 
         // No Stripe creds on PaymentConfiguration → gateway is not configured.

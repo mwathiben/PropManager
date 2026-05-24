@@ -358,6 +358,15 @@ class PaymentCallbackProcessor
                 'lease_id' => $lease->id,
                 'overpayment' => $overpayment,
             ];
+        } elseif ($overpayment > 0) {
+            // Phase-99: a water-client invoice has no lease/wallet — surface the
+            // captured surplus so it isn't silently lost (mirrors the Phase-98 webhooks).
+            \Illuminate\Support\Facades\Log::warning('Water-client invoice overpaid via gateway; no wallet to absorb it', [
+                'invoice_id' => $invoice->id,
+                'water_connection_id' => $invoice->water_connection_id,
+                'payment_id' => $payment->id,
+                'overpayment' => $overpayment,
+            ]);
         }
 
         return $overpayment;
@@ -389,15 +398,21 @@ class PaymentCallbackProcessor
         }
 
         $invoice = $result->invoice;
-        $invoice->load(['lease.tenant', 'lease.unit.building']);
-        $tenant = $invoice->lease?->tenant;
+        // Phase-99: load both anchors — a water-client invoice has no lease.
+        $invoice->load(['lease.tenant', 'lease.unit.building', 'waterConnection.client', 'waterConnection.unit']);
+        $recipient = $invoice->recipientUser();
 
-        if ($tenant) {
+        if ($recipient?->email) {
             // CONC-3: queue, not send. Sync SMTP previously blocked the
             // gateway-callback request thread — bad for webhook latency
             // budgets and unnecessary because the mailable doesn't need
             // to be delivered before responding to the gateway.
-            Mail::to($tenant->email)->queue(new PaymentReceived($result->payment, $invoice));
+            Mail::to($recipient->email)->queue(new PaymentReceived($result->payment, $invoice));
+        }
+
+        // The broadcast event is water-aware (landlord channel + dashboard metrics);
+        // dispatch it whenever there is a payer, lease or water-client alike.
+        if ($recipient) {
             PaymentReceivedEvent::dispatch($result->payment, $invoice);
         }
     }

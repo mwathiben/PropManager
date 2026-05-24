@@ -201,15 +201,15 @@ class PaymentController extends Controller
     {
         $validated = $request->validated();
 
-        $lease = $invoice->lease;
-        if (! $lease || ! $lease->tenant) {
+        // Phase-99: resolve the payer — a lease's tenant OR a water connection's client.
+        $tenant = $invoice->recipientUser();
+        if (! $tenant) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Invoice has no associated lease or tenant',
+                'message' => 'Invoice has no associated payer',
             ], 400);
         }
 
-        $tenant = $lease->tenant;
         $landlord = User::find($invoice->landlord_id);
 
         if (! $landlord) {
@@ -245,6 +245,10 @@ class PaymentController extends Controller
                 'amount' => $request->amount,
             ],
         ];
+
+        if ($invoice->isWaterClientInvoice()) {
+            $transactionData['metadata']['water_connection_id'] = $invoice->water_connection_id;
+        }
 
         // Get landlord's payment configuration for per-landlord credentials
         $paymentConfig = PaymentConfiguration::where('landlord_id', $landlord->id)->first();
@@ -306,9 +310,10 @@ class PaymentController extends Controller
     {
         $validated = $request->validated();
 
-        $lease = $invoice->lease;
-        if (! $lease || ! $lease->tenant) {
-            return response()->json(['status' => 'error', 'message' => 'Invoice has no associated lease or tenant'], 400);
+        // Phase-99: resolve the payer — a lease's tenant OR a water connection's client.
+        $recipient = $invoice->recipientUser();
+        if (! $recipient) {
+            return response()->json(['status' => 'error', 'message' => 'Invoice has no associated payer'], 400);
         }
 
         $landlord = User::find($invoice->landlord_id);
@@ -330,14 +335,15 @@ class PaymentController extends Controller
         $reference = $gateway->generateReference('INV');
         $paymentRequest = new \App\ValueObjects\Payment\PaymentRequest(
             amount: \App\ValueObjects\Payment\Money::fromFloat((float) $request->amount, $currency),
-            email: $lease->tenant->email,
+            email: $recipient->email,
             reference: $reference,
             callbackUrl: route('payments.callback'),
             metadata: [
                 'invoice_id' => (string) $invoice->id,
                 'landlord_id' => (string) $landlord->id,
-                'lease_id' => (string) $lease->id,
-                'tenant_name' => $lease->tenant->name,
+                'lease_id' => $invoice->lease_id !== null ? (string) $invoice->lease_id : null,
+                'water_connection_id' => $invoice->water_connection_id !== null ? (string) $invoice->water_connection_id : null,
+                'tenant_name' => $recipient->name,
             ],
         );
 

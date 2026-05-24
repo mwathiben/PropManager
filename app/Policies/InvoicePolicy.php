@@ -94,16 +94,24 @@ class InvoicePolicy
     }
 
     /**
-     * Determine whether the user can pay the invoice (tenant only).
+     * Determine whether the user can pay the invoice — the lease's tenant, or
+     * (Phase-99) the water connection's client for a water-client invoice.
      */
     public function pay(User $user, Invoice $invoice): bool
     {
-        if (! $user->isTenant()) {
-            return false;
+        $payable = in_array($invoice->status, [InvoiceStatus::Sent, InvoiceStatus::Partial, InvoiceStatus::Overdue], true);
+
+        if ($user->isTenant()) {
+            return $payable && $invoice->lease?->tenant_id === $user->id;
         }
 
-        return $invoice->lease?->tenant_id === $user->id
-            && in_array($invoice->status, [InvoiceStatus::Sent, InvoiceStatus::Partial, InvoiceStatus::Overdue]);
+        if ($user->isWaterClient()) {
+            return $payable
+                && $invoice->isWaterClientInvoice()
+                && $invoice->waterConnection?->user_id === $user->id;
+        }
+
+        return false;
     }
 
     /**

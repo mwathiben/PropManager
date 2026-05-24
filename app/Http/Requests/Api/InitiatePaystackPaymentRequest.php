@@ -16,7 +16,15 @@ class InitiatePaystackPaymentRequest extends FormRequest
             return true;
         }
 
-        return $invoice->lease?->tenant_id === $this->user()?->id;
+        $user = $this->user();
+
+        // Phase-99: a water client pays their own water-connection invoice.
+        if ($user?->isWaterClient()) {
+            return $invoice->isWaterClientInvoice()
+                && $invoice->waterConnection?->user_id === $user->id;
+        }
+
+        return $invoice->lease?->tenant_id === $user?->id;
     }
 
     public function rules(): array

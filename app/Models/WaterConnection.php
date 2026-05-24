@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
@@ -64,6 +65,12 @@ class WaterConnection extends Model
     public function meter(): BelongsTo
     {
         return $this->belongsTo(Meter::class);
+    }
+
+    /** Phase-98/99: a water-client invoice is anchored to this connection. */
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class, 'water_connection_id');
     }
 
     public function isActive(): bool

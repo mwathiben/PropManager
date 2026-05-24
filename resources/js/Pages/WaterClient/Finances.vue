@@ -4,7 +4,7 @@
  * balance. The destination of the dashboard "pay" link. Read-only — a neighbour
  * settles with the supplier, who records the payment.
  */
-import { Head } from '@inertiajs/vue3';
+import { Head, Link } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import WaterChargesCard from '@/Components/Water/WaterChargesCard.vue';
 import { useFormatters } from '@/composables';
@@ -12,12 +12,14 @@ import { useI18n } from '@/composables/useI18n';
 import { BanknotesIcon } from '@heroicons/vue/24/outline';
 
 interface Charge { period: string | null; water_due: number; paid: boolean; status: string }
-interface Line { id: number; identifier: string; status: string; outstanding: number; charges: Charge[] }
+interface UnpaidInvoice { id: number; invoice_number: string; balance: number; due_date: string | null }
+interface Line { id: number; identifier: string; status: string; outstanding: number; charges: Charge[]; unpaid_invoices: UnpaidInvoice[] }
 
-const props = withDefaults(defineProps<{ lines?: Line[]; totalOutstanding?: number; supplierName?: string | null }>(), {
+const props = withDefaults(defineProps<{ lines?: Line[]; totalOutstanding?: number; supplierName?: string | null; onlinePayEnabled?: boolean }>(), {
     lines: () => [],
     totalOutstanding: 0,
     supplierName: null,
+    onlinePayEnabled: false,
 });
 
 const { t } = useI18n();
@@ -67,6 +69,31 @@ const howToPay = props.supplierName
                         {{ t('water.client_finances.outstanding') }}: <span class="font-semibold text-gray-900">{{ formatMoney(line.outstanding) }}</span>
                     </span>
                 </div>
+
+                <div
+                    v-if="onlinePayEnabled && line.unpaid_invoices.length"
+                    class="space-y-2 rounded-xl border border-cyan-200 bg-cyan-50 p-4"
+                    :data-testid="`water-line-pay-${line.id}`"
+                >
+                    <p class="text-xs font-medium text-cyan-800">{{ t('water.client_finances.pay_online') }}</p>
+                    <div
+                        v-for="inv in line.unpaid_invoices"
+                        :key="inv.id"
+                        class="flex items-center justify-between rounded-lg bg-white px-3 py-2"
+                    >
+                        <div class="text-sm">
+                            <p class="font-medium text-gray-900">{{ inv.invoice_number }}</p>
+                            <p class="text-gray-500">{{ formatMoney(inv.balance) }}</p>
+                        </div>
+                        <Link
+                            :href="route('water-client.finances.pay', inv.id)"
+                            class="rounded-lg bg-cyan-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-cyan-700"
+                        >
+                            {{ t('water.client_finances.pay_now') }}
+                        </Link>
+                    </div>
+                </div>
+
                 <WaterChargesCard :charges="line.charges" />
             </section>
         </div>

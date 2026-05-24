@@ -281,11 +281,12 @@ class ReceiptGeneratorTest extends TestCase
             'reference' => 'UNIT-TEST-006',
         ]);
 
-        // Simulate missing tenant by overriding the loaded relationship chain
+        // Simulate a missing payer by overriding the loaded relationship chain
         $payment->setRelation('invoice', null);
 
         $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('Unable to send receipt - tenant not found.');
+        // Phase-99: the receipt resolves the payer via recipientUser() (tenant or water client).
+        $this->expectExceptionMessage('Unable to send receipt - recipient not found.');
 
         $this->generator->email($payment);
     }

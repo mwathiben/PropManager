@@ -18,7 +18,7 @@ class ReceiptGenerator
 
     public function download(Payment $payment)
     {
-        $payment->loadMissing(['invoice.lease.tenant', 'invoice.lease.unit.building']);
+        $payment->loadMissing(['invoice.lease.tenant', 'invoice.lease.unit.building', 'invoice.waterConnection.client', 'invoice.waterConnection.unit.building']);
         $receipt = $this->ensureReceipt($payment);
 
         return $this->receiptService->downloadPdf($receipt);
@@ -26,18 +26,19 @@ class ReceiptGenerator
 
     public function email(Payment $payment): void
     {
-        $payment->loadMissing(['invoice.lease.tenant', 'invoice.lease.unit.building']);
+        $payment->loadMissing(['invoice.lease.tenant', 'invoice.lease.unit.building', 'invoice.waterConnection.client', 'invoice.waterConnection.unit.building']);
 
-        $tenant = $payment->invoice?->lease?->tenant;
-        if (! $tenant) {
-            throw new \RuntimeException('Unable to send receipt - tenant not found.');
+        // Phase-99: the payer is the lease's tenant OR the water connection's client.
+        $recipient = $payment->invoice?->recipientUser();
+        if (! $recipient?->email) {
+            throw new \RuntimeException('Unable to send receipt - recipient not found.');
         }
 
         $receipt = $this->ensureReceipt($payment);
 
         // HANDLE-6: queue so an SMTP hiccup doesn't 500 the controller that
         // calls this from the request path.
-        Mail::to($tenant->email)->queue(new PaymentReceived($payment, $payment->invoice));
+        Mail::to($recipient->email)->queue(new PaymentReceived($payment, $payment->invoice));
 
         $receipt->markAsEmailed();
     }

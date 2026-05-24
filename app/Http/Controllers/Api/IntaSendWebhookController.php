@@ -373,17 +373,17 @@ class IntaSendWebhookController extends Controller
 
             DB::commit();
 
-            $invoice->load(['lease.tenant', 'lease.unit.building']);
+            // Phase-99: a water-client invoice has no lease — receipt goes to the payer (recipientUser).
+            $invoice->load(['lease.tenant', 'lease.unit.building', 'waterConnection.client', 'waterConnection.unit']);
 
-            // Check tenant exists and has email before queuing mail
-            if ($invoice->lease?->tenant?->email && filter_var($invoice->lease->tenant->email, FILTER_VALIDATE_EMAIL)) {
-                Mail::to($invoice->lease->tenant->email)->queue(new PaymentReceived($payment, $invoice));
+            $recipientEmail = $invoice->recipientUser()?->email;
+            if ($recipientEmail && filter_var($recipientEmail, FILTER_VALIDATE_EMAIL)) {
+                Mail::to($recipientEmail)->queue(new PaymentReceived($payment, $invoice));
             } else {
-                Log::warning('IntaSend webhook: Cannot send payment receipt - tenant email missing', [
+                Log::warning('IntaSend webhook: Cannot send payment receipt - recipient email missing', [
                     'payment_id' => $payment->id,
                     'invoice_id' => $invoice->id,
                     'lease_id' => $invoice->lease_id,
-                    'tenant_id' => $invoice->lease?->tenant_id,
                 ]);
             }
 
@@ -400,6 +400,14 @@ class IntaSendWebhookController extends Controller
                         $invoice->lease->wallet_balance
                     ));
                 }
+            } elseif ($overpayment > 0) {
+                // Phase-99: a water-client invoice has no lease/wallet — surface the surplus.
+                Log::warning('Water-client invoice overpaid via IntaSend; no wallet to absorb it', [
+                    'invoice_id' => $invoice->id,
+                    'water_connection_id' => $invoice->water_connection_id,
+                    'payment_id' => $payment->id,
+                    'overpayment' => $overpayment,
+                ]);
             }
 
             // Always dispatch event so payment flow completes
