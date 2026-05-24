@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\I18n;
 
+use App\Services\I18n\Drivers\StubTranslationDriver;
+use App\Services\I18n\TranslationDriverFactory;
 use App\Services\I18n\TranslationSuggestionService;
 use App\Support\LangBundleLoader;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -39,7 +41,7 @@ class Phase43LangAuditTest extends TestCase
 
     public function test_lang_bundle_loader_flatten_returns_dotted_keys(): void
     {
-        $loader = new LangBundleLoader();
+        $loader = new LangBundleLoader;
         $flat = $loader->flatten([
             'common' => ['save' => 'Save', 'cancel' => 'Cancel'],
             'auth' => ['login' => ['title' => 'Log in']],
@@ -51,13 +53,17 @@ class Phase43LangAuditTest extends TestCase
 
     public function test_translation_suggestion_stub_returns_placeholder(): void
     {
-        $service = new TranslationSuggestionService(driver: 'stub');
+        // Phase-52 DRIVER-INTERFACE: the service now holds a TranslationDriverInterface
+        // (the driver-string switch moved into TranslationDriverFactory::make).
+        $service = new TranslationSuggestionService(new StubTranslationDriver);
         $this->assertSame('[TODO:sw] Save', $service->suggest('Save', 'en', 'sw'));
     }
 
     public function test_translation_suggestion_falls_back_to_stub_when_api_key_missing(): void
     {
-        $service = new TranslationSuggestionService(driver: 'google', googleApiKey: null);
+        // The google driver with no configured key falls back to the stub marker
+        // (GoogleTranslationDriver::translate guards an empty key — no network).
+        $service = new TranslationSuggestionService((new TranslationDriverFactory)->make('google'));
         $this->assertStringContainsString('[TODO:sw]', $service->suggest('Hello', 'en', 'sw'));
     }
 
