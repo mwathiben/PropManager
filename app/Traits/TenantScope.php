@@ -76,7 +76,12 @@ trait TenantScope
         parent::boot();
 
         static::creating(function ($model) {
-            if (Auth::check()) {
+            // Auto-populate landlord_id ONLY when the caller didn't set it. Overwriting an
+            // explicitly-set value silently mis-attributes legitimate cross-landlord writes
+            // (e.g. OnboardingMilestoneRecorder records a milestone for a specific landlord
+            // while a different landlord is authed) — and no FormRequest accepts landlord_id,
+            // so a request can never inject one here; the value is always set by server code.
+            if (Auth::check() && empty($model->landlord_id)) {
                 $user = Auth::user();
 
                 // Landlord owns their data; caretaker's data belongs to their boss
