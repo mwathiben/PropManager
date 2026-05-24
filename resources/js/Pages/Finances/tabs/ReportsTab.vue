@@ -357,6 +357,31 @@ const exportReport = (format) => {
     window.location.href = route('finances.reports.export') + '?' + params.toString();
 };
 
+// Phase-100 REPORTS-DEPTH-3: the rent roll is a point-in-time snapshot (no period);
+// it honours only the building filter.
+const exportRentRoll = (format) => {
+    const params = new URLSearchParams({ format });
+
+    if (localFilters.value.buildingId) {
+        params.append('building_id', localFilters.value.buildingId);
+    }
+
+    window.location.href = route('finances.reports.rent-roll') + '?' + params.toString();
+};
+
+// Phase-100 REPORTS-DEPTH-3: per-property P&L honours the period filter (it breaks down
+// by property, so it is not scoped by a single building).
+const exportPropertyPnl = (format) => {
+    const params = new URLSearchParams({ format, period: localFilters.value.period });
+
+    if (isCustomPeriod.value && localFilters.value.dateFrom && localFilters.value.dateTo) {
+        params.append('date_from', localFilters.value.dateFrom);
+        params.append('date_to', localFilters.value.dateTo);
+    }
+
+    window.location.href = route('finances.reports.property-pnl') + '?' + params.toString();
+};
+
 watch(() => localFilters.value.period, (newVal) => {
     if (newVal !== 'custom') {
         applyFilters();
@@ -397,6 +422,8 @@ watch(() => localFilters.value.period, (newVal) => {
                 </button>
 
                 <ExportDropdown :formats="exportFormats" @export="exportReport" />
+                <ExportDropdown :formats="exportFormats" button-text="Rent Roll" @export="exportRentRoll" />
+                <ExportDropdown :formats="exportFormats" button-text="Property P&L" @export="exportPropertyPnl" />
             </div>
         </div>
 

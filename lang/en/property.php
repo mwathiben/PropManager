@@ -27,6 +27,7 @@ return [
         'margin' => 'margin',
         'buildings' => 'Buildings',
         'no_buildings' => 'No buildings in this property yet.',
+        'owner_statement' => 'Owner Statement',
     ],
     'benchmark' => [
         'title' => 'Property benchmark',

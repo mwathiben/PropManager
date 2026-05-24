@@ -1,0 +1,34 @@
+{
+  "phase": 100,
+  "name": "REPORTS-DEPTH-3",
+  "epic": "Tier-7 merit-pick (first after the water domain closed) — reporting depth for the landlord/PM audience",
+  "summary": "Three artifacts the mature reports hub lacked: a rent-roll snapshot (the canonical tenancy ledger), a per-PROPERTY P&L (the existing reports are aggregate-only), and an owner statement (a per-property document a property manager hands to an owner — the pragmatic first step toward the PM-company model, no new role). All wired onto the LIVE FinanceReportController/Finances reports tab (the legacy ReportsController is dead/unrouted).",
+  "findings": [
+    {
+      "id": "RD3-1-RENT-ROLL",
+      "title": "Rent-roll snapshot (financial tenancy position)",
+      "detail": "RentRollService::forLandlord(landlordId,?buildingId,?propertyId) → per-unit tenant/rent/deposit_held/wallet_credit/outstanding (batched, no N+1) + lease window + status (occupied/vacant/expiring[end <=60d]) + totals (units/occupied/vacant/expiring/monthly_rent/deposits_held/outstanding/occupancy_rate), landlord-scoped via building.landlord_id. Exposed at finances.reports.rent-roll (pdf/xlsx/csv via RentRollExport + reports.rent-roll blade) + a 'Rent Roll' download in the Finances reports tab.",
+      "passes": true
+    },
+    {
+      "id": "RD3-2-PROPERTY-PNL",
+      "title": "Per-property profit & loss",
+      "detail": "PropertyPnlService::forLandlord(landlordId,start,end,?propertyId) → per-property cash collected (payments on the property's leases) vs expenses (tagged by property_id or via building.property_id) + net + margin + totals. Exposed at finances.reports.property-pnl (pdf/xlsx/csv via PropertyPnlExport + reports.property-pnl blade) + a 'Property P&L' download honouring the reports-tab period filter.",
+      "passes": true
+    },
+    {
+      "id": "RD3-3-OWNER-STATEMENT",
+      "title": "Owner statement (PM-shareable per-property document)",
+      "detail": "OwnerStatementService::forProperty(landlordId,propertyId,start,end) → gross collected + expense breakdown by category + net to owner (null/404 if not the landlord's property). Exposed at finances.reports.owner-statement (PDF, property_id required, abort 404 on a foreign property) + reports.owner-statement blade + an 'Owner Statement' download button on the property detail page (Properties/Show). Lightweight first step toward the PM-company model — no new role/payouts.",
+      "passes": true
+    }
+  ],
+  "closeout": {
+    "closed_at": "2026-05-24",
+    "result": "3/3 findings pass — zero deferrals. First Tier-7 merit-pick after the water domain: reporting depth for the landlord/PM audience.",
+    "summary": "Three reports the mature hub lacked, all wired onto the LIVE FinanceReportController (Finances reports tab) — the legacy ReportsController is dead/unrouted and was left untouched. (1) Rent-roll snapshot: RentRollService (per-unit tenant/rent/deposit/outstanding[batched]/lease-window/status occupied|vacant|expiring) → finances.reports.rent-roll pdf/xlsx/csv + a Rent Roll download button. (2) Per-property P&L: PropertyPnlService (cash collected vs expenses by property + net/margin) → finances.reports.property-pnl + a Property P&L button honouring the period filter. (3) Owner statement: OwnerStatementService (per-property collected + expense-by-category + net to owner, 404 on a foreign property) → finances.reports.owner-statement PDF + an Owner Statement button on the property detail page. Money decimal:2; landlord-scoped throughout; no new migration.",
+    "review": "Multi-reviewer read-only pass (CodeRabbit + pr-review code-reviewer + silent-failure-hunter); findings applied. A scout-phase discovery (recorded mid-build): the obvious ReportsController is dead/unrouted — the live reports surface is FinanceReportController; the rent-roll was first wired there by mistake and reverted via git before re-wiring onto the live controller.",
+    "tests": "Phase100ReportsDepthTest: rent-roll (occupied/vacant/expiring + financial position + landlord scoping + pdf/xlsx/csv endpoint + tenant-forbidden), per-property P&L (collected/expenses/net + scoping + endpoint), owner statement (totals + expense-by-category + pdf endpoint + 404 on a foreign property). Pint clean; eslint 0 errors (baseline drift pre-existing, confirmed on clean HEAD); nav-audit + imports clean; vite build; lang parity en/sw/ar (property.show.owner_statement). Code-only — no migration.",
+    "constraints_preserved": "All three reports are landlord-scoped (building.landlord_id / property.landlord_id); the owner statement 404s on a property that is not the landlord's. Cash-basis P&L (payments, not invoiced). Reused the proven export pattern (Maatwebsite xlsx + dompdf blade + csv) sourced from a single service so pdf/xlsx/csv/on-screen never drift. The dead ReportsController was NOT extended. Deferred: notification-preference gap (later comms-depth cycle); the full owner/PM-company role + payouts epic (owner statement here is a report only)."
+  }
+}

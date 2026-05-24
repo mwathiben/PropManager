@@ -27,6 +27,7 @@ return [
         'margin' => 'الهامش',
         'buildings' => 'المباني',
         'no_buildings' => 'لا توجد مبانٍ في هذا العقار بعد.',
+        'owner_statement' => 'بيان المالك',
     ],
     'benchmark' => [
         'title' => 'مقارنة العقارات',

@@ -1254,6 +1254,16 @@ Route::middleware('auth')->group(function () {
         Route::get('/reports/export', [FinanceReportController::class, 'export'])
             ->middleware('throttle:export')
             ->name('reports.export');
+        // Phase-100 REPORTS-DEPTH-3: rent-roll snapshot + per-property P&L (pdf/xlsx/csv).
+        Route::get('/reports/rent-roll', [FinanceReportController::class, 'rentRoll'])
+            ->middleware('throttle:export')
+            ->name('reports.rent-roll');
+        Route::get('/reports/property-pnl', [FinanceReportController::class, 'propertyPnl'])
+            ->middleware('throttle:export')
+            ->name('reports.property-pnl');
+        Route::get('/reports/owner-statement', [FinanceReportController::class, 'ownerStatement'])
+            ->middleware('throttle:export')
+            ->name('reports.owner-statement');
 
         // Phase-30 INT-ACCT-EXPORT-1/3: accountant-facing QuickBooks IIF + Sage CSV export
         Route::get('/accounting/export', [\App\Http\Controllers\Finance\AccountingExportController::class, 'index'])

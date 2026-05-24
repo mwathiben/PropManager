@@ -27,6 +27,7 @@ return [
         'margin' => 'ukingo',
         'buildings' => 'Majengo',
         'no_buildings' => 'Hakuna majengo katika mali hii bado.',
+        'owner_statement' => 'Taarifa ya Mmiliki',
     ],
     'benchmark' => [
         'title' => 'Ulinganishaji wa mali',
