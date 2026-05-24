@@ -16,27 +16,46 @@ use Tests\TestCase;
 use Tests\Traits\CreatesTestData;
 
 /**
- * Phase-55 DASHBOARD-FILTERS-1/2/3 watchdog.
+ * Phase-55 DASHBOARD-FILTERS-2/3 + Phase-105 PORTFOLIO-HOME watchdog.
  *
- * Two main buildings each carry a tenant + invoice + paid payment. The
- * test exercises every legal building_id state: missing (default to all),
- * 'all' sentinel, and a specific id.
+ * Phase-105 made the landlord landing (no building_id) a cross-property PORTFOLIO overview;
+ * choosing a building (the 'all' sentinel or a specific id) renders the building-scoped
+ * dashboard. These tests exercise the landing (portfolio) + both building_id states.
  */
 class Phase55DashboardFiltersTest extends TestCase
 {
     use CreatesTestData, RefreshDatabase;
 
-    public function test_missing_building_id_defaults_to_all_buildings_when_multiple_main_buildings(): void
+    public function test_landlord_landing_renders_the_portfolio_overview(): void
     {
-        [$landlord, $paymentA, $paymentB] = $this->makeTwoBuildingFixture();
+        // Phase-105: GET /dashboard with no building_id → the portfolio overview (not a
+        // single building, and not the old service-default all-buildings mode).
+        [$landlord] = $this->makeTwoBuildingFixture();
 
-        $data = app(DashboardService::class)
-            ->getLandlordDashboardData($landlord, new Request);
+        $props = $this->actingAs($landlord)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->viewData('page');
 
-        $this->assertTrue($data['allBuildingsMode'], 'No filter + 2 main buildings should imply all-mode.');
-        $ids = collect($data['recentPayments'])->pluck('id')->all();
-        $this->assertContains($paymentA->id, $ids);
-        $this->assertContains($paymentB->id, $ids);
+        $this->assertSame('Portfolio/Home', $props['component']);
+        $this->assertArrayHasKey('kpis', $props['props']);
+        $this->assertSame(1, $props['props']['kpis']['property_count']);
+        $this->assertCount(1, $props['props']['properties']);
+    }
+
+    public function test_building_view_is_reached_with_a_building_id(): void
+    {
+        // The rich building-scoped dashboard is the drill-down (building_id present).
+        [$landlord, $paymentA, , $buildingA] = $this->makeTwoBuildingFixture();
+
+        $props = $this->actingAs($landlord)
+            ->get(route('dashboard', ['building_id' => $buildingA->id]))
+            ->assertOk()
+            ->viewData('page');
+
+        $this->assertSame('Dashboard', $props['component']);
+        $this->assertFalse($props['props']['allBuildingsMode']);
+        $this->assertContains($paymentA->id, collect($props['props']['recentPayments'])->pluck('id')->all());
     }
 
     public function test_building_id_all_sentinel_aggregates_metrics_across_buildings(): void

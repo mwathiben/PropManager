@@ -23,12 +23,17 @@ class Phase74CrossBuildingTest extends TestCase
 
     private User $landlord;
 
+    private Building $building;
+
     protected function setUp(): void
     {
         parent::setUp();
 
         $setup = $this->createLandlordWithFullSetup();
         $this->landlord = $setup['landlord'];
+        // Phase-105: scope drives the BUILDING dashboard (the landing is now the portfolio),
+        // so the scope tests drill into a building via ?building_id.
+        $this->building = $setup['building'];
 
         // A second building so all-buildings mode is meaningful.
         Building::create([
@@ -44,13 +49,13 @@ class Phase74CrossBuildingTest extends TestCase
     public function test_scope_defaults_to_active_building(): void
     {
         $this->actingAs($this->landlord)
-            ->get(route('dashboard'))
+            ->get(route('dashboard', ['building_id' => $this->building->id]))
             ->assertInertia(fn ($page) => $page
                 ->where('allBuildingsMode', false)
                 ->where('dashboardScope', 'active_building'));
     }
 
-    public function test_setting_all_buildings_persists_and_defaults_the_view(): void
+    public function test_setting_all_buildings_persists_the_scope(): void
     {
         $this->actingAs($this->landlord)
             ->patch(route('dashboard.scope.update'), ['scope' => 'all_buildings'])
@@ -62,9 +67,15 @@ class Phase74CrossBuildingTest extends TestCase
             ->value('layout');
         $this->assertSame('all_buildings', $layout['scope']);
 
+        // Phase-105: the bare landing is the portfolio overview...
         $this->actingAs($this->landlord)
             ->get(route('dashboard'))
-            ->assertInertia(fn ($page) => $page->where('allBuildingsMode', true)->where('dashboardScope', 'all_buildings'));
+            ->assertInertia(fn ($page) => $page->component('Portfolio/Home'));
+
+        // ...and the all-buildings aggregate is the building dashboard via the 'all' sentinel.
+        $this->actingAs($this->landlord)
+            ->get(route('dashboard', ['building_id' => 'all']))
+            ->assertInertia(fn ($page) => $page->where('allBuildingsMode', true));
     }
 
     public function test_query_param_overrides_persisted_scope(): void

@@ -42,6 +42,20 @@ class DashboardController extends Controller
 
     protected function landlordDashboard(Request $request)
     {
+        // Phase-105 PORTFOLIO-HOME: the landing is a cross-property overview. Choosing a
+        // building (?building_id=…, the drill-down from a portfolio card or the building
+        // switcher) renders the building-scoped dashboard. The 'all' sentinel keeps the
+        // Phase-74 all-buildings view within a single property's building dashboard.
+        if (! $request->filled('building_id')) {
+            $portfolio = $this->dashboardService->getPortfolioOverview(auth()->user());
+
+            if (isset($portfolio['redirect'])) {
+                return redirect()->route('onboarding.index');
+            }
+
+            return Inertia::render('Portfolio/Home', $portfolio);
+        }
+
         $data = $this->dashboardService->getLandlordDashboardData(auth()->user(), $request);
 
         if (isset($data['redirect'])) {

@@ -114,12 +114,15 @@ const switchLocation = (propertyId, buildingId) => {
     });
 };
 
-// Phase-74 CROSS-BUILDING: persist the building scope, then reload the
-// dashboard with no building_id so the new persisted scope takes effect.
+// Phase-74 CROSS-BUILDING + Phase-105 PORTFOLIO-HOME: persist the scope, then reload INTO
+// the building dashboard (bare /dashboard is now the portfolio landing). All-buildings uses
+// the 'all' sentinel (a specific building_id always scopes to one building); active-building
+// reloads the current building.
 const setScope = (scope) => {
+    const buildingId = scope === 'all_buildings' ? 'all' : props.activeBuilding?.id;
     router.patch(route('dashboard.scope.update'), { scope }, {
         preserveScroll: true,
-        onSuccess: () => router.get(route('dashboard'), {}, { preserveScroll: true }),
+        onSuccess: () => router.get(route('dashboard'), { property_id: props.property?.id, building_id: buildingId }, { preserveScroll: true }),
     });
 };
 
@@ -636,7 +639,7 @@ onUnmounted(() => {
                     title="Vacant Units"
                     description="Available for lease"
                     actionLabel="View"
-                    :actionHref="route('dashboard', { status: 'vacant' })"
+                    :actionHref="route('dashboard', { property_id: property.id, building_id: activeBuilding?.id, status: 'vacant' })"
                 />
                 <ActionItemCard
                     v-else
@@ -747,7 +750,7 @@ onUnmounted(() => {
                     :subtitle="stats.occupied_units + ' / ' + stats.total_units + ' units'"
                     :icon="UserGroupIcon"
                     color="indigo"
-                    :href="route('dashboard', { status: 'vacant' })"
+                    :href="route('dashboard', { property_id: property.id, building_id: activeBuilding?.id, status: 'vacant' })"
                 />
             </div>
 
@@ -1119,9 +1122,9 @@ onUnmounted(() => {
                         v-if="!allBuildingsMode"
                         :href="route('dashboard', { property_id: property.id, building_id: 'all' })"
                         preserve-state
-                        aria-label="Clear building filter"
                         class="-mr-1 ml-1 rounded-full text-emerald-800 hover:bg-emerald-200"
                     >
+                        <span class="sr-only">{{ $t('dashboard.clear_building_filter') }}</span>
                         <XMarkIcon class="h-3.5 w-3.5" />
                     </Link>
                 </span>
