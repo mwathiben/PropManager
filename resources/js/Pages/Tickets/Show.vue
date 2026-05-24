@@ -127,7 +127,7 @@ const resolveTicket = () => {
 };
 
 const closeTicket = () => {
-    if (confirm('Are you sure you want to close this ticket?')) {
+    if (confirm(t('tickets.show.confirm_close'))) {
         router.post(route('tickets.close', props.ticket.id), {}, {
             preserveScroll: true
         });
@@ -144,7 +144,7 @@ const assignTicket = () => {
 };
 
 const cancelTicket = () => {
-    if (confirm('Are you sure you want to cancel this ticket?')) {
+    if (confirm(t('tickets.show.confirm_cancel'))) {
         router.delete(route('tickets.destroy', props.ticket.id));
     }
 };
@@ -208,7 +208,7 @@ const canEdit = computed(() => {
                         class="inline-flex items-center text-sm text-gray-500 hover:text-gray-700 mb-4"
                     >
                         <ArrowLeftIcon class="h-4 w-4 me-1" />
-                        Back to Tickets
+                        {{ t('tickets.show.back_to_tickets') }}
                     </Link>
 
                     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -232,14 +232,14 @@ const canEdit = computed(() => {
                                         data-testid="open-legal-hold"
                                     >
                                         <ScaleIcon class="h-3.5 w-3.5" />
-                                        Legal hold
+                                        {{ t('tickets.show.legal_hold') }}
                                     </button>
                                     <Link
                                         :href="route('legal-holds.history', { subject_type: 'App\\Models\\Ticket', subject_id: ticket.id })"
                                         class="ml-1 inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-600 hover:text-gray-900"
                                         data-testid="hold-history-link"
                                     >
-                                        Hold history
+                                        {{ t('tickets.show.hold_history') }}
                                     </Link>
                                 </div>
                             </div>
@@ -252,14 +252,14 @@ const canEdit = computed(() => {
                                 @click="updateStatus('acknowledged')"
                                 class="px-3 py-2 text-sm font-medium text-blue-700 bg-blue-100 rounded-md hover:bg-blue-200"
                             >
-                                Acknowledge
+                                {{ t('tickets.show.acknowledge') }}
                             </button>
                             <button
                                 v-if="ticket.status === 'acknowledged'"
                                 @click="updateStatus('in_progress')"
                                 class="px-3 py-2 text-sm font-medium text-purple-700 bg-purple-100 rounded-md hover:bg-purple-200"
                             >
-                                Start Work
+                                {{ t('tickets.show.start_work') }}
                             </button>
                             <button
                                 v-if="isOpen"
@@ -267,7 +267,7 @@ const canEdit = computed(() => {
                                 class="px-3 py-2 text-sm font-medium text-green-700 bg-green-100 rounded-md hover:bg-green-200"
                             >
                                 <CheckCircleIcon class="h-4 w-4 inline me-1" />
-                                Resolve
+                                {{ t('tickets.show.resolve') }}
                             </button>
                         </div>
 
@@ -277,7 +277,7 @@ const canEdit = computed(() => {
                                 class="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
                             >
                                 <LockClosedIcon class="h-4 w-4 inline me-1" />
-                                Close Ticket
+                                {{ t('tickets.show.close_ticket') }}
                             </button>
                         </div>
                     </div>
@@ -288,12 +288,12 @@ const canEdit = computed(() => {
                     <div class="lg:col-span-2 space-y-6">
                         <!-- Description -->
                         <div class="bg-white shadow-sm rounded-lg border p-6">
-                            <h3 class="text-lg font-medium text-gray-900 mb-4">Description</h3>
+                            <h3 class="text-lg font-medium text-gray-900 mb-4">{{ t('tickets.show.description') }}</h3>
                             <p class="text-gray-700 whitespace-pre-wrap">{{ ticket.description }}</p>
 
                             <div v-if="ticket.resolution_notes && ticket.status === 'resolved' || ticket.status === 'closed'" class="mt-6 pt-6 border-t">
-                                <h4 class="text-sm font-medium text-green-800 mb-2">Resolution Notes</h4>
-                                <p class="text-gray-700 whitespace-pre-wrap">{{ ticket.resolution_notes || 'No notes provided.' }}</p>
+                                <h4 class="text-sm font-medium text-green-800 mb-2">{{ t('tickets.show.resolution_notes') }}</h4>
+                                <p class="text-gray-700 whitespace-pre-wrap">{{ ticket.resolution_notes || t('tickets.show.no_notes_provided') }}</p>
                             </div>
                         </div>
 
@@ -306,7 +306,7 @@ const canEdit = computed(() => {
                         <div v-if="ticket.feedback" class="bg-white shadow-sm rounded-lg border p-6">
                             <h3 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
                                 <StarIcon class="h-5 w-5 text-yellow-500 me-2" />
-                                Tenant Feedback
+                                {{ t('tickets.show.tenant_feedback') }}
                             </h3>
                             <div class="flex items-center space-x-1 mb-2">
                                 <StarIcon
@@ -315,20 +315,20 @@ const canEdit = computed(() => {
                                     :class="[star <= ticket.feedback.rating ? 'text-yellow-400' : 'text-gray-300', 'h-5 w-5']"
                                 />
                                 <span class="ms-2 text-sm text-gray-600">
-                                    {{ ticket.feedback.rating }}/5
+                                    {{ t('tickets.show.rating_out_of', { rating: ticket.feedback.rating }) }}
                                 </span>
                             </div>
                             <p v-if="ticket.feedback.comments" class="text-gray-700 mt-2">
                                 "{{ ticket.feedback.comments }}"
                             </p>
                             <p class="text-xs text-gray-500 mt-2">
-                                Submitted by {{ ticket.feedback.user?.name }} on {{ formatDate(ticket.feedback.created_at) }}
+                                {{ t('tickets.show.submitted_by', { name: ticket.feedback.user?.name, date: formatDate(ticket.feedback.created_at) }) }}
                             </p>
                         </div>
 
                         <!-- Comments -->
                         <div class="bg-white shadow-sm rounded-lg border p-6">
-                            <h3 class="text-lg font-medium text-gray-900 mb-4">Comments</h3>
+                            <h3 class="text-lg font-medium text-gray-900 mb-4">{{ t('tickets.show.comments') }}</h3>
 
                             <div v-if="ticket.comments?.length > 0" class="space-y-4 mb-6">
                                 <div
@@ -336,14 +336,14 @@ const canEdit = computed(() => {
                                     :key="comment.id"
                                     :class="[
                                         comment.is_internal ? 'bg-yellow-50 border-yellow-200' : 'bg-gray-50 border-gray-200',
-                                        'rounded-lg border p-4'
+                                        'rounded-lg border p-4' /* i18n-ignore: tailwind classes */
                                     ]"
                                 >
                                     <div class="flex items-center justify-between mb-2">
                                         <div class="flex items-center space-x-2">
                                             <span class="font-medium text-gray-900">{{ comment.author?.name }}</span>
                                             <span v-if="comment.is_internal" class="text-xs bg-yellow-200 text-yellow-800 px-2 py-0.5 rounded">
-                                                Internal Note
+                                                {{ t('tickets.show.internal_note') }}
                                             </span>
                                         </div>
                                         <span class="text-xs text-gray-500">{{ formatDate(comment.created_at) }}</span>
@@ -353,7 +353,7 @@ const canEdit = computed(() => {
                             </div>
 
                             <div v-else class="text-center py-4 text-gray-500 mb-6">
-                                No comments yet.
+                                {{ t('tickets.show.no_comments_yet') }}
                             </div>
 
                             <!-- Add Comment Form -->
@@ -362,7 +362,7 @@ const canEdit = computed(() => {
                                     <textarea
                                         v-model="commentForm.comment"
                                         rows="3"
-                                        placeholder="Add a comment..."
+                                        :placeholder="t('tickets.show.add_comment_placeholder')"
                                         class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                                     />
                                 </div>
@@ -373,7 +373,7 @@ const canEdit = computed(() => {
                                             v-model="commentForm.is_internal"
                                             class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                         />
-                                        <span class="ms-2 text-sm text-gray-600">Internal note (not visible to tenant)</span>
+                                        <span class="ms-2 text-sm text-gray-600">{{ t('tickets.show.internal_note_label') }}</span>
                                     </label>
                                     <div v-else></div>
                                     <button
@@ -382,7 +382,7 @@ const canEdit = computed(() => {
                                         class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
                                     >
                                         <PaperAirplaneIcon class="h-4 w-4 me-2" />
-                                        Send
+                                        {{ t('tickets.show.send') }}
                                     </button>
                                 </div>
                             </form>
@@ -390,7 +390,7 @@ const canEdit = computed(() => {
 
                         <!-- Activity Timeline -->
                         <div class="bg-white shadow-sm rounded-lg border p-6">
-                            <h3 class="text-lg font-medium text-gray-900 mb-4">Activity History</h3>
+                            <h3 class="text-lg font-medium text-gray-900 mb-4">{{ t('tickets.show.activity_history') }}</h3>
                             <TicketActivityTimeline :activities="ticket.activities || []" />
                         </div>
                     </div>
@@ -399,70 +399,70 @@ const canEdit = computed(() => {
                     <div class="space-y-6">
                         <!-- Details Card -->
                         <div class="bg-white shadow-sm rounded-lg border p-6">
-                            <h3 class="text-lg font-medium text-gray-900 mb-4">Details</h3>
+                            <h3 class="text-lg font-medium text-gray-900 mb-4">{{ t('tickets.show.details') }}</h3>
                             <dl class="space-y-4">
                                 <div>
-                                    <dt class="text-sm font-medium text-gray-500">Category</dt>
+                                    <dt class="text-sm font-medium text-gray-500">{{ t('tickets.show.category') }}</dt>
                                     <dd class="mt-1 text-sm text-gray-900 capitalize">{{ ticket.category }}</dd>
                                 </div>
                                 <div>
-                                    <dt class="text-sm font-medium text-gray-500">Type</dt>
+                                    <dt class="text-sm font-medium text-gray-500">{{ t('tickets.show.type') }}</dt>
                                     <dd class="mt-1 text-sm text-gray-900 capitalize">{{ ticket.subcategory?.replace('_', ' ') }}</dd>
                                 </div>
                                 <div>
-                                    <dt class="text-sm font-medium text-gray-500">Building</dt>
+                                    <dt class="text-sm font-medium text-gray-500">{{ t('tickets.show.building') }}</dt>
                                     <dd class="mt-1 text-sm text-gray-900">{{ ticket.building?.name }}</dd>
                                 </div>
                                 <div v-if="ticket.unit">
-                                    <dt class="text-sm font-medium text-gray-500">Unit</dt>
+                                    <dt class="text-sm font-medium text-gray-500">{{ t('tickets.show.unit') }}</dt>
                                     <dd class="mt-1 text-sm text-gray-900">{{ ticket.unit.unit_number }}</dd>
                                 </div>
                                 <div v-if="ticket.location">
-                                    <dt class="text-sm font-medium text-gray-500">Location</dt>
+                                    <dt class="text-sm font-medium text-gray-500">{{ t('tickets.show.location') }}</dt>
                                     <dd class="mt-1 text-sm text-gray-900 flex items-center">
                                         <MapPinIcon class="h-4 w-4 me-1 text-gray-400" />
                                         {{ ticket.location }}
                                     </dd>
                                 </div>
                                 <div>
-                                    <dt class="text-sm font-medium text-gray-500">Reported By</dt>
+                                    <dt class="text-sm font-medium text-gray-500">{{ t('tickets.show.reported_by') }}</dt>
                                     <dd class="mt-1 text-sm text-gray-900 flex items-center">
                                         <UserIcon class="h-4 w-4 me-1 text-gray-400" />
                                         {{ ticket.reporter?.name }}
                                     </dd>
                                 </div>
                                 <div>
-                                    <dt class="text-sm font-medium text-gray-500">Assigned To</dt>
+                                    <dt class="text-sm font-medium text-gray-500">{{ t('tickets.show.assigned_to') }}</dt>
                                     <dd class="mt-1 text-sm text-gray-900 flex items-center justify-between">
                                         <span class="flex items-center">
                                             <UserIcon class="h-4 w-4 me-1 text-gray-400" />
-                                            {{ ticket.assignee?.name || 'Unassigned' }}
+                                            {{ ticket.assignee?.name || t('tickets.show.unassigned') }}
                                         </span>
                                         <button
                                             v-if="canAssign"
                                             @click="showAssignModal = true"
                                             class="text-indigo-600 hover:text-indigo-800 text-sm"
                                         >
-                                            Change
+                                            {{ t('tickets.show.change') }}
                                         </button>
                                     </dd>
                                 </div>
                                 <div>
-                                    <dt class="text-sm font-medium text-gray-500">Created</dt>
+                                    <dt class="text-sm font-medium text-gray-500">{{ t('tickets.show.created') }}</dt>
                                     <dd class="mt-1 text-sm text-gray-900 flex items-center">
                                         <CalendarIcon class="h-4 w-4 me-1 text-gray-400" />
                                         {{ formatDate(ticket.created_at) }}
                                     </dd>
                                 </div>
                                 <div v-if="ticket.resolved_at">
-                                    <dt class="text-sm font-medium text-gray-500">Resolved</dt>
+                                    <dt class="text-sm font-medium text-gray-500">{{ t('tickets.show.resolved') }}</dt>
                                     <dd class="mt-1 text-sm text-green-600 flex items-center">
                                         <CheckCircleIcon class="h-4 w-4 me-1" />
                                         {{ formatDate(ticket.resolved_at) }}
                                     </dd>
                                 </div>
                                 <div v-if="ticket.closed_at">
-                                    <dt class="text-sm font-medium text-gray-500">Closed</dt>
+                                    <dt class="text-sm font-medium text-gray-500">{{ t('tickets.show.closed') }}</dt>
                                     <dd class="mt-1 text-sm text-gray-600 flex items-center">
                                         <LockClosedIcon class="h-4 w-4 me-1" />
                                         {{ formatDate(ticket.closed_at) }}
@@ -481,51 +481,51 @@ const canEdit = computed(() => {
                                 class="w-full px-4 py-2 border border-red-300 text-red-700 rounded-md hover:bg-red-50 text-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                             >
                                 <XMarkIcon class="h-4 w-4 inline me-1" />
-                                Cancel Ticket
+                                {{ t('tickets.show.cancel_ticket') }}
                             </button>
                         </div>
 
                         <!-- Phase-54 COST-UI-1/2: maintenance cost card. Landlords + caretakers see the breakdown; only landlords see the Add button. -->
                         <div v-if="costs" class="bg-white shadow rounded-lg p-6">
                             <div class="flex items-center justify-between mb-3">
-                                <h3 class="text-lg font-medium text-gray-900">Cost</h3>
+                                <h3 class="text-lg font-medium text-gray-900">{{ t('tickets.show.cost') }}</h3>
                                 <button
                                     v-if="canManageCosts"
                                     type="button"
                                     class="text-xs text-indigo-600 hover:underline"
                                     @click="showCostModal = true"
                                 >
-                                    Add cost
+                                    {{ t('tickets.show.add_cost') }}
                                 </button>
                             </div>
                             <p class="text-2xl font-semibold text-gray-900">{{ formatKes(costs.total) }}</p>
 
                             <div v-if="costs.total > 0" class="mt-3 flex h-2 overflow-hidden rounded bg-gray-100">
-                                <div :style="{ width: costSegmentWidth('parts') }" class="bg-indigo-400" :title="`Parts ${formatKes(costs.parts)}`"></div>
-                                <div :style="{ width: costSegmentWidth('vendor') }" class="bg-emerald-400" :title="`Vendor ${formatKes(costs.vendor)}`"></div>
-                                <div :style="{ width: costSegmentWidth('labor') }" class="bg-amber-400" :title="`Labor ${formatKes(costs.labor)}`"></div>
-                                <div :style="{ width: costSegmentWidth('other') }" class="bg-rose-400" :title="`Other ${formatKes(costs.other)}`"></div>
+                                <div :style="{ width: costSegmentWidth('parts') }" class="bg-indigo-400" :title="t('tickets.show.segment_title', { category: t('tickets.show.parts'), amount: formatKes(costs.parts) })"></div>
+                                <div :style="{ width: costSegmentWidth('vendor') }" class="bg-emerald-400" :title="t('tickets.show.segment_title', { category: t('tickets.show.vendor'), amount: formatKes(costs.vendor) })"></div>
+                                <div :style="{ width: costSegmentWidth('labor') }" class="bg-amber-400" :title="t('tickets.show.segment_title', { category: t('tickets.show.labor'), amount: formatKes(costs.labor) })"></div>
+                                <div :style="{ width: costSegmentWidth('other') }" class="bg-rose-400" :title="t('tickets.show.segment_title', { category: t('tickets.show.other'), amount: formatKes(costs.other) })"></div>
                             </div>
 
                             <dl class="mt-3 grid grid-cols-2 gap-2 text-xs">
                                 <div class="flex items-center gap-2">
                                     <span class="h-2 w-2 rounded-full bg-indigo-400"></span>
-                                    <span class="text-gray-600">Parts</span>
+                                    <span class="text-gray-600">{{ t('tickets.show.parts') }}</span>
                                     <span class="ms-auto font-medium text-gray-900">{{ formatKes(costs.parts) }}</span>
                                 </div>
                                 <div class="flex items-center gap-2">
                                     <span class="h-2 w-2 rounded-full bg-emerald-400"></span>
-                                    <span class="text-gray-600">Vendor</span>
+                                    <span class="text-gray-600">{{ t('tickets.show.vendor') }}</span>
                                     <span class="ms-auto font-medium text-gray-900">{{ formatKes(costs.vendor) }}</span>
                                 </div>
                                 <div class="flex items-center gap-2">
                                     <span class="h-2 w-2 rounded-full bg-amber-400"></span>
-                                    <span class="text-gray-600">Labor</span>
+                                    <span class="text-gray-600">{{ t('tickets.show.labor') }}</span>
                                     <span class="ms-auto font-medium text-gray-900">{{ formatKes(costs.labor) }}</span>
                                 </div>
                                 <div class="flex items-center gap-2">
                                     <span class="h-2 w-2 rounded-full bg-rose-400"></span>
-                                    <span class="text-gray-600">Other</span>
+                                    <span class="text-gray-600">{{ t('tickets.show.other') }}</span>
                                     <span class="ms-auto font-medium text-gray-900">{{ formatKes(costs.other) }}</span>
                                 </div>
                             </dl>
@@ -538,28 +538,28 @@ const canEdit = computed(() => {
         <!-- Phase-54 COST-UI-2: manual cost entry modal (landlord-only). -->
         <div v-if="showCostModal && canManageCosts" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
             <div class="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-                <h3 class="text-lg font-semibold text-gray-900">Add maintenance cost</h3>
-                <p class="mt-1 text-xs text-gray-500">Parts costs are recorded automatically when parts are added to the ticket.</p>
+                <h3 class="text-lg font-semibold text-gray-900">{{ t('tickets.show.add_maintenance_cost') }}</h3>
+                <p class="mt-1 text-xs text-gray-500">{{ t('tickets.show.parts_auto_note') }}</p>
                 <form class="mt-4 space-y-3" @submit.prevent="submitCost">
                     <div>
-                        <label class="block text-xs font-semibold text-gray-700">Category</label>
+                        <label class="block text-xs font-semibold text-gray-700">{{ t('tickets.show.category') }}</label>
                         <select v-model="costForm.category" required class="mt-1 w-full rounded border-gray-300 text-sm">
-                            <option value="vendor">Vendor</option>
-                            <option value="labor">Labor</option>
-                            <option value="other">Other</option>
+                            <option value="vendor">{{ t('tickets.show.vendor') }}</option>
+                            <option value="labor">{{ t('tickets.show.labor') }}</option>
+                            <option value="other">{{ t('tickets.show.other') }}</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-gray-700">Amount (KES)</label>
+                        <label class="block text-xs font-semibold text-gray-700">{{ t('tickets.show.amount_kes') }}</label>
                         <input v-model.number="costForm.amount_kes" type="number" min="0.01" step="0.01" required class="mt-1 w-full rounded border-gray-300 text-sm">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-gray-700">Notes</label>
+                        <label class="block text-xs font-semibold text-gray-700">{{ t('tickets.show.notes') }}</label>
                         <textarea v-model="costForm.notes" rows="2" maxlength="500" class="mt-1 w-full rounded border-gray-300 text-sm"></textarea>
                     </div>
                     <div class="flex justify-end gap-2 pt-2">
-                        <button type="button" class="rounded border border-gray-300 px-3 py-1.5 text-sm" @click="showCostModal = false">Cancel</button>
-                        <button type="submit" class="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Save</button>
+                        <button type="button" class="rounded border border-gray-300 px-3 py-1.5 text-sm" @click="showCostModal = false">{{ t('tickets.show.cancel') }}</button>
+                        <button type="submit" class="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">{{ t('tickets.show.save') }}</button>
                     </div>
                 </form>
             </div>
@@ -570,14 +570,14 @@ const canEdit = computed(() => {
             <div class="flex items-center justify-center min-h-screen px-4">
                 <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showResolveModal = false"></div>
                 <div class="relative z-50 bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">Resolve Ticket</h3>
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">{{ t('tickets.show.resolve_ticket') }}</h3>
                     <form @submit.prevent="resolveTicket">
                         <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Resolution Notes</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tickets.show.resolution_notes') }}</label>
                             <textarea
                                 v-model="resolveForm.resolution_notes"
                                 rows="4"
-                                placeholder="Describe how the issue was resolved..."
+                                :placeholder="t('tickets.show.resolution_notes_placeholder')"
                                 class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                             />
                         </div>
@@ -587,14 +587,14 @@ const canEdit = computed(() => {
                                 @click="showResolveModal = false"
                                 class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
                             >
-                                Cancel
+                                {{ t('tickets.show.cancel') }}
                             </button>
                             <button
                                 type="submit"
                                 :disabled="resolveForm.processing"
                                 class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:opacity-50"
                             >
-                                Mark as Resolved
+                                {{ t('tickets.show.mark_as_resolved') }}
                             </button>
                         </div>
                     </form>
@@ -607,15 +607,15 @@ const canEdit = computed(() => {
             <div class="flex items-center justify-center min-h-screen px-4">
                 <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showAssignModal = false"></div>
                 <div class="relative z-50 bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">Assign Ticket</h3>
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">{{ t('tickets.show.assign_ticket') }}</h3>
                     <form @submit.prevent="assignTicket">
                         <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Select Caretaker</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tickets.show.select_caretaker') }}</label>
                             <select
                                 v-model="assignForm.assigned_to"
                                 class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                             >
-                                <option value="">Unassigned</option>
+                                <option value="">{{ t('tickets.show.unassigned') }}</option>
                                 <option v-for="caretaker in caretakers" :key="caretaker.id" :value="caretaker.id">
                                     {{ caretaker.name }}
                                 </option>
@@ -627,14 +627,14 @@ const canEdit = computed(() => {
                                 @click="showAssignModal = false"
                                 class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
                             >
-                                Cancel
+                                {{ t('tickets.show.cancel') }}
                             </button>
                             <button
                                 type="submit"
                                 :disabled="assignForm.processing"
                                 class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
                             >
-                                Assign
+                                {{ t('tickets.show.assign') }}
                             </button>
                         </div>
                     </form>
@@ -646,7 +646,7 @@ const canEdit = computed(() => {
             ref="ticketLegalHoldModal"
             subject-type="App\\Models\\Ticket"
             :subject-id="ticket.id"
-            :subject-label="`Ticket #${ticket.id}: ${ticket.title}`"
+            :subject-label="t('tickets.show.subject_label', { id: ticket.id, title: ticket.title })"
         />
     </AuthenticatedLayout>
 </template>
