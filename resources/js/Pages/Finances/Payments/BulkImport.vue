@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue';
 import { router, Head, Link } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Breadcrumb from '@/Components/Breadcrumb.vue';
 import {
@@ -25,6 +26,7 @@ const props = withDefaults(defineProps<PaymentsBulkImportPageProps>(), {
 });
 
 const { formatMoney } = useFormatters();
+const { t } = useI18n();
 
 const step = ref(1);
 const file = ref(null);
@@ -54,11 +56,11 @@ const resultData = ref({
 
 const showValidRows = ref(false);
 
-const breadcrumbItems = [
-    { label: 'Finance Hub', href: route('finances.index') },
-    { label: 'Payments', href: route('finances.payments') },
-    { label: 'Bulk Import' },
-];
+const breadcrumbItems = computed(() => [
+    { label: t('bulk_import.breadcrumb.finance_hub'), href: route('finances.index') },
+    { label: t('bulk_import.breadcrumb.payments'), href: route('finances.payments') },
+    { label: t('bulk_import.breadcrumb.bulk_import') },
+]);
 
 const canProceed = computed(() => {
     return file.value && selectedBuildingId.value;
@@ -68,29 +70,29 @@ const templateUrl = computed(() => {
     return route('finances.payments.bulk-import.template', { mode: importMode.value });
 });
 
-const currentModeInstructions = [
-    { field: 'Unit Number', desc: 'Required. The unit identifier (e.g., A101).' },
-    { field: 'Tenant Name', desc: 'Optional. Used for display purposes.' },
-    { field: 'Tenant Email', desc: 'Required. Must match an active tenant.' },
-    { field: 'Invoice Number', desc: 'Optional. Leave empty for auto-allocation (FIFO).' },
-    { field: 'Payment Date', desc: 'Required. Format: YYYY-MM-DD' },
-    { field: 'Amount', desc: 'Required. Payment amount (numbers only).' },
-    { field: 'Payment Method', desc: 'Required. One of: cash, bank_transfer, mobile_money, paystack' },
-    { field: 'Reference', desc: 'Optional. Transaction reference number.' },
-];
+const currentModeInstructions = computed(() => [
+    { field: t('bulk_import.instructions.unit_number'), desc: t('bulk_import.instructions.current.unit_number') },
+    { field: t('bulk_import.instructions.tenant_name'), desc: t('bulk_import.instructions.current.tenant_name') },
+    { field: t('bulk_import.instructions.tenant_email'), desc: t('bulk_import.instructions.current.tenant_email') },
+    { field: t('bulk_import.instructions.invoice_number'), desc: t('bulk_import.instructions.current.invoice_number') },
+    { field: t('bulk_import.instructions.payment_date'), desc: t('bulk_import.instructions.current.payment_date') },
+    { field: t('bulk_import.instructions.amount'), desc: t('bulk_import.instructions.current.amount') },
+    { field: t('bulk_import.instructions.payment_method'), desc: t('bulk_import.instructions.current.payment_method') },
+    { field: t('bulk_import.instructions.reference'), desc: t('bulk_import.instructions.current.reference') },
+]);
 
-const historicalModeInstructions = [
-    { field: 'Unit Number', desc: 'Required. The unit identifier (e.g., A101).' },
-    { field: 'Tenant Name', desc: 'Required. Name of the historical tenant.' },
-    { field: 'Tenant Email', desc: 'Optional. Will generate placeholder if empty.' },
-    { field: 'Payment Date', desc: 'Required. Format: YYYY-MM-DD (can be in the past).' },
-    { field: 'Amount', desc: 'Required. Payment amount (numbers only).' },
-    { field: 'Payment Method', desc: 'Required. One of: cash, bank_transfer, mobile_money, paystack' },
-    { field: 'Reference', desc: 'Optional. Transaction reference number.' },
-];
+const historicalModeInstructions = computed(() => [
+    { field: t('bulk_import.instructions.unit_number'), desc: t('bulk_import.instructions.historical.unit_number') },
+    { field: t('bulk_import.instructions.tenant_name'), desc: t('bulk_import.instructions.historical.tenant_name') },
+    { field: t('bulk_import.instructions.tenant_email'), desc: t('bulk_import.instructions.historical.tenant_email') },
+    { field: t('bulk_import.instructions.payment_date'), desc: t('bulk_import.instructions.historical.payment_date') },
+    { field: t('bulk_import.instructions.amount'), desc: t('bulk_import.instructions.historical.amount') },
+    { field: t('bulk_import.instructions.payment_method'), desc: t('bulk_import.instructions.historical.payment_method') },
+    { field: t('bulk_import.instructions.reference'), desc: t('bulk_import.instructions.historical.reference') },
+]);
 
 const instructions = computed(() => {
-    return importMode.value === 'historical' ? historicalModeInstructions : currentModeInstructions;
+    return importMode.value === 'historical' ? historicalModeInstructions.value : currentModeInstructions.value;
 });
 
 const handleFileChange = (event) => {
@@ -128,11 +130,11 @@ const handleDrop = (event) => {
 
 const validateFile = async () => {
     if (!file.value) {
-        validationError.value = 'Please select a CSV file';
+        validationError.value = t('bulk_import.errors.select_file');
         return;
     }
     if (!selectedBuildingId.value) {
-        validationError.value = 'Please select a building';
+        validationError.value = t('bulk_import.errors.select_building');
         return;
     }
 
@@ -162,14 +164,14 @@ const validateFile = async () => {
         const data = await response.json();
 
         if (!response.ok) {
-            validationError.value = data.error || 'Validation failed';
+            validationError.value = data.error || t('bulk_import.errors.validation_failed');
             return;
         }
 
         previewData.value = data;
         step.value = 2;
     } catch (err) {
-        validationError.value = 'Failed to validate file. Please try again.';
+        validationError.value = t('bulk_import.errors.validate_failed');
     } finally {
         isValidating.value = false;
     }
@@ -202,14 +204,14 @@ const processPayments = async () => {
         const data = await response.json();
 
         if (!response.ok) {
-            validationError.value = data.error || 'Processing failed';
+            validationError.value = data.error || t('bulk_import.errors.processing_failed');
             return;
         }
 
         resultData.value = data;
         step.value = 3;
     } catch (err) {
-        validationError.value = 'Failed to process payments. Please try again.';
+        validationError.value = t('bulk_import.errors.process_failed');
     } finally {
         isProcessing.value = false;
     }
@@ -246,7 +248,7 @@ const totalValidAmount = computed(() => {
 </script>
 
 <template>
-    <Head title="Bulk Import Payments" />
+    <Head :title="t('bulk_import.title')" />
 
     <AuthenticatedLayout>
         <div class="max-w-4xl mx-auto py-6 px-4 sm:px-6">
@@ -256,8 +258,8 @@ const totalValidAmount = computed(() => {
                     <ArrowUpTrayIcon class="h-6 w-6 text-emerald-600" />
                 </div>
                 <div>
-                    <h1 class="text-lg font-semibold text-gray-900">Bulk Import Payments</h1>
-                    <p class="text-sm text-gray-500">Upload CSV to record multiple payments</p>
+                    <h1 class="text-lg font-semibold text-gray-900">{{ t('bulk_import.title') }}</h1>
+                    <p class="text-sm text-gray-500">{{ t('bulk_import.subtitle') }}</p>
                 </div>
             </div>
 
@@ -271,26 +273,26 @@ const totalValidAmount = computed(() => {
                 <div class="flex items-center">
                     <div class="flex items-center text-sm">
                         <span :class="[
-                            'flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium',
+                            'flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium', /* i18n-ignore */
                             step >= 1 ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-600'
                         ]">1</span>
-                        <span class="ms-2 font-medium" :class="step >= 1 ? 'text-gray-900' : 'text-gray-500'">Upload</span>
+                        <span class="ms-2 font-medium" :class="step >= 1 ? 'text-gray-900' : 'text-gray-500'">{{ t('bulk_import.steps.upload') }}</span>
                     </div>
                     <div class="flex-1 mx-4 h-0.5" :class="step >= 2 ? 'bg-emerald-600' : 'bg-gray-200'"></div>
                     <div class="flex items-center text-sm">
                         <span :class="[
-                            'flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium',
+                            'flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium', /* i18n-ignore */
                             step >= 2 ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-600'
                         ]">2</span>
-                        <span class="ms-2 font-medium" :class="step >= 2 ? 'text-gray-900' : 'text-gray-500'">Preview</span>
+                        <span class="ms-2 font-medium" :class="step >= 2 ? 'text-gray-900' : 'text-gray-500'">{{ t('bulk_import.steps.preview') }}</span>
                     </div>
                     <div class="flex-1 mx-4 h-0.5" :class="step >= 3 ? 'bg-emerald-600' : 'bg-gray-200'"></div>
                     <div class="flex items-center text-sm">
                         <span :class="[
-                            'flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium',
+                            'flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium', /* i18n-ignore */
                             step >= 3 ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-600'
                         ]">3</span>
-                        <span class="ms-2 font-medium" :class="step >= 3 ? 'text-gray-900' : 'text-gray-500'">Results</span>
+                        <span class="ms-2 font-medium" :class="step >= 3 ? 'text-gray-900' : 'text-gray-500'">{{ t('bulk_import.steps.results') }}</span>
                     </div>
                 </div>
             </div>
@@ -300,31 +302,31 @@ const totalValidAmount = computed(() => {
                 <div class="p-6 space-y-6">
                     <!-- Import Mode Toggle -->
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Import Mode</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('bulk_import.mode.label') }}</label>
                         <div class="flex gap-2 p-1 bg-gray-100 rounded-lg w-fit">
                             <button
                                 @click="importMode = 'current'"
                                 :class="[
-                                    'px-4 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-2',
+                                    'px-4 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-2', /* i18n-ignore */
                                     importMode === 'current'
-                                        ? 'bg-white text-emerald-700 shadow-sm'
+                                        ? 'bg-white text-emerald-700 shadow-sm' /* i18n-ignore */
                                         : 'text-gray-600 hover:text-gray-900'
                                 ]"
                             >
                                 <BanknotesIcon class="h-4 w-4" />
-                                Current Tenants
+                                {{ t('bulk_import.mode.current') }}
                             </button>
                             <button
                                 @click="importMode = 'historical'"
                                 :class="[
-                                    'px-4 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-2',
+                                    'px-4 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-2', /* i18n-ignore */
                                     importMode === 'historical'
-                                        ? 'bg-white text-amber-700 shadow-sm'
+                                        ? 'bg-white text-amber-700 shadow-sm' /* i18n-ignore */
                                         : 'text-gray-600 hover:text-gray-900'
                                 ]"
                             >
                                 <ClockIcon class="h-4 w-4" />
-                                Historical Data
+                                {{ t('bulk_import.mode.historical') }}
                             </button>
                         </div>
                     </div>
@@ -334,12 +336,12 @@ const totalValidAmount = computed(() => {
                         <div class="flex gap-3">
                             <InformationCircleIcon class="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
                             <div class="text-sm text-amber-800">
-                                <p class="font-medium mb-1">Historical Import Mode</p>
+                                <p class="font-medium mb-1">{{ t('bulk_import.historical_warning.title') }}</p>
                                 <ul class="space-y-1 text-amber-700">
-                                    <li>• Creates archived tenant records for past tenants</li>
-                                    <li>• Does NOT affect current tenant balances</li>
-                                    <li>• Useful for onboarding landlords with existing buildings</li>
-                                    <li>• Historical payments will appear in unit history reports</li>
+                                    <li>{{ t('bulk_import.historical_warning.line_1') }}</li>
+                                    <li>{{ t('bulk_import.historical_warning.line_2') }}</li>
+                                    <li>{{ t('bulk_import.historical_warning.line_3') }}</li>
+                                    <li>{{ t('bulk_import.historical_warning.line_4') }}</li>
                                 </ul>
                             </div>
                         </div>
@@ -347,22 +349,22 @@ const totalValidAmount = computed(() => {
 
                     <!-- Building Selector -->
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Select Building *</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_import.building.label') }}</label>
                         <select
                             v-model="selectedBuildingId"
                             class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                         >
-                            <option :value="null">-- Select Building --</option>
+                            <option :value="null">{{ t('bulk_import.building.placeholder') }}</option>
                             <option v-for="building in buildings" :key="building.id" :value="building.id">
                                 {{ building.display_name }}
                             </option>
                         </select>
-                        <p class="mt-1 text-xs text-gray-500">Unit numbers in the CSV must match units in this building</p>
+                        <p class="mt-1 text-xs text-gray-500">{{ t('bulk_import.building.hint') }}</p>
                     </div>
 
                     <!-- CSV Format Instructions -->
                     <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                        <h3 class="font-medium text-blue-900 mb-2">CSV Format Instructions</h3>
+                        <h3 class="font-medium text-blue-900 mb-2">{{ t('bulk_import.csv_format.title') }}</h3>
                         <ul class="text-sm text-blue-800 space-y-1">
                             <li v-for="inst in instructions" :key="inst.field">
                                 <strong>{{ inst.field }}</strong> - {{ inst.desc }}
@@ -377,13 +379,13 @@ const totalValidAmount = computed(() => {
                             class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors"
                         >
                             <DocumentArrowDownIcon class="h-5 w-5" />
-                            Download {{ importMode === 'historical' ? 'Historical' : 'Current' }} Template
+                            {{ importMode === 'historical' ? t('bulk_import.template.download_historical') : t('bulk_import.template.download_current') }}
                         </a>
                     </div>
 
                     <!-- File Upload -->
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Select CSV File *</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('bulk_import.file.label') }}</label>
                         <label
                             class="flex items-center justify-center px-6 py-8 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-emerald-400 hover:bg-gray-50 transition-colors"
                             @dragover.prevent="handleDragOver"
@@ -393,9 +395,9 @@ const totalValidAmount = computed(() => {
                             <div class="text-center">
                                 <ArrowUpTrayIcon class="mx-auto h-10 w-10 text-gray-400" />
                                 <p class="mt-2 text-sm text-gray-600">
-                                    <span class="font-medium text-emerald-600">Click to upload</span> or drag and drop
+                                    <span class="font-medium text-emerald-600">{{ t('bulk_import.file.click_to_upload') }}</span> {{ t('bulk_import.file.or_drag') }}
                                 </p>
-                                <p class="mt-1 text-xs text-gray-500">CSV files only (max 5MB)</p>
+                                <p class="mt-1 text-xs text-gray-500">{{ t('bulk_import.file.hint') }}</p>
                                 <p v-if="fileName" class="mt-2 text-sm font-medium text-gray-900">{{ fileName }}</p>
                             </div>
                             <input
@@ -417,7 +419,7 @@ const totalValidAmount = computed(() => {
                             :href="route('finances.payments')"
                             class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                         >
-                            Cancel
+                            {{ t('bulk_import.actions.cancel') }}
                         </Link>
                         <button
                             @click="validateFile"
@@ -429,7 +431,7 @@ const totalValidAmount = computed(() => {
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                            {{ isValidating ? 'Validating...' : 'Validate & Preview →' }}
+                            {{ isValidating ? t('bulk_import.actions.validating') : t('bulk_import.actions.validate_preview') }}
                         </button>
                     </div>
                 </div>
@@ -441,15 +443,15 @@ const totalValidAmount = computed(() => {
                 <div class="grid grid-cols-3 gap-4">
                     <div class="bg-white rounded-xl border border-gray-200 p-4 text-center">
                         <p class="text-3xl font-bold text-gray-900">{{ previewData.total_rows }}</p>
-                        <p class="text-sm text-gray-500">Total Rows</p>
+                        <p class="text-sm text-gray-500">{{ t('bulk_import.preview.total_rows') }}</p>
                     </div>
                     <div class="bg-emerald-50 rounded-xl border border-emerald-200 p-4 text-center">
                         <p class="text-3xl font-bold text-emerald-600">{{ previewData.valid_rows }}</p>
-                        <p class="text-sm text-gray-500">Valid</p>
+                        <p class="text-sm text-gray-500">{{ t('bulk_import.preview.valid') }}</p>
                     </div>
                     <div class="bg-red-50 rounded-xl border border-red-200 p-4 text-center">
                         <p class="text-3xl font-bold text-red-600">{{ previewData.invalid_rows }}</p>
-                        <p class="text-sm text-gray-500">Invalid</p>
+                        <p class="text-sm text-gray-500">{{ t('bulk_import.preview.invalid') }}</p>
                     </div>
                 </div>
 
@@ -457,8 +459,8 @@ const totalValidAmount = computed(() => {
                 <div v-if="previewData.mode === 'historical'" class="p-4 bg-amber-50 border border-amber-200 rounded-lg">
                     <div class="flex items-center gap-2 text-amber-800">
                         <ClockIcon class="h-5 w-5" />
-                        <span class="font-medium">Historical Import Mode</span>
-                        <span class="text-sm text-amber-700">- Archived tenant records will be created</span>
+                        <span class="font-medium">{{ t('bulk_import.preview.historical_indicator') }}</span>
+                        <span class="text-sm text-amber-700">{{ t('bulk_import.preview.historical_note') }}</span>
                     </div>
                 </div>
 
@@ -467,18 +469,18 @@ const totalValidAmount = computed(() => {
                     <div class="px-4 py-3 border-b border-red-200 bg-red-50 rounded-t-xl">
                         <h3 class="font-medium text-red-900 flex items-center gap-2">
                             <ExclamationCircleIcon class="h-5 w-5" />
-                            Invalid Rows ({{ previewData.invalid.length }})
+                            {{ t('bulk_import.preview.invalid_rows', { count: previewData.invalid.length }) }}
                         </h3>
                     </div>
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
-                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Row</th>
-                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Unit</th>
-                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Tenant</th>
-                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Amount</th>
-                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Errors</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">{{ t('bulk_import.preview.col_row') }}</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">{{ t('bulk_import.preview.col_unit') }}</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">{{ t('bulk_import.preview.col_tenant') }}</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">{{ t('bulk_import.preview.col_amount') }}</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">{{ t('bulk_import.preview.col_errors') }}</th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
@@ -509,7 +511,7 @@ const totalValidAmount = computed(() => {
                     >
                         <h3 class="font-medium text-emerald-900 flex items-center gap-2">
                             <CheckCircleIcon class="h-5 w-5" />
-                            Valid Rows ({{ previewData.valid.length }}) - {{ formatMoney(totalValidAmount) }}
+                            {{ t('bulk_import.preview.valid_rows', { count: previewData.valid.length, amount: formatMoney(totalValidAmount) }) }}
                         </h3>
                         <ChevronDownIcon v-if="!showValidRows" class="h-5 w-5 text-emerald-700" />
                         <ChevronUpIcon v-else class="h-5 w-5 text-emerald-700" />
@@ -518,12 +520,12 @@ const totalValidAmount = computed(() => {
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
-                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Row</th>
-                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Unit</th>
-                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Tenant</th>
-                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Amount</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">{{ t('bulk_import.preview.col_row') }}</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">{{ t('bulk_import.preview.col_unit') }}</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">{{ t('bulk_import.preview.col_tenant') }}</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">{{ t('bulk_import.preview.col_amount') }}</th>
                                     <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">
-                                        {{ previewData.mode === 'historical' ? 'Status' : 'Allocation' }}
+                                        {{ previewData.mode === 'historical' ? t('bulk_import.preview.col_status') : t('bulk_import.preview.col_allocation') }}
                                     </th>
                                 </tr>
                             </thead>
@@ -539,24 +541,24 @@ const totalValidAmount = computed(() => {
                                             </div>
                                             <span v-if="row.is_historical && row.will_create_tenant" class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-800 rounded-full">
                                                 <UserPlusIcon class="h-3 w-3" />
-                                                New
+                                                {{ t('bulk_import.preview.new_badge') }}
                                             </span>
                                         </div>
                                     </td>
                                     <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ formatMoney(row.amount) }}</td>
                                     <td class="px-4 py-3 text-sm text-gray-700">
                                         <template v-if="row.is_historical">
-                                            <span class="text-amber-600 text-xs">Historical record (no invoice)</span>
+                                            <span class="text-amber-600 text-xs">{{ t('bulk_import.preview.historical_record') }}</span>
                                         </template>
                                         <template v-else>
                                             <div v-for="alloc in row.allocations" :key="alloc.invoice_number" class="text-xs">
                                                 {{ alloc.invoice_number }}: {{ formatMoney(alloc.amount) }}
                                             </div>
                                             <div v-if="row.allocations.length === 0" class="text-xs text-gray-500">
-                                                No outstanding invoices
+                                                {{ t('bulk_import.preview.no_outstanding') }}
                                             </div>
                                             <div v-if="row.wallet_credit > 0" class="text-xs text-blue-600 mt-1">
-                                                Wallet Credit: {{ formatMoney(row.wallet_credit) }}
+                                                {{ t('bulk_import.preview.wallet_credit', { amount: formatMoney(row.wallet_credit) }) }}
                                             </div>
                                         </template>
                                     </td>
@@ -576,7 +578,7 @@ const totalValidAmount = computed(() => {
                         class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                     >
                         <ArrowLeftIcon class="h-4 w-4" />
-                        Back
+                        {{ t('bulk_import.actions.back') }}
                     </button>
                     <button
                         @click="processPayments"
@@ -588,7 +590,7 @@ const totalValidAmount = computed(() => {
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        {{ isProcessing ? 'Processing...' : `Process ${previewData.valid_rows} Payments →` }}
+                        {{ isProcessing ? t('bulk_import.actions.processing') : t('bulk_import.actions.process_payments', { count: previewData.valid_rows }) }}
                     </button>
                 </div>
             </div>
@@ -600,16 +602,16 @@ const totalValidAmount = computed(() => {
                     <ExclamationCircleIcon v-else class="mx-auto h-16 w-16 text-red-500" />
                 </div>
 
-                <h2 class="text-2xl font-bold text-gray-900 mb-2">Import Complete</h2>
+                <h2 class="text-2xl font-bold text-gray-900 mb-2">{{ t('bulk_import.results.title') }}</h2>
 
                 <div class="grid grid-cols-2 gap-4 max-w-md mx-auto mb-6">
                     <div class="bg-emerald-50 rounded-lg p-4">
                         <p class="text-3xl font-bold text-emerald-600">{{ resultData.success_count }}</p>
-                        <p class="text-sm text-gray-600">Payments Recorded</p>
+                        <p class="text-sm text-gray-600">{{ t('bulk_import.results.payments_recorded') }}</p>
                     </div>
                     <div class="bg-blue-50 rounded-lg p-4">
                         <p class="text-3xl font-bold text-blue-600">{{ formatMoney(resultData.total_amount) }}</p>
-                        <p class="text-sm text-gray-600">Total Amount</p>
+                        <p class="text-sm text-gray-600">{{ t('bulk_import.results.total_amount') }}</p>
                     </div>
                 </div>
 
@@ -619,7 +621,7 @@ const totalValidAmount = computed(() => {
                         <UserPlusIcon class="h-6 w-6 text-amber-600" />
                         <div class="text-start">
                             <p class="text-lg font-bold text-amber-700">{{ resultData.archived_tenants_created }}</p>
-                            <p class="text-sm text-amber-600">Archived Tenants Created</p>
+                            <p class="text-sm text-amber-600">{{ t('bulk_import.results.archived_tenants_created') }}</p>
                         </div>
                     </div>
                 </div>
@@ -627,12 +629,12 @@ const totalValidAmount = computed(() => {
                 <div v-if="resultData.failed_count > 0" class="max-w-md mx-auto mb-6">
                     <div class="bg-red-50 rounded-lg p-4">
                         <p class="text-3xl font-bold text-red-600">{{ resultData.failed_count }}</p>
-                        <p class="text-sm text-gray-600">Failed</p>
+                        <p class="text-sm text-gray-600">{{ t('bulk_import.results.failed') }}</p>
                     </div>
                 </div>
 
                 <div v-if="resultData.errors && resultData.errors.length > 0" class="mb-6 text-start max-w-md mx-auto">
-                    <p class="text-sm font-medium text-red-700 mb-2">Errors:</p>
+                    <p class="text-sm font-medium text-red-700 mb-2">{{ t('bulk_import.results.errors_label') }}</p>
                     <ul class="text-sm text-red-600 list-disc list-inside">
                         <li v-for="(error, index) in resultData.errors" :key="index">{{ error.error }}</li>
                     </ul>
@@ -643,13 +645,13 @@ const totalValidAmount = computed(() => {
                         @click="resetForm"
                         class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                     >
-                        Import More
+                        {{ t('bulk_import.actions.import_more') }}
                     </button>
                     <Link
                         :href="route('finances.payments')"
                         class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors"
                     >
-                        View Payments →
+                        {{ t('bulk_import.actions.view_payments') }}
                     </Link>
                 </div>
             </div>

@@ -1,0 +1,126 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Phase-105+ i18n migration: bulk payment CSV import page. Mirror en/sw/ar.
+ */
+return [
+    'title' => 'Pakia Malipo kwa Wingi',
+    'subtitle' => 'Pakia CSV kurekodi malipo mengi',
+    'breadcrumb' => [
+        'finance_hub' => 'Kitovu cha Fedha',
+        'payments' => 'Malipo',
+        'bulk_import' => 'Upakiaji kwa Wingi',
+    ],
+    'steps' => [
+        'upload' => 'Pakia',
+        'preview' => 'Hakiki',
+        'results' => 'Matokeo',
+    ],
+    'mode' => [
+        'label' => 'Hali ya Kupakia',
+        'current' => 'Wapangaji wa Sasa',
+        'historical' => 'Data ya Kihistoria',
+    ],
+    'historical_warning' => [
+        'title' => 'Hali ya Kupakia Kihistoria',
+        'line_1' => '• Huunda rekodi za wapangaji walioarkivishwa kwa wapangaji wa zamani',
+        'line_2' => '• HAIATHIRI salio za wapangaji wa sasa',
+        'line_3' => '• Inafaa kwa kuanzisha wamiliki wenye majengo yaliyopo',
+        'line_4' => '• Malipo ya kihistoria yataonekana katika ripoti za historia ya kitengo',
+    ],
+    'building' => [
+        'label' => 'Chagua Jengo *',
+        'placeholder' => '-- Chagua Jengo --',
+        'hint' => 'Nambari za vitengo katika CSV lazima zilingane na vitengo katika jengo hili',
+    ],
+    'csv_format' => [
+        'title' => 'Maelekezo ya Muundo wa CSV',
+    ],
+    'instructions' => [
+        'unit_number' => 'Nambari ya Kitengo',
+        'tenant_name' => 'Jina la Mpangaji',
+        'tenant_email' => 'Barua Pepe ya Mpangaji',
+        'invoice_number' => 'Nambari ya Ankara',
+        'payment_date' => 'Tarehe ya Malipo',
+        'amount' => 'Kiasi',
+        'payment_method' => 'Njia ya Malipo',
+        'reference' => 'Marejeo',
+        'current' => [
+            'unit_number' => 'Inahitajika. Kitambulisho cha kitengo (mf., A101).',
+            'tenant_name' => 'Si lazima. Hutumika kwa madhumuni ya kuonyesha.',
+            'tenant_email' => 'Inahitajika. Lazima ilingane na mpangaji aliye hai.',
+            'invoice_number' => 'Si lazima. Acha tupu kwa ugawaji wa kiotomatiki (FIFO).',
+            'payment_date' => 'Inahitajika. Muundo: YYYY-MM-DD',
+            'amount' => 'Inahitajika. Kiasi cha malipo (nambari tu).',
+            'payment_method' => 'Inahitajika. Mojawapo ya: cash, bank_transfer, mobile_money, paystack',
+            'reference' => 'Si lazima. Nambari ya marejeo ya muamala.',
+        ],
+        'historical' => [
+            'unit_number' => 'Inahitajika. Kitambulisho cha kitengo (mf., A101).',
+            'tenant_name' => 'Inahitajika. Jina la mpangaji wa kihistoria.',
+            'tenant_email' => 'Si lazima. Itazalisha mbadala ikiwa tupu.',
+            'payment_date' => 'Inahitajika. Muundo: YYYY-MM-DD (yaweza kuwa ya zamani).',
+            'amount' => 'Inahitajika. Kiasi cha malipo (nambari tu).',
+            'payment_method' => 'Inahitajika. Mojawapo ya: cash, bank_transfer, mobile_money, paystack',
+            'reference' => 'Si lazima. Nambari ya marejeo ya muamala.',
+        ],
+    ],
+    'template' => [
+        'download_historical' => 'Pakua Kiolezo cha Kihistoria',
+        'download_current' => 'Pakua Kiolezo cha Sasa',
+    ],
+    'file' => [
+        'label' => 'Chagua Faili la CSV *',
+        'click_to_upload' => 'Bofya kupakia',
+        'or_drag' => 'au buruta na udondoshe',
+        'hint' => 'Faili za CSV pekee (kiwango cha juu 5MB)',
+    ],
+    'errors' => [
+        'select_file' => 'Tafadhali chagua faili la CSV',
+        'select_building' => 'Tafadhali chagua jengo',
+        'validation_failed' => 'Uthibitishaji umeshindwa',
+        'validate_failed' => 'Imeshindwa kuthibitisha faili. Tafadhali jaribu tena.',
+        'processing_failed' => 'Uchakataji umeshindwa',
+        'process_failed' => 'Imeshindwa kuchakata malipo. Tafadhali jaribu tena.',
+    ],
+    'actions' => [
+        'cancel' => 'Ghairi',
+        'validating' => 'Inathibitisha...',
+        'validate_preview' => 'Thibitisha na Hakiki →',
+        'back' => 'Rudi',
+        'processing' => 'Inachakata...',
+        'process_payments' => 'Chakata Malipo {count} →',
+        'import_more' => 'Pakia Zaidi',
+        'view_payments' => 'Tazama Malipo →',
+    ],
+    'preview' => [
+        'total_rows' => 'Jumla ya Safu',
+        'valid' => 'Halali',
+        'invalid' => 'Batili',
+        'historical_indicator' => 'Hali ya Kupakia Kihistoria',
+        'historical_note' => '- Rekodi za wapangaji walioarkivishwa zitaundwa',
+        'invalid_rows' => 'Safu Batili ({count})',
+        'valid_rows' => 'Safu Halali ({count}) - {amount}',
+        'col_row' => 'Safu',
+        'col_unit' => 'Kitengo',
+        'col_tenant' => 'Mpangaji',
+        'col_amount' => 'Kiasi',
+        'col_errors' => 'Makosa',
+        'col_status' => 'Hali',
+        'col_allocation' => 'Ugawaji',
+        'historical_record' => 'Rekodi ya kihistoria (hakuna ankara)',
+        'no_outstanding' => 'Hakuna ankara zinazodaiwa',
+        'wallet_credit' => 'Salio la Pochi: {amount}',
+        'new_badge' => 'Mpya',
+    ],
+    'results' => [
+        'title' => 'Upakiaji Umekamilika',
+        'payments_recorded' => 'Malipo Yaliyorekodiwa',
+        'total_amount' => 'Jumla ya Kiasi',
+        'archived_tenants_created' => 'Wapangaji Walioarkivishwa Walioundwa',
+        'failed' => 'Imeshindwa',
+        'errors_label' => 'Makosa:',
+    ],
+];

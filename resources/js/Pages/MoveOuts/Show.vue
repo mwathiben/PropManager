@@ -3,6 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, router, Link } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import { useFormatters, useCurrency } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import { useAuth } from '@/composables/useAuth';
 import IconButton from '@/Components/IconButton.vue';
 import type { MoveOutShowPageProps } from '@/types/finances';
@@ -25,6 +26,7 @@ import {
 
 const props = defineProps<MoveOutShowPageProps>();
 const { formatMoney: formatCurrency, formatDate, todayAsISODate } = useFormatters();
+const { t } = useI18n();
 const { can } = useAuth();
 const { currencyCode } = useCurrency();
 
@@ -82,17 +84,17 @@ const estimatedRefund = computed(() => {
 const getStatusInfo = () => {
     switch (props.moveOut.status) {
         case 'notice_given':
-            return { color: 'bg-blue-100 text-blue-800 border-blue-200', label: 'Notice Given', step: 1 };
+            return { color: 'bg-blue-100 text-blue-800 border-blue-200', label: t('moveouts.show.status_label.notice_given'), step: 1 };
         case 'inspection_pending':
-            return { color: 'bg-yellow-100 text-yellow-800 border-yellow-200', label: 'Inspection In Progress', step: 2 };
+            return { color: 'bg-yellow-100 text-yellow-800 border-yellow-200', label: t('moveouts.show.status_label.inspection_pending'), step: 2 };
         case 'inspection_complete':
-            return { color: 'bg-purple-100 text-purple-800 border-purple-200', label: 'Inspection Complete', step: 3 };
+            return { color: 'bg-purple-100 text-purple-800 border-purple-200', label: t('moveouts.show.status_label.inspection_complete'), step: 3 };
         case 'settlement_pending':
-            return { color: 'bg-orange-100 text-orange-800 border-orange-200', label: 'Settlement Pending', step: 4 };
+            return { color: 'bg-orange-100 text-orange-800 border-orange-200', label: t('moveouts.show.status_label.settlement_pending'), step: 4 };
         case 'completed':
-            return { color: 'bg-green-100 text-green-800 border-green-200', label: 'Completed', step: 5 };
+            return { color: 'bg-green-100 text-green-800 border-green-200', label: t('moveouts.show.status_label.completed'), step: 5 };
         case 'cancelled':
-            return { color: 'bg-gray-100 text-gray-800 border-gray-200', label: 'Cancelled', step: 0 };
+            return { color: 'bg-gray-100 text-gray-800 border-gray-200', label: t('moveouts.show.status_label.cancelled'), step: 0 };
         default:
             return { color: 'bg-gray-100 text-gray-800 border-gray-200', label: props.moveOut.status, step: 0 };
     }
@@ -147,7 +149,7 @@ const saveDeduction = () => {
 };
 
 const deleteDeduction = (deductionId) => {
-    if (confirm('Are you sure you want to remove this deduction?')) {
+    if (confirm(t('moveouts.show.confirm.delete_deduction'))) {
         router.delete(route('move-outs.deductions.destroy', deductionId));
     }
 };
@@ -165,16 +167,24 @@ const completeMoveOut = () => {
 };
 
 const cancelMoveOut = () => {
-    if (confirm('Are you sure you want to cancel this move-out? The tenant will remain in the unit.')) {
+    if (confirm(t('moveouts.show.confirm.cancel_moveout'))) {
         router.post(route('move-outs.cancel', props.moveOut.id));
     }
 };
 
 const statusInfo = computed(() => getStatusInfo());
+
+const progressSteps = computed(() => [
+    t('moveouts.show.steps.notice'),
+    t('moveouts.show.steps.move_out'),
+    t('moveouts.show.steps.inspection'),
+    t('moveouts.show.steps.settlement'),
+    t('moveouts.show.steps.complete'),
+]);
 </script>
 
 <template>
-    <Head :title="`Move-Out: ${tenant?.name}`" />
+    <Head :title="t('moveouts.show.head_title', { name: tenant?.name })" />
 
     <AuthenticatedLayout>
         <div class="py-6">
@@ -186,8 +196,8 @@ const statusInfo = computed(() => getStatusInfo());
                             <ArrowLeftIcon class="w-5 h-5" />
                         </Link>
                         <div>
-                            <h1 class="text-2xl font-bold text-gray-900">Move-Out Process</h1>
-                            <p class="text-sm text-gray-500">{{ tenant?.name }} - Unit {{ unit?.unit_number }}</p>
+                            <h1 class="text-2xl font-bold text-gray-900">{{ t('moveouts.show.title') }}</h1>
+                            <p class="text-sm text-gray-500">{{ tenant?.name }} - {{ t('moveouts.show.unit_prefix') }} {{ unit?.unit_number }}</p>
                         </div>
                     </div>
                     <span
@@ -201,7 +211,7 @@ const statusInfo = computed(() => getStatusInfo());
                 <!-- Progress Steps -->
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
                     <div class="flex items-center justify-between">
-                        <div v-for="(step, index) in ['Notice', 'Move Out', 'Inspection', 'Settlement', 'Complete']" :key="index" class="flex-1 flex items-center">
+                        <div v-for="(step, index) in progressSteps" :key="index" class="flex-1 flex items-center">
                             <div class="flex flex-col items-center flex-1">
                                 <div
                                     :class="statusInfo.step > index ? 'bg-green-500 text-white' : statusInfo.step === index + 1 ? 'bg-indigo-500 text-white' : 'bg-gray-200 text-gray-500'"
@@ -224,14 +234,14 @@ const statusInfo = computed(() => getStatusInfo());
                         <div v-if="isNoticeGiven" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                             <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                                 <CalendarDaysIcon class="w-5 h-5" />
-                                Start Inspection
+                                {{ t('moveouts.show.start_inspection.heading') }}
                             </h3>
                             <p class="text-sm text-gray-600 mb-4">
-                                When the tenant has vacated the unit, enter the actual move-out date to begin the inspection process.
+                                {{ t('moveouts.show.start_inspection.description') }}
                             </p>
                             <div class="flex items-end gap-4">
                                 <div class="flex-1">
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Actual Move-Out Date</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('moveouts.show.start_inspection.date_label') }}</label>
                                     <input
                                         v-model="inspectionForm.actual_move_out_date"
                                         type="date"
@@ -244,7 +254,7 @@ const statusInfo = computed(() => getStatusInfo());
                                     data-testid="start-inspection-button"
                                     class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
                                 >
-                                    {{ inspectionForm.processing ? 'Starting...' : 'Start Inspection' }}
+                                    {{ inspectionForm.processing ? t('moveouts.show.start_inspection.starting') : t('moveouts.show.start_inspection.button') }}
                                 </button>
                             </div>
                         </div>
@@ -254,7 +264,7 @@ const statusInfo = computed(() => getStatusInfo());
                             <div class="px-6 py-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
                                 <h3 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
                                     <ClipboardDocumentCheckIcon class="w-5 h-5" />
-                                    Inspection & Deductions
+                                    {{ t('moveouts.show.deductions.heading') }}
                                 </h3>
                                 <button
                                     v-if="canAddDeductions"
@@ -262,7 +272,7 @@ const statusInfo = computed(() => getStatusInfo());
                                     class="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-indigo-600 hover:bg-indigo-50 rounded-lg"
                                 >
                                     <PlusIcon class="w-4 h-4" />
-                                    Add Deduction
+                                    {{ t('moveouts.show.deductions.add') }}
                                 </button>
                             </div>
 
@@ -277,7 +287,7 @@ const statusInfo = computed(() => getStatusInfo());
                                             <p class="font-medium text-gray-900">
                                                 {{ deduction.description }}
                                                 <span v-if="deduction.auto_applied" class="ms-2 inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
-                                                    Auto
+                                                    {{ t('moveouts.show.deductions.auto') }}
                                                 </span>
                                                 <span v-else-if="deduction.category" class="ms-2 inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
                                                     {{ deduction.category.name }}
@@ -289,31 +299,31 @@ const statusInfo = computed(() => getStatusInfo());
                                     <div class="flex items-center gap-3">
                                         <span class="font-semibold text-red-600">-{{ formatCurrency(deduction.amount) }}</span>
                                         <div v-if="canAddDeductions && can('tenants:manage')" class="flex items-center gap-1">
-                                            <IconButton :icon="PencilIcon" size="sm" aria-label="Edit deduction" @click="openDeductionModal(deduction)" />
-                                            <IconButton :icon="TrashIcon" size="sm" tone="danger" aria-label="Delete deduction" @click="deleteDeduction(deduction.id)" />
+                                            <IconButton :icon="PencilIcon" size="sm" :aria-label="t('moveouts.show.deductions.edit_aria')" @click="openDeductionModal(deduction)" />
+                                            <IconButton :icon="TrashIcon" size="sm" tone="danger" :aria-label="t('moveouts.show.deductions.delete_aria')" @click="deleteDeduction(deduction.id)" />
                                         </div>
                                     </div>
                                 </div>
                             </div>
                             <div v-else class="p-8 text-center text-gray-500">
-                                <p>No deductions recorded</p>
+                                <p>{{ t('moveouts.show.deductions.empty') }}</p>
                             </div>
 
                             <!-- Total Deductions -->
                             <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
-                                <span class="text-sm font-medium text-gray-700">Total Deductions</span>
+                                <span class="text-sm font-medium text-gray-700">{{ t('moveouts.show.deductions.total') }}</span>
                                 <span class="text-lg font-bold text-red-600">{{ formatCurrency(totalDeductions) }}</span>
                             </div>
                         </div>
 
                         <!-- Inspection Notes -->
                         <div v-if="isInspectionPending" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                            <h3 class="text-lg font-semibold text-gray-900 mb-4">Inspection Notes</h3>
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4">{{ t('moveouts.show.inspection_notes.heading') }}</h3>
                             <textarea
                                 v-model="inspectionNotesForm.inspection_notes"
                                 rows="4"
                                 class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                                placeholder="Record any notes from the inspection..."
+                                :placeholder="t('moveouts.show.inspection_notes.placeholder')"
                             ></textarea>
                             <div class="mt-4 flex justify-end">
                                 <button
@@ -321,7 +331,7 @@ const statusInfo = computed(() => getStatusInfo());
                                     :disabled="inspectionNotesForm.processing"
                                     class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
                                 >
-                                    {{ inspectionNotesForm.processing ? 'Completing...' : 'Complete Inspection' }}
+                                    {{ inspectionNotesForm.processing ? t('moveouts.show.inspection_notes.completing') : t('moveouts.show.inspection_notes.button') }}
                                 </button>
                             </div>
                         </div>
@@ -330,17 +340,17 @@ const statusInfo = computed(() => getStatusInfo());
                         <div v-if="isSettlementPending" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                             <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                                 <BanknotesIcon class="w-5 h-5" />
-                                Ready for Settlement
+                                {{ t('moveouts.show.settlement_ready.heading') }}
                             </h3>
                             <p class="text-sm text-gray-600 mb-4">
-                                Inspection is complete. Review the financial summary and settle the deposit.
+                                {{ t('moveouts.show.settlement_ready.description') }}
                             </p>
                             <button
                                 @click="showSettlementModal = true"
                                 class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
                             >
                                 <CheckCircleIcon class="w-5 h-5" />
-                                Settle Deposit & Complete
+                                {{ t('moveouts.show.settlement_ready.button') }}
                             </button>
                         </div>
 
@@ -349,15 +359,15 @@ const statusInfo = computed(() => getStatusInfo());
                             <div class="flex items-start gap-4">
                                 <CheckCircleIcon class="w-8 h-8 text-green-600" />
                                 <div>
-                                    <h3 class="text-lg font-semibold text-green-800">Move-Out Completed</h3>
+                                    <h3 class="text-lg font-semibold text-green-800">{{ t('moveouts.show.completed.heading') }}</h3>
                                     <p class="text-sm text-green-700 mt-1">
-                                        Settled on {{ formatDate(moveOut.settled_at) }} via {{ moveOut.settlement_method?.replace(/_/g, ' ') }}
+                                        {{ t('moveouts.show.completed.settled_via', { date: formatDate(moveOut.settled_at), method: moveOut.settlement_method?.replace(/_/g, ' ') }) }}
                                     </p>
                                     <p v-if="moveOut.settlement_reference" class="text-sm text-green-600 mt-1">
-                                        Reference: {{ moveOut.settlement_reference }}
+                                        {{ t('moveouts.show.completed.reference', { reference: moveOut.settlement_reference }) }}
                                     </p>
                                     <p class="text-sm text-green-700 mt-2">
-                                        Processed by: {{ moveOut.processor?.name }}
+                                        {{ t('moveouts.show.completed.processed_by', { name: moveOut.processor?.name }) }}
                                     </p>
                                 </div>
                             </div>
@@ -368,22 +378,22 @@ const statusInfo = computed(() => getStatusInfo());
                     <div class="space-y-6">
                         <!-- Financial Summary -->
                         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                            <h3 class="text-sm font-semibold text-gray-900 mb-4">Financial Summary</h3>
+                            <h3 class="text-sm font-semibold text-gray-900 mb-4">{{ t('moveouts.show.financial.heading') }}</h3>
                             <div class="space-y-3">
                                 <div class="flex justify-between">
-                                    <span class="text-sm text-gray-600">Deposit Held</span>
+                                    <span class="text-sm text-gray-600">{{ t('moveouts.show.financial.deposit_held') }}</span>
                                     <span class="text-sm font-medium text-gray-900">{{ formatCurrency(moveOut.deposit_held) }}</span>
                                 </div>
                                 <div class="flex justify-between">
-                                    <span class="text-sm text-gray-600">Arrears Balance</span>
+                                    <span class="text-sm text-gray-600">{{ t('moveouts.show.financial.arrears_balance') }}</span>
                                     <span class="text-sm font-medium text-red-600">-{{ formatCurrency(moveOut.arrears_balance) }}</span>
                                 </div>
                                 <div class="flex justify-between">
-                                    <span class="text-sm text-gray-600">Total Deductions</span>
+                                    <span class="text-sm text-gray-600">{{ t('moveouts.show.financial.total_deductions') }}</span>
                                     <span class="text-sm font-medium text-red-600">-{{ formatCurrency(totalDeductions) }}</span>
                                 </div>
                                 <div class="border-t pt-3 flex justify-between">
-                                    <span class="text-sm font-semibold text-gray-900">Refund Amount</span>
+                                    <span class="text-sm font-semibold text-gray-900">{{ t('moveouts.show.financial.refund_amount') }}</span>
                                     <span class="text-lg font-bold" :class="estimatedRefund > 0 ? 'text-green-600' : 'text-red-600'">
                                         {{ formatCurrency(estimatedRefund) }}
                                     </span>
@@ -393,18 +403,18 @@ const statusInfo = computed(() => getStatusInfo());
 
                         <!-- Details -->
                         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                            <h3 class="text-sm font-semibold text-gray-900 mb-4">Details</h3>
+                            <h3 class="text-sm font-semibold text-gray-900 mb-4">{{ t('moveouts.show.details.heading') }}</h3>
                             <div class="space-y-3 text-sm">
                                 <div>
-                                    <span class="text-gray-500">Notice Date</span>
+                                    <span class="text-gray-500">{{ t('moveouts.show.details.notice_date') }}</span>
                                     <p class="font-medium text-gray-900">{{ formatDate(moveOut.notice_date) }}</p>
                                 </div>
                                 <div>
-                                    <span class="text-gray-500">Intended Move-Out</span>
+                                    <span class="text-gray-500">{{ t('moveouts.show.details.intended_move_out') }}</span>
                                     <p class="font-medium text-gray-900">{{ formatDate(moveOut.intended_move_out_date) }}</p>
                                 </div>
                                 <div v-if="moveOut.actual_move_out_date">
-                                    <span class="text-gray-500">Actual Move-Out</span>
+                                    <span class="text-gray-500">{{ t('moveouts.show.details.actual_move_out') }}</span>
                                     <p class="font-medium text-gray-900">{{ formatDate(moveOut.actual_move_out_date) }}</p>
                                 </div>
                             </div>
@@ -412,7 +422,7 @@ const statusInfo = computed(() => getStatusInfo());
 
                         <!-- Inspection Notes (if exists) -->
                         <div v-if="moveOut.inspection_notes && !isInspectionPending" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                            <h3 class="text-sm font-semibold text-gray-900 mb-2">Inspection Notes</h3>
+                            <h3 class="text-sm font-semibold text-gray-900 mb-2">{{ t('moveouts.show.inspection_notes.heading') }}</h3>
                             <p class="text-sm text-gray-600">{{ moveOut.inspection_notes }}</p>
                         </div>
 
@@ -422,7 +432,7 @@ const statusInfo = computed(() => getStatusInfo());
                                 @click="cancelMoveOut"
                                 class="text-sm text-red-600 hover:text-red-800"
                             >
-                                Cancel Move-Out Process
+                                {{ t('moveouts.show.cancel_process') }}
                             </button>
                         </div>
                     </div>
@@ -438,7 +448,7 @@ const statusInfo = computed(() => getStatusInfo());
                 <div class="relative z-50 inline-block w-full max-w-md my-8 overflow-hidden text-start align-middle transition-all transform bg-white rounded-xl shadow-xl">
                     <div class="px-6 py-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
                         <h3 class="text-lg font-semibold text-gray-900">
-                            {{ editingDeduction ? 'Edit Deduction' : 'Add Deduction' }}
+                            {{ editingDeduction ? t('moveouts.show.deduction_modal.edit_title') : t('moveouts.show.deduction_modal.add_title') }}
                         </h3>
                         <button @click="showDeductionModal = false" class="text-gray-400 hover:text-gray-500">
                             <XMarkIcon class="w-6 h-6" />
@@ -447,13 +457,13 @@ const statusInfo = computed(() => getStatusInfo());
 
                     <form @submit.prevent="saveDeduction" class="p-6 space-y-4">
                         <div v-if="categories?.length > 0">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Category (Optional)</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('moveouts.show.deduction_modal.category_label') }}</label>
                             <select
                                 v-model="deductionForm.category_id"
                                 @change="onCategorySelected"
                                 class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                             >
-                                <option value="">Custom Deduction</option>
+                                <option value="">{{ t('moveouts.show.deduction_modal.custom_option') }}</option>
                                 <option v-for="cat in (categories ?? [])" :key="cat.id" :value="cat.id">
                                     {{ cat.name }} ({{ formatCurrency(cat.default_amount) }})
                                 </option>
@@ -463,17 +473,17 @@ const statusInfo = computed(() => getStatusInfo());
                             </p>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Description *</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('moveouts.show.deduction_modal.description_label') }}</label>
                             <input
                                 v-model="deductionForm.description"
                                 type="text"
                                 required
                                 class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                                placeholder="e.g., Wall damage repair"
+                                :placeholder="t('moveouts.show.deduction_modal.description_placeholder')"
                             />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Amount ({{ currencyCode }}) *</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('moveouts.show.deduction_modal.amount_label', { currency: currencyCode }) }}</label>
                             <input
                                 v-model="deductionForm.amount"
                                 type="number"
@@ -484,7 +494,7 @@ const statusInfo = computed(() => getStatusInfo());
                             />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Notes (Optional)</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('moveouts.show.deduction_modal.notes_label') }}</label>
                             <textarea
                                 v-model="deductionForm.notes"
                                 rows="2"
@@ -498,14 +508,14 @@ const statusInfo = computed(() => getStatusInfo());
                                 @click="showDeductionModal = false"
                                 class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
                             >
-                                Cancel
+                                {{ t('moveouts.show.deduction_modal.cancel') }}
                             </button>
                             <button
                                 type="submit"
                                 :disabled="deductionForm.processing"
                                 class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
                             >
-                                {{ deductionForm.processing ? 'Saving...' : editingDeduction ? 'Update' : 'Add Deduction' }}
+                                {{ deductionForm.processing ? t('moveouts.show.deduction_modal.saving') : editingDeduction ? t('moveouts.show.deduction_modal.update') : t('moveouts.show.deduction_modal.add_button') }}
                             </button>
                         </div>
                     </form>
@@ -520,46 +530,46 @@ const statusInfo = computed(() => getStatusInfo());
 
                 <div class="relative z-50 inline-block w-full max-w-md my-8 overflow-hidden text-start align-middle transition-all transform bg-white rounded-xl shadow-xl">
                     <div class="px-6 py-4 bg-gray-50 border-b border-gray-200">
-                        <h3 class="text-lg font-semibold text-gray-900">Complete Settlement</h3>
+                        <h3 class="text-lg font-semibold text-gray-900">{{ t('moveouts.show.settlement_modal.title') }}</h3>
                     </div>
 
                     <form @submit.prevent="completeMoveOut" class="p-6 space-y-4">
                         <!-- Summary -->
                         <div class="bg-green-50 border border-green-200 rounded-lg p-4">
                             <div class="flex justify-between items-center">
-                                <span class="text-sm font-medium text-green-800">Refund to Tenant</span>
+                                <span class="text-sm font-medium text-green-800">{{ t('moveouts.show.settlement_modal.refund_to_tenant') }}</span>
                                 <span class="text-2xl font-bold text-green-700">{{ formatCurrency(estimatedRefund) }}</span>
                             </div>
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Settlement Method *</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('moveouts.show.settlement_modal.method_label') }}</label>
                             <select
                                 v-model="settlementForm.settlement_method"
                                 required
                                 class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                             >
-                                <option value="cash">Cash</option>
-                                <option value="bank_transfer">Bank Transfer</option>
-                                <option value="mobile_money">Mobile Money (M-Pesa)</option>
-                                <option value="offset">Offset Against Arrears</option>
+                                <option value="cash">{{ t('moveouts.show.settlement_modal.method_cash') }}</option>
+                                <option value="bank_transfer">{{ t('moveouts.show.settlement_modal.method_bank_transfer') }}</option>
+                                <option value="mobile_money">{{ t('moveouts.show.settlement_modal.method_mobile_money') }}</option>
+                                <option value="offset">{{ t('moveouts.show.settlement_modal.method_offset') }}</option>
                             </select>
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Reference Number (Optional)</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('moveouts.show.settlement_modal.reference_label') }}</label>
                             <input
                                 v-model="settlementForm.settlement_reference"
                                 type="text"
                                 class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                                placeholder="Transaction ID or receipt number"
+                                :placeholder="t('moveouts.show.settlement_modal.reference_placeholder')"
                             />
                         </div>
 
                         <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                             <p class="text-sm text-yellow-800">
                                 <ExclamationCircleIcon class="w-4 h-4 inline me-1" />
-                                This action will end the lease and mark the unit as vacant.
+                                {{ t('moveouts.show.settlement_modal.warning') }}
                             </p>
                         </div>
 
@@ -569,7 +579,7 @@ const statusInfo = computed(() => getStatusInfo());
                                 @click="showSettlementModal = false"
                                 class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
                             >
-                                Cancel
+                                {{ t('moveouts.show.settlement_modal.cancel') }}
                             </button>
                             <button
                                 type="submit"
@@ -577,7 +587,7 @@ const statusInfo = computed(() => getStatusInfo());
                                 class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
                             >
                                 <CheckCircleIcon class="w-5 h-5" />
-                                {{ settlementForm.processing ? 'Processing...' : 'Complete Move-Out' }}
+                                {{ settlementForm.processing ? t('moveouts.show.settlement_modal.processing') : t('moveouts.show.settlement_modal.complete') }}
                             </button>
                         </div>
                     </form>

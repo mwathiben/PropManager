@@ -1,0 +1,126 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Phase-105+ i18n migration: bulk payment CSV import page. Mirror en/sw/ar.
+ */
+return [
+    'title' => 'استيراد المدفوعات بالجملة',
+    'subtitle' => 'حمّل ملف CSV لتسجيل عدة مدفوعات',
+    'breadcrumb' => [
+        'finance_hub' => 'مركز المالية',
+        'payments' => 'المدفوعات',
+        'bulk_import' => 'الاستيراد بالجملة',
+    ],
+    'steps' => [
+        'upload' => 'تحميل',
+        'preview' => 'معاينة',
+        'results' => 'النتائج',
+    ],
+    'mode' => [
+        'label' => 'وضع الاستيراد',
+        'current' => 'المستأجرون الحاليون',
+        'historical' => 'بيانات تاريخية',
+    ],
+    'historical_warning' => [
+        'title' => 'وضع الاستيراد التاريخي',
+        'line_1' => '• ينشئ سجلات مستأجرين مؤرشفة للمستأجرين السابقين',
+        'line_2' => '• لا يؤثر على أرصدة المستأجرين الحاليين',
+        'line_3' => '• مفيد لإعداد الملاك ذوي المباني الموجودة',
+        'line_4' => '• ستظهر المدفوعات التاريخية في تقارير سجل الوحدة',
+    ],
+    'building' => [
+        'label' => 'اختر المبنى *',
+        'placeholder' => '-- اختر المبنى --',
+        'hint' => 'يجب أن تطابق أرقام الوحدات في ملف CSV الوحدات في هذا المبنى',
+    ],
+    'csv_format' => [
+        'title' => 'تعليمات تنسيق CSV',
+    ],
+    'instructions' => [
+        'unit_number' => 'رقم الوحدة',
+        'tenant_name' => 'اسم المستأجر',
+        'tenant_email' => 'البريد الإلكتروني للمستأجر',
+        'invoice_number' => 'رقم الفاتورة',
+        'payment_date' => 'تاريخ الدفع',
+        'amount' => 'المبلغ',
+        'payment_method' => 'طريقة الدفع',
+        'reference' => 'المرجع',
+        'current' => [
+            'unit_number' => 'مطلوب. معرّف الوحدة (مثل A101).',
+            'tenant_name' => 'اختياري. يُستخدم لأغراض العرض.',
+            'tenant_email' => 'مطلوب. يجب أن يطابق مستأجرًا نشطًا.',
+            'invoice_number' => 'اختياري. اتركه فارغًا للتخصيص التلقائي (FIFO).',
+            'payment_date' => 'مطلوب. التنسيق: YYYY-MM-DD',
+            'amount' => 'مطلوب. مبلغ الدفع (أرقام فقط).',
+            'payment_method' => 'مطلوب. واحد من: cash, bank_transfer, mobile_money, paystack',
+            'reference' => 'اختياري. رقم مرجع المعاملة.',
+        ],
+        'historical' => [
+            'unit_number' => 'مطلوب. معرّف الوحدة (مثل A101).',
+            'tenant_name' => 'مطلوب. اسم المستأجر التاريخي.',
+            'tenant_email' => 'اختياري. سيتم إنشاء نائب إذا كان فارغًا.',
+            'payment_date' => 'مطلوب. التنسيق: YYYY-MM-DD (يمكن أن يكون في الماضي).',
+            'amount' => 'مطلوب. مبلغ الدفع (أرقام فقط).',
+            'payment_method' => 'مطلوب. واحد من: cash, bank_transfer, mobile_money, paystack',
+            'reference' => 'اختياري. رقم مرجع المعاملة.',
+        ],
+    ],
+    'template' => [
+        'download_historical' => 'تنزيل القالب التاريخي',
+        'download_current' => 'تنزيل القالب الحالي',
+    ],
+    'file' => [
+        'label' => 'اختر ملف CSV *',
+        'click_to_upload' => 'انقر للتحميل',
+        'or_drag' => 'أو اسحب وأفلت',
+        'hint' => 'ملفات CSV فقط (بحد أقصى 5 ميجابايت)',
+    ],
+    'errors' => [
+        'select_file' => 'يرجى اختيار ملف CSV',
+        'select_building' => 'يرجى اختيار مبنى',
+        'validation_failed' => 'فشل التحقق',
+        'validate_failed' => 'فشل التحقق من الملف. يرجى المحاولة مرة أخرى.',
+        'processing_failed' => 'فشلت المعالجة',
+        'process_failed' => 'فشلت معالجة المدفوعات. يرجى المحاولة مرة أخرى.',
+    ],
+    'actions' => [
+        'cancel' => 'إلغاء',
+        'validating' => 'جارٍ التحقق...',
+        'validate_preview' => 'تحقق ومعاينة ←',
+        'back' => 'رجوع',
+        'processing' => 'جارٍ المعالجة...',
+        'process_payments' => 'معالجة {count} مدفوعات ←',
+        'import_more' => 'استيراد المزيد',
+        'view_payments' => 'عرض المدفوعات ←',
+    ],
+    'preview' => [
+        'total_rows' => 'إجمالي الصفوف',
+        'valid' => 'صالح',
+        'invalid' => 'غير صالح',
+        'historical_indicator' => 'وضع الاستيراد التاريخي',
+        'historical_note' => '- سيتم إنشاء سجلات مستأجرين مؤرشفة',
+        'invalid_rows' => 'الصفوف غير الصالحة ({count})',
+        'valid_rows' => 'الصفوف الصالحة ({count}) - {amount}',
+        'col_row' => 'الصف',
+        'col_unit' => 'الوحدة',
+        'col_tenant' => 'المستأجر',
+        'col_amount' => 'المبلغ',
+        'col_errors' => 'الأخطاء',
+        'col_status' => 'الحالة',
+        'col_allocation' => 'التخصيص',
+        'historical_record' => 'سجل تاريخي (بدون فاتورة)',
+        'no_outstanding' => 'لا توجد فواتير مستحقة',
+        'wallet_credit' => 'رصيد المحفظة: {amount}',
+        'new_badge' => 'جديد',
+    ],
+    'results' => [
+        'title' => 'اكتمل الاستيراد',
+        'payments_recorded' => 'المدفوعات المسجلة',
+        'total_amount' => 'إجمالي المبلغ',
+        'archived_tenants_created' => 'المستأجرون المؤرشفون الذين تم إنشاؤهم',
+        'failed' => 'فشل',
+        'errors_label' => 'الأخطاء:',
+    ],
+];

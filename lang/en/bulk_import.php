@@ -1,0 +1,126 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Phase-105+ i18n migration: bulk payment CSV import page. Mirror en/sw/ar.
+ */
+return [
+    'title' => 'Bulk Import Payments',
+    'subtitle' => 'Upload CSV to record multiple payments',
+    'breadcrumb' => [
+        'finance_hub' => 'Finance Hub',
+        'payments' => 'Payments',
+        'bulk_import' => 'Bulk Import',
+    ],
+    'steps' => [
+        'upload' => 'Upload',
+        'preview' => 'Preview',
+        'results' => 'Results',
+    ],
+    'mode' => [
+        'label' => 'Import Mode',
+        'current' => 'Current Tenants',
+        'historical' => 'Historical Data',
+    ],
+    'historical_warning' => [
+        'title' => 'Historical Import Mode',
+        'line_1' => '• Creates archived tenant records for past tenants',
+        'line_2' => '• Does NOT affect current tenant balances',
+        'line_3' => '• Useful for onboarding landlords with existing buildings',
+        'line_4' => '• Historical payments will appear in unit history reports',
+    ],
+    'building' => [
+        'label' => 'Select Building *',
+        'placeholder' => '-- Select Building --',
+        'hint' => 'Unit numbers in the CSV must match units in this building',
+    ],
+    'csv_format' => [
+        'title' => 'CSV Format Instructions',
+    ],
+    'instructions' => [
+        'unit_number' => 'Unit Number',
+        'tenant_name' => 'Tenant Name',
+        'tenant_email' => 'Tenant Email',
+        'invoice_number' => 'Invoice Number',
+        'payment_date' => 'Payment Date',
+        'amount' => 'Amount',
+        'payment_method' => 'Payment Method',
+        'reference' => 'Reference',
+        'current' => [
+            'unit_number' => 'Required. The unit identifier (e.g., A101).',
+            'tenant_name' => 'Optional. Used for display purposes.',
+            'tenant_email' => 'Required. Must match an active tenant.',
+            'invoice_number' => 'Optional. Leave empty for auto-allocation (FIFO).',
+            'payment_date' => 'Required. Format: YYYY-MM-DD',
+            'amount' => 'Required. Payment amount (numbers only).',
+            'payment_method' => 'Required. One of: cash, bank_transfer, mobile_money, paystack',
+            'reference' => 'Optional. Transaction reference number.',
+        ],
+        'historical' => [
+            'unit_number' => 'Required. The unit identifier (e.g., A101).',
+            'tenant_name' => 'Required. Name of the historical tenant.',
+            'tenant_email' => 'Optional. Will generate placeholder if empty.',
+            'payment_date' => 'Required. Format: YYYY-MM-DD (can be in the past).',
+            'amount' => 'Required. Payment amount (numbers only).',
+            'payment_method' => 'Required. One of: cash, bank_transfer, mobile_money, paystack',
+            'reference' => 'Optional. Transaction reference number.',
+        ],
+    ],
+    'template' => [
+        'download_historical' => 'Download Historical Template',
+        'download_current' => 'Download Current Template',
+    ],
+    'file' => [
+        'label' => 'Select CSV File *',
+        'click_to_upload' => 'Click to upload',
+        'or_drag' => 'or drag and drop',
+        'hint' => 'CSV files only (max 5MB)',
+    ],
+    'errors' => [
+        'select_file' => 'Please select a CSV file',
+        'select_building' => 'Please select a building',
+        'validation_failed' => 'Validation failed',
+        'validate_failed' => 'Failed to validate file. Please try again.',
+        'processing_failed' => 'Processing failed',
+        'process_failed' => 'Failed to process payments. Please try again.',
+    ],
+    'actions' => [
+        'cancel' => 'Cancel',
+        'validating' => 'Validating...',
+        'validate_preview' => 'Validate & Preview →',
+        'back' => 'Back',
+        'processing' => 'Processing...',
+        'process_payments' => 'Process {count} Payments →',
+        'import_more' => 'Import More',
+        'view_payments' => 'View Payments →',
+    ],
+    'preview' => [
+        'total_rows' => 'Total Rows',
+        'valid' => 'Valid',
+        'invalid' => 'Invalid',
+        'historical_indicator' => 'Historical Import Mode',
+        'historical_note' => '- Archived tenant records will be created',
+        'invalid_rows' => 'Invalid Rows ({count})',
+        'valid_rows' => 'Valid Rows ({count}) - {amount}',
+        'col_row' => 'Row',
+        'col_unit' => 'Unit',
+        'col_tenant' => 'Tenant',
+        'col_amount' => 'Amount',
+        'col_errors' => 'Errors',
+        'col_status' => 'Status',
+        'col_allocation' => 'Allocation',
+        'historical_record' => 'Historical record (no invoice)',
+        'no_outstanding' => 'No outstanding invoices',
+        'wallet_credit' => 'Wallet Credit: {amount}',
+        'new_badge' => 'New',
+    ],
+    'results' => [
+        'title' => 'Import Complete',
+        'payments_recorded' => 'Payments Recorded',
+        'total_amount' => 'Total Amount',
+        'archived_tenants_created' => 'Archived Tenants Created',
+        'failed' => 'Failed',
+        'errors_label' => 'Errors:',
+    ],
+];

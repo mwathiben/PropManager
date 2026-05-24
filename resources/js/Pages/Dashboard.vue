@@ -3,6 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useEcho, useErrorHandler, useDashboardStats } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import TenantProfileModal from '@/Components/Modals/TenantProfileModal.vue';
 import SlideOutPanel from '@/Components/SlideOutPanel.vue';
 import AddWingModal from '@/Components/Modals/AddWingModal.vue';
@@ -51,6 +52,8 @@ import {
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps<DashboardPageProps>();
+
+const { t } = useI18n();
 
 // --- STATE ---
 const { logError } = useErrorHandler();
@@ -179,9 +182,9 @@ const viewPayment = (payment: DashboardPayment) => {
 const { formatMoney, formatDate, formatRelativeDate, todayAsISODate } = useFormatters();
 
 const leaseStateBadgeLabel = (state: string): string => {
-    if (state === 'ended') return 'Ended';
-    if (state === 'soft_deleted') return 'Archived';
-    return 'Unknown';
+    if (state === 'ended') return t('dashboard.lease_state.ended');
+    if (state === 'soft_deleted') return t('dashboard.lease_state.archived');
+    return t('dashboard.lease_state.unknown');
 };
 
 const leaseStateBadgeClass = (state: string): string => {
@@ -439,14 +442,14 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <Head title="Dashboard" />
+    <Head :title="t('dashboard.title')" />
 
     <AuthenticatedLayout>
         <!-- Top Bar: Location Dropdown + Actions -->
         <template #header>
             <!-- Phase-23 A11Y-SR-2: page heading for the document outline.
                  sr-only — the header bar is a property switcher, not a title. -->
-            <h1 class="sr-only">Dashboard</h1>
+            <h1 class="sr-only">{{ t('dashboard.title') }}</h1>
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 w-full">
                 <div class="flex items-center gap-3 min-w-0">
                     <!-- Unified Property/Building Dropdown -->
@@ -472,12 +475,7 @@ onUnmounted(() => {
                                         v-for="building in prop.buildings"
                                         :key="building.id"
                                         @click="switchLocation(prop.id, building.id)"
-                                        :class="[
-                                            'w-full text-start px-4 py-2 ps-6 text-sm transition-colors flex items-center gap-2',
-                                            isActiveBuilding(prop.id, building.id)
-                                                ? 'bg-indigo-50 text-indigo-700 font-medium'
-                                                : 'text-gray-700 hover:bg-gray-50'
-                                        ]"
+                                        :class="['w-full text-start px-4 py-2 ps-6 text-sm transition-colors flex items-center gap-2', isActiveBuilding(prop.id, building.id) ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-gray-700 hover:bg-gray-50']"
                                     >
                                         <CheckCircleIcon v-if="isActiveBuilding(prop.id, building.id)" class="w-4 h-4" />
                                         <span :class="{ 'ms-6': !isActiveBuilding(prop.id, building.id) }">{{ building.name }}</span>
@@ -490,7 +488,7 @@ onUnmounted(() => {
                                         class="w-full text-start px-4 py-2 text-sm text-indigo-600 hover:bg-indigo-50 flex items-center gap-2"
                                     >
                                         <PlusIcon class="w-4 h-4" />
-                                        Add Wing
+                                        {{ t('dashboard.header.add_wing') }}
                                     </button>
                                 </div>
                             </div>
@@ -502,11 +500,11 @@ onUnmounted(() => {
                 <div class="flex items-center gap-2 flex-wrap shrink-0">
                     <button @click="showMassHikeModal = true"
                             class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
-                        <MegaphoneIcon class="w-4 h-4 me-1.5" /> Rent Hike
+                        <MegaphoneIcon class="w-4 h-4 me-1.5" /> {{ t('dashboard.header.rent_hike') }}
                     </button>
                     <Link :href="route('buildings.edit', activeBuilding.id)"
                           class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors">
-                        <WrenchScrewdriverIcon class="w-4 h-4 me-1.5" /> Architect
+                        <WrenchScrewdriverIcon class="w-4 h-4 me-1.5" /> {{ t('dashboard.header.architect') }}
                     </Link>
                 </div>
             </div>
@@ -517,7 +515,7 @@ onUnmounted(() => {
             <div class="flex flex-wrap items-center gap-3">
                 <div class="flex items-center gap-2 text-sm text-gray-500">
                     <FunnelIcon class="w-4 h-4" />
-                    <span>Filter:</span>
+                    <span>{{ t('dashboard.filter.label') }}</span>
                 </div>
 
                 <!-- Wing Filter Chips -->
@@ -531,7 +529,7 @@ onUnmounted(() => {
                                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                         ]"
                     >
-                        All Wings
+                        {{ t('dashboard.filter.all_wings') }}
                     </button>
                     <button
                         v-for="wing in wings"
@@ -550,15 +548,15 @@ onUnmounted(() => {
 
                 <!-- Floor Filter Dropdown -->
                 <div v-if="allFloors && allFloors.length > 1" class="flex items-center gap-2 ms-4">
-                    <span class="text-sm text-gray-500">Floor:</span>
+                    <span class="text-sm text-gray-500">{{ t('dashboard.filter.floor_label') }}</span>
                     <select
                         :value="activeFloorFilter"
                         @change="setFloorFilter($event.target.value ? parseInt($event.target.value) : null)"
                         class="text-sm border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 py-1.5"
                     >
-                        <option value="">All Floors</option>
+                        <option value="">{{ t('dashboard.filter.all_floors') }}</option>
                         <option v-for="floor in allFloors" :key="floor" :value="floor">
-                            Floor {{ floor }}
+                            {{ t('dashboard.filter.floor_option', { floor }) }}
                         </option>
                     </select>
                 </div>
@@ -570,7 +568,7 @@ onUnmounted(() => {
                     class="ms-auto flex items-center gap-1 px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
                 >
                     <XMarkIcon class="w-4 h-4" />
-                    Clear Filters
+                    {{ t('dashboard.filter.clear') }}
                 </button>
             </div>
         </div>
@@ -584,9 +582,9 @@ onUnmounted(() => {
                     urgency="critical"
                     :icon="DocumentTextIcon"
                     :count="localActionItems.overdue_invoices"
-                    title="Overdue Invoices"
-                    :description="formatMoney(localActionItems.overdue_amount) + ' outstanding'"
-                    actionLabel="View All"
+                    :title="t('dashboard.action_items.overdue_invoices')"
+                    :description="t('dashboard.action_items.overdue_outstanding', { amount: formatMoney(localActionItems.overdue_amount) })"
+                    :actionLabel="t('dashboard.action_items.view_all')"
                     :actionHref="route('invoices.index', { status: 'overdue' })"
                 />
                 <ActionItemCard
@@ -594,9 +592,9 @@ onUnmounted(() => {
                     urgency="low"
                     :icon="DocumentTextIcon"
                     :count="0"
-                    title="Overdue Invoices"
-                    description="All invoices are current"
-                    actionLabel="View All"
+                    :title="t('dashboard.action_items.overdue_invoices')"
+                    :description="t('dashboard.action_items.invoices_current')"
+                    :actionLabel="t('dashboard.action_items.view_all')"
                     :actionHref="route('invoices.index')"
                 />
 
@@ -605,9 +603,9 @@ onUnmounted(() => {
                     urgency="high"
                     :icon="CalendarDaysIcon"
                     :count="localActionItems.expiring_leases"
-                    title="Expiring Leases"
-                    description="Within the next 30 days"
-                    actionLabel="View"
+                    :title="t('dashboard.action_items.expiring_leases')"
+                    :description="t('dashboard.action_items.within_30_days')"
+                    :actionLabel="t('dashboard.action_items.view')"
                     :actionHref="route('leases.index')"
                 />
                 <ActionItemCard
@@ -615,9 +613,9 @@ onUnmounted(() => {
                     urgency="low"
                     :icon="CalendarDaysIcon"
                     :count="0"
-                    title="Expiring Leases"
-                    description="No leases expiring soon"
-                    actionLabel="View All"
+                    :title="t('dashboard.action_items.expiring_leases')"
+                    :description="t('dashboard.action_items.no_leases_soon')"
+                    :actionLabel="t('dashboard.action_items.view_all')"
                     :actionHref="route('leases.index')"
                 />
 
@@ -626,9 +624,9 @@ onUnmounted(() => {
                     urgency="critical"
                     :icon="TicketIcon"
                     :count="localActionItems.urgent_tickets"
-                    title="Urgent Tickets"
-                    description="Require immediate attention"
-                    actionLabel="View"
+                    :title="t('dashboard.action_items.urgent_tickets')"
+                    :description="t('dashboard.action_items.immediate_attention')"
+                    :actionLabel="t('dashboard.action_items.view')"
                     :actionHref="route('tickets.index', { priority: 'urgent' })"
                 />
                 <ActionItemCard
@@ -636,9 +634,9 @@ onUnmounted(() => {
                     urgency="medium"
                     :icon="HomeModernIcon"
                     :count="localActionItems.vacant_units"
-                    title="Vacant Units"
-                    description="Available for lease"
-                    actionLabel="View"
+                    :title="t('dashboard.action_items.vacant_units')"
+                    :description="t('dashboard.action_items.available_for_lease')"
+                    :actionLabel="t('dashboard.action_items.view')"
                     :actionHref="route('dashboard', { property_id: property.id, building_id: activeBuilding?.id, status: 'vacant' })"
                 />
                 <ActionItemCard
@@ -646,9 +644,9 @@ onUnmounted(() => {
                     urgency="low"
                     :icon="TicketIcon"
                     :count="0"
-                    title="Urgent Tickets"
-                    description="No urgent issues"
-                    actionLabel="View All"
+                    :title="t('dashboard.action_items.urgent_tickets')"
+                    :description="t('dashboard.action_items.no_urgent_issues')"
+                    :actionLabel="t('dashboard.action_items.view_all')"
                     :actionHref="route('tickets.index')"
                 />
 
@@ -658,9 +656,9 @@ onUnmounted(() => {
                     urgency="critical"
                     :icon="ExclamationTriangleIcon"
                     :count="localActionItems.escalated_tickets"
-                    title="Escalated Tickets"
-                    description="A caretaker needs your help"
-                    actionLabel="Review"
+                    :title="t('dashboard.action_items.escalated_tickets')"
+                    :description="t('dashboard.action_items.caretaker_needs_help')"
+                    :actionLabel="t('dashboard.action_items.review')"
                     :actionHref="route('tickets.index', { escalated: 1 })"
                 />
 
@@ -670,9 +668,9 @@ onUnmounted(() => {
                     urgency="medium"
                     :icon="DocumentTextIcon"
                     :count="localActionItems.expiring_documents"
-                    title="Expiring Documents"
-                    description="Renew before they lapse"
-                    actionLabel="Review"
+                    :title="t('dashboard.action_items.expiring_documents')"
+                    :description="t('dashboard.action_items.renew_before_lapse')"
+                    :actionLabel="t('dashboard.action_items.review')"
                     :actionHref="route('archive.hub', { tab: 'documents', expiry: 'expiring' })"
                 />
 
@@ -685,9 +683,9 @@ onUnmounted(() => {
                     urgency="medium"
                     :icon="IdentificationIcon"
                     :count="tenantKycStats.incomplete"
-                    title="Incomplete KYC"
-                    :description="tenantKycStats.rate + '% verified'"
-                    actionLabel="View"
+                    :title="t('dashboard.action_items.incomplete_kyc')"
+                    :description="t('dashboard.action_items.kyc_verified_rate', { rate: tenantKycStats.rate })"
+                    :actionLabel="t('dashboard.action_items.view')"
                     :actionHref="route('tenants.index', { kyc_status: 'incomplete' })"
                 />
                 <ActionItemCard
@@ -695,9 +693,9 @@ onUnmounted(() => {
                     urgency="low"
                     :icon="IdentificationIcon"
                     :count="tenantKycStats.total"
-                    title="Tenant KYC"
-                    description="All tenants verified"
-                    actionLabel="View All"
+                    :title="t('dashboard.action_items.tenant_kyc')"
+                    :description="t('dashboard.action_items.all_tenants_verified')"
+                    :actionLabel="t('dashboard.action_items.view_all')"
                     :actionHref="route('tenants.index')"
                 />
             </div>
@@ -706,10 +704,10 @@ onUnmounted(() => {
             <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div :class="['transition-all duration-500 rounded-2xl', metricsUpdating ? 'ring-2 ring-green-400 ring-opacity-60' : '']">
                     <MetricCard
-                        title="Monthly Revenue"
+                        :title="t('dashboard.metrics.monthly_revenue')"
                         :value="localFinancialMetrics.monthly_revenue"
                         format="currency"
-                        :subtitle="'Expected: ' + formatMoney(localFinancialMetrics.expected_revenue)"
+                        :subtitle="t('dashboard.metrics.expected', { amount: formatMoney(localFinancialMetrics.expected_revenue) })"
                         :icon="BanknotesIcon"
                         color="emerald"
                         :href="route('invoices.index')"
@@ -721,10 +719,10 @@ onUnmounted(() => {
 
                 <div :class="['transition-all duration-500 rounded-2xl', metricsUpdating ? 'ring-2 ring-green-400 ring-opacity-60' : '']">
                     <MetricCard
-                        title="Collection Rate"
+                        :title="t('dashboard.metrics.collection_rate')"
                         :value="localFinancialMetrics.collection_rate"
                         format="percent"
-                        subtitle="This month"
+                        :subtitle="t('dashboard.metrics.this_month')"
                         :icon="ChartBarIcon"
                         color="blue"
                         :href="route('reports.index')"
@@ -733,10 +731,10 @@ onUnmounted(() => {
 
                 <div :class="['transition-all duration-500 rounded-2xl', metricsUpdating ? 'ring-2 ring-green-400 ring-opacity-60' : '']">
                     <MetricCard
-                        title="Total Arrears"
+                        :title="t('dashboard.metrics.total_arrears')"
                         :value="localFinancialMetrics.total_arrears"
                         format="currency"
-                        subtitle="Outstanding balance"
+                        :subtitle="t('dashboard.metrics.outstanding_balance')"
                         :icon="ExclamationTriangleIcon"
                         color="red"
                         :href="route('invoices.index', { has_arrears: true })"
@@ -744,10 +742,10 @@ onUnmounted(() => {
                 </div>
 
                 <MetricCard
-                    title="Occupancy Rate"
+                    :title="t('dashboard.metrics.occupancy_rate')"
                     :value="stats.occupancy_rate"
                     format="percent"
-                    :subtitle="stats.occupied_units + ' / ' + stats.total_units + ' units'"
+                    :subtitle="t('dashboard.metrics.units_count', { occupied: stats.occupied_units, total: stats.total_units })"
                     :icon="UserGroupIcon"
                     color="indigo"
                     :href="route('dashboard', { property_id: property.id, building_id: activeBuilding?.id, status: 'vacant' })"
@@ -765,29 +763,29 @@ onUnmounted(() => {
             <div v-if="currentTier" class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
-                        <h3 class="text-lg font-bold text-gray-800">Your Fee Tier</h3>
+                        <h3 class="text-lg font-bold text-gray-800">{{ t('dashboard.tier.title') }}</h3>
                         <p class="text-sm text-gray-500 mt-1">
-                            Current tier: <span class="font-semibold text-indigo-600">{{ currentTier.name }}</span>
-                            at <span class="font-semibold">{{ currentTier.fee_percentage }}%</span> per transaction
+                            {{ t('dashboard.tier.current') }} <span class="font-semibold text-indigo-600">{{ currentTier.name }}</span>
+                            {{ t('dashboard.tier.at') }} <span class="font-semibold">{{ currentTier.fee_percentage }}%</span> {{ t('dashboard.tier.per_transaction') }}
                         </p>
                     </div>
                     <div class="text-end">
-                        <p class="text-sm text-gray-500">MTD Payment Volume</p>
+                        <p class="text-sm text-gray-500">{{ t('dashboard.tier.mtd_volume') }}</p>
                         <p class="text-xl font-bold text-gray-900">{{ formatMoney(mtdVolume ?? 0) }}</p>
                     </div>
                 </div>
 
                 <div v-if="nextTier" class="mt-4">
                     <div class="flex items-center justify-between text-sm text-gray-500 mb-1">
-                        <span>Progress to {{ nextTier.name }} ({{ nextTier.fee_percentage }}%)</span>
-                        <span>{{ formatMoney(Math.max(0, nextTier.min_volume - (mtdVolume ?? 0))) }} remaining</span>
+                        <span>{{ t('dashboard.tier.progress_to', { name: nextTier.name, percentage: nextTier.fee_percentage }) }}</span>
+                        <span>{{ t('dashboard.tier.remaining', { amount: formatMoney(Math.max(0, nextTier.min_volume - (mtdVolume ?? 0))) }) }}</span>
                     </div>
                     <div class="w-full bg-gray-100 rounded-full h-2.5">
                         <div class="bg-indigo-600 h-2.5 rounded-full transition-all duration-500" :style="{ width: tierProgressPercent + '%' }"></div>
                     </div>
                 </div>
                 <div v-else class="mt-4">
-                    <p class="text-sm text-green-600 font-medium">You're on the highest tier — lowest fee rate!</p>
+                    <p class="text-sm text-green-600 font-medium">{{ t('dashboard.tier.highest') }}</p>
                 </div>
 
                 <div v-if="allTiers && allTiers.length > 1" class="mt-4 pt-4 border-t border-gray-100">
@@ -824,13 +822,13 @@ onUnmounted(() => {
                                 <h3 class="text-lg font-bold text-gray-800">{{ activeBuilding.name }}</h3>
                                 <p class="text-sm text-gray-500">
                                     <template v-if="hasWings && !activeWingFilter">
-                                        {{ allUnits?.length || 0 }} units across {{ wings.length }} wings
+                                        {{ t('dashboard.occupancy.units_across_wings', { units: allUnits?.length || 0, wings: wings.length }) }}
                                     </template>
                                     <template v-else-if="hasWings && activeWingFilter">
-                                        {{ displayedUnits?.length || 0 }} units in {{ activeWingName }}
+                                        {{ t('dashboard.occupancy.units_in_wing', { units: displayedUnits?.length || 0, wing: activeWingName }) }}
                                     </template>
                                     <template v-else>
-                                        {{ units.length }} units across {{ unitsByFloor.length }} floors
+                                        {{ t('dashboard.occupancy.units_across_floors', { units: units.length, floors: unitsByFloor.length }) }}
                                     </template>
                                 </p>
                             </div>
@@ -841,7 +839,7 @@ onUnmounted(() => {
                                 <div v-if="!hasWings || activeWingFilter" class="flex bg-gray-100 rounded-lg p-1">
                                     <button
                                         @click="viewMode = 'grid'"
-                                        aria-label="Grid view"
+                                        :aria-label="t('dashboard.occupancy.grid_view')"
                                         :aria-pressed="viewMode === 'grid'"
                                         :class="viewMode === 'grid' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500'"
                                         class="px-3 py-1.5 text-xs font-medium rounded-md transition-all"
@@ -850,7 +848,7 @@ onUnmounted(() => {
                                     </button>
                                     <button
                                         @click="viewMode = 'list'"
-                                        aria-label="List view"
+                                        :aria-label="t('dashboard.occupancy.list_view')"
                                         :aria-pressed="viewMode === 'list'"
                                         :class="viewMode === 'list' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500'"
                                         class="px-3 py-1.5 text-xs font-medium rounded-md transition-all"
@@ -861,9 +859,9 @@ onUnmounted(() => {
 
                                 <!-- Legend -->
                                 <div class="hidden sm:flex items-center gap-3 text-xs text-gray-500">
-                                    <span class="flex items-center gap-1"><span class="w-2 h-2 bg-green-500 rounded-full"></span> Occupied</span>
-                                    <span class="flex items-center gap-1"><span class="w-2 h-2 bg-gray-300 rounded-full"></span> Vacant</span>
-                                    <span class="flex items-center gap-1"><span class="w-2 h-2 bg-red-500 rounded-full"></span> Arrears</span>
+                                    <span class="flex items-center gap-1"><span class="w-2 h-2 bg-green-500 rounded-full"></span> {{ t('dashboard.occupancy.occupied') }}</span>
+                                    <span class="flex items-center gap-1"><span class="w-2 h-2 bg-gray-300 rounded-full"></span> {{ t('dashboard.occupancy.vacant') }}</span>
+                                    <span class="flex items-center gap-1"><span class="w-2 h-2 bg-red-500 rounded-full"></span> {{ t('dashboard.occupancy.arrears') }}</span>
                                 </div>
                             </div>
                         </div>
@@ -878,26 +876,16 @@ onUnmounted(() => {
                             <div class="flex items-center gap-2 px-4 py-3 border-b border-gray-100 overflow-x-auto">
                                 <button
                                     @click="setWingFilter(null)"
-                                    :class="[
-                                        'px-4 py-2 text-sm font-medium rounded-full transition-all whitespace-nowrap',
-                                        !activeWingFilter
-                                            ? 'bg-indigo-600 text-white shadow-sm'
-                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                    ]"
+                                    :class="['px-4 py-2 text-sm font-medium rounded-full transition-all whitespace-nowrap', !activeWingFilter ? 'bg-indigo-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200']"
                                 >
-                                    All Wings
+                                    {{ t('dashboard.occupancy.all_wings') }}
                                     <span class="ms-1.5 text-xs opacity-75">({{ allUnits?.length }})</span>
                                 </button>
                                 <button
                                     v-for="wing in wings"
                                     :key="wing.id"
                                     @click="setWingFilter(wing.id)"
-                                    :class="[
-                                        'px-4 py-2 text-sm font-medium rounded-full transition-all whitespace-nowrap',
-                                        activeWingFilter === wing.id
-                                            ? 'bg-indigo-600 text-white shadow-sm'
-                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                    ]"
+                                    :class="['px-4 py-2 text-sm font-medium rounded-full transition-all whitespace-nowrap', activeWingFilter === wing.id ? 'bg-indigo-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200']"
                                 >
                                     {{ wing.name }}
                                     <span class="ms-1.5 text-xs opacity-75">({{ wing.units?.length || unitsByWing.find(w => w.wing.id === wing.id)?.units?.length || 0 }})</span>
@@ -911,14 +899,8 @@ onUnmounted(() => {
                                         v-for="unit in displayedUnits"
                                         :key="unit.id"
                                         @click="selectUnit(unit)"
-                                        :class="[
-                                            'relative aspect-square rounded-xl border-2 p-1 flex flex-col items-center justify-center transition-all shadow-sm',
-                                            selectedUnit?.id === unit.id ? 'ring-2 ring-indigo-500 ring-offset-2' : 'hover:shadow-md hover:-translate-y-0.5',
-                                            unit.status === 'occupied' ? 'bg-green-50 border-green-200' :
-                                            unit.status === 'arrears' ? 'bg-red-50 border-red-200' :
-                                            'bg-white border-gray-200'
-                                        ]"
-                                        :title="'Unit ' + unit.unit_number + ' (' + (unit.wing_name || unit.building?.name || '') + ') - ' + (unit.status === 'occupied' ? 'Occupied' : unit.status === 'arrears' ? 'Arrears' : 'Vacant')"
+                                        :class="['relative aspect-square rounded-xl border-2 p-1 flex flex-col items-center justify-center transition-all shadow-sm', selectedUnit?.id === unit.id ? 'ring-2 ring-indigo-500 ring-offset-2' : 'hover:shadow-md hover:-translate-y-0.5', unit.status === 'occupied' ? 'bg-green-50 border-green-200' : unit.status === 'arrears' ? 'bg-red-50 border-red-200' : 'bg-white border-gray-200']"
+                                        :title="t('dashboard.occupancy.unit_title', { number: unit.unit_number, wing: (unit.wing_name || unit.building?.name || ''), status: (unit.status === 'occupied' ? t('dashboard.occupancy.occupied') : unit.status === 'arrears' ? t('dashboard.occupancy.arrears') : t('dashboard.occupancy.vacant')) })"
                                     >
                                         <!-- Wing Badge -->
                                         <span class="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-indigo-100 text-indigo-700 shadow-sm">
@@ -938,10 +920,10 @@ onUnmounted(() => {
                                     <!-- Floor Header -->
                                     <div class="px-4 sm:px-6 py-2 bg-gray-50 sticky top-0 z-10">
                                         <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                                            Floor {{ floorGroup.floor }}
+                                            {{ t('dashboard.occupancy.floor', { floor: floorGroup.floor }) }}
                                         </span>
                                         <span class="text-xs text-gray-400 ms-2">
-                                            {{ floorGroup.units.filter(u => u.status === 'occupied').length }}/{{ floorGroup.units.length }} occupied
+                                            {{ t('dashboard.occupancy.floor_occupied', { occupied: floorGroup.units.filter(u => u.status === 'occupied').length, total: floorGroup.units.length }) }}
                                         </span>
                                     </div>
 
@@ -964,7 +946,7 @@ onUnmounted(() => {
                                             >
                                                 <span class="text-sm font-bold">{{ unit.unit_number }}</span>
                                                 <span class="text-[10px] uppercase tracking-wide mt-0.5">
-                                                    {{ unit.status === 'occupied' ? 'Occ' : unit.status === 'arrears' ? 'Late' : 'Vac' }}
+                                                    {{ unit.status === 'occupied' ? t('dashboard.occupancy.status_occ') : unit.status === 'arrears' ? t('dashboard.occupancy.status_late') : t('dashboard.occupancy.status_vac') }}
                                                 </span>
                                             </button>
                                         </div>
@@ -978,7 +960,7 @@ onUnmounted(() => {
                                 <!-- Floor Header -->
                                 <div class="px-4 sm:px-6 py-2 bg-gray-50 sticky top-0 z-10 border-b border-gray-100">
                                     <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                                        Floor {{ floorGroup.floor }}
+                                        {{ t('dashboard.occupancy.floor', { floor: floorGroup.floor }) }}
                                     </span>
                                 </div>
 
@@ -992,31 +974,21 @@ onUnmounted(() => {
                                         class="w-full px-4 sm:px-6 py-3 flex items-center justify-between text-start transition-colors"
                                     >
                                         <div class="flex items-center gap-3">
-                                            <div :class="[
-                                                'w-10 h-10 rounded-lg flex items-center justify-center font-bold text-sm',
-                                                unit.status === 'occupied' ? 'bg-green-100 text-green-700' :
-                                                unit.status === 'arrears' ? 'bg-red-100 text-red-700' :
-                                                'bg-gray-100 text-gray-500'
-                                            ]">
+                                            <div :class="['w-10 h-10 rounded-lg flex items-center justify-center font-bold text-sm', unit.status === 'occupied' ? 'bg-green-100 text-green-700' : unit.status === 'arrears' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-500']">
                                                 {{ unit.unit_number }}
                                             </div>
                                             <div>
                                                 <div class="text-sm font-medium text-gray-900">
-                                                    {{ unit.unit_type || 'Unit' }} {{ unit.unit_number }}
+                                                    {{ unit.unit_type || t('dashboard.occupancy.unit_fallback') }} {{ unit.unit_number }}
                                                 </div>
                                                 <div class="text-xs text-gray-500">
-                                                    {{ formatMoney(unit.target_rent) }}/month
+                                                    {{ t('dashboard.occupancy.rent_per_month', { amount: formatMoney(unit.target_rent) }) }}
                                                 </div>
                                             </div>
                                         </div>
                                         <div class="flex items-center gap-2">
-                                            <span :class="[
-                                                'text-xs font-medium px-2 py-1 rounded-full',
-                                                unit.status === 'occupied' ? 'bg-green-100 text-green-700' :
-                                                unit.status === 'arrears' ? 'bg-red-100 text-red-700' :
-                                                'bg-gray-100 text-gray-500'
-                                            ]">
-                                                {{ unit.status === 'occupied' ? 'Occupied' : unit.status === 'arrears' ? 'Arrears' : 'Vacant' }}
+                                            <span :class="['text-xs font-medium px-2 py-1 rounded-full', unit.status === 'occupied' ? 'bg-green-100 text-green-700' : unit.status === 'arrears' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-500']">
+                                                {{ unit.status === 'occupied' ? t('dashboard.occupancy.occupied') : unit.status === 'arrears' ? t('dashboard.occupancy.arrears') : t('dashboard.occupancy.vacant') }}
                                             </span>
                                             <ChevronRightIcon class="w-4 h-4 text-gray-400" />
                                         </div>
@@ -1031,7 +1003,7 @@ onUnmounted(() => {
                 <!-- ARREARS AGING (1 column) -->
                 <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
                     <h3 class="text-lg font-bold text-gray-800 mb-6">
-                        Arrears Aging
+                        {{ t('dashboard.arrears.title') }}
                         <span v-if="activeWingFilter" class="text-sm font-normal text-indigo-600 ms-1">({{ activeWingName }})</span>
                     </h3>
 
@@ -1041,7 +1013,7 @@ onUnmounted(() => {
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center gap-3">
                                     <div class="w-3 h-3 rounded-full bg-yellow-400"></div>
-                                    <span class="text-sm text-gray-600">0-30 days</span>
+                                    <span class="text-sm text-gray-600">{{ t('dashboard.arrears.days_0_30') }}</span>
                                 </div>
                                 <span class="font-semibold text-gray-900">{{ formatMoney(localArrearsAging['0_30']) }}</span>
                             </div>
@@ -1055,7 +1027,7 @@ onUnmounted(() => {
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center gap-3">
                                     <div class="w-3 h-3 rounded-full bg-orange-400"></div>
-                                    <span class="text-sm text-gray-600">31-60 days</span>
+                                    <span class="text-sm text-gray-600">{{ t('dashboard.arrears.days_31_60') }}</span>
                                 </div>
                                 <span class="font-semibold text-gray-900">{{ formatMoney(localArrearsAging['31_60']) }}</span>
                             </div>
@@ -1069,7 +1041,7 @@ onUnmounted(() => {
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center gap-3">
                                     <div class="w-3 h-3 rounded-full bg-red-400"></div>
-                                    <span class="text-sm text-gray-600">61-90 days</span>
+                                    <span class="text-sm text-gray-600">{{ t('dashboard.arrears.days_61_90') }}</span>
                                 </div>
                                 <span class="font-semibold text-gray-900">{{ formatMoney(localArrearsAging['61_90']) }}</span>
                             </div>
@@ -1083,7 +1055,7 @@ onUnmounted(() => {
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center gap-3">
                                     <div class="w-3 h-3 rounded-full bg-red-700"></div>
-                                    <span class="text-sm text-gray-600">90+ days</span>
+                                    <span class="text-sm text-gray-600">{{ t('dashboard.arrears.days_90_plus') }}</span>
                                 </div>
                                 <span class="font-semibold text-gray-900">{{ formatMoney(localArrearsAging['90_plus']) }}</span>
                             </div>
@@ -1095,7 +1067,7 @@ onUnmounted(() => {
                         <!-- Total -->
                         <Link :href="route('invoices.index', { status: 'overdue' })" class="block pt-4 border-t border-gray-200 mt-4 hover:bg-gray-50 rounded-lg p-2 -m-2 transition-colors cursor-pointer">
                             <div class="flex items-center justify-between">
-                                <span class="text-sm font-medium text-gray-700">Total Outstanding</span>
+                                <span class="text-sm font-medium text-gray-700">{{ t('dashboard.arrears.total_outstanding') }}</span>
                                 <span class="text-xl font-bold text-gray-900">{{ formatMoney(totalArrears) }}</span>
                             </div>
                         </Link>
@@ -1103,21 +1075,21 @@ onUnmounted(() => {
 
                     <div v-else class="text-center py-8">
                         <CheckCircleIcon class="w-12 h-12 text-green-500 mx-auto mb-3" />
-                        <p class="text-gray-500">No outstanding arrears</p>
-                        <p class="text-sm text-gray-400">All invoices are current</p>
+                        <p class="text-gray-500">{{ t('dashboard.arrears.none') }}</p>
+                        <p class="text-sm text-gray-400">{{ t('dashboard.arrears.all_current') }}</p>
                     </div>
                 </div>
             </div>
 
             <!-- === BUILDING FILTER CHIP === -->
             <div v-if="buildings && buildings.length > 1" class="flex items-center gap-2 text-sm">
-                <span class="text-gray-500">Showing:</span>
+                <span class="text-gray-500">{{ t('dashboard.building_chip.showing') }}</span>
                 <span
                     class="inline-flex items-center gap-1 rounded-full px-3 py-1 font-medium"
                     :class="allBuildingsMode ? 'bg-indigo-100 text-indigo-800' : 'bg-emerald-100 text-emerald-800'"
                     data-testid="dashboard-building-chip"
                 >
-                    {{ allBuildingsMode ? 'All buildings' : (activeBuilding?.name || 'Building') }}
+                    {{ allBuildingsMode ? t('dashboard.building_chip.all_buildings') : (activeBuilding?.name || t('dashboard.building_chip.building_fallback')) }}
                     <Link
                         v-if="!allBuildingsMode"
                         :href="route('dashboard', { property_id: property.id, building_id: 'all' })"
@@ -1164,11 +1136,11 @@ onUnmounted(() => {
                 >
                     <div class="flex items-center justify-between mb-4">
                         <h3 class="text-lg font-bold text-gray-800">
-                            Recent Payments
+                            {{ t('dashboard.payments.title') }}
                             <span v-if="activeWingFilter" class="text-sm font-normal text-indigo-600 ms-1">({{ activeWingName }})</span>
                         </h3>
                         <Link :href="route('invoices.index')" class="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center">
-                            View All <ChevronRightIcon class="w-4 h-4 ms-1" />
+                            {{ t('dashboard.payments.view_all') }} <ChevronRightIcon class="w-4 h-4 ms-1" />
                         </Link>
                     </div>
 
@@ -1182,7 +1154,7 @@ onUnmounted(() => {
                                 </div>
                                 <div>
                                     <p class="font-medium text-gray-900">
-                                        {{ payment.invoice?.lease?.tenant?.name || 'Unknown' }}
+                                        {{ payment.invoice?.lease?.tenant?.name || t('dashboard.payments.unknown') }}
                                         <span
                                             v-if="payment.lease_state && payment.lease_state !== 'active'"
                                             class="ml-1 inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium"
@@ -1199,7 +1171,7 @@ onUnmounted(() => {
                             <div class="text-end">
                                 <p
                                     class="font-bold text-green-600"
-                                    :title="payment.platform_fee ? `Net: ${formatMoney(payment.landlord_amount)} (Fee: ${formatMoney(payment.platform_fee)})` : undefined"
+                                    :title="payment.platform_fee ? t('dashboard.payments.net_fee', { net: formatMoney(payment.landlord_amount), fee: formatMoney(payment.platform_fee) }) : undefined"
                                 >
                                     {{ formatMoney(payment.amount) }}
                                 </p>
@@ -1209,7 +1181,7 @@ onUnmounted(() => {
                     </div>
                     <div v-else class="text-center py-8">
                         <BanknotesIcon class="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                        <p class="text-gray-500">No recent payments</p>
+                        <p class="text-gray-500">{{ t('dashboard.payments.none') }}</p>
                     </div>
                 </div>
 
@@ -1225,11 +1197,11 @@ onUnmounted(() => {
                 >
                     <div class="flex items-center justify-between mb-4">
                         <h3 class="text-lg font-bold text-gray-800">
-                            Recent Tickets
+                            {{ t('dashboard.tickets.title') }}
                             <span v-if="activeWingFilter" class="text-sm font-normal text-indigo-600 ms-1">({{ activeWingName }})</span>
                         </h3>
                         <Link :href="route('tickets.index')" class="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center">
-                            View All <ChevronRightIcon class="w-4 h-4 ms-1" />
+                            {{ t('dashboard.tickets.view_all') }} <ChevronRightIcon class="w-4 h-4 ms-1" />
                         </Link>
                     </div>
 
@@ -1249,7 +1221,7 @@ onUnmounted(() => {
                                 <div>
                                     <p class="font-medium text-gray-900 truncate max-w-[140px]">{{ ticket.title }}</p>
                                     <p class="text-xs text-gray-500">
-                                        {{ ticket.unit_number || 'Building' }} • {{ ticket.reporter_name || 'Unknown' }}
+                                        {{ ticket.unit_number || t('dashboard.tickets.building_fallback') }} • {{ ticket.reporter_name || t('dashboard.tickets.unknown') }}
                                     </p>
                                 </div>
                             </div>
@@ -1269,7 +1241,7 @@ onUnmounted(() => {
                     </div>
                     <div v-else class="text-center py-8">
                         <TicketIcon class="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                        <p class="text-gray-500">No recent tickets</p>
+                        <p class="text-gray-500">{{ t('dashboard.tickets.none') }}</p>
                     </div>
                 </div>
 
@@ -1285,10 +1257,10 @@ onUnmounted(() => {
                 >
                     <div class="flex items-center justify-between mb-4">
                         <h3 class="text-lg font-bold text-gray-800">
-                            Expiring Leases
+                            {{ t('dashboard.leases.title') }}
                             <span v-if="activeWingFilter" class="text-sm font-normal text-indigo-600 ms-1">({{ activeWingName }})</span>
                         </h3>
-                        <span class="text-sm text-gray-500">Next 60 days</span>
+                        <span class="text-sm text-gray-500">{{ t('dashboard.leases.next_60_days') }}</span>
                     </div>
 
                     <div v-if="expiringLeases && expiringLeases.length > 0" class="space-y-3">
@@ -1300,7 +1272,7 @@ onUnmounted(() => {
                                     <CalendarDaysIcon class="w-5 h-5" />
                                 </div>
                                 <div>
-                                    <p class="font-medium text-gray-900">{{ lease.tenant?.name || 'Unknown' }}</p>
+                                    <p class="font-medium text-gray-900">{{ lease.tenant?.name || t('dashboard.leases.unknown') }}</p>
                                     <p class="text-xs text-gray-500">{{ lease.unit?.building?.name }} - {{ lease.unit?.unit_number }}</p>
                                 </div>
                             </div>
@@ -1312,36 +1284,36 @@ onUnmounted(() => {
                     </div>
                     <div v-else class="text-center py-8">
                         <CheckCircleIcon class="w-12 h-12 text-green-500 mx-auto mb-3" />
-                        <p class="text-gray-500">No leases expiring soon</p>
-                        <p class="text-sm text-gray-400">All leases are current</p>
+                        <p class="text-gray-500">{{ t('dashboard.leases.none') }}</p>
+                        <p class="text-sm text-gray-400">{{ t('dashboard.leases.all_current') }}</p>
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- RIGHT SIDEBAR (Unit Context Panel) - Using SlideOutPanel -->
-        <SlideOutPanel :show="selectedUnit !== null" @close="closePanel" :title="'Unit ' + (selectedUnit?.unit_number || '')" :subtitle="'Floor ' + (selectedUnit?.floor_number || '') + ' - ' + (selectedUnit?.unit_type || '')">
+        <SlideOutPanel :show="selectedUnit !== null" @close="closePanel" :title="t('dashboard.panel.unit_title', { number: selectedUnit?.unit_number || '' })" :subtitle="t('dashboard.panel.unit_subtitle', { floor: selectedUnit?.floor_number || '', type: selectedUnit?.unit_type || '' })">
             <template #default>
                 <div v-if="selectedUnit" class="space-y-6">
                     <div>
-                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Financials</h3>
+                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">{{ t('dashboard.panel.financials') }}</h3>
                         <div class="flex justify-between items-center p-4 bg-white border border-gray-200 rounded-lg">
-                            <span class="text-gray-600">Monthly Rent</span>
+                            <span class="text-gray-600">{{ t('dashboard.panel.monthly_rent') }}</span>
                             <span class="text-xl font-bold text-gray-900">{{ formatMoney(selectedUnit.target_rent) }}</span>
                         </div>
                     </div>
 
                     <div v-if="selectedUnit.status === 'vacant'" class="bg-indigo-50 p-6 rounded-xl border border-indigo-100 text-center">
                         <UserGroupIcon class="w-10 h-10 text-indigo-600 mx-auto mb-3"/>
-                        <h3 class="font-bold text-indigo-900">Ready to Lease</h3>
-                        <p class="text-sm text-indigo-700 mb-4">Add a tenant to start collecting rent.</p>
+                        <h3 class="font-bold text-indigo-900">{{ t('dashboard.panel.ready_to_lease') }}</h3>
+                        <p class="text-sm text-indigo-700 mb-4">{{ t('dashboard.panel.add_tenant_prompt') }}</p>
                         <Link :href="route('leases.create', selectedUnit.id)" class="block w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow-sm transition-colors">
-                            + Add Tenant
+                            {{ t('dashboard.panel.add_tenant') }}
                         </Link>
                     </div>
 
                     <div v-else-if="selectedUnit.active_lease" class="space-y-4">
-                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider">Tenant Profile</h3>
+                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider">{{ t('dashboard.panel.tenant_profile') }}</h3>
                         <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
                             <div class="flex items-center gap-3 mb-4">
                                 <div class="h-12 w-12 rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden">
@@ -1356,13 +1328,13 @@ onUnmounted(() => {
                                     </span>
                                 </div>
                                 <div>
-                                    <div class="font-bold text-gray-900">{{ selectedUnit.active_lease.tenant?.name || 'Unknown' }}</div>
+                                    <div class="font-bold text-gray-900">{{ selectedUnit.active_lease.tenant?.name || t('dashboard.panel.unknown') }}</div>
                                     <div class="text-xs text-gray-500">{{ selectedUnit.active_lease.tenant?.email || '' }}</div>
                                 </div>
                             </div>
 
                             <div v-if="loadingUnitDetail" class="text-center py-2">
-                                <span class="text-sm text-gray-400">Loading...</span>
+                                <span class="text-sm text-gray-400">{{ t('dashboard.panel.loading') }}</span>
                             </div>
                             <div v-else-if="unitDetail?.tenant" class="space-y-2 text-sm mb-4">
                                 <div v-if="unitDetail.tenant.phone" class="flex items-center gap-2">
@@ -1377,33 +1349,29 @@ onUnmounted(() => {
                                     <span v-if="unitDetail.tenant.kyc_complete"
                                           class="inline-flex items-center gap-1 text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">
                                         <CheckBadgeIcon class="w-3 h-3" />
-                                        KYC Verified
+                                        {{ t('dashboard.panel.kyc_verified') }}
                                     </span>
-                                    <span v-else
-                                          class="inline-flex items-center gap-1 text-xs px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full">
+                                    <span v-else class="inline-flex items-center gap-1 text-xs px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full">
                                         <ExclamationTriangleIcon class="w-3 h-3" />
-                                        KYC Incomplete
+                                        {{ t('dashboard.panel.kyc_incomplete') }}
                                     </span>
                                 </div>
                             </div>
 
-                            <button @click="showProfileModal = true" class="w-full py-2 bg-white border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 shadow-sm mb-2">View Full Profile</button>
-                            <Link :href="route('invoices.index')" class="block w-full py-2 bg-green-600 text-white text-center font-bold rounded-lg hover:bg-green-700 shadow-sm">View Invoices</Link>
+                            <button @click="showProfileModal = true" class="w-full py-2 bg-white border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 shadow-sm mb-2">{{ t('dashboard.panel.view_full_profile') }}</button>
+                            <Link :href="route('invoices.index')" class="block w-full py-2 bg-green-600 text-white text-center font-bold rounded-lg hover:bg-green-700 shadow-sm">{{ t('dashboard.panel.view_invoices') }}</Link>
                         </div>
 
                         <!-- Unit Tickets -->
                         <div v-if="unitDetail?.tickets?.length > 0">
-                            <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Unit Tickets</h3>
+                            <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">{{ t('dashboard.panel.unit_tickets') }}</h3>
                             <div class="space-y-2">
                                 <Link v-for="ticket in unitDetail.tickets" :key="ticket.id"
                                       :href="route('tickets.show', ticket.id)"
                                       class="block p-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50">
                                     <div class="flex justify-between items-start">
                                         <p class="text-sm font-medium text-gray-900 truncate">{{ ticket.title }}</p>
-                                        <span :class="[
-                                            'text-xs px-1.5 py-0.5 rounded-full',
-                                            ticket.priority === 'urgent' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'
-                                        ]">{{ ticket.priority }}</span>
+                                        <span :class="['text-xs px-1.5 py-0.5 rounded-full', ticket.priority === 'urgent' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600']">{{ ticket.priority }}</span>
                                     </div>
                                     <p class="text-xs text-gray-500 mt-1">{{ formatRelativeDate(ticket.created_at) }}</p>
                                 </Link>
@@ -1412,7 +1380,7 @@ onUnmounted(() => {
 
                         <!-- Payment History -->
                         <div v-if="unitDetail?.payments?.length > 0">
-                            <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Recent Payments</h3>
+                            <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">{{ t('dashboard.panel.recent_payments') }}</h3>
                             <div class="space-y-2">
                                 <div v-for="payment in unitDetail.payments" :key="payment.id"
                                      class="flex justify-between items-center p-3 bg-white border border-gray-200 rounded-lg">
@@ -1427,15 +1395,15 @@ onUnmounted(() => {
                     </div>
 
                     <div>
-                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Quick Actions</h3>
+                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">{{ t('dashboard.panel.quick_actions') }}</h3>
                         <div class="space-y-2">
                             <Link v-if="selectedUnit.active_lease" :href="route('tickets.create', { unit_id: selectedUnit.id })" class="flex items-center gap-2 p-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50">
                                 <TicketIcon class="w-5 h-5 text-gray-500" />
-                                <span class="text-sm font-medium text-gray-700">Create Ticket</span>
+                                <span class="text-sm font-medium text-gray-700">{{ t('dashboard.panel.create_ticket') }}</span>
                             </Link>
                             <Link :href="route('buildings.edit', activeBuilding.id)" class="flex items-center gap-2 p-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50">
                                 <WrenchScrewdriverIcon class="w-5 h-5 text-gray-500" />
-                                <span class="text-sm font-medium text-gray-700">Edit Unit</span>
+                                <span class="text-sm font-medium text-gray-700">{{ t('dashboard.panel.edit_unit') }}</span>
                             </Link>
                         </div>
                     </div>
