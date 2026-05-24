@@ -303,6 +303,7 @@ const navigationItems = computed(() => {
     if (role === 'water_client') {
         return [
             { name: t('nav.dashboard'), href: route('dashboard'), icon: HomeIcon, active: route().current('dashboard'), tour: 'nav-dashboard' },
+            { name: t('nav.my_water_charges'), href: route('water-client.finances'), icon: BanknotesIcon, active: route().current('water-client.finances') },
         ];
     }
 

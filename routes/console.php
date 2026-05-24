@@ -414,6 +414,16 @@ Schedule::command('water:arrears-notify')
     ->withoutOverlapping()
     ->name('phase90-water-arrears-notify');
 
+// Phase-97 WATER-CLIENT-BILLING: bill water clients for the completed month. Runs
+// on the 2nd at 04:00 — after the daily review-window has auto-approved the prior
+// month's readings, so consumption is final. Idempotent per connection+period.
+Schedule::command('water:bill-clients')
+    ->monthlyOn(2, '04:00')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->withoutOverlapping()
+    ->name('phase97-water-bill-clients');
+
 // Phase-45 LEASE-COUNTER-3: expire counter-offers older than 14 days.
 // Runs at 06:00 — before tickets:audit-sla (07:00) so any expiry
 // notification email is already in the queue when the day's batch fires.

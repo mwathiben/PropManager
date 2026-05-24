@@ -41,6 +41,7 @@ class NotificationPreference extends Model
         'water_reading_due_enabled',
         'water_review_due_enabled',
         'water_arrears_enabled',
+        'water_bill_due_enabled',
         // Channel preferences
         'email_enabled',
         'sms_enabled',
@@ -78,6 +79,7 @@ class NotificationPreference extends Model
         'water_reading_due_enabled' => 'boolean',
         'water_review_due_enabled' => 'boolean',
         'water_arrears_enabled' => 'boolean',
+        'water_bill_due_enabled' => 'boolean',
         // Channel casts
         'email_enabled' => 'boolean',
         'sms_enabled' => 'boolean',

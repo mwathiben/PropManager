@@ -239,6 +239,13 @@ class WaterHubController extends Controller
     {
         $config = \App\Models\PaymentConfiguration::where('landlord_id', $landlordId)->first();
 
+        // Phase-97: outstanding water-client balance per connection (one batched query,
+        // shared formula with the client finances surface).
+        $outstanding = \App\Models\WaterClientCharge::outstandingByConnection($landlordId);
+        $defaultRate = ($config && $config->water_client_rate !== null && (float) $config->water_client_rate > 0)
+            ? (float) $config->water_client_rate
+            : null;
+
         $connections = \App\Models\WaterConnection::query()
             ->where('landlord_id', $landlordId)
             ->with(['meter:id,serial_number', 'unit:id,unit_number', 'client:id,name'])
@@ -258,6 +265,10 @@ class WaterHubController extends Controller
                 'unit' => $c->unit?->unit_number,
                 'connected_at' => $c->connected_at?->toDateString(),
                 'notes' => $c->notes,
+                'outstanding' => round((float) ($outstanding[$c->id] ?? 0), 2),
+                // Surface why a line won't bill, so the landlord can fix it (the biller
+                // refuses these — it never silently bills 0).
+                'billing_issue' => $this->billingIssue($c, $defaultRate),
             ]);
 
         $meters = \App\Models\Meter::query()
@@ -278,6 +289,26 @@ class WaterHubController extends Controller
                 'billing_modes' => \App\Models\WaterConnection::BILLING_MODES,
             ],
         ];
+    }
+
+    /**
+     * Phase-97: why the biller would refuse this line (so the landlord can fix it).
+     * Mirrors WaterClientBillingService's guards: metered-without-meter, or no rate.
+     */
+    private function billingIssue(\App\Models\WaterConnection $c, ?float $defaultRate): ?string
+    {
+        if ($c->status !== 'active') {
+            return null;
+        }
+        if ($c->billing_mode === 'metered' && $c->meter === null) {
+            return 'no_meter';
+        }
+        $rate = ($c->client_rate !== null && (float) $c->client_rate > 0) ? (float) $c->client_rate : $defaultRate;
+        if ($rate === null) {
+            return 'no_rate';
+        }
+
+        return null;
     }
 
     private function getCounts(int $landlordId): array

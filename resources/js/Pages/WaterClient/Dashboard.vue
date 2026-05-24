@@ -83,7 +83,7 @@ const { formatMoney } = useFormatters();
                     </div>
 
                     <template v-if="c.has_meter">
-                        <WaterDisconnectionBanner :disconnected="c.disconnection.disconnected" :reason="c.disconnection.reason" :pay-url="null" />
+                        <WaterDisconnectionBanner :disconnected="c.disconnection.disconnected" :reason="c.disconnection.reason" :pay-url="route('water-client.finances')" />
                         <WaterUsageAlert :alert="c.alert" />
                         <WaterConsumptionCard :history="c.history" :summary="c.summary" />
                         <WaterChargesCard :charges="c.charges" />

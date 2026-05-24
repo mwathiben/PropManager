@@ -1,0 +1,53 @@
+{
+  "phase": 97,
+  "name": "WATER-CLIENT-BILLING",
+  "epic": "water-clients 4/4 — FINAL water-domain phase (86-97 complete)",
+  "summary": "Bill water clients (a WaterConnection, not a lease) at the connection's effective rate via the Phase-87 tariff engine; show the charges on the dashboard; let the landlord record payments; give the client a finances page; notify on a new bill.",
+  "findings": [
+    {
+      "id": "WCB-1-PERSISTENCE",
+      "title": "water_client_charges table (lease-free billing)",
+      "detail": "NEW water_client_charges (landlord_id, water_connection_id, billing_period_start, consumption nullable, water_due, amount_paid, status, due_date; TenantScope+SoftDeletes; unique [connection,period] named wcc_connection_period_unique). invoices.lease_id is NOT NULL so a dedicated table (per the Phase-91 water_production_costs precedent).",
+      "passes": true
+    },
+    {
+      "id": "WCB-2-BILLER",
+      "title": "WaterClientBillingService at the client rate via the tariff engine",
+      "detail": "billConnection: metered = approved readings for the connection meter (bounded by connected_at + landlord_id) x effective rate via WaterTariffService::computeConsumptionCharge; flat_rate = the fixed rate. Idempotent per period (unique + existence check). billForPeriod isolates per-connection failures. water:bill-clients cron monthlyOn(2) for the completed month.",
+      "passes": true
+    },
+    {
+      "id": "WCB-3-GUARDS",
+      "title": "The two deferred guards — refuse, never coerce 0",
+      "detail": "No effective rate (client_rate ?? landlord water_client_rate, treating a non-positive value as unset) -> skipped no_rate. billing_mode=metered with no readable meter -> skipped metered_no_meter. Neither produces a 0 charge. Misconfigured lines are surfaced to the landlord on the Clients tab (billing_issue chip), not just logged.",
+      "passes": true
+    },
+    {
+      "id": "WCB-4-DASHBOARD-CHARGES",
+      "title": "Dashboard + finances charges",
+      "detail": "WaterAccountService::chargeHistoryForConnection populates the dashboard charges (the Phase-96 WaterChargesCard) regardless of meter. Water-client finances page (route water-client.finances) shows charges + outstanding + how-to-pay, reached via the dashboard banner payUrl + a nav link.",
+      "passes": true
+    },
+    {
+      "id": "WCB-5-PAYMENT",
+      "title": "Landlord record-payment",
+      "detail": "WaterConnectionController::recordPayment (ownership-checked) -> WaterClientBillingService::applyPayment applies a lump sum across unpaid charges oldest-first (lockForUpdate, transactional); overpayment is surfaced, not silently absorbed. ClientsTab outstanding + record-payment modal.",
+      "passes": true
+    },
+    {
+      "id": "WCB-6-NOTIFICATION",
+      "title": "water_bill_due notification (3 layers)",
+      "detail": "NET-NEW notification type water_bill_due (const + TYPE_URGENCY_MAP, notification_preferences.water_bill_due_enabled, notifications.type ENUM). Sent to the onboarded client when a charge is billed (honoured via NotificationPreference::canReceive).",
+      "passes": true
+    }
+  ],
+  "closeout": {
+    "closed_at": "2026-05-24",
+    "result": "6/6 findings pass — zero deferrals. FINAL water-domain phase: 86-97 COMPLETE.",
+    "summary": "Water clients are now fully billable. A NEW water_client_charges table (lease-free; the invoices table is lease-coupled) holds a charge per connection per period. WaterClientBillingService bills metered lines from their meter readings (bounded by connected_at + landlord_id) and flat-rate lines at the fixed rate, both at the effective rate (connection.client_rate ?? landlord water_client_rate) via the Phase-87 WaterTariffService, idempotent per period. The water:bill-clients cron (monthlyOn the 2nd, the completed month) bills active connections with per-landlord isolation and notifies onboarded clients (water_bill_due, the 3-layer recipe). The dashboard charges (Phase-96 WaterChargesCard) populate via WaterAccountService::chargeHistoryForConnection; a water-client finances page (route water-client.finances) shows charges + outstanding + how-to-pay (the dashboard banner payUrl + a nav link); the landlord records payments (record-payment endpoint -> applyPayment oldest-first, transactional, overpayment surfaced) from the Clients tab.",
+    "guards": "THE TWO DEFERRED GUARDS hold: no effective rate (a non-positive rate counts as unset) -> refuse (skipped no_rate); metered-without-readable-meter -> refuse (skipped metered_no_meter). Neither ever coerces a 0 charge. Misconfigured lines surface on the Clients tab (billing_issue chip), not just the log.",
+    "tests": "Phase-97 tests: WaterClientBilling 16 (metered/flat/fallback, idempotency, BOTH guards + the 0-rate-is-no-rate edge, no-consumption skip, record-payment oldest-first + endpoint + overpayment-surfaced + cross-landlord, dashboard charges, finances, command+notification) + Surface 6. Full Water suite 233 green. Pint/build(exit 0)/eslint(0 errors)/nav-audit clean; lang parity water 300. Dev DB migrated.",
+    "review": "Multi-reviewer read-only pass (CodeRabbit + pr-review code-reviewer + silent-failure-hunter). Found + FIXED: CRITICAL a stored 0 rate bypassed the no-rate guard -> silent 0-bill (effectiveRate now treats <=0 as unset); HIGH overpayment silently absorbed (recordPayment now surfaces the unapplied remainder); HIGH withoutGlobalScopes() stripped SoftDeletes (-> withoutGlobalScope(landlord) keeps deleted_at filtering); MEDIUM two divergent outstanding calcs unified into WaterClientCharge::outstandingForConnection/outstandingByConnection; MEDIUM misconfigured lines now surfaced on the Clients tab; LOW dropped the unwired void policy method. Migration index-name-too-long (>64 chars) fixed with an explicit name.",
+    "constraints_preserved": "Lease-free billing (dedicated table; invoices.lease_id NOT NULL untouched). Effective rate = client_rate ?? landlord water_client_rate, non-positive = unset. Cross-account isolation: readings bounded by connected_at + landlord_id + meter; charge queries keep SoftDeletes (withoutGlobalScope(landlord), not withoutGlobalScopes). Idempotent (unique [connection,period]). Money decimal:2, every op rounded; applyPayment transactional + lockForUpdate. Per-landlord poison-row isolation in the cron. Notifications honour the per-type pref. Water-client charges intentionally exclude the building standing/sewerage/VAT levies (the client_rate is the agreed neighbour price)."
+  }
+}

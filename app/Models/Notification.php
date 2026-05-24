@@ -53,6 +53,9 @@ class Notification extends Model
     // Phase-90: tenant warned of water arrears / pending disconnection.
     public const TYPE_WATER_ARREARS = 'water_arrears';
 
+    // Phase-97: water client billed for a period (a new water-client charge).
+    public const TYPE_WATER_BILL_DUE = 'water_bill_due';
+
     // Channel constants
     public const CHANNEL_EMAIL = 'email';
 
@@ -122,6 +125,7 @@ class Notification extends Model
         self::TYPE_WATER_READING_DUE => self::URGENCY_IMPORTANT,
         self::TYPE_WATER_REVIEW_DUE => self::URGENCY_IMPORTANT,
         self::TYPE_WATER_ARREARS => self::URGENCY_IMPORTANT,
+        self::TYPE_WATER_BILL_DUE => self::URGENCY_IMPORTANT,
         self::TYPE_CARETAKER_INVITATION => self::URGENCY_IMPORTANT,
         self::TYPE_TENANT_INVITATION => self::URGENCY_IMPORTANT,
         self::TYPE_RECEIPT => self::URGENCY_INFORMATIONAL,

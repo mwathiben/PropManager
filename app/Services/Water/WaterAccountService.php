@@ -55,12 +55,16 @@ class WaterAccountService
      * Phase-96 WATER-CLIENT-DASHBOARD: the same overview for a water client's line.
      * The connection IS the account — readings come from its meter, bounded to when
      * the line was connected (so a meter that previously served a tenant doesn't
-     * leak that history). Charges are empty until the Phase-97 biller exists.
+     * leak that history). Phase-97: charges come from water_client_charges and are
+     * shown regardless of meter (a flat-rate line bills with no meter).
      *
      * @return array<string, mixed>
      */
     public function overviewForConnection(WaterConnection $connection): array
     {
+        // Charges are meter-independent — a flat-rate line still bills.
+        $charges = $this->chargeHistoryForConnection($connection);
+
         // Resolve the meter through the (soft-delete- and tenant-scoped) relation,
         // NOT the raw meter_id: a decommissioned or foreign meter must never drive
         // the account. Belt-and-suspenders, every read below is also bounded by
@@ -69,7 +73,7 @@ class WaterAccountService
         $meter = $connection->meter;
         if ($meter === null) {
             // A flat-rate, not-yet-metered, or decommissioned line has no consumption.
-            return $this->emptyAccount();
+            return $this->emptyAccount($charges);
         }
 
         $since = ($connection->connected_at ?? $connection->created_at)?->toDateString();
@@ -79,24 +83,51 @@ class WaterAccountService
             'history' => $this->historyFor('meter_id', $meter->id, $since, null, $landlordId),
             'summary' => $this->summaryFor('meter_id', $meter->id, $since, null, $landlordId),
             'alert' => $this->anomalyFor('meter_id', $meter->id, $since, null, $landlordId),
-            'charges' => [], // Phase 97 introduces per-connection water charges.
+            'charges' => $charges,
             'disconnection' => $this->disconnectionForMeter($meter->id, $landlordId),
         ];
     }
 
     /**
-     * The shared shape for a line with no readable meter (flat-rate, not yet
-     * metered, decommissioned, or — defensively — a foreign meter id).
+     * Phase-97: the connection's water-client charge history, in the same shape as
+     * the tenant chargeHistory() so the shared WaterChargesCard renders it verbatim.
      *
+     * @return list<array{period:?string, water_due:float, paid:bool, status:string}>
+     */
+    public function chargeHistoryForConnection(WaterConnection $connection): array
+    {
+        $start = Carbon::now()->startOfMonth()->subMonthsNoOverflow(self::HISTORY_MONTHS - 1)->toDateString();
+
+        return DB::table('water_client_charges')
+            ->where('water_connection_id', $connection->id)
+            ->whereNull('deleted_at')
+            ->where('status', '!=', 'voided')
+            ->where('billing_period_start', '>=', $start)
+            ->orderByDesc('billing_period_start')
+            ->get(['billing_period_start', 'water_due', 'amount_paid', 'status'])
+            ->map(fn ($c) => [
+                'period' => $c->billing_period_start ? Carbon::parse($c->billing_period_start)->format('Y-m') : null,
+                'water_due' => round((float) $c->water_due, 2),
+                'paid' => (float) $c->amount_paid >= (float) $c->water_due,
+                'status' => (string) $c->status,
+            ])->all();
+    }
+
+    /**
+     * The shared shape for a line with no readable meter (flat-rate, not yet
+     * metered, decommissioned, or — defensively — a foreign meter id). Charges are
+     * passed in because they're meter-independent (a flat-rate line still bills).
+     *
+     * @param  list<array{period:?string, water_due:float, paid:bool, status:string}>  $charges
      * @return array<string, mixed>
      */
-    private function emptyAccount(): array
+    private function emptyAccount(array $charges = []): array
     {
         return [
             'history' => $this->buildBuckets(collect()),
             'summary' => ['latest_consumption' => null, 'latest_date' => null, 'avg_monthly' => 0, 'ytd_consumption' => 0],
             'alert' => null,
-            'charges' => [],
+            'charges' => $charges,
             'disconnection' => ['disconnected' => false, 'reason' => null],
         ];
     }

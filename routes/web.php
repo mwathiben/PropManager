@@ -656,6 +656,10 @@ Route::middleware('auth')->group(function () {
 
             // Phase-95 WATER-CLIENT-ONBOARDING: invite the client for a connection.
             Route::post('/water/connections/{waterConnection}/invite', [\App\Http\Controllers\WaterClientInvitationController::class, 'store'])->whereNumber('waterConnection')->name('water-client-invitations.store');
+
+            // Phase-97 WATER-CLIENT-BILLING: landlord records a water-client payment
+            // (cash/M-Pesa received), applied across the connection's unpaid charges.
+            Route::post('/water/connections/{waterConnection}/record-payment', [\App\Http\Controllers\WaterConnectionController::class, 'recordPayment'])->whereNumber('waterConnection')->name('water.connections.record-payment');
         });
     });
 
@@ -1554,6 +1558,12 @@ Route::middleware(['auth', 'role:tenant'])->prefix('tenant')->name('tenant.')->g
         ->middleware('throttle:payment')
         ->name('payment.pay-online');
     Route::get('/payment/callback', [PaymentController::class, 'handleCallback'])->name('payment.callback');
+});
+
+// --- WATER-CLIENT ROUTES (Phase-97) — the water client's own charges + balance.
+// No lease/payment-verification/KYC: a water client is a billed connection, not a tenant.
+Route::middleware(['auth', 'verified', 'role:water_client'])->prefix('water-client')->name('water-client.')->group(function () {
+    Route::get('/finances', [\App\Http\Controllers\WaterClientFinancesController::class, 'index'])->name('finances');
 });
 
 // --- TENANT KYC ROUTES (Accessible without KYC completion but requires payment verification) ---

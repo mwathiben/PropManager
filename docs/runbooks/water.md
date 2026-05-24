@@ -333,3 +333,29 @@ A water client's dashboard now shows real data per **water line** (`WaterConnect
 - The meter is resolved through the **soft-delete/tenant-scoped relation** (`$connection->meter`), not the raw `meter_id` — a decommissioned or foreign meter yields an empty account, never leaked data. `has_meter` is derived from the same scoped relation so it agrees with the serial and the empty account.
 - `StoreWaterConnectionRequest` meter/unit `exists` rules use `whereNull('deleted_at')` so a connection can't be pointed at a decommissioned meter/unit in the first place.
 - Flat-rate or not-yet-metered lines (`has_meter = false`) show a note (`flat_rate_note` / `metering_pending`) instead of empty charts.
+
+## Phase 97 — water-client billing (FINAL water phase; 86-97 complete)
+
+Water clients are now fully billable. Charges live in their own table because `invoices.lease_id` is NOT NULL and lease-coupled.
+
+| Concept | Where |
+| --- | --- |
+| Charge store | `water_client_charges` (landlord_id, water_connection_id, billing_period_start, consumption nullable, water_due, amount_paid, status, due_date; TenantScope+SoftDeletes; **unique [connection, period]** named `wcc_connection_period_unique` — the auto-name exceeds MySQL's 64-char limit). Model `WaterClientCharge`. |
+| Biller | `WaterClientBillingService::billConnection` — metered = approved readings for the connection's meter (bounded by `connected_at` + `landlord_id`) × effective rate via `WaterTariffService::computeConsumptionCharge`; flat_rate = the fixed rate. Idempotent per period. `billForPeriod` isolates per-connection failures. `applyPayment` applies a lump sum across unpaid charges oldest-first (transactional, `lockForUpdate`). |
+| Effective rate | `connection.client_rate ?? landlord PaymentConfiguration.water_client_rate`. **A non-positive value counts as unset.** |
+| Cron | `water:bill-clients` — `monthlyOn(2, '04:00')`, bills the **completed previous month** (after the daily review-window finalises readings), per-landlord try/catch. `--month=` overrides. |
+| Notification | NET-NEW `water_bill_due` (const + `TYPE_URGENCY_MAP`, `notification_preferences.water_bill_due_enabled`, `notifications.type` ENUM). Sent to the onboarded client per billed charge. |
+| Dashboard | `WaterAccountService::chargeHistoryForConnection` populates the Phase-96 `WaterChargesCard` (meter-independent — flat-rate lines bill). |
+| Client finances | `water-client.finances` (role:water_client) → `WaterClient/Finances.vue`: charges + outstanding + how-to-pay. The dashboard disconnection-banner `payUrl` + a nav link point here. |
+| Landlord record-payment | `water.connections.record-payment` (role:landlord, ownership-checked) → `applyPayment`. Surfaces an overpayment rather than absorbing it. Clients tab shows `outstanding` + a record-payment modal. |
+
+### THE TWO GUARDS (deferred from Phase 94/95 — refuse, never coerce 0)
+- **No effective rate** (connection rate AND landlord default both unset/≤0) → `billConnection` returns `skipped/no_rate`. Never bills 0.
+- **Metered without a readable meter** (`billing_mode='metered'`, meter null/soft-deleted) → `skipped/metered_no_meter`.
+- Misconfigured lines surface on the Clients tab as a **`billing_issue`** chip (`no_rate` / `no_meter`), so the landlord fixes them — not just a log line.
+
+### Notes / deliberate choices
+- Water-client charges use a flat `consumption × client_rate` (or fixed flat rate) — they intentionally do NOT apply the building's standing-charge/sewerage/VAT levies (those are the tenants' tariff; the `client_rate` is the agreed neighbour price).
+- Outstanding balance has ONE formula — `WaterClientCharge::outstandingForConnection` (per line) / `outstandingByConnection` (batched for the hub) — so the landlord + client surfaces can't drift.
+- Charge queries use `withoutGlobalScope('landlord')` (drops only the tenant scope, **keeps SoftDeletes**), never `withoutGlobalScopes()`.
+- Online self-service payment (gateway) for water clients is a future enhancement; today a neighbour pays the supplier, who records it.
