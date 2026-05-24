@@ -84,7 +84,13 @@ class LangCoverage extends Command
         if (is_dir($namespaceDir)) {
             foreach (glob($namespaceDir.'/*.php') ?: [] as $file) {
                 $namespace = basename($file, '.php');
-                $bundle[$namespace] = require $file;
+                // MERGE (not overwrite) — mirrors HandleInertiaRequests::getI18nBundle: a
+                // namespace present in both lang/{locale}.json and lang/{locale}/<ns>.php
+                // (e.g. `common`) must keep BOTH sets of keys.
+                $bundle[$namespace] = array_replace_recursive(
+                    is_array($bundle[$namespace] ?? null) ? $bundle[$namespace] : [],
+                    require $file,
+                );
             }
         }
 

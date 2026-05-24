@@ -272,7 +272,14 @@ class HandleInertiaRequests extends Middleware
             if (is_dir($namespaceDir)) {
                 foreach (glob($namespaceDir.'/*.php') ?: [] as $file) {
                     $namespace = basename($file, '.php');
-                    $bundle[$namespace] = require $file;
+                    // MERGE (not overwrite): a namespace can be defined in BOTH the JSON
+                    // bundle and a same-named PHP file (e.g. `common` lives in en.json with
+                    // save/cancel/… AND en/common.php with wizard.*). Overwriting dropped the
+                    // JSON keys, so $t('common.save') silently fell back to the literal key.
+                    $bundle[$namespace] = array_replace_recursive(
+                        is_array($bundle[$namespace] ?? null) ? $bundle[$namespace] : [],
+                        require $file,
+                    );
                 }
             }
 

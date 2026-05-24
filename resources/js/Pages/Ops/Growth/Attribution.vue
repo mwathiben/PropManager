@@ -81,7 +81,7 @@ const formatProb = (n: number | null | undefined): string =>
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">Growth attribution</h2>
+            <h1 class="text-xl font-semibold leading-tight text-gray-800">Growth attribution</h1>
         </template>
 
         <div class="py-6">

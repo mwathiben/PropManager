@@ -91,9 +91,9 @@ const leaseBadge = computed(() => {
                         Back to dashboard
                     </Link>
                 </div>
-                <h2 class="text-xl font-semibold leading-tight text-gray-800">
+                <h1 class="text-xl font-semibold leading-tight text-gray-800">
                     Payment #{{ payment.id }}
-                </h2>
+                </h1>
             </div>
         </template>
 

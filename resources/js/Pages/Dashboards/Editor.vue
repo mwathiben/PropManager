@@ -130,6 +130,7 @@ function submit(): void {
         <Head :title="t('reports.dashboards.title')" />
 
         <div class="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-8 space-y-6">
+            <h1 class="sr-only">{{ t('reports.dashboards.title') }}</h1>
             <Link :href="route('dashboards.index')" class="text-sm text-indigo-600 hover:underline">&larr; {{ t('reports.dashboards.back') }}</Link>
 
             <form class="space-y-5 rounded-lg bg-white p-5 shadow" data-testid="dashboard-editor" @submit.prevent="submit">

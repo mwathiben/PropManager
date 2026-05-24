@@ -41,10 +41,10 @@ const exportUrl = route('legal-holds.history.export', {
         <template #header>
             <div class="flex items-center gap-3">
                 <ScaleIcon class="h-6 w-6 text-indigo-600" />
-                <h2 class="text-xl font-semibold text-gray-900">
+                <h1 class="text-xl font-semibold text-gray-900">
                     {{ t('legal_holds.history.title') }}
                     <span class="text-gray-500 font-normal">— {{ subject.short_type }} #{{ subject.id }}</span>
-                </h2>
+                </h1>
             </div>
         </template>
 

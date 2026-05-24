@@ -71,9 +71,9 @@ const isActiveTab = computed(() => props.filters.status !== 'released');
         <template #header>
             <div class="flex items-center gap-3">
                 <ScaleIcon class="h-6 w-6 text-indigo-600" />
-                <h2 class="text-xl font-semibold text-gray-900">
+                <h1 class="text-xl font-semibold text-gray-900">
                     {{ t('legal_holds.page_title') }}
-                </h2>
+                </h1>
             </div>
         </template>
 

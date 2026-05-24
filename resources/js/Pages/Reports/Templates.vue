@@ -21,7 +21,7 @@ function cloneTemplate(template) {
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-xl font-semibold text-gray-900">Report template marketplace</h2>
+            <h1 class="text-xl font-semibold text-gray-900">Report template marketplace</h1>
         </template>
 
         <div class="mx-auto max-w-6xl space-y-8 p-6">

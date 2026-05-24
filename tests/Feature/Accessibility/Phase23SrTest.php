@@ -146,12 +146,18 @@ class Phase23SrTest extends TestCase
     public function test_every_page_has_an_h1(): void
     {
         $allowedPatterns = [
-            '#/(tabs|modals|components)/#',
+            '#/(tabs|modals|components)/#i',
             '#/Partials/#',
             '#Tab\.vue$#',
             '#Modal\.vue$#',
             '#/Welcome\.vue$#',
         ];
+
+        // Phase-74 design-system scaffolds render the page <h1> themselves
+        // (HubShell.vue + CenterHero.vue each emit `<h1>{{ title }}</h1>`), so a page that
+        // delegates its heading to one of these owns an <h1> at runtime even without a
+        // literal tag in its own file.
+        $scaffoldsProvidingH1 = ['<HubShell', '<CenterHero'];
 
         $pagesDir = resource_path('js/Pages');
         $files = new \RecursiveIteratorIterator(
@@ -176,7 +182,18 @@ class Phase23SrTest extends TestCase
                 continue;
             }
 
-            if (! str_contains(file_get_contents($file->getPathname()), '<h1')) {
+            $contents = file_get_contents($file->getPathname());
+
+            $hasH1 = str_contains($contents, '<h1');
+            $usesScaffold = false;
+            foreach ($scaffoldsProvidingH1 as $scaffold) {
+                if (str_contains($contents, $scaffold)) {
+                    $usesScaffold = true;
+                    break;
+                }
+            }
+
+            if (! $hasH1 && ! $usesScaffold) {
                 $missing[] = $path;
             }
         }

@@ -53,7 +53,7 @@ const submit = () => {
         <template #header>
             <div class="flex items-center gap-3">
                 <ScaleIcon class="h-6 w-6 text-indigo-600" />
-                <h2 class="text-xl font-semibold text-gray-900">Legal hold audit export</h2>
+                <h1 class="text-xl font-semibold text-gray-900">Legal hold audit export</h1>
             </div>
         </template>
 

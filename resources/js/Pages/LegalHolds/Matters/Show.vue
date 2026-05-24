@@ -155,9 +155,9 @@ function run(action: 'release' | 'close' | 'reopen'): void {
                 <thead class="bg-gray-50 text-xs font-medium uppercase text-gray-500">
                     <tr>
                         <th class="px-4 py-3 text-start">{{ t('legal_holds.matters.col_subject') }}</th>
-                        <th class="px-4 py-3 text-start">{{ t('history.reason') }}</th>
+                        <th class="px-4 py-3 text-start">{{ t('legal_holds.history.reason') }}</th>
                         <th class="px-4 py-3 text-start">{{ t('legal_holds.matters.col_status') }}</th>
-                        <th class="px-4 py-3 text-start">{{ t('history.held') }}</th>
+                        <th class="px-4 py-3 text-start">{{ t('legal_holds.history.held') }}</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100 text-sm">
@@ -172,7 +172,7 @@ function run(action: 'release' | 'close' | 'reopen'): void {
                                 class="inline-flex rounded-full px-2 py-0.5 text-xs"
                                 :class="h.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-500'"
                             >
-                                {{ h.is_active ? t('history.active') : t('history.released') }}
+                                {{ h.is_active ? t('legal_holds.history.active') : t('legal_holds.history.released') }}
                             </span>
                         </td>
                         <td class="px-4 py-3 text-gray-500">
