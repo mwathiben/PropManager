@@ -55,8 +55,8 @@ class WaterAccountService
      * Phase-96 WATER-CLIENT-DASHBOARD: the same overview for a water client's line.
      * The connection IS the account — readings come from its meter, bounded to when
      * the line was connected (so a meter that previously served a tenant doesn't
-     * leak that history). Phase-97: charges come from water_client_charges and are
-     * shown regardless of meter (a flat-rate line bills with no meter).
+     * leak that history). Phase-98: charges come from the connection's invoices and
+     * are shown regardless of meter (a flat-rate line bills with no meter).
      *
      * @return array<string, mixed>
      */
@@ -98,18 +98,20 @@ class WaterAccountService
     {
         $start = Carbon::now()->startOfMonth()->subMonthsNoOverflow(self::HISTORY_MONTHS - 1)->toDateString();
 
-        return DB::table('water_client_charges')
+        // Phase-98: charges are now real invoices (water_connection_id), the same
+        // shape the tenant chargeHistory() returns from invoices.
+        return DB::table('invoices')
             ->where('water_connection_id', $connection->id)
+            ->whereNull('voided_at')
             ->whereNull('deleted_at')
-            ->where('status', '!=', 'voided')
             ->where('billing_period_start', '>=', $start)
             ->orderByDesc('billing_period_start')
-            ->get(['billing_period_start', 'water_due', 'amount_paid', 'status'])
-            ->map(fn ($c) => [
-                'period' => $c->billing_period_start ? Carbon::parse($c->billing_period_start)->format('Y-m') : null,
-                'water_due' => round((float) $c->water_due, 2),
-                'paid' => (float) $c->amount_paid >= (float) $c->water_due,
-                'status' => (string) $c->status,
+            ->get(['billing_period_start', 'water_due', 'total_due', 'amount_paid', 'status'])
+            ->map(fn ($inv) => [
+                'period' => $inv->billing_period_start ? Carbon::parse($inv->billing_period_start)->format('Y-m') : null,
+                'water_due' => round((float) $inv->water_due, 2),
+                'paid' => (float) $inv->amount_paid >= (float) $inv->total_due,
+                'status' => (string) $inv->status,
             ])->all();
     }
 

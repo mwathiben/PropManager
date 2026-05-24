@@ -4,28 +4,30 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Models\Notification;
+use App\Mail\InvoiceSent;
+use App\Models\Invoice;
 use App\Models\PaymentConfiguration;
-use App\Services\NotificationService;
 use App\Services\Water\WaterClientBillingService;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 /**
- * Phase-97 WATER-CLIENT-BILLING: generate water-client charges for the period.
- * Runs monthly (mirrors invoices:generate). Idempotent per connection+period.
- * Per-landlord try/catch so one landlord's bad data never aborts the whole run
- * (the Phase-88 poison-row lesson). Connections the biller refuses (no rate /
- * metered-without-meter) are logged for the landlord to fix — never billed at 0.
+ * Phase-97/98 WATER-CLIENT-BILLING: generate water-client INVOICES for the period
+ * (the one invoicing system — no parallel charges table). Runs monthly (mirrors
+ * invoices:generate). Idempotent per connection+period. Per-landlord try/catch so
+ * one landlord's bad data never aborts the run (the Phase-88 poison-row lesson).
+ * Connections the biller refuses (no rate / metered-without-meter) are logged for
+ * the landlord to fix — never billed at 0.
  */
 class BillWaterClients extends Command
 {
     protected $signature = 'water:bill-clients {--month= : Billing month (Y-m or any date); defaults to the current month}';
 
-    protected $description = 'Generate water-client charges for active connections';
+    protected $description = 'Generate water-client invoices for active connections';
 
-    public function handle(WaterClientBillingService $billing, NotificationService $notifications): int
+    public function handle(WaterClientBillingService $billing): int
     {
         // Default to the previous (completed) month — that month's consumption is
         // final by the time the scheduled run fires on the 2nd. --month overrides.
@@ -56,8 +58,8 @@ class BillWaterClients extends Command
             $billed += count($result['billed']);
             $skipped += count($result['skipped']);
 
-            foreach ($result['billed'] as $charge) {
-                $this->notifyClient($notifications, $charge);
+            foreach ($result['billed'] as $invoice) {
+                $this->emailInvoice($invoice);
             }
 
             foreach ($result['skipped'] as $skip) {
@@ -73,39 +75,29 @@ class BillWaterClients extends Command
             }
         }
 
-        $this->info("water:bill-clients: {$billed} charge(s) created, {$skipped} skipped, period {$period->format('Y-m')}");
+        $this->info("water:bill-clients: {$billed} invoice(s) created, {$skipped} skipped, period {$period->format('Y-m')}");
 
         return self::SUCCESS;
     }
 
     /**
-     * Notify the onboarded water client that a new bill is ready. A connection with
-     * no user_id (not yet onboarded) has no recipient — the charge still stands and
-     * surfaces once they onboard. One bad send never aborts the run.
+     * Email the onboarded water client their new invoice (the same InvoiceSent flow
+     * tenants get). A connection with no client account yet (not onboarded) has no
+     * recipient — the invoice still stands and surfaces once they onboard. One bad
+     * send never aborts the run.
      */
-    private function notifyClient(NotificationService $notifications, \App\Models\WaterClientCharge $charge): void
+    private function emailInvoice(Invoice $invoice): void
     {
-        $connection = $charge->connection;
-        if ($connection === null || $connection->user_id === null) {
+        $client = $invoice->waterConnection?->client;
+        if ($client === null || blank($client->email)) {
             return;
         }
 
         try {
-            $notifications->send(
-                recipientId: (int) $connection->user_id,
-                type: Notification::TYPE_WATER_BILL_DUE,
-                subject: __('water.notify.bill_due_subject'),
-                message: __('water.notify.bill_due_body', [
-                    'identifier' => $connection->identifier,
-                    'period' => $charge->billing_period_start->format('M Y'),
-                    'amount' => number_format((float) $charge->water_due, 2),
-                ]),
-                data: ['water_connection_id' => $connection->id, 'water_client_charge_id' => $charge->id],
-                landlordId: (int) $charge->landlord_id,
-            );
+            Mail::to($client->email, $client->name)->queue(new InvoiceSent($invoice));
         } catch (\Throwable $e) {
-            Log::error('water:bill-clients notification failed', [
-                'charge_id' => $charge->id,
+            Log::error('water:bill-clients invoice email failed', [
+                'invoice_id' => $invoice->id,
                 'exception' => $e::class,
                 'message' => $e->getMessage(),
             ]);

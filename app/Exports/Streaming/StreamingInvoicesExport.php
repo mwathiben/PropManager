@@ -28,13 +28,18 @@ class StreamingInvoicesExport implements FromQuery, ShouldAutoSize, ShouldQueue,
 
     public function map($invoice): array
     {
+        $recipient = $invoice->recipientLabel();
+        $building = $invoice->isWaterClientInvoice()
+            ? $invoice->waterConnection?->unit?->building?->name
+            : $invoice->lease?->unit?->building?->name;
+
         return [
             $invoice->invoice_number,
             $invoice->created_at?->format('Y-m-d'),
             $invoice->due_date?->format('Y-m-d'),
-            $invoice->lease->tenant->name ?? 'N/A',
-            $invoice->lease->unit->unit_number ?? 'N/A',
-            $invoice->lease->unit->building->name ?? 'N/A',
+            $recipient['name'] ?? 'N/A',
+            $recipient['context'] ?? 'N/A',
+            $building ?? 'N/A',
             $invoice->rent_amount,
             $invoice->water_charges,
             $invoice->arrears_amount,

@@ -23,24 +23,31 @@ class FinancialReportExport implements FromCollection, ShouldAutoSize, WithHeadi
     {
         $invoices = Invoice::where('landlord_id', $this->landlordId)
             ->whereBetween('due_date', [$this->dateRange['start'], $this->dateRange['end']])
-            ->with(['lease.tenant', 'lease.unit.building'])
+            ->with(['lease.tenant', 'lease.unit.building', 'waterConnection.client', 'waterConnection.unit.building'])
             ->get();
 
-        return $invoices->map(fn ($invoice) => [
-            'Invoice #' => $invoice->invoice_number,
-            'Due Date' => $invoice->due_date->format('Y-m-d'),
-            'Tenant' => $invoice->lease->tenant->name ?? 'N/A',
-            'Unit' => $invoice->lease->unit->unit_number ?? 'N/A',
-            'Building' => $invoice->lease->unit->building->name ?? 'N/A',
-            'Rent Due' => $invoice->rent_due,
-            'Water Due' => $invoice->water_due,
-            'Arrears' => $invoice->arrears,
-            'Wallet Applied' => $invoice->wallet_applied ?? 0,
-            'Total Due' => $invoice->total_due,
-            'Amount Paid' => $invoice->amount_paid,
-            'Balance' => $invoice->total_due - $invoice->amount_paid,
-            'Status' => ucfirst($invoice->status),
-        ]);
+        return $invoices->map(function ($invoice) {
+            $recipient = $invoice->recipientLabel();
+            $building = $invoice->isWaterClientInvoice()
+                ? $invoice->waterConnection?->unit?->building?->name
+                : $invoice->lease?->unit?->building?->name;
+
+            return [
+                'Invoice #' => $invoice->invoice_number,
+                'Due Date' => $invoice->due_date->format('Y-m-d'),
+                'Tenant' => $recipient['name'] ?? 'N/A',
+                'Unit' => $recipient['context'] ?? 'N/A',
+                'Building' => $building ?? 'N/A',
+                'Rent Due' => $invoice->rent_due,
+                'Water Due' => $invoice->water_due,
+                'Arrears' => $invoice->arrears,
+                'Wallet Applied' => $invoice->wallet_applied ?? 0,
+                'Total Due' => $invoice->total_due,
+                'Amount Paid' => $invoice->amount_paid,
+                'Balance' => $invoice->total_due - $invoice->amount_paid,
+                'Status' => ucfirst($invoice->status),
+            ];
+        });
     }
 
     public function headings(): array

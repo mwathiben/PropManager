@@ -4,13 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\Water\RecordWaterClientPaymentRequest;
 use App\Http\Requests\Water\SetupWaterClientsRequest;
 use App\Http\Requests\Water\StoreWaterConnectionRequest;
 use App\Http\Traits\WithLandlordScope;
 use App\Models\PaymentConfiguration;
 use App\Models\WaterConnection;
-use App\Services\Water\WaterClientBillingService;
 
 /**
  * Phase-94 WATER-CLIENTS-FOUNDATION: landlord-only setup + management of water
@@ -60,31 +58,5 @@ class WaterConnectionController extends Controller
         $waterConnection->delete();
 
         return back()->with('success', __('water.clients.connection_deleted'));
-    }
-
-    /**
-     * Phase-97: record a payment the water client made, applied across the
-     * connection's unpaid charges oldest-first.
-     */
-    public function recordPayment(RecordWaterClientPaymentRequest $request, WaterConnection $waterConnection, WaterClientBillingService $billing)
-    {
-        abort_unless($waterConnection->landlord_id === $this->getLandlordId(), 403);
-
-        $amount = (float) $request->validated()['amount'];
-        $applied = $billing->applyPayment($waterConnection, $amount);
-
-        if ($applied <= 0) {
-            return back()->with('error', __('water.clients.payment_nothing_due'));
-        }
-
-        // Surface an overpayment rather than silently absorbing the remainder.
-        if (round($amount - $applied, 2) > 0) {
-            return back()->with('success', __('water.clients.payment_recorded_overpaid', [
-                'applied' => number_format($applied, 2),
-                'extra' => number_format($amount - $applied, 2),
-            ]));
-        }
-
-        return back()->with('success', __('water.clients.payment_recorded'));
     }
 }

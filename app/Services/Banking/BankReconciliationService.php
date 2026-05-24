@@ -291,21 +291,32 @@ class BankReconciliationService
                 'status' => $newStatus,
             ]);
 
-            if ($overpayment > 0) {
+            // Phase-98: a water-client invoice has no lease/wallet — never deref it.
+            if ($overpayment > 0 && $invoice->lease) {
                 $invoice->lease->creditToWallet(
                     $overpayment,
                     "Overpayment from reconciled payment #{$payment->id}",
                     $payment->id
                 );
+            } elseif ($overpayment > 0) {
+                \Illuminate\Support\Facades\Log::warning('Water-client invoice overpaid via bank reconciliation; no wallet to absorb it', [
+                    'invoice_id' => $invoice->id,
+                    'water_connection_id' => $invoice->water_connection_id,
+                    'payment_id' => $payment->id,
+                    'overpayment' => $overpayment,
+                ]);
             }
 
             // CONC-15: queue, not send. Synchronous Mail::send held InnoDB
             // row locks for the SMTP timeout window, cascading parallel
             // reconciliations. Wrapped in DB::afterCommit so the queued
             // mailable only enqueues once the payment row is durable.
-            $invoice->load(['lease.tenant', 'lease.unit.building']);
+            $invoice->load(['lease.tenant', 'lease.unit.building', 'waterConnection.client', 'waterConnection.unit']);
             \Illuminate\Support\Facades\DB::afterCommit(function () use ($payment, $invoice) {
-                Mail::to($invoice->lease->tenant->email)->queue(new PaymentReceived($payment, $invoice));
+                $recipientEmail = $invoice->recipientUser()?->email;
+                if ($recipientEmail) {
+                    Mail::to($recipientEmail)->queue(new PaymentReceived($payment, $invoice));
+                }
                 \App\Events\PaymentReceived::dispatch($payment, $invoice);
             });
 

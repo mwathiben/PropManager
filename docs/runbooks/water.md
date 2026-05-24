@@ -334,20 +334,35 @@ A water client's dashboard now shows real data per **water line** (`WaterConnect
 - `StoreWaterConnectionRequest` meter/unit `exists` rules use `whereNull('deleted_at')` so a connection can't be pointed at a decommissioned meter/unit in the first place.
 - Flat-rate or not-yet-metered lines (`has_meter = false`) show a note (`flat_rate_note` / `metering_pending`) instead of empty charts.
 
-## Phase 97 — water-client billing (FINAL water phase; 86-97 complete)
+## Phase 97→98 — water-client billing through the ONE invoicing system
 
-Water clients are now fully billable. Charges live in their own table because `invoices.lease_id` is NOT NULL and lease-coupled.
+Water clients are billed through **real invoices**, not a parallel table. Phase 97 first
+used a standalone `water_client_charges` table; **Phase 98 retired it** and unified water-
+client billing into `invoices` so a landlord who supplies both rent and water sees a single
+finances hub, and tenants already get ONE combined invoice (rent + water on one lease invoice).
+
+### The schema change (Phase 98)
+- `invoices.lease_id` is **NULLABLE**; a new `invoices.water_connection_id` (nullable FK,
+  `restrictOnDelete`) anchors a water-client invoice. A DB **CHECK** + an `Invoice::booted()`
+  `creating` guard enforce **exactly one** of the two (XOR) — the model guard backstops a
+  MySQL engine that parses-and-ignores CHECK (< 8.0.16).
+- Idempotency backstop: **unique `(water_connection_id, billing_period_start)`** named
+  `inv_water_conn_period_unique` (auto-name exceeds MySQL's 64-char limit; lease invoices have
+  NULL `water_connection_id`, which MySQL treats as distinct, so they never collide).
+- `payments.lease_id` and `receipts.lease_id` are **NULLABLE** too — a payment/receipt recorded
+  against a water-client invoice has no lease.
 
 | Concept | Where |
 | --- | --- |
-| Charge store | `water_client_charges` (landlord_id, water_connection_id, billing_period_start, consumption nullable, water_due, amount_paid, status, due_date; TenantScope+SoftDeletes; **unique [connection, period]** named `wcc_connection_period_unique` — the auto-name exceeds MySQL's 64-char limit). Model `WaterClientCharge`. |
-| Biller | `WaterClientBillingService::billConnection` — metered = approved readings for the connection's meter (bounded by `connected_at` + `landlord_id`) × effective rate via `WaterTariffService::computeConsumptionCharge`; flat_rate = the fixed rate. Idempotent per period. `billForPeriod` isolates per-connection failures. `applyPayment` applies a lump sum across unpaid charges oldest-first (transactional, `lockForUpdate`). |
+| Biller | `WaterClientBillingService::billConnection` — metered = approved readings for the connection's meter (bounded by `connected_at` + `landlord_id`) × effective rate via `WaterTariffService::computeConsumptionCharge`; flat_rate = the fixed rate. Calls `InvoiceService::generateInvoiceForWaterConnection` (idempotent per connection+period). `billForPeriod` isolates per-connection failures. |
+| Invoice creation | `InvoiceService::generateInvoiceForWaterConnection($connection, $period, $waterDue, $consumption)` — `lease_id=null`, `water_connection_id` set, `rent_due/arrears=0`, `total_due=water_due`, currency from the connection's building, `status=Sent`, dispatches `GenerateInvoicePdf`. |
 | Effective rate | `connection.client_rate ?? landlord PaymentConfiguration.water_client_rate`. **A non-positive value counts as unset.** |
-| Cron | `water:bill-clients` — `monthlyOn(2, '04:00')`, bills the **completed previous month** (after the daily review-window finalises readings), per-landlord try/catch. `--month=` overrides. |
-| Notification | NET-NEW `water_bill_due` (const + `TYPE_URGENCY_MAP`, `notification_preferences.water_bill_due_enabled`, `notifications.type` ENUM). Sent to the onboarded client per billed charge. |
-| Dashboard | `WaterAccountService::chargeHistoryForConnection` populates the Phase-96 `WaterChargesCard` (meter-independent — flat-rate lines bill). |
-| Client finances | `water-client.finances` (role:water_client) → `WaterClient/Finances.vue`: charges + outstanding + how-to-pay. The dashboard disconnection-banner `payUrl` + a nav link point here. |
-| Landlord record-payment | `water.connections.record-payment` (role:landlord, ownership-checked) → `applyPayment`. Surfaces an overpayment rather than absorbing it. Clients tab shows `outstanding` + a record-payment modal. |
+| Cron | `water:bill-clients` — `monthlyOn(2, '04:00')`, bills the **completed previous month** (after the daily review-window finalises readings), per-landlord try/catch. `--month=` overrides. Emails `InvoiceSent` to the onboarded client. |
+| Recipient resolution | `Invoice::recipientUser()` (lease tenant ?? connection client) and `Invoice::recipientLabel()` (`{name, context}`) are the single source for who/what an invoice bills — used by the finances list, invoice detail, exports, PDF, and the `InvoiceSent`/`PaymentReceived` mailables (all lease-optional). |
+| Dashboard | `WaterAccountService::chargeHistoryForConnection` reads `invoices` (by `water_connection_id`) → the Phase-96 `WaterChargesCard` (meter-independent — flat-rate lines bill). |
+| Client finances | `water-client.finances` (role:water_client) → `WaterClient/Finances.vue`: invoices + outstanding + how-to-pay. The dashboard disconnection-banner `payUrl` + a nav link point here. |
+| Landlord settle / view | A water-client invoice is a normal landlord invoice: it appears in **finances › invoices** (showing the client name + line identifier via `recipient`), opens in the invoice-detail modal, downloads as a PDF, and is settled via the standard `invoices.recordPayment`. Overpayment is surfaced (no wallet exists for a water-client account), never credited to a non-existent lease wallet. |
+| Outstanding | `Invoice::outstandingForWaterConnection` (per connection) / `outstandingByWaterConnection` (batched for the Clients tab) — `withoutGlobalScope('landlord')`, `whereNull('voided_at')`, `SUM(GREATEST(total_due - amount_paid, 0))`. |
 
 ### THE TWO GUARDS (deferred from Phase 94/95 — refuse, never coerce 0)
 - **No effective rate** (connection rate AND landlord default both unset/≤0) → `billConnection` returns `skipped/no_rate`. Never bills 0.
@@ -356,6 +371,5 @@ Water clients are now fully billable. Charges live in their own table because `i
 
 ### Notes / deliberate choices
 - Water-client charges use a flat `consumption × client_rate` (or fixed flat rate) — they intentionally do NOT apply the building's standing-charge/sewerage/VAT levies (those are the tenants' tariff; the `client_rate` is the agreed neighbour price).
-- Outstanding balance has ONE formula — `WaterClientCharge::outstandingForConnection` (per line) / `outstandingByConnection` (batched for the hub) — so the landlord + client surfaces can't drift.
-- Charge queries use `withoutGlobalScope('landlord')` (drops only the tenant scope, **keeps SoftDeletes**), never `withoutGlobalScopes()`.
-- Online self-service payment (gateway) for water clients is a future enhancement; today a neighbour pays the supplier, who records it.
+- Every code path that touches an invoice/payment must treat **`lease` as nullable** — a water-client invoice has none. The webhook overpayment-to-wallet branches (`InvoiceController`, `Bank`/`Mpesa`/recon) all guard `&& $invoice->lease`.
+- Online self-service payment (gateway) for water clients is a future enhancement (Phase 99); today a neighbour pays the supplier, who records it through the finances hub.

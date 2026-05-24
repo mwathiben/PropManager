@@ -117,9 +117,12 @@ export interface InvoiceItem extends BaseEntity {
 // Invoice
 export interface Invoice extends BaseEntity {
   invoice_number: string;
-  lease_id: number;
+  lease_id: number | null;
   landlord_id: number;
   lease?: Lease;
+  water_connection_id?: number | null;
+  // Phase-98: lease-agnostic billed party (tenant + unit, or water client + line id).
+  recipient?: { name: string | null; context: string | null };
   invoice_type_id?: number;
   template_id?: number;
   status: InvoiceStatus;

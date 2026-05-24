@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Models\WaterClientCharge;
+use App\Models\Invoice;
 use App\Models\WaterConnection;
 use App\Services\Water\WaterAccountService;
 use Inertia\Inertia;
@@ -33,7 +33,7 @@ class WaterClientFinancesController extends Controller
                 'id' => $c->id,
                 'identifier' => $c->identifier,
                 'status' => $c->status,
-                'outstanding' => WaterClientCharge::outstandingForConnection($c->id),
+                'outstanding' => Invoice::outstandingForWaterConnection($c->id),
                 'charges' => $this->accountService->chargeHistoryForConnection($c),
             ]);
 

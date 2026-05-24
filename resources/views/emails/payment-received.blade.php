@@ -1,7 +1,7 @@
 <x-mail::message :unsubscribeUrl="$unsubscribeUrl ?? null">
 # {{ __('emails.payment.title') }}
 
-{{ __('emails.payment.greeting', ['name' => $tenant->name]) }},
+{{ __('emails.payment.greeting', ['name' => $tenant?->name]) }},
 
 {{ __('emails.payment.success_message') }}
 
@@ -16,7 +16,7 @@
 
 **{{ __('emails.payment.invoice_number') }}:** {{ $invoice->invoice_number }}<br>
 **{{ __('emails.payment.billing_period') }}:** {{ $invoice->billing_period_start->format('F Y') }}<br>
-**{{ __('emails.payment.unit') }}:** {{ $unit->unit_number }} - {{ $unit->building->name }}
+**{{ __('emails.payment.unit') }}:** {{ $unitLabel ?? ($unit?->unit_number) }}@if($unit?->building) - {{ $unit->building->name }}@endif
 
 ## {{ __('emails.payment.summary_title') }}
 

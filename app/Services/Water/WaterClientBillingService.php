@@ -4,16 +4,20 @@ declare(strict_types=1);
 
 namespace App\Services\Water;
 
+use App\Models\Invoice;
 use App\Models\PaymentConfiguration;
-use App\Models\WaterClientCharge;
 use App\Models\WaterConnection;
 use App\Models\WaterReading;
+use App\Services\InvoiceService;
+use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 
 /**
- * Phase-97 WATER-CLIENT-BILLING: turns a water client's consumption (or flat rate)
- * into a WaterClientCharge for a period, at the connection's effective rate
- * (client_rate ?? landlord water_client_rate) via the Phase-87 tariff engine.
+ * Phase-97 WATER-CLIENT-BILLING / Phase-98 WATER-CLIENT-INVOICING-UNIFY: turns a
+ * water client's consumption (or flat rate) into a real INVOICE for a period, at the
+ * connection's effective rate (client_rate ?? landlord water_client_rate) via the
+ * Phase-87 tariff engine — the same one invoicing system as tenants, not a parallel
+ * track.
  *
  * THE TWO DEFERRED GUARDS (Phase 94/95): the biller must REFUSE — never coerce to
  * 0 — a connection with no effective rate, or a metered connection with no readable
@@ -22,13 +26,16 @@ use Carbon\CarbonImmutable;
  */
 class WaterClientBillingService
 {
-    public function __construct(private WaterTariffService $tariffService) {}
+    public function __construct(
+        private WaterTariffService $tariffService,
+        private InvoiceService $invoiceService,
+    ) {}
 
     /**
      * Bill every active connection for a landlord for the given period.
      * Per-connection failures are isolated (one bad row never aborts the run).
      *
-     * @return array{billed: list<WaterClientCharge>, skipped: list<array{connection_id:int, identifier:string, reason:string}>}
+     * @return array{billed: list<Invoice>, skipped: list<array{connection_id:int, identifier:string, reason:string}>}
      */
     public function billForPeriod(int $landlordId, CarbonImmutable $period): array
     {
@@ -54,7 +61,7 @@ class WaterClientBillingService
             }
 
             if ($result['status'] === 'billed') {
-                $billed[] = $result['charge'];
+                $billed[] = $result['invoice'];
             } elseif ($result['status'] === 'skipped') {
                 $skipped[] = ['connection_id' => $connection->id, 'identifier' => $connection->identifier, 'reason' => $result['reason']];
             }
@@ -65,21 +72,22 @@ class WaterClientBillingService
 
     /**
      * Bill one connection for one period. Idempotent: an already-billed period
-     * returns the existing charge. Returns a skip reason rather than a 0 charge
+     * returns the existing invoice. Returns a skip reason rather than a 0 charge
      * when the connection is misconfigured (no rate / metered-without-meter).
      *
-     * @return array{status:string, reason?:string, charge?:WaterClientCharge}
+     * @return array{status:string, reason?:string, invoice?:Invoice}
      */
     public function billConnection(WaterConnection $connection, CarbonImmutable $period): array
     {
         $period = $period->startOfMonth();
 
-        $existing = WaterClientCharge::withoutGlobalScope('landlord') // keep SoftDeletes
+        $existing = Invoice::withoutGlobalScope('landlord')
             ->where('water_connection_id', $connection->id)
-            ->where('billing_period_start', $period->toDateString())
+            ->whereYear('billing_period_start', $period->year)
+            ->whereMonth('billing_period_start', $period->month)
             ->first();
         if ($existing !== null) {
-            return ['status' => 'already_billed', 'charge' => $existing];
+            return ['status' => 'already_billed', 'invoice' => $existing];
         }
 
         // GUARD A: no effective rate -> refuse (never coerce to 0).
@@ -112,58 +120,14 @@ class WaterClientBillingService
             return ['status' => 'skipped', 'reason' => 'nothing_to_bill'];
         }
 
-        $charge = WaterClientCharge::create([
-            'landlord_id' => $connection->landlord_id,
-            'water_connection_id' => $connection->id,
-            'billing_period_start' => $period->toDateString(),
-            'consumption' => $consumption,
-            'water_due' => $waterDue,
-            'amount_paid' => 0,
-            'status' => 'due',
-            'due_date' => $period->addMonthNoOverflow()->addDays(13)->toDateString(),
-        ]);
+        $invoice = $this->invoiceService->generateInvoiceForWaterConnection(
+            $connection,
+            Carbon::parse($period->toDateString()),
+            (float) $waterDue,
+            $consumption,
+        );
 
-        return ['status' => 'billed', 'charge' => $charge];
-    }
-
-    /**
-     * Record a payment a water client made (the landlord logs cash/M-Pesa received),
-     * applied across the connection's unpaid charges oldest-first. Returns the amount
-     * applied (a leftover is an overpayment the caller can surface). Transactional.
-     */
-    public function applyPayment(WaterConnection $connection, float $amount): float
-    {
-        if ($amount <= 0) {
-            return 0.0;
-        }
-
-        return (float) \Illuminate\Support\Facades\DB::transaction(function () use ($connection, $amount) {
-            $charges = WaterClientCharge::withoutGlobalScope('landlord') // keep SoftDeletes
-                ->where('water_connection_id', $connection->id)
-                ->where('status', '!=', 'voided')
-                ->whereColumn('amount_paid', '<', 'water_due')
-                ->orderBy('billing_period_start')
-                ->lockForUpdate()
-                ->get();
-
-            $remaining = round($amount, 2);
-            $applied = 0.0;
-
-            foreach ($charges as $charge) {
-                if ($remaining <= 0) {
-                    break;
-                }
-                $balance = $charge->balance();
-                $pay = min($remaining, $balance);
-                $charge->amount_paid = round((float) $charge->amount_paid + $pay, 2);
-                $charge->status = $charge->deriveStatus();
-                $charge->save();
-                $remaining = round($remaining - $pay, 2);
-                $applied = round($applied + $pay, 2);
-            }
-
-            return $applied;
-        });
+        return ['status' => 'billed', 'invoice' => $invoice];
     }
 
     /**

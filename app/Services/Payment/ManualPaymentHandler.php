@@ -116,18 +116,22 @@ class ManualPaymentHandler
 
     private function sendNotifications(Payment $payment, ?Invoice $invoice): void
     {
-        if (! $invoice || ! $invoice->lease?->tenant) {
+        // Phase-98: an invoice bills a lease's tenant OR a water connection's client.
+        if (! $invoice || ! $invoice->recipientUser()) {
             return;
         }
 
-        $invoice->load(['lease.tenant', 'lease.unit.building']);
+        $invoice->load(['lease.tenant', 'lease.unit.building', 'waterConnection.client', 'waterConnection.unit']);
 
         // CONC-3: registered inside the surrounding DB::transaction so the
         // ShouldBroadcast PaymentReceivedEvent (and its mailable) only fire
         // once the payment row is durable. Without this, a queue worker
         // could pick up the broadcast job before COMMIT and read stale state.
         \Illuminate\Support\Facades\DB::afterCommit(function () use ($payment, $invoice) {
-            Mail::to($invoice->lease->tenant->email)->queue(new PaymentReceived($payment, $invoice));
+            $recipientEmail = $invoice->recipientUser()?->email;
+            if ($recipientEmail) {
+                Mail::to($recipientEmail)->queue(new PaymentReceived($payment, $invoice));
+            }
             PaymentReceivedEvent::dispatch($payment, $invoice);
         });
     }

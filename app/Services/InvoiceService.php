@@ -2,12 +2,14 @@
 
 namespace App\Services;
 
+use App\Enums\Currency;
 use App\Enums\InvoiceStatus;
 use App\Jobs\GenerateInvoicePdf;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\InvoiceType;
 use App\Models\Lease;
+use App\Models\WaterConnection;
 use App\Models\WaterReading;
 use App\Services\Invoice\FirstInvoiceItemBuilder;
 use Carbon\Carbon;
@@ -211,6 +213,56 @@ class InvoiceService
         }
 
         return max(0, $lastInvoice->total_due - $lastInvoice->amount_paid);
+    }
+
+    /**
+     * Phase-98 WATER-CLIENT-INVOICING-UNIFY: a real invoice for a water client (a
+     * WaterConnection — no lease, no rent). water_due only, recipient = the
+     * connection's client, idempotent per connection+period. The caller
+     * (WaterClientBillingService) has applied the billing guards + computed water_due
+     * via the Phase-87 tariff engine. Sent immediately (no draft/review step), so it
+     * is visible + payable through the same invoice flow as a tenant's.
+     */
+    public function generateInvoiceForWaterConnection(WaterConnection $connection, Carbon $billingPeriod, float $waterDue, ?float $consumption = null): Invoice
+    {
+        $billingPeriod = $billingPeriod->copy()->startOfMonth();
+
+        return DB::transaction(function () use ($connection, $billingPeriod, $waterDue, $consumption) {
+            $existing = Invoice::withoutGlobalScope('landlord')
+                ->where('water_connection_id', $connection->id)
+                ->whereYear('billing_period_start', $billingPeriod->year)
+                ->whereMonth('billing_period_start', $billingPeriod->month)
+                ->lockForUpdate()
+                ->first();
+            if ($existing) {
+                return $existing;
+            }
+
+            $due = round($waterDue, 2);
+            $building = $connection->unit?->building;
+
+            $invoice = Invoice::create([
+                'lease_id' => null,
+                'water_connection_id' => $connection->id,
+                'landlord_id' => $connection->landlord_id,
+                'invoice_number' => $this->generateInvoiceNumber(),
+                'due_date' => $billingPeriod->copy()->addMonthNoOverflow()->startOfMonth()->addDays(13),
+                'billing_period_start' => $billingPeriod,
+                'rent_due' => 0,
+                'water_due' => $due,
+                'arrears' => 0,
+                'total_due' => $due,
+                'amount_paid' => 0,
+                'currency' => $building?->getEffectiveCurrency() ?? Currency::default(),
+                'status' => InvoiceStatus::Sent,
+                'sent_at' => now(),
+                'notes' => $consumption !== null ? "Water consumption: {$consumption}" : null,
+            ]);
+
+            GenerateInvoicePdf::dispatch($invoice->id)->afterCommit();
+
+            return $invoice;
+        });
     }
 
     // CONC-1: count()+1 is NOT atomic — even with lockForUpdate, MySQL only

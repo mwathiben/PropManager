@@ -322,13 +322,17 @@ class FinanceExportService
             fputcsv($handle, $this->getInvoiceHeadings($currencyCode));
 
             foreach ($query->orderBy('created_at', 'desc')->cursor() as $inv) {
+                $recipient = $inv->recipientLabel();
+                $building = $inv->isWaterClientInvoice()
+                    ? $inv->waterConnection?->unit?->building?->name
+                    : $inv->lease?->unit?->building?->name;
                 fputcsv($handle, [
                     $inv->invoice_number,
                     $inv->created_at?->format('Y-m-d'),
                     $inv->due_date?->format('Y-m-d'),
-                    $inv->lease->tenant->name ?? 'N/A',
-                    $inv->lease->unit->unit_number ?? 'N/A',
-                    $inv->lease->unit->building->name ?? 'N/A',
+                    $recipient['name'] ?? 'N/A',
+                    $recipient['context'] ?? 'N/A',
+                    $building ?? 'N/A',
                     $inv->rent_amount,
                     $inv->water_charges,
                     $inv->arrears_amount,
@@ -350,15 +354,16 @@ class FinanceExportService
             fputcsv($handle, $this->getPaymentHeadings($currencyCode));
 
             foreach ($query->orderBy('payment_date', 'desc')->cursor() as $p) {
+                $recipient = $p->invoice?->recipientLabel() ?? ['name' => null, 'context' => null];
                 fputcsv($handle, [
                     $p->payment_date?->format('Y-m-d'),
                     $p->reference ?? '',
-                    $p->lease->tenant->name ?? 'N/A',
-                    $p->lease->unit->unit_number ?? 'N/A',
-                    $p->lease->unit->building->name ?? 'N/A',
+                    $p->lease?->tenant?->name ?? $recipient['name'] ?? 'N/A',
+                    $p->lease?->unit?->unit_number ?? $recipient['context'] ?? 'N/A',
+                    $p->lease?->unit?->building?->name ?? 'N/A',
                     $p->amount,
                     ucfirst(str_replace('_', ' ', $p->payment_method)),
-                    $p->invoice->invoice_number ?? 'Unallocated',
+                    $p->invoice?->invoice_number ?? 'Unallocated',
                     $p->status ?? 'completed',
                 ]);
             }
@@ -594,36 +599,47 @@ class FinanceExportService
 
     protected function formatInvoicesForCsv(Collection $invoices): Collection
     {
-        return $invoices->map(fn ($inv) => [
-            'invoice_number' => $inv->invoice_number,
-            'date' => $inv->created_at?->format('Y-m-d'),
-            'due_date' => $inv->due_date?->format('Y-m-d'),
-            'tenant' => $inv->lease->tenant->name ?? 'N/A',
-            'unit' => $inv->lease->unit->unit_number ?? 'N/A',
-            'building' => $inv->lease->unit->building->name ?? 'N/A',
-            'rent' => $inv->rent_amount,
-            'water' => $inv->water_charges,
-            'arrears' => $inv->arrears_amount,
-            'total_due' => $inv->total_due,
-            'amount_paid' => $inv->amount_paid,
-            'balance' => $inv->total_due - $inv->amount_paid,
-            'status' => ucfirst($inv->status),
-        ]);
+        return $invoices->map(function ($inv) {
+            $recipient = $inv->recipientLabel();
+            $building = $inv->isWaterClientInvoice()
+                ? $inv->waterConnection?->unit?->building?->name
+                : $inv->lease?->unit?->building?->name;
+
+            return [
+                'invoice_number' => $inv->invoice_number,
+                'date' => $inv->created_at?->format('Y-m-d'),
+                'due_date' => $inv->due_date?->format('Y-m-d'),
+                'tenant' => $recipient['name'] ?? 'N/A',
+                'unit' => $recipient['context'] ?? 'N/A',
+                'building' => $building ?? 'N/A',
+                'rent' => $inv->rent_amount,
+                'water' => $inv->water_charges,
+                'arrears' => $inv->arrears_amount,
+                'total_due' => $inv->total_due,
+                'amount_paid' => $inv->amount_paid,
+                'balance' => $inv->total_due - $inv->amount_paid,
+                'status' => ucfirst($inv->status),
+            ];
+        });
     }
 
     protected function formatPaymentsForCsv(Collection $payments): Collection
     {
-        return $payments->map(fn ($p) => [
-            'date' => $p->payment_date?->format('Y-m-d'),
-            'reference' => $p->reference ?? '',
-            'tenant' => $p->lease->tenant->name ?? 'N/A',
-            'unit' => $p->lease->unit->unit_number ?? 'N/A',
-            'building' => $p->lease->unit->building->name ?? 'N/A',
-            'amount' => $p->amount,
-            'method' => ucfirst(str_replace('_', ' ', $p->payment_method)),
-            'invoice' => $p->invoice->invoice_number ?? 'Unallocated',
-            'status' => $p->status ?? 'completed',
-        ]);
+        return $payments->map(function ($p) {
+            $recipient = $p->invoice?->recipientLabel() ?? ['name' => null, 'context' => null];
+
+            return [
+                'date' => $p->payment_date?->format('Y-m-d'),
+                'reference' => $p->reference ?? '',
+                'tenant' => $p->lease?->tenant?->name ?? $recipient['name'] ?? 'N/A',
+                'unit' => $p->lease?->unit?->unit_number ?? $recipient['context'] ?? 'N/A',
+                'building' => $p->lease?->unit?->building?->name ?? 'N/A',
+                'amount' => $p->amount,
+                'method' => ucfirst(str_replace('_', ' ', $p->payment_method)),
+                'invoice' => $p->invoice?->invoice_number ?? 'Unallocated',
+                'status' => $p->status ?? 'completed',
+            ];
+        });
     }
 
     protected function formatDepositsForCsv(Collection $deposits): Collection

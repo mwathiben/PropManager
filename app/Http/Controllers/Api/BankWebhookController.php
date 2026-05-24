@@ -265,16 +265,32 @@ class BankWebhookController extends Controller
                 'status' => $newStatus,
             ]);
 
-            if ($overpayment > 0) {
+            // Phase-98: a water-client invoice has no lease/wallet — never deref it.
+            if ($overpayment > 0 && $invoice->lease) {
                 $invoice->lease->creditToWallet(
                     $overpayment,
                     "Overpayment from bank transfer #{$payment->id}",
                     $payment->id
                 );
+            } elseif ($overpayment > 0) {
+                Log::warning('Water-client invoice overpaid via bank transfer; no wallet to absorb it', [
+                    'invoice_id' => $invoice->id,
+                    'water_connection_id' => $invoice->water_connection_id,
+                    'payment_id' => $payment->id,
+                    'overpayment' => $overpayment,
+                ]);
             }
 
             $invoice->load(['lease.tenant', 'lease.unit.building']);
-            Mail::to($invoice->lease->tenant->email)->queue(new PaymentReceived($payment, $invoice));
+            $recipientEmail = $invoice->recipientUser()?->email;
+            if ($recipientEmail) {
+                Mail::to($recipientEmail)->queue(new PaymentReceived($payment, $invoice));
+            } else {
+                Log::warning('Skipping bank payment receipt email: recipient not found', [
+                    'invoice_id' => $invoice->id,
+                    'payment_id' => $payment->id,
+                ]);
+            }
 
             Log::info('Bank payment recorded', [
                 'payment_id' => $payment->id,

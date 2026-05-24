@@ -42,19 +42,28 @@ class PaymentReceived extends Mailable implements ShouldQueue
      */
     public function content(): Content
     {
+        // Phase-98: an invoice bills a lease's tenant OR a water connection's client.
+        $recipient = $this->invoice->recipientUser();
+        $connection = $this->invoice->waterConnection;
+        $unit = $this->invoice->lease?->unit ?? $connection?->unit;
+        $unitLabel = $unit?->unit_number ?? $connection?->identifier;
+
         return new Content(
             markdown: 'emails.payment-received',
             with: [
                 'payment' => $this->payment,
                 'invoice' => $this->invoice,
-                'tenant' => $this->invoice->lease->tenant,
-                'unit' => $this->invoice->lease->unit,
+                'tenant' => $recipient,
+                'unit' => $unit,
+                'unitLabel' => $unitLabel,
                 'currency_symbol' => ($this->payment->currency ?? Currency::default())->symbol(),
-                'unsubscribeUrl' => URL::temporarySignedRoute(
-                    'email.preferences',
-                    now()->addDays(30),
-                    ['user' => $this->invoice->lease->tenant_id]
-                ),
+                'unsubscribeUrl' => $recipient
+                    ? URL::temporarySignedRoute(
+                        'email.preferences',
+                        now()->addDays(30),
+                        ['user' => $recipient->id]
+                    )
+                    : URL::to('/'),
             ],
         );
     }

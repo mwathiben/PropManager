@@ -165,12 +165,22 @@ class InvoiceController extends Controller
                 'status' => $newStatus,
             ]);
 
-            if ($overpayment > 0) {
+            // Phase-98: a water-client invoice has no lease (and therefore no wallet),
+            // so an overpayment on one cannot be credited to a wallet. Surface it on the
+            // flash message instead of crediting a non-existent lease wallet.
+            if ($overpayment > 0 && $invoice->lease) {
                 $invoice->lease->creditToWallet(
                     $overpayment,
                     "Overpayment from payment #{$payment->id}",
                     $payment->id
                 );
+            } elseif ($overpayment > 0) {
+                Log::warning('Water-client invoice overpayment has no wallet to absorb it', [
+                    'invoice_id' => $invoice->id,
+                    'water_connection_id' => $invoice->water_connection_id,
+                    'payment_id' => $payment->id,
+                    'overpayment' => $overpayment,
+                ]);
             }
 
             $receiptService->createReceipt($payment, $invoice);
@@ -178,19 +188,19 @@ class InvoiceController extends Controller
             return [$payment, $overpayment];
         });
 
-        $invoice->load(['lease.tenant', 'lease.unit.building']);
-        $tenant = $invoice->lease?->tenant;
+        $invoice->load(['lease.tenant', 'lease.unit.building', 'waterConnection.client', 'waterConnection.unit']);
+        $recipient = $invoice->recipientUser();
 
-        if ($tenant?->email) {
-            Mail::to($tenant->email)->queue(new PaymentReceived($payment, $invoice));
+        if ($recipient?->email) {
+            Mail::to($recipient->email)->queue(new PaymentReceived($payment, $invoice));
         } else {
-            Log::warning('Skipping payment receipt email: tenant not found', [
+            Log::warning('Skipping payment receipt email: recipient not found', [
                 'invoice_id' => $invoice->id,
                 'payment_id' => $payment->id,
             ]);
         }
 
-        if ($overpayment > 0) {
+        if ($overpayment > 0 && $invoice->lease) {
             $invoice->lease->refresh();
             $tenant = $invoice->lease->tenant;
             $landlord = User::find($invoice->landlord_id);
@@ -208,7 +218,9 @@ class InvoiceController extends Controller
         $currencySymbol = ($invoice->currency ?? Currency::default())->symbol();
         $message = 'Payment of '.$currencySymbol.' '.number_format($paymentAmount, 2).' recorded successfully.';
         if ($overpayment > 0) {
-            $message .= ' '.$currencySymbol.' '.number_format($overpayment, 2).' credited to wallet.';
+            $message .= $invoice->lease
+                ? ' '.$currencySymbol.' '.number_format($overpayment, 2).' credited to wallet.'
+                : ' '.$currencySymbol.' '.number_format($overpayment, 2).' overpaid (no wallet for a water-client account).';
         }
 
         return back()->with('success', $message);
@@ -244,9 +256,15 @@ class InvoiceController extends Controller
         return back()->with('success', __('messages.invoice.reminder_sent'));
     }
 
-    public function download(Invoice $invoice)
+    public function download(Invoice $invoice, InvoicePdfService $pdfService)
     {
         $this->authorize('view', $invoice);
+
+        // Phase-98: a water-client invoice has no lease; render it through the
+        // lease-optional InvoicePdfService rather than the lease-coupled blade below.
+        if ($invoice->isWaterClientInvoice()) {
+            return $pdfService->downloadPdf($invoice);
+        }
 
         $invoice->load(['lease.tenant', 'lease.unit.building.property']);
 

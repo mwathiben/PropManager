@@ -13,7 +13,9 @@ class InvoicePdfService
     public function generatePdf(Invoice $invoice, ?InvoiceTemplate $template = null): \Barryvdh\DomPDF\PDF
     {
         $template = $template ?? $invoice->template ?? $this->getDefaultTemplate($invoice);
-        $settings = $invoice->lease->unit->building->property->landlord->invoiceSetting;
+        // landlord_id is on the invoice directly — no lease chain needed (Phase-98:
+        // a water-client invoice has no lease).
+        $settings = \App\Models\User::find($invoice->landlord_id)?->invoiceSetting;
 
         $data = $this->prepareInvoiceData($invoice, $template, $settings);
 
@@ -59,20 +61,36 @@ class InvoicePdfService
 
     protected function getDefaultTemplate(Invoice $invoice): ?InvoiceTemplate
     {
-        $landlordId = $invoice->lease->unit->building->property->landlord_id;
-
-        return InvoiceTemplate::where('landlord_id', $landlordId)
+        return InvoiceTemplate::where('landlord_id', $invoice->landlord_id)
             ->where('is_default', true)
             ->first();
     }
 
     protected function prepareInvoiceData(Invoice $invoice, ?InvoiceTemplate $template, $settings): array
     {
-        $lease = $invoice->lease;
-        $tenant = $lease->tenant;
-        $unit = $lease->unit;
-        $building = $unit->building;
-        $property = $building->property;
+        // Phase-98: an invoice is anchored to a lease (tenant) OR a water connection
+        // (water client). Resolve the billed party + property context from whichever.
+        if ($invoice->isWaterClientInvoice()) {
+            $connection = $invoice->waterConnection;
+            $recipient = $connection?->client;
+            $unit = $connection?->unit;
+            $recipientName = $recipient?->name ?? $connection?->client_name;
+            $unitLabel = $connection?->identifier;
+            $leaseBlock = null;
+        } else {
+            $lease = $invoice->lease;
+            $recipient = $lease?->tenant;
+            $unit = $lease?->unit;
+            $recipientName = $recipient?->name;
+            $unitLabel = $unit?->unit_number;
+            $leaseBlock = $lease ? [
+                'reference' => 'LSE-'.str_pad($lease->id, 4, '0', STR_PAD_LEFT),
+                'start_date' => $lease->start_date?->format('M d, Y'),
+                'rent_amount' => $lease->rent_amount,
+            ] : null;
+        }
+        $building = $unit?->building;
+        $property = $building?->property;
 
         $items = $this->buildInvoiceItems($invoice);
 
@@ -81,21 +99,17 @@ class InvoicePdfService
             'template' => $template,
             'settings' => $settings,
             'tenant' => [
-                'name' => $tenant->name,
-                'email' => $tenant->email,
-                'phone' => $tenant->mobile_number,
-                'national_id' => $tenant->national_id,
+                'name' => $recipientName,
+                'email' => $recipient?->email,
+                'phone' => $recipient?->mobile_number,
+                'national_id' => $recipient?->national_id,
             ],
             'unit' => [
-                'name' => $unit->unit_number,
-                'building' => $building->name,
-                'property' => $property->name,
+                'name' => $unitLabel,
+                'building' => $building?->name,
+                'property' => $property?->name,
             ],
-            'lease' => [
-                'reference' => 'LSE-'.str_pad($lease->id, 4, '0', STR_PAD_LEFT),
-                'start_date' => $lease->start_date?->format('M d, Y'),
-                'rent_amount' => $lease->rent_amount,
-            ],
+            'lease' => $leaseBlock,
             'items' => $items,
             'subtotal' => $invoice->rent_due + $invoice->water_due + $invoice->arrears,
             'late_fees' => $invoice->late_fees_total ?? 0,

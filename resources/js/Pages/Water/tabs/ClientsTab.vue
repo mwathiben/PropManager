@@ -109,23 +109,6 @@ function submitInvite(): void {
     });
 }
 
-// --- Record a water-client payment (landlord logs cash/M-Pesa received) ---
-const payOpen = ref(false);
-const payConnection = ref<Connection | null>(null);
-const payForm = useForm({ amount: '' });
-function openPay(c: Connection): void {
-    payForm.reset();
-    payConnection.value = c;
-    payOpen.value = true;
-}
-function submitPay(): void {
-    if (payConnection.value === null) return;
-    payForm.post(route('water.connections.record-payment', payConnection.value.id), {
-        preserveScroll: true,
-        onSuccess: () => { payOpen.value = false; payForm.reset(); },
-    });
-}
-
 const today = new Date().toISOString().slice(0, 10);
 const modeLabel = (m: string) => t(`water.clients.mode_${m}`);
 </script>
@@ -226,7 +209,6 @@ const modeLabel = (m: string) => t(`water.clients.mode_${m}`);
                                 <span v-if="c.billing_issue" class="ms-1 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800" :title="t(`water.clients.issue_${c.billing_issue}`)">{{ t(`water.clients.issue_${c.billing_issue}`) }}</span>
                             </td>
                             <td class="px-4 py-3 text-end">
-                                <button v-if="c.outstanding > 0" type="button" class="me-2 text-xs font-medium text-emerald-700 hover:text-emerald-900" @click="openPay(c)">{{ t('water.clients.record_payment') }}</button>
                                 <button v-if="!c.has_account" type="button" class="me-2 text-xs font-medium text-cyan-700 hover:text-cyan-900" @click="openInvite(c)">{{ t('water.clients.invite') }}</button>
                                 <button type="button" class="me-2 text-gray-400 hover:text-cyan-700" :title="t('water.clients.edit')" @click="openEdit(c)"><PencilSquareIcon class="inline h-4 w-4" /></button>
                                 <button type="button" class="text-gray-300 hover:text-red-600" :title="t('water.clients.delete')" @click="remove(c)"><TrashIcon class="inline h-4 w-4" /></button>
@@ -316,24 +298,5 @@ const modeLabel = (m: string) => t(`water.clients.mode_${m}`);
             </div>
         </div>
 
-        <!-- Record payment modal -->
-        <div v-if="payOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div class="fixed inset-0 bg-gray-900/50" @click="payOpen = false"></div>
-            <div class="relative z-10 w-full max-w-sm rounded-lg bg-white p-6">
-                <h3 class="mb-1 text-lg font-semibold text-gray-900">{{ t('water.clients.record_payment_title') }}</h3>
-                <p class="mb-4 text-sm text-gray-500">{{ payConnection?.identifier }} · {{ t('water.clients.outstanding') }}: {{ payConnection ? formatMoney(payConnection.outstanding) : '' }}</p>
-                <form class="space-y-3" @submit.prevent="submitPay">
-                    <label class="block">
-                        <span class="block text-xs font-medium text-gray-500">{{ t('water.clients.payment_amount') }}</span>
-                        <input v-model="payForm.amount" type="number" step="0.01" min="0.01" required class="mt-1 w-full rounded-md border-gray-300 text-sm focus:border-cyan-500 focus:ring-cyan-500" />
-                        <span v-if="payForm.errors.amount" class="mt-1 block text-xs text-red-600">{{ payForm.errors.amount }}</span>
-                    </label>
-                    <div class="flex gap-3 pt-1">
-                        <button type="submit" :disabled="payForm.processing" class="flex-1 rounded-md bg-emerald-600 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50">{{ t('water.clients.record_payment') }}</button>
-                        <button type="button" class="flex-1 rounded-md bg-gray-100 py-2 text-sm text-gray-700 hover:bg-gray-200" @click="payOpen = false">{{ t('water.clients.cancel') }}</button>
-                    </div>
-                </form>
-            </div>
-        </div>
     </div>
 </template>

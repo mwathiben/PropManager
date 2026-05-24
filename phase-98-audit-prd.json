@@ -1,0 +1,54 @@
+{
+  "phase": 98,
+  "name": "WATER-CLIENT-INVOICING-UNIFY",
+  "epic": "water-clients — USER-DIRECTED unification (replaces the standalone Phase-97 billing track)",
+  "summary": "Per the user's directive (one invoicing system, no parallel water-billing track): water-client bills are now REAL invoices in the finances hub, not the standalone Phase-97 water_client_charges table (retired). A landlord who supplies both rent and water sees one finances hub; tenants already get ONE combined invoice (rent + water on one lease invoice). invoices.lease_id becomes nullable + a new water_connection_id (exactly one set), and every lease-coupled invoice/payment path is made lease-optional.",
+  "findings": [
+    {
+      "id": "WCIU-1-SCHEMA",
+      "title": "invoices lease-optional + water_connection_id (XOR), payments/receipts lease-optional",
+      "detail": "Migration 980100: invoices.lease_id MODIFY NULL (keeps the existing cascade FK), add water_connection_id (nullable FK, restrictOnDelete), a DB CHECK enforcing exactly one of lease_id/water_connection_id, and a unique (water_connection_id, billing_period_start) named inv_water_conn_period_unique (idempotency backstop; NULL water_connection_id on lease invoices is distinct in MySQL so no collision). Migration 980300: payments.lease_id + receipts.lease_id MODIFY NULL (a water-client payment/receipt has no lease). Invoice::booted() creating-guard enforces the XOR at the model layer too (backstops a MySQL engine that ignores CHECK).",
+      "passes": true
+    },
+    {
+      "id": "WCIU-2-GENERATE",
+      "title": "InvoiceService::generateInvoiceForWaterConnection (mirror of generateInvoiceForLease)",
+      "detail": "Creates a real invoice with lease_id=null, water_connection_id set, rent_due/arrears=0, total_due=water_due, currency from the connection's building (?? default), status=Sent, sent_at=now, dispatches GenerateInvoicePdf afterCommit. Idempotent per connection+period (whereYear/whereMonth + lockForUpdate, backed by the unique index). WaterClientBillingService::billConnection repointed onto it; both billing guards preserved.",
+      "passes": true
+    },
+    {
+      "id": "WCIU-3-RECIPIENT",
+      "title": "Lease-agnostic recipient resolution (single source)",
+      "detail": "Invoice::recipientUser() (lease tenant ?? connection client) + recipientLabel() ({name, context}) are the one source for who/what an invoice bills. Used by InvoiceSent, InvoicePdfService, PaymentReceived (all lease-optional), the finances list (recipient attached via ->through()), invoice detail, and every export. invoices/pdf.blade + payment-received.blade made null-safe.",
+      "passes": true
+    },
+    {
+      "id": "WCIU-4-BLAST-RADIUS",
+      "title": "Every lease-coupled invoice/payment path made lease-optional (no NPE)",
+      "detail": "InvoiceController::recordPayment (overpayment-to-wallet guarded with && lease; water-client overpayment surfaced, not credited to a non-existent wallet) + download (water-client invoices routed through the null-safe InvoicePdfService) + receipt email via recipientUser(). Webhooks (Bank, Mpesa STK + Till, BankReconciliationService) guard the overpayment-to-wallet branch and email recipientUser(). InvoiceResource/PaymentResource, FinanceExportService (invoice + payment CSV/PDF), FinancialReportExport, Invoices/StreamingInvoices/Payments/StreamingPayments exports, ManualPaymentHandler all lease-optional.",
+      "passes": true
+    },
+    {
+      "id": "WCIU-5-FINANCES-HUB",
+      "title": "Water-client invoices are first-class in the finances hub",
+      "detail": "finances › invoices lists water-client invoices showing the client name + line identifier (recipient), opens them in the invoice-detail modal (recipient + identifier), downloads them as PDF, and settles them via the standard invoices.recordPayment. Search matches client_name/identifier. WaterAccountService::chargeHistoryForConnection + WaterClientFinancesController + WaterHubController outstanding read from invoices (Invoice::outstandingForWaterConnection / outstandingByWaterConnection).",
+      "passes": true
+    },
+    {
+      "id": "WCIU-6-RETIREMENT",
+      "title": "Phase-97 water_client_charges track fully retired",
+      "detail": "Migration 980200 drops water_client_charges. Removed: WaterClientCharge model + policy + factory, WaterClientBillingService::applyPayment, WaterConnectionController::recordPayment + its route + RecordWaterClientPaymentRequest, the ClientsTab record-payment modal, the now-orphaned water.record_payment* lang keys (en/sw/ar parity preserved). No live code references the dropped table/symbols. BillWaterClients emails InvoiceSent (the canonical invoice notification) instead of the old water_bill_due in-app notice.",
+      "passes": true
+    }
+  ],
+  "closeout": {
+    "closed_at": "2026-05-24",
+    "result": "6/6 findings pass — zero deferrals. USER-DIRECTED unification: water-client billing now runs through the ONE invoicing system.",
+    "summary": "Per the user's directive (one invoicing system, no parallel water-billing track), water-client bills are REAL invoices. invoices.lease_id is nullable + invoices.water_connection_id (exactly one set, enforced by a DB CHECK and an Invoice::booted() creating-guard). InvoiceService::generateInvoiceForWaterConnection mirrors generateInvoiceForLease (water_due only, recipient = the connection's client, currency from the connection's building, status Sent, idempotent per connection+period backed by a unique index). WaterClientBillingService repointed onto it (both guards intact). A water-client invoice is first-class in the finances hub: it lists with the client name + line identifier, opens in the detail modal, downloads as a PDF, and is settled via the standard invoices.recordPayment — with overpayment surfaced (a water-client account has no wallet) rather than NPE-ing on a null lease. Tenants are unchanged: rent + water remain on ONE lease invoice.",
+    "blast_radius": "Every lease-coupled invoice/payment path was made lease-optional: InvoiceController recordPayment + download, the Bank/Mpesa(STK+Till)/BankReconciliation webhook overpayment-to-wallet branches, PaymentReceived + InvoiceSent mailables (+ their blades), InvoicePdfService, InvoiceResource/PaymentResource, FinanceExportService (invoice + payment CSV/PDF), the four Excel export classes (Invoices/StreamingInvoices/Payments/StreamingPayments) + FinancialReportExport, FinanceFilterService + FinancesController (invoice list/detail now show the water client via Invoice::recipientLabel/recipientUser), ManualPaymentHandler. payments.lease_id + receipts.lease_id made nullable so a water-client payment/receipt can persist.",
+    "retirement": "The Phase-97 water_client_charges track is fully retired: table dropped (980200), and WaterClientCharge model/policy/factory, WaterClientBillingService::applyPayment, WaterConnectionController::recordPayment + route + RecordWaterClientPaymentRequest, the ClientsTab record-payment modal, and the orphaned water.record_payment* lang keys (en/sw/ar parity preserved) all removed. No live code references the dropped table or symbols.",
+    "tests": "Phase98WaterClientInvoicingTest 16 (billing→invoice metered/flat, idempotency, BOTH guards, dashboard + finances reads, PDF/InvoiceSent null-safety, command emails InvoiceSent, landlord records overpayment without NPE [surfaced not wallet-credited], landlord downloads the PDF, finances list + detail show the client name/identifier, tenant-one-invoice regression, schema/retirement). Regression: full Water suite + InvoiceController + InvoiceWorkflowIntegration + InvoiceService + PdfExportCurrency + Mpesa + Phase81BankRecon green. Pint clean; eslint 0 errors; lang parity preserved. Dev DB migrated.",
+    "review": "Multi-reviewer read-only pass (CodeRabbit + pr-review code-reviewer + silent-failure-hunter) on the full diff. Found + FIXED: CRITICAL recordPayment/download + Bank/Mpesa/recon overpayment NPE on a null-lease invoice (guarded with && lease; water-client overpayment surfaced); CRITICAL exports threw on $inv->lease->tenant->name ?? \"N/A\" (the ?? trap dereferences a null lease first) → null-safe + recipientLabel; CRITICAL payments.lease_id/receipts.lease_id were NOT NULL so a water-client payment could not persist → made nullable; HIGH recipientLabel/recipientUser were dead code + the finances hub showed \"N/A\" → wired into the list/detail/exports; HIGH no unique backstop replacing wcc_connection_period_unique → added inv_water_conn_period_unique; HIGH/MEDIUM the CHECK is advisory on older MySQL → model-layer XOR guard; MEDIUM stale water.md runbook → rewritten for the unified model.",
+    "constraints_preserved": "Exactly one billing anchor per invoice (lease XOR water connection) at DB + model layers. Effective rate = client_rate ?? landlord water_client_rate, non-positive = unset; the two guards (no_rate / metered_no_meter) never coerce a 0 invoice. Idempotent per connection+period (unique index + lockForUpdate re-check). Money decimal:2, every op rounded. Cross-account isolation preserved (readings bounded by connected_at + landlord_id + the scoped meter). Tenant invoices unchanged — rent + water on ONE invoice."
+  }
+}

@@ -19,21 +19,28 @@ class InvoicesExport implements FromCollection, ShouldAutoSize, WithHeadings, Wi
 
     public function collection(): Collection
     {
-        return $this->invoices->map(fn ($inv) => [
-            'Invoice Number' => $inv->invoice_number,
-            'Date' => $inv->created_at?->format('Y-m-d'),
-            'Due Date' => $inv->due_date?->format('Y-m-d'),
-            'Tenant' => $inv->lease->tenant->name ?? 'N/A',
-            'Unit' => $inv->lease->unit->unit_number ?? 'N/A',
-            'Building' => $inv->lease->unit->building->name ?? 'N/A',
-            'Rent' => $inv->rent_amount,
-            'Water' => $inv->water_charges,
-            'Arrears' => $inv->arrears_amount,
-            'Total Due' => $inv->total_due,
-            'Amount Paid' => $inv->amount_paid,
-            'Balance' => $inv->total_due - $inv->amount_paid,
-            'Status' => ucfirst($inv->status),
-        ]);
+        return $this->invoices->map(function ($inv) {
+            $recipient = $inv->recipientLabel();
+            $building = $inv->isWaterClientInvoice()
+                ? $inv->waterConnection?->unit?->building?->name
+                : $inv->lease?->unit?->building?->name;
+
+            return [
+                'Invoice Number' => $inv->invoice_number,
+                'Date' => $inv->created_at?->format('Y-m-d'),
+                'Due Date' => $inv->due_date?->format('Y-m-d'),
+                'Tenant' => $recipient['name'] ?? 'N/A',
+                'Unit' => $recipient['context'] ?? 'N/A',
+                'Building' => $building ?? 'N/A',
+                'Rent' => $inv->rent_amount,
+                'Water' => $inv->water_charges,
+                'Arrears' => $inv->arrears_amount,
+                'Total Due' => $inv->total_due,
+                'Amount Paid' => $inv->amount_paid,
+                'Balance' => $inv->total_due - $inv->amount_paid,
+                'Status' => ucfirst($inv->status),
+            ];
+        });
     }
 
     public function headings(): array

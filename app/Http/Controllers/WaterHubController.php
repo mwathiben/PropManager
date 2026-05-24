@@ -239,9 +239,9 @@ class WaterHubController extends Controller
     {
         $config = \App\Models\PaymentConfiguration::where('landlord_id', $landlordId)->first();
 
-        // Phase-97: outstanding water-client balance per connection (one batched query,
-        // shared formula with the client finances surface).
-        $outstanding = \App\Models\WaterClientCharge::outstandingByConnection($landlordId);
+        // Phase-98: outstanding water-client balance per connection from invoices
+        // (one batched query, shared formula with the client finances surface).
+        $outstanding = \App\Models\Invoice::outstandingByWaterConnection($landlordId);
         $defaultRate = ($config && $config->water_client_rate !== null && (float) $config->water_client_rate > 0)
             ? (float) $config->water_client_rate
             : null;

@@ -24,13 +24,19 @@ class FinanceFilterService
                 'lease.tenant:id,name,email',
                 'lease.unit:id,unit_number,building_id',
                 'lease.unit.building:id,name',
+                // Phase-98: water-client invoices have no lease — load the connection
+                // so the list can show the client + line identifier instead of "N/A".
+                'waterConnection:id,user_id,client_name,identifier',
+                'waterConnection.client:id,name,email',
             ]);
 
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('invoice_number', 'like', "%{$search}%")
-                    ->orWhereHas('lease.tenant', fn ($q) => $q->where('name', 'like', "%{$search}%"));
+                    ->orWhereHas('lease.tenant', fn ($q) => $q->where('name', 'like', "%{$search}%"))
+                    ->orWhereHas('waterConnection', fn ($q) => $q->where('client_name', 'like', "%{$search}%")
+                        ->orWhere('identifier', 'like', "%{$search}%"));
             });
         }
 
@@ -52,7 +58,14 @@ class FinanceFilterService
 
         return $query->orderBy('created_at', 'desc')
             ->paginate(20)
-            ->withQueryString();
+            ->withQueryString()
+            // Phase-98: attach a lease-agnostic recipient label so the hub list shows
+            // either the tenant + unit or the water client + line identifier.
+            ->through(function (Invoice $invoice) {
+                $invoice->setAttribute('recipient', $invoice->recipientLabel());
+
+                return $invoice;
+            });
     }
 
     public function getPaginatedPayments(Request $request, int $landlordId): LengthAwarePaginator

@@ -326,23 +326,32 @@ class MpesaWebhookController extends Controller
                 'status' => $newStatus,
             ]);
 
-            if ($overpayment > 0) {
+            // Phase-98: a water-client invoice has no lease/wallet — never deref it.
+            if ($overpayment > 0 && $invoice->lease) {
                 $invoice->lease->creditToWallet(
                     $overpayment,
                     "Overpayment from M-Pesa payment #{$payment->id}",
                     $payment->id
                 );
                 $invoice->lease->refresh();
+            } elseif ($overpayment > 0) {
+                Log::warning('Water-client invoice overpaid via M-Pesa; no wallet to absorb it', [
+                    'invoice_id' => $invoice->id,
+                    'water_connection_id' => $invoice->water_connection_id,
+                    'payment_id' => $payment->id,
+                    'overpayment' => $overpayment,
+                ]);
             }
 
             DB::commit();
 
-            $invoice->load(['lease.tenant', 'lease.unit.building']);
+            $invoice->load(['lease.tenant', 'lease.unit.building', 'waterConnection.client', 'waterConnection.unit']);
 
-            if ($invoice->lease?->tenant?->email && filter_var($invoice->lease->tenant->email, FILTER_VALIDATE_EMAIL)) {
-                Mail::to($invoice->lease->tenant->email)->queue(new PaymentReceived($payment, $invoice));
+            $recipientEmail = $invoice->recipientUser()?->email;
+            if ($recipientEmail && filter_var($recipientEmail, FILTER_VALIDATE_EMAIL)) {
+                Mail::to($recipientEmail)->queue(new PaymentReceived($payment, $invoice));
             } else {
-                Log::warning('M-Pesa webhook: Cannot send payment receipt - tenant email missing', [
+                Log::warning('M-Pesa webhook: Cannot send payment receipt - recipient email missing', [
                     'payment_id' => $payment->id,
                     'invoice_id' => $invoice->id,
                     'lease_id' => $invoice->lease_id,
@@ -808,21 +817,30 @@ class MpesaWebhookController extends Controller
             'status' => $newStatus,
         ]);
 
-        if ($overpayment > 0) {
+        // Phase-98: a water-client invoice has no lease/wallet — never deref it.
+        if ($overpayment > 0 && $invoice->lease) {
             $invoice->lease->creditToWallet(
                 $overpayment,
                 "Overpayment from M-Pesa Till payment #{$payment->id}",
                 $payment->id
             );
             $invoice->lease->refresh();
+        } elseif ($overpayment > 0) {
+            Log::warning('Water-client invoice overpaid via M-Pesa Till; no wallet to absorb it', [
+                'invoice_id' => $invoice->id,
+                'water_connection_id' => $invoice->water_connection_id,
+                'payment_id' => $payment->id,
+                'overpayment' => $overpayment,
+            ]);
         }
 
-        $invoice->load(['lease.tenant', 'lease.unit.building']);
+        $invoice->load(['lease.tenant', 'lease.unit.building', 'waterConnection.client', 'waterConnection.unit']);
 
-        if ($invoice->lease?->tenant?->email && filter_var($invoice->lease->tenant->email, FILTER_VALIDATE_EMAIL)) {
-            Mail::to($invoice->lease->tenant->email)->queue(new PaymentReceived($payment, $invoice));
+        $recipientEmail = $invoice->recipientUser()?->email;
+        if ($recipientEmail && filter_var($recipientEmail, FILTER_VALIDATE_EMAIL)) {
+            Mail::to($recipientEmail)->queue(new PaymentReceived($payment, $invoice));
         } else {
-            Log::warning('M-Pesa Till webhook: Cannot send payment receipt - tenant email missing', [
+            Log::warning('M-Pesa Till webhook: Cannot send payment receipt - recipient email missing', [
                 'payment_id' => $payment->id,
                 'invoice_id' => $invoice->id,
                 'lease_id' => $invoice->lease_id,

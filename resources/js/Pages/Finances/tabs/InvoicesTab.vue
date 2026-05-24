@@ -85,8 +85,8 @@ const tableData = computed((): InvoiceRow[] => {
     return props.invoices.data.map(invoice => ({
         id: invoice.id,
         invoice_number: invoice.invoice_number,
-        tenant: invoice.lease?.tenant?.name || 'Unknown',
-        unit: invoice.lease?.unit?.unit_number || 'N/A',
+        tenant: invoice.recipient?.name || invoice.lease?.tenant?.name || 'Unknown',
+        unit: invoice.recipient?.context || invoice.lease?.unit?.unit_number || 'N/A',
         building: invoice.lease?.unit?.building?.name || '',
         total_due: invoice.total_due,
         amount_paid: invoice.amount_paid,

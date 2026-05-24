@@ -381,7 +381,7 @@
                         <div class="tenant-details">
                             {{ $unit['building'] }}<br>
                             {{ $unit['property'] }}<br>
-                            @if($template?->show_lease_reference)
+                            @if($template?->show_lease_reference && $lease)
                                 Lease: {{ $lease['reference'] }}
                             @endif
                         </div>

@@ -337,20 +337,26 @@ class FinanceStatsService
                 'lease.tenant:id,name',
                 'lease.unit:id,unit_number,building_id',
                 'lease.unit.building:id,name',
+                'invoice.waterConnection:id,user_id,client_name,identifier',
+                'invoice.waterConnection.client:id,name',
             ])
             ->orderBy('payment_date', 'desc')
             ->limit($limit)
             ->get()
-            ->map(fn ($p) => [
-                'id' => $p->id,
-                'amount' => $p->amount,
-                'payment_method' => $p->payment_method,
-                'payment_date' => $p->payment_date->format('Y-m-d'),
-                'tenant_name' => $p->lease?->tenant?->name ?? 'Unknown',
-                'unit' => $p->lease?->unit?->unit_number ?? 'N/A',
-                'building' => $p->lease?->unit?->building?->name ?? 'N/A',
-                'reference' => $p->reference,
-            ])
+            ->map(function ($p) {
+                $recipient = $p->invoice?->recipientLabel() ?? ['name' => null, 'context' => null];
+
+                return [
+                    'id' => $p->id,
+                    'amount' => $p->amount,
+                    'payment_method' => $p->payment_method,
+                    'payment_date' => $p->payment_date->format('Y-m-d'),
+                    'tenant_name' => $p->lease?->tenant?->name ?? $recipient['name'] ?? 'Unknown',
+                    'unit' => $p->lease?->unit?->unit_number ?? $recipient['context'] ?? 'N/A',
+                    'building' => $p->lease?->unit?->building?->name ?? 'N/A',
+                    'reference' => $p->reference,
+                ];
+            })
             ->toArray();
     }
 
@@ -361,21 +367,27 @@ class FinanceStatsService
                 'lease.tenant:id,name',
                 'lease.unit:id,unit_number,building_id',
                 'lease.unit.building:id,name',
+                'waterConnection:id,user_id,client_name,identifier',
+                'waterConnection.client:id,name',
             ])
             ->orderBy('created_at', 'desc')
             ->limit($limit)
             ->get()
-            ->map(fn ($i) => [
-                'id' => $i->id,
-                'invoice_number' => $i->invoice_number,
-                'status' => $i->status,
-                'total_due' => $i->total_due,
-                'amount_paid' => $i->amount_paid,
-                'due_date' => $i->due_date?->format('Y-m-d'),
-                'tenant_name' => $i->lease?->tenant?->name ?? 'Unknown',
-                'unit' => $i->lease?->unit?->unit_number ?? 'N/A',
-                'building' => $i->lease?->unit?->building?->name ?? 'N/A',
-            ])
+            ->map(function ($i) {
+                $recipient = $i->recipientLabel();
+
+                return [
+                    'id' => $i->id,
+                    'invoice_number' => $i->invoice_number,
+                    'status' => $i->status,
+                    'total_due' => $i->total_due,
+                    'amount_paid' => $i->amount_paid,
+                    'due_date' => $i->due_date?->format('Y-m-d'),
+                    'tenant_name' => $recipient['name'] ?? 'Unknown',
+                    'unit' => $recipient['context'] ?? 'N/A',
+                    'building' => $i->lease?->unit?->building?->name ?? 'N/A',
+                ];
+            })
             ->toArray();
     }
 

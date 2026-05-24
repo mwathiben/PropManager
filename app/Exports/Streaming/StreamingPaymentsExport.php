@@ -28,15 +28,17 @@ class StreamingPaymentsExport implements FromQuery, ShouldAutoSize, ShouldQueue,
 
     public function map($payment): array
     {
+        $recipient = $payment->invoice?->recipientLabel() ?? ['name' => null, 'context' => null];
+
         return [
             $payment->payment_date?->format('Y-m-d'),
             $payment->reference ?? '',
-            $payment->lease->tenant->name ?? 'N/A',
-            $payment->lease->unit->unit_number ?? 'N/A',
-            $payment->lease->unit->building->name ?? 'N/A',
+            $payment->lease?->tenant?->name ?? $recipient['name'] ?? 'N/A',
+            $payment->lease?->unit?->unit_number ?? $recipient['context'] ?? 'N/A',
+            $payment->lease?->unit?->building?->name ?? 'N/A',
             $payment->amount,
             ucfirst(str_replace('_', ' ', $payment->payment_method)),
-            $payment->invoice->invoice_number ?? 'Unallocated',
+            $payment->invoice?->invoice_number ?? 'Unallocated',
             $payment->status ?? 'completed',
         ];
     }

@@ -19,17 +19,21 @@ class PaymentsExport implements FromCollection, ShouldAutoSize, WithHeadings, Wi
 
     public function collection(): Collection
     {
-        return $this->payments->map(fn ($p) => [
-            'Date' => $p->payment_date->format('Y-m-d'),
-            'Reference' => $p->reference,
-            'Tenant' => $p->lease->tenant->name ?? 'N/A',
-            'Unit' => $p->lease->unit->unit_number ?? 'N/A',
-            'Building' => $p->lease->unit->building->name ?? 'N/A',
-            'Amount' => $p->amount,
-            'Method' => ucfirst(str_replace('_', ' ', $p->payment_method)),
-            'Invoice' => $p->invoice->invoice_number ?? 'N/A',
-            'Status' => $p->invoice->status ?? 'N/A',
-        ]);
+        return $this->payments->map(function ($p) {
+            $recipient = $p->invoice?->recipientLabel() ?? ['name' => null, 'context' => null];
+
+            return [
+                'Date' => $p->payment_date->format('Y-m-d'),
+                'Reference' => $p->reference,
+                'Tenant' => $p->lease?->tenant?->name ?? $recipient['name'] ?? 'N/A',
+                'Unit' => $p->lease?->unit?->unit_number ?? $recipient['context'] ?? 'N/A',
+                'Building' => $p->lease?->unit?->building?->name ?? 'N/A',
+                'Amount' => $p->amount,
+                'Method' => ucfirst(str_replace('_', ' ', $p->payment_method)),
+                'Invoice' => $p->invoice?->invoice_number ?? 'N/A',
+                'Status' => $p->invoice?->status ?? 'N/A',
+            ];
+        });
     }
 
     public function headings(): array

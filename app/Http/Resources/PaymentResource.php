@@ -22,11 +22,12 @@ class PaymentResource extends JsonResource
                 'invoice_number' => $this->invoice->invoice_number,
                 'total_due' => (float) $this->invoice->total_due,
             ]),
-            'unit' => $this->whenLoaded('lease', fn () => [
+            // Phase-98: a water-client payment has no lease — guard the unit chain.
+            'unit' => $this->whenLoaded('lease', fn () => $this->lease?->unit ? [
                 'id' => $this->lease->unit->id,
                 'unit_number' => $this->lease->unit->unit_number,
                 'building' => $this->lease->unit->building?->name,
-            ]),
+            ] : null),
             'created_at' => $this->created_at?->toIso8601String(),
         ];
     }

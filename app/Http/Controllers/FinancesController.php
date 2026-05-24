@@ -135,6 +135,10 @@ class FinancesController extends Controller
             'lease.tenant:id,name,email,mobile_number',
             'lease.unit:id,unit_number,building_id',
             'lease.unit.building:id,name',
+            'waterConnection:id,user_id,client_name,identifier,unit_id',
+            'waterConnection.client:id,name,email,mobile_number',
+            'waterConnection.unit:id,unit_number,building_id',
+            'waterConnection.unit.building:id,name',
             'payments:id,invoice_id,amount,payment_method,payment_date,reference',
         ]);
 
@@ -153,17 +157,8 @@ class FinancesController extends Controller
                 'billing_period_start' => $invoice->billing_period_start?->format('Y-m-d'),
                 'billing_period_end' => $invoice->billing_period_end?->format('Y-m-d'),
                 'created_at' => $invoice->created_at->format('Y-m-d H:i'),
-                'tenant' => $invoice->lease?->tenant ? [
-                    'id' => $invoice->lease->tenant->id,
-                    'name' => $invoice->lease->tenant->name,
-                    'email' => $invoice->lease->tenant->email,
-                    'phone' => $invoice->lease->tenant->mobile_number,
-                ] : null,
-                'unit' => $invoice->lease?->unit ? [
-                    'id' => $invoice->lease->unit->id,
-                    'unit_number' => $invoice->lease->unit->unit_number,
-                    'building' => $invoice->lease->unit->building?->name,
-                ] : null,
+                'tenant' => $this->invoiceRecipientBlock($invoice),
+                'unit' => $this->invoiceUnitBlock($invoice),
                 'payments' => $invoice->payments->map(fn ($p) => [
                     'id' => $p->id,
                     'amount' => $p->amount,
@@ -173,6 +168,52 @@ class FinancesController extends Controller
                 ])->toArray(),
             ],
         ], 60, 300);
+    }
+
+    /**
+     * Phase-98: the billed party for an invoice detail panel — the lease's tenant or
+     * (for a water-client invoice) the connection's client account.
+     */
+    private function invoiceRecipientBlock(Invoice $invoice): ?array
+    {
+        if ($invoice->isWaterClientInvoice()) {
+            $client = $invoice->waterConnection?->client;
+            $name = $client?->name ?? $invoice->waterConnection?->client_name;
+
+            return $name === null ? null : [
+                'id' => $client?->id,
+                'name' => $name,
+                'email' => $client?->email,
+                'phone' => $client?->mobile_number,
+            ];
+        }
+
+        return $invoice->lease?->tenant ? [
+            'id' => $invoice->lease->tenant->id,
+            'name' => $invoice->lease->tenant->name,
+            'email' => $invoice->lease->tenant->email,
+            'phone' => $invoice->lease->tenant->mobile_number,
+        ] : null;
+    }
+
+    private function invoiceUnitBlock(Invoice $invoice): ?array
+    {
+        if ($invoice->isWaterClientInvoice()) {
+            $connection = $invoice->waterConnection;
+            $unit = $connection?->unit;
+
+            return [
+                'id' => $unit?->id,
+                'unit_number' => $unit?->unit_number ?? $connection?->identifier,
+                'building' => $unit?->building?->name,
+            ];
+        }
+
+        return $invoice->lease?->unit ? [
+            'id' => $invoice->lease->unit->id,
+            'unit_number' => $invoice->lease->unit->unit_number,
+            'building' => $invoice->lease->unit->building?->name,
+        ] : null;
     }
 
     public function paymentDetail(Payment $payment): JsonResponse

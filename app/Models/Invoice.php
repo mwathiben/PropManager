@@ -25,6 +25,26 @@ class Invoice extends Model
     }
 
     /**
+     * Phase-98: an invoice is anchored to exactly one billing party — a lease (tenant)
+     * OR a water connection (water client). Enforce the XOR at the model layer so the
+     * invariant holds even on a MySQL engine that parses-and-ignores the CHECK
+     * constraint (< 8.0.16), preventing an orphan invoice with no payer.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (self $invoice): void {
+            $hasLease = $invoice->lease_id !== null;
+            $hasConnection = $invoice->water_connection_id !== null;
+
+            if ($hasLease === $hasConnection) {
+                throw new \LogicException(
+                    'An invoice must reference exactly one of lease_id or water_connection_id.'
+                );
+            }
+        });
+    }
+
+    /**
      * Phase-13 DPA-3: invoices are processed on the lawful basis of
      * contract performance — the underlying lease defines the
      * payment obligation that an invoice realises. The 7-year
@@ -58,6 +78,7 @@ class Invoice extends Model
 
     protected $fillable = [
         'lease_id',
+        'water_connection_id',
         'landlord_id',
         'invoice_type_id',
         'invoice_template_id',
@@ -108,6 +129,84 @@ class Invoice extends Model
     public function lease(): BelongsTo
     {
         return $this->belongsTo(Lease::class);
+    }
+
+    /**
+     * Phase-98: a water-client invoice is anchored to a WaterConnection instead of
+     * a lease. Exactly one of lease()/waterConnection() is set.
+     */
+    public function waterConnection(): BelongsTo
+    {
+        return $this->belongsTo(WaterConnection::class);
+    }
+
+    public function isWaterClientInvoice(): bool
+    {
+        return $this->water_connection_id !== null;
+    }
+
+    /**
+     * Phase-98: outstanding water-client balance for one connection (sum of positive
+     * unpaid balances across its invoices) — the single source for the client
+     * finances page + the landlord Clients tab, so they can't drift.
+     */
+    public static function outstandingForWaterConnection(int $connectionId): float
+    {
+        return round((float) static::withoutGlobalScope('landlord')
+            ->where('water_connection_id', $connectionId)
+            ->whereNull('voided_at')
+            ->whereRaw('amount_paid < total_due')
+            ->selectRaw('COALESCE(SUM(GREATEST(total_due - amount_paid, 0)), 0) as bal')
+            ->value('bal'), 2);
+    }
+
+    /**
+     * Outstanding water-client balance per connection for a landlord, batched.
+     *
+     * @return \Illuminate\Support\Collection<int, float>
+     */
+    public static function outstandingByWaterConnection(int $landlordId): \Illuminate\Support\Collection
+    {
+        return static::withoutGlobalScope('landlord')
+            ->whereNotNull('water_connection_id')
+            ->where('landlord_id', $landlordId)
+            ->whereNull('voided_at')
+            ->whereRaw('amount_paid < total_due')
+            ->selectRaw('water_connection_id, ROUND(COALESCE(SUM(GREATEST(total_due - amount_paid, 0)), 0), 2) as balance')
+            ->groupBy('water_connection_id')
+            ->pluck('balance', 'water_connection_id');
+    }
+
+    /**
+     * The party billed by this invoice — the lease's tenant, or (for a water-client
+     * invoice) the connection's client account. Null if not yet onboarded.
+     */
+    public function recipientUser(): ?User
+    {
+        return $this->lease?->tenant ?? $this->waterConnection?->client;
+    }
+
+    /**
+     * A human label for who/what is billed — the tenant + unit, or the water-line
+     * client + identifier — for the finances hub list (lease-agnostic).
+     *
+     * @return array{name:?string, context:?string}
+     */
+    public function recipientLabel(): array
+    {
+        if ($this->isWaterClientInvoice()) {
+            $connection = $this->waterConnection;
+
+            return [
+                'name' => $connection?->client?->name ?? $connection?->client_name,
+                'context' => $connection?->identifier,
+            ];
+        }
+
+        return [
+            'name' => $this->lease?->tenant?->name,
+            'context' => $this->lease?->unit?->unit_number,
+        ];
     }
 
     public function invoiceType(): BelongsTo

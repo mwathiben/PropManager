@@ -22,14 +22,33 @@ class InvoiceResource extends JsonResource
             'total_due' => (float) $this->total_due,
             'amount_paid' => (float) $this->amount_paid,
             'balance' => (float) ($this->total_due - $this->amount_paid),
-            'unit' => $this->whenLoaded('lease', fn () => [
-                'id' => $this->lease->unit->id,
-                'unit_number' => $this->lease->unit->unit_number,
-                'building' => $this->lease->unit->building?->name,
-            ]),
+            // Phase-98: an invoice bills a lease's tenant OR a water connection's client.
+            'recipient' => $this->recipientLabel(),
+            'unit' => $this->resolveUnitBlock(),
             'payments' => PaymentResource::collection($this->whenLoaded('payments')),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];
+    }
+
+    private function resolveUnitBlock(): ?array
+    {
+        if ($this->isWaterClientInvoice()) {
+            $unit = $this->waterConnection?->unit;
+
+            return [
+                'id' => $unit?->id,
+                'unit_number' => $unit?->unit_number ?? $this->waterConnection?->identifier,
+                'building' => $unit?->building?->name,
+            ];
+        }
+
+        $unit = $this->lease?->unit;
+
+        return $unit ? [
+            'id' => $unit->id,
+            'unit_number' => $unit->unit_number,
+            'building' => $unit->building?->name,
+        ] : null;
     }
 }

@@ -656,10 +656,6 @@ Route::middleware('auth')->group(function () {
 
             // Phase-95 WATER-CLIENT-ONBOARDING: invite the client for a connection.
             Route::post('/water/connections/{waterConnection}/invite', [\App\Http\Controllers\WaterClientInvitationController::class, 'store'])->whereNumber('waterConnection')->name('water-client-invitations.store');
-
-            // Phase-97 WATER-CLIENT-BILLING: landlord records a water-client payment
-            // (cash/M-Pesa received), applied across the connection's unpaid charges.
-            Route::post('/water/connections/{waterConnection}/record-payment', [\App\Http\Controllers\WaterConnectionController::class, 'recordPayment'])->whereNumber('waterConnection')->name('water.connections.record-payment');
         });
     });
 
