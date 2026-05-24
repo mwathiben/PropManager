@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { Link, useForm } from '@inertiajs/vue3';
+import { useI18n } from '@/composables/useI18n';
 import {
     CreditCardIcon,
     BanknotesIcon,
@@ -80,6 +81,8 @@ const props = withDefaults(defineProps<Props>(), {
     fiscalYearSettings: () => ({}),
 });
 
+const { t } = useI18n();
+
 const activeSection = ref('payment-methods');
 
 const paymentMethodsForm = useForm({
@@ -127,18 +130,18 @@ const currencyForm = useForm({
 });
 
 const monthOptions = [
-    { value: 1, label: 'January' },
-    { value: 2, label: 'February' },
-    { value: 3, label: 'March' },
-    { value: 4, label: 'April' },
-    { value: 5, label: 'May' },
-    { value: 6, label: 'June' },
-    { value: 7, label: 'July' },
-    { value: 8, label: 'August' },
-    { value: 9, label: 'September' },
-    { value: 10, label: 'October' },
-    { value: 11, label: 'November' },
-    { value: 12, label: 'December' },
+    { value: 1, label: t('finances_settings.months.january') },
+    { value: 2, label: t('finances_settings.months.february') },
+    { value: 3, label: t('finances_settings.months.march') },
+    { value: 4, label: t('finances_settings.months.april') },
+    { value: 5, label: t('finances_settings.months.may') },
+    { value: 6, label: t('finances_settings.months.june') },
+    { value: 7, label: t('finances_settings.months.july') },
+    { value: 8, label: t('finances_settings.months.august') },
+    { value: 9, label: t('finances_settings.months.september') },
+    { value: 10, label: t('finances_settings.months.october') },
+    { value: 11, label: t('finances_settings.months.november') },
+    { value: 12, label: t('finances_settings.months.december') },
 ];
 
 const togglePaymentMethod = (method) => {
@@ -215,13 +218,18 @@ const methodIcons = {
 };
 
 const sections = [
-    { id: 'payment-methods', name: 'Payment Methods', icon: CreditCardIcon },
-    { id: 'currency', name: 'Currency', icon: CurrencyDollarIcon },
-    { id: 'invoice-settings', name: 'Invoice Settings', icon: DocumentTextIcon },
-    { id: 'receipt-settings', name: 'Receipt Settings', icon: ReceiptPercentIcon },
-    { id: 'fiscal-year', name: 'Fiscal Year', icon: CalendarDaysIcon },
-    { id: 'reminders', name: 'Reminders', icon: BellIcon },
+    { id: 'payment-methods', name: t('finances_settings.sections.payment_methods'), icon: CreditCardIcon },
+    { id: 'currency', name: t('finances_settings.sections.currency'), icon: CurrencyDollarIcon },
+    { id: 'invoice-settings', name: t('finances_settings.sections.invoice_settings'), icon: DocumentTextIcon },
+    { id: 'receipt-settings', name: t('finances_settings.sections.receipt_settings'), icon: ReceiptPercentIcon },
+    { id: 'fiscal-year', name: t('finances_settings.sections.fiscal_year'), icon: CalendarDaysIcon },
+    { id: 'reminders', name: t('finances_settings.sections.reminders'), icon: BellIcon },
 ];
+
+const navButtonBaseClass = 'w-full flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-colors';
+const methodButtonBaseClass = 'flex items-center gap-3 p-4 rounded-lg border-2 transition-colors text-start';
+const fiscalTypeButtonBaseClass = 'flex-1 px-4 py-3 text-sm rounded-lg border-2 transition-colors text-start';
+const channelButtonBaseClass = 'px-4 py-2 text-sm rounded-lg border-2 transition-colors';
 </script>
 
 <template>
@@ -233,7 +241,7 @@ const sections = [
                     :key="section.id"
                     @click="activeSection = section.id"
                     :class="[
-                        'w-full flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-colors',
+                        navButtonBaseClass,
                         activeSection === section.id
                             ? 'bg-emerald-50 text-emerald-700'
                             : 'text-gray-600 hover:bg-gray-50'
@@ -248,14 +256,14 @@ const sections = [
         <div class="lg:col-span-3">
             <div v-if="activeSection === 'payment-methods'" class="space-y-6">
                 <div class="bg-white rounded-xl border border-gray-200 p-6">
-                    <h3 class="text-sm font-semibold text-gray-900 mb-4">Accepted Payment Methods</h3>
+                    <h3 class="text-sm font-semibold text-gray-900 mb-4">{{ t('finances_settings.payment_methods.heading') }}</h3>
                     <div class="grid grid-cols-2 gap-4">
                         <button
                             v-for="(label, method) in paymentMethods"
                             :key="method"
                             @click="togglePaymentMethod(method)"
                             :class="[
-                                'flex items-center gap-3 p-4 rounded-lg border-2 transition-colors text-start',
+                                methodButtonBaseClass,
                                 isMethodEnabled(method)
                                     ? 'border-emerald-500 bg-emerald-50'
                                     : 'border-gray-200 hover:border-gray-300'
@@ -277,10 +285,10 @@ const sections = [
                 </div>
 
                 <div v-if="isMethodEnabled('bank_transfer')" class="bg-white rounded-xl border border-gray-200 p-6">
-                    <h3 class="text-sm font-semibold text-gray-900 mb-4">Bank Transfer Details</h3>
+                    <h3 class="text-sm font-semibold text-gray-900 mb-4">{{ t('finances_settings.bank.heading') }}</h3>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">Bank Name</label>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_settings.bank.name') }}</label>
                             <input
                                 v-model="paymentMethodsForm.bank_name"
                                 type="text"
@@ -288,7 +296,7 @@ const sections = [
                             />
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">Account Name</label>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_settings.bank.account_name') }}</label>
                             <input
                                 v-model="paymentMethodsForm.bank_account_name"
                                 type="text"
@@ -296,7 +304,7 @@ const sections = [
                             />
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">Account Number</label>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_settings.bank.account_number') }}</label>
                             <input
                                 v-model="paymentMethodsForm.bank_account_number"
                                 type="text"
@@ -304,7 +312,7 @@ const sections = [
                             />
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">Branch</label>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_settings.bank.branch') }}</label>
                             <input
                                 v-model="paymentMethodsForm.bank_branch"
                                 type="text"
@@ -315,10 +323,10 @@ const sections = [
                 </div>
 
                 <div v-if="isMethodEnabled('mobile_money')" class="bg-white rounded-xl border border-gray-200 p-6">
-                    <h3 class="text-sm font-semibold text-gray-900 mb-4">M-Pesa Details</h3>
+                    <h3 class="text-sm font-semibold text-gray-900 mb-4">{{ t('finances_settings.mpesa.heading') }}</h3>
                     <div class="space-y-4">
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-2">Shortcode Type</label>
+                            <label class="block text-xs font-medium text-gray-700 mb-2">{{ t('finances_settings.mpesa.shortcode_type') }}</label>
                             <div class="flex gap-4">
                                 <label class="flex items-center gap-2 cursor-pointer">
                                     <input
@@ -327,7 +335,7 @@ const sections = [
                                         value="paybill"
                                         class="h-4 w-4 text-emerald-600 border-gray-300 focus:ring-emerald-500"
                                     />
-                                    <span class="text-sm text-gray-700">Paybill</span>
+                                    <span class="text-sm text-gray-700">{{ t('finances_settings.mpesa.paybill') }}</span>
                                 </label>
                                 <label class="flex items-center gap-2 cursor-pointer">
                                     <input
@@ -336,41 +344,41 @@ const sections = [
                                         value="till"
                                         class="h-4 w-4 text-emerald-600 border-gray-300 focus:ring-emerald-500"
                                     />
-                                    <span class="text-sm text-gray-700">Till (Buy Goods)</span>
+                                    <span class="text-sm text-gray-700">{{ t('finances_settings.mpesa.till') }}</span>
                                 </label>
                             </div>
                         </div>
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-xs font-medium text-gray-700 mb-1">
-                                    {{ paymentMethodsForm.mpesa_shortcode_type === 'till' ? 'Till Number' : 'Paybill Number' }}
+                                    {{ paymentMethodsForm.mpesa_shortcode_type === 'till' ? t('finances_settings.mpesa.till_number') : t('finances_settings.mpesa.paybill_number') }}
                                 </label>
                                 <input
                                     v-model="paymentMethodsForm.mpesa_shortcode"
                                     type="text"
-                                    :placeholder="paymentMethodsForm.mpesa_shortcode_type === 'till' ? 'e.g. 5123456' : 'e.g. 123456'"
+                                    :placeholder="paymentMethodsForm.mpesa_shortcode_type === 'till' ? t('finances_settings.mpesa.till_placeholder') : t('finances_settings.mpesa.paybill_placeholder')"
                                     class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                 />
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-1">Account Name</label>
+                                <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_settings.mpesa.account_name') }}</label>
                                 <input
                                     v-model="paymentMethodsForm.mpesa_account_name"
                                     type="text"
-                                    placeholder="Displayed to tenants"
+                                    :placeholder="t('finances_settings.mpesa.account_name_placeholder')"
                                     class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                 />
                             </div>
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">M-Pesa Passkey</label>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_settings.mpesa.passkey') }}</label>
                             <input
                                 v-model="paymentMethodsForm.mpesa_passkey"
                                 type="password"
-                                placeholder="Get this from Safaricom Daraja portal"
+                                :placeholder="t('finances_settings.mpesa.passkey_placeholder')"
                                 class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                             />
-                            <p class="mt-1 text-xs text-gray-500">Required for STK Push payments. Leave blank to keep existing.</p>
+                            <p class="mt-1 text-xs text-gray-500">{{ t('finances_settings.mpesa.passkey_help') }}</p>
                         </div>
                     </div>
                 </div>
@@ -381,19 +389,19 @@ const sections = [
                         :disabled="paymentMethodsForm.processing"
                         class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
                     >
-                        {{ paymentMethodsForm.processing ? 'Saving...' : 'Save Payment Methods' }}
+                        {{ paymentMethodsForm.processing ? t('finances_settings.saving') : t('finances_settings.payment_methods.save') }}
                     </button>
                 </div>
             </div>
 
             <div v-if="activeSection === 'currency'" class="space-y-6">
                 <div class="bg-white rounded-xl border border-gray-200 p-6">
-                    <h3 class="text-sm font-semibold text-gray-900 mb-4">Default Currency</h3>
+                    <h3 class="text-sm font-semibold text-gray-900 mb-4">{{ t('finances_settings.currency.heading') }}</h3>
                     <p class="text-sm text-gray-600 mb-4">
-                        Set the default currency for invoices and payments across all your buildings. Individual buildings can override this in their settings.
+                        {{ t('finances_settings.currency.description') }}
                     </p>
                     <div>
-                        <label class="block text-xs font-medium text-gray-700 mb-1">Currency</label>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_settings.currency.label') }}</label>
                         <select
                             v-model="currencyForm.default_currency"
                             class="w-64 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
@@ -411,7 +419,7 @@ const sections = [
                         :disabled="currencyForm.processing"
                         class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
                     >
-                        {{ currencyForm.processing ? 'Saving...' : 'Save Currency Settings' }}
+                        {{ currencyForm.processing ? t('finances_settings.saving') : t('finances_settings.currency.save') }}
                     </button>
                 </div>
             </div>
@@ -427,9 +435,9 @@ const sections = [
                                 <Cog6ToothIcon class="h-6 w-6 text-indigo-600" />
                             </div>
                             <div>
-                                <h3 class="text-sm font-semibold text-gray-900">Comprehensive Invoice Settings</h3>
+                                <h3 class="text-sm font-semibold text-gray-900">{{ t('finances_settings.invoice.comprehensive_heading') }}</h3>
                                 <p class="text-sm text-gray-600 mt-0.5">
-                                    Business details, bank info, document numbering, terms, and first invoice settings
+                                    {{ t('finances_settings.invoice.comprehensive_description') }}
                                 </p>
                             </div>
                         </div>
@@ -438,7 +446,7 @@ const sections = [
                 </Link>
 
                 <div class="bg-white rounded-xl border border-gray-200 p-6">
-                    <h3 class="text-sm font-semibold text-gray-900 mb-4">Quick Settings</h3>
+                    <h3 class="text-sm font-semibold text-gray-900 mb-4">{{ t('finances_settings.invoice.quick_heading') }}</h3>
                     <div class="space-y-4">
                         <label class="flex items-center gap-3">
                             <input
@@ -446,7 +454,7 @@ const sections = [
                                 type="checkbox"
                                 class="h-4 w-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
                             />
-                            <span class="text-sm text-gray-700">Include water charges in invoices</span>
+                            <span class="text-sm text-gray-700">{{ t('finances_settings.invoice.include_water') }}</span>
                         </label>
                         <label class="flex items-center gap-3">
                             <input
@@ -454,7 +462,7 @@ const sections = [
                                 type="checkbox"
                                 class="h-4 w-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
                             />
-                            <span class="text-sm text-gray-700">Include previous arrears in invoices</span>
+                            <span class="text-sm text-gray-700">{{ t('finances_settings.invoice.include_arrears') }}</span>
                         </label>
                         <label class="flex items-center gap-3">
                             <input
@@ -462,7 +470,7 @@ const sections = [
                                 type="checkbox"
                                 class="h-4 w-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
                             />
-                            <span class="text-sm text-gray-700">Automatically generate invoices monthly</span>
+                            <span class="text-sm text-gray-700">{{ t('finances_settings.invoice.auto_generate') }}</span>
                         </label>
                     </div>
                 </div>
@@ -473,14 +481,14 @@ const sections = [
                         :disabled="invoiceForm.processing"
                         class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
                     >
-                        {{ invoiceForm.processing ? 'Saving...' : 'Save Invoice Settings' }}
+                        {{ invoiceForm.processing ? t('finances_settings.saving') : t('finances_settings.invoice.save') }}
                     </button>
                 </div>
             </div>
 
             <div v-if="activeSection === 'receipt-settings'" class="space-y-6">
                 <div class="bg-white rounded-xl border border-gray-200 p-6">
-                    <h3 class="text-sm font-semibold text-gray-900 mb-4">Auto-Send Settings</h3>
+                    <h3 class="text-sm font-semibold text-gray-900 mb-4">{{ t('finances_settings.receipt.auto_send_heading') }}</h3>
                     <label class="flex items-center gap-3">
                         <input
                             v-model="receiptForm.auto_email_receipt"
@@ -488,14 +496,14 @@ const sections = [
                             class="h-4 w-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
                         />
                         <div>
-                            <span class="text-sm text-gray-700">Automatically email receipt to tenant after payment</span>
-                            <p class="text-xs text-gray-500">Receipts will be sent immediately when a payment is recorded</p>
+                            <span class="text-sm text-gray-700">{{ t('finances_settings.receipt.auto_email') }}</span>
+                            <p class="text-xs text-gray-500">{{ t('finances_settings.receipt.auto_email_help') }}</p>
                         </div>
                     </label>
                 </div>
 
                 <div class="bg-white rounded-xl border border-gray-200 p-6">
-                    <h3 class="text-sm font-semibold text-gray-900 mb-4">Receipt Content</h3>
+                    <h3 class="text-sm font-semibold text-gray-900 mb-4">{{ t('finances_settings.receipt.content_heading') }}</h3>
                     <div class="space-y-4">
                         <label class="flex items-center gap-3">
                             <input
@@ -503,7 +511,7 @@ const sections = [
                                 type="checkbox"
                                 class="h-4 w-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
                             />
-                            <span class="text-sm text-gray-700">Show business logo on receipt</span>
+                            <span class="text-sm text-gray-700">{{ t('finances_settings.receipt.show_logo') }}</span>
                         </label>
                         <label class="flex items-center gap-3">
                             <input
@@ -511,7 +519,7 @@ const sections = [
                                 type="checkbox"
                                 class="h-4 w-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
                             />
-                            <span class="text-sm text-gray-700">Show tenant details (name, email, unit)</span>
+                            <span class="text-sm text-gray-700">{{ t('finances_settings.receipt.show_tenant_details') }}</span>
                         </label>
                         <label class="flex items-center gap-3">
                             <input
@@ -519,7 +527,7 @@ const sections = [
                                 type="checkbox"
                                 class="h-4 w-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
                             />
-                            <span class="text-sm text-gray-700">Show invoice details table</span>
+                            <span class="text-sm text-gray-700">{{ t('finances_settings.receipt.show_invoice_details') }}</span>
                         </label>
                         <label class="flex items-center gap-3">
                             <input
@@ -527,41 +535,41 @@ const sections = [
                                 type="checkbox"
                                 class="h-4 w-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
                             />
-                            <span class="text-sm text-gray-700">Show payment method</span>
+                            <span class="text-sm text-gray-700">{{ t('finances_settings.receipt.show_payment_method') }}</span>
                         </label>
                     </div>
                 </div>
 
                 <div class="bg-white rounded-xl border border-gray-200 p-6">
-                    <h3 class="text-sm font-semibold text-gray-900 mb-4">Custom Text</h3>
+                    <h3 class="text-sm font-semibold text-gray-900 mb-4">{{ t('finances_settings.receipt.custom_text_heading') }}</h3>
                     <div class="space-y-4">
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">Header Text</label>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_settings.receipt.header_text') }}</label>
                             <input
                                 v-model="receiptForm.receipt_header_text"
                                 type="text"
                                 maxlength="255"
-                                placeholder="e.g., Official Payment Receipt"
+                                :placeholder="t('finances_settings.receipt.header_text_placeholder')"
                                 class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                             />
-                            <p class="mt-1 text-xs text-gray-500">Custom text displayed below the receipt title</p>
+                            <p class="mt-1 text-xs text-gray-500">{{ t('finances_settings.receipt.header_text_help') }}</p>
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">Thank You Message</label>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_settings.receipt.thank_you') }}</label>
                             <input
                                 v-model="receiptForm.receipt_thank_you_message"
                                 type="text"
                                 maxlength="500"
-                                placeholder="e.g., Thank you for your payment!"
+                                :placeholder="t('finances_settings.receipt.thank_you_placeholder')"
                                 class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                             />
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">Footer Text</label>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_settings.receipt.footer_text') }}</label>
                             <textarea
                                 v-model="receiptForm.receipt_footer_text"
                                 rows="3"
-                                placeholder="e.g., For any inquiries, please contact us at..."
+                                :placeholder="t('finances_settings.receipt.footer_text_placeholder')"
                                 class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                             ></textarea>
                         </div>
@@ -575,63 +583,63 @@ const sections = [
                         class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                     >
                         <EyeIcon class="h-4 w-4" />
-                        Preview Receipt
+                        {{ t('finances_settings.receipt.preview') }}
                     </button>
                     <button
                         @click="saveReceiptSettings"
                         :disabled="receiptForm.processing"
                         class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
                     >
-                        {{ receiptForm.processing ? 'Saving...' : 'Save Receipt Settings' }}
+                        {{ receiptForm.processing ? t('finances_settings.saving') : t('finances_settings.receipt.save') }}
                     </button>
                 </div>
             </div>
 
             <div v-if="activeSection === 'fiscal-year'" class="space-y-6">
                 <div class="bg-white rounded-xl border border-gray-200 p-6">
-                    <h3 class="text-sm font-semibold text-gray-900 mb-4">Fiscal Year Configuration</h3>
+                    <h3 class="text-sm font-semibold text-gray-900 mb-4">{{ t('finances_settings.fiscal_year.heading') }}</h3>
                     <p class="text-sm text-gray-600 mb-6">
-                        Configure your fiscal year for financial reporting. This affects how "Year to Date" and fiscal year reports are calculated.
+                        {{ t('finances_settings.fiscal_year.description') }}
                     </p>
                     <div class="space-y-6">
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-2">Fiscal Year Type</label>
+                            <label class="block text-xs font-medium text-gray-700 mb-2">{{ t('finances_settings.fiscal_year.type_label') }}</label>
                             <div class="flex gap-4">
                                 <button
                                     type="button"
                                     @click="fiscalYearForm.fiscal_year_type = 'calendar'"
                                     :class="[
-                                        'flex-1 px-4 py-3 text-sm rounded-lg border-2 transition-colors text-start',
+                                        fiscalTypeButtonBaseClass,
                                         fiscalYearForm.fiscal_year_type === 'calendar'
                                             ? 'border-emerald-500 bg-emerald-50'
                                             : 'border-gray-200 hover:border-gray-300'
                                     ]"
                                 >
                                     <p :class="['font-medium', fiscalYearForm.fiscal_year_type === 'calendar' ? 'text-emerald-900' : 'text-gray-900']">
-                                        Calendar Year
+                                        {{ t('finances_settings.fiscal_year.calendar_title') }}
                                     </p>
-                                    <p class="text-xs text-gray-500 mt-1">January 1 - December 31</p>
+                                    <p class="text-xs text-gray-500 mt-1">{{ t('finances_settings.fiscal_year.calendar_range') }}</p>
                                 </button>
                                 <button
                                     type="button"
                                     @click="fiscalYearForm.fiscal_year_type = 'custom'"
                                     :class="[
-                                        'flex-1 px-4 py-3 text-sm rounded-lg border-2 transition-colors text-start',
+                                        fiscalTypeButtonBaseClass,
                                         fiscalYearForm.fiscal_year_type === 'custom'
                                             ? 'border-emerald-500 bg-emerald-50'
                                             : 'border-gray-200 hover:border-gray-300'
                                     ]"
                                 >
                                     <p :class="['font-medium', fiscalYearForm.fiscal_year_type === 'custom' ? 'text-emerald-900' : 'text-gray-900']">
-                                        Custom Fiscal Year
+                                        {{ t('finances_settings.fiscal_year.custom_title') }}
                                     </p>
-                                    <p class="text-xs text-gray-500 mt-1">Choose your start month</p>
+                                    <p class="text-xs text-gray-500 mt-1">{{ t('finances_settings.fiscal_year.custom_subtitle') }}</p>
                                 </button>
                             </div>
                         </div>
 
                         <div v-if="fiscalYearForm.fiscal_year_type === 'custom'">
-                            <label class="block text-xs font-medium text-gray-700 mb-1">Fiscal Year Start Month</label>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_settings.fiscal_year.start_month') }}</label>
                             <select
                                 v-model.number="fiscalYearForm.fiscal_year_start_month"
                                 class="w-48 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
@@ -641,8 +649,10 @@ const sections = [
                                 </option>
                             </select>
                             <p class="mt-2 text-xs text-gray-500">
-                                Your fiscal year will run from {{ monthOptions.find(m => m.value === fiscalYearForm.fiscal_year_start_month)?.label }}
-                                to {{ monthOptions.find(m => m.value === (fiscalYearForm.fiscal_year_start_month === 1 ? 12 : fiscalYearForm.fiscal_year_start_month - 1))?.label }}.
+                                {{ t('finances_settings.fiscal_year.range_hint', {
+                                    start: monthOptions.find(m => m.value === fiscalYearForm.fiscal_year_start_month)?.label,
+                                    end: monthOptions.find(m => m.value === (fiscalYearForm.fiscal_year_start_month === 1 ? 12 : fiscalYearForm.fiscal_year_start_month - 1))?.label,
+                                }) }}
                             </p>
                         </div>
                     </div>
@@ -652,10 +662,9 @@ const sections = [
                     <div class="flex gap-3">
                         <CalendarDaysIcon class="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
                         <div>
-                            <h4 class="text-sm font-medium text-blue-900">How this affects your reports</h4>
+                            <h4 class="text-sm font-medium text-blue-900">{{ t('finances_settings.fiscal_year.info_heading') }}</h4>
                             <p class="text-sm text-blue-700 mt-1">
-                                The "Year to Date" filter in reports will use your fiscal year start date.
-                                You'll also have access to "This Fiscal Year" and "Last Fiscal Year" filter options.
+                                {{ t('finances_settings.fiscal_year.info_body') }}
                             </p>
                         </div>
                     </div>
@@ -667,17 +676,17 @@ const sections = [
                         :disabled="fiscalYearForm.processing"
                         class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
                     >
-                        {{ fiscalYearForm.processing ? 'Saving...' : 'Save Fiscal Year Settings' }}
+                        {{ fiscalYearForm.processing ? t('finances_settings.saving') : t('finances_settings.fiscal_year.save') }}
                     </button>
                 </div>
             </div>
 
             <div v-if="activeSection === 'reminders'" class="space-y-6">
                 <div class="bg-white rounded-xl border border-gray-200 p-6">
-                    <h3 class="text-sm font-semibold text-gray-900 mb-4">Reminder Settings</h3>
+                    <h3 class="text-sm font-semibold text-gray-900 mb-4">{{ t('finances_settings.reminders.heading') }}</h3>
                     <div class="space-y-4">
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">Days before due date</label>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_settings.reminders.days_before') }}</label>
                             <input
                                 v-model.number="reminderForm.reminder_days_before_due"
                                 type="number"
@@ -687,54 +696,54 @@ const sections = [
                             />
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">Overdue reminder frequency</label>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_settings.reminders.overdue_frequency') }}</label>
                             <select
                                 v-model="reminderForm.overdue_reminder_frequency"
                                 class="w-48 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                             >
-                                <option value="daily">Daily</option>
-                                <option value="weekly">Weekly</option>
-                                <option value="none">None</option>
+                                <option value="daily">{{ t('finances_settings.reminders.frequency_daily') }}</option>
+                                <option value="weekly">{{ t('finances_settings.reminders.frequency_weekly') }}</option>
+                                <option value="none">{{ t('finances_settings.reminders.frequency_none') }}</option>
                             </select>
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-2">Notification Channels</label>
+                            <label class="block text-xs font-medium text-gray-700 mb-2">{{ t('finances_settings.reminders.channels_label') }}</label>
                             <div class="flex gap-4">
                                 <button
                                     type="button"
                                     @click="toggleReminderChannel('email')"
                                     :class="[
-                                        'px-4 py-2 text-sm rounded-lg border-2 transition-colors',
+                                        channelButtonBaseClass,
                                         isChannelEnabled('email')
                                             ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
                                             : 'border-gray-200 text-gray-600 hover:border-gray-300'
                                     ]"
                                 >
-                                    Email
+                                    {{ t('finances_settings.reminders.channel_email') }}
                                 </button>
                                 <button
                                     type="button"
                                     @click="toggleReminderChannel('sms')"
                                     :class="[
-                                        'px-4 py-2 text-sm rounded-lg border-2 transition-colors',
+                                        channelButtonBaseClass,
                                         isChannelEnabled('sms')
                                             ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
                                             : 'border-gray-200 text-gray-600 hover:border-gray-300'
                                     ]"
                                 >
-                                    SMS
+                                    {{ t('finances_settings.reminders.channel_sms') }}
                                 </button>
                                 <button
                                     type="button"
                                     @click="toggleReminderChannel('push')"
                                     :class="[
-                                        'px-4 py-2 text-sm rounded-lg border-2 transition-colors',
+                                        channelButtonBaseClass,
                                         isChannelEnabled('push')
                                             ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
                                             : 'border-gray-200 text-gray-600 hover:border-gray-300'
                                     ]"
                                 >
-                                    Push
+                                    {{ t('finances_settings.reminders.channel_push') }}
                                 </button>
                             </div>
                         </div>
@@ -747,7 +756,7 @@ const sections = [
                         :disabled="reminderForm.processing"
                         class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
                     >
-                        {{ reminderForm.processing ? 'Saving...' : 'Save Reminder Settings' }}
+                        {{ reminderForm.processing ? t('finances_settings.saving') : t('finances_settings.reminders.save') }}
                     </button>
                 </div>
             </div>

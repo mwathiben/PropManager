@@ -3,6 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import { useFormatters, useCurrency } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import type { TenantShowPageProps } from '@/types/finances';
 import ArrowLeftIcon from '@heroicons/vue/24/outline/ArrowLeftIcon';
 import UserCircleIcon from '@heroicons/vue/24/outline/UserCircleIcon';
@@ -33,6 +34,7 @@ import IconButton from '@/Components/IconButton.vue';
 
 const props = defineProps<TenantShowPageProps>();
 
+const { t } = useI18n();
 const { formatMoney: formatCurrency, formatDate, formatDateTime } = useFormatters();
 const { currencyCode } = useCurrency();
 
@@ -118,15 +120,15 @@ const noticeForm = useForm({
 });
 
 // Sections
-const sections = [
-    { id: 'overview', name: 'Overview', icon: UserCircleIcon },
-    { id: 'lease', name: 'Lease Details', icon: DocumentTextIcon },
-    { id: 'payments', name: 'Payments', icon: BanknotesIcon },
-    { id: 'documents', name: 'Documents', icon: DocumentIcon },
-    { id: 'notes', name: 'Notes', icon: ChatBubbleLeftIcon },
-    { id: 'contacts', name: 'Emergency Contacts', icon: UserGroupIcon },
-    { id: 'activity', name: 'Activity', icon: ClockIcon },
-];
+const sections = computed(() => [
+    { id: 'overview', name: t('tenants.show.sections.overview'), icon: UserCircleIcon },
+    { id: 'lease', name: t('tenants.show.sections.lease'), icon: DocumentTextIcon },
+    { id: 'payments', name: t('tenants.show.sections.payments'), icon: BanknotesIcon },
+    { id: 'documents', name: t('tenants.show.sections.documents'), icon: DocumentIcon },
+    { id: 'notes', name: t('tenants.show.sections.notes'), icon: ChatBubbleLeftIcon },
+    { id: 'contacts', name: t('tenants.show.sections.contacts'), icon: UserGroupIcon },
+    { id: 'activity', name: t('tenants.show.sections.activity'), icon: ClockIcon },
+]);
 
 // Computed
 const pastLeases = computed(() => props.tenant.leases?.filter(l => !l.is_active) ?? []);
@@ -137,16 +139,16 @@ const getInitials = (name) => {
 };
 
 const getPaymentStatus = computed(() => {
-    if (!props.activeLease) return { label: 'No Active Lease', color: 'bg-gray-100 text-gray-800' };
+    if (!props.activeLease) return { label: t('tenants.show.status.no_active_lease'), color: 'bg-gray-100 text-gray-800' };
     const arrears = props.activeLease.arrears || 0;
-    if (arrears > 0) return { label: 'In Arrears', color: 'bg-red-100 text-red-800', amount: arrears };
-    return { label: 'Up to Date', color: 'bg-green-100 text-green-800', amount: 0 };
+    if (arrears > 0) return { label: t('tenants.show.status.in_arrears'), color: 'bg-red-100 text-red-800', amount: arrears };
+    return { label: t('tenants.show.status.up_to_date'), color: 'bg-green-100 text-green-800', amount: 0 };
 });
 
 const getLeaseStatus = computed(() => {
-    if (!props.activeLease) return { label: 'No Active Lease', color: 'bg-gray-100 text-gray-800' };
-    if (props.activeLease.is_active) return { label: 'Active', color: 'bg-green-100 text-green-800' };
-    return { label: 'Inactive', color: 'bg-yellow-100 text-yellow-800' };
+    if (!props.activeLease) return { label: t('tenants.show.status.no_active_lease'), color: 'bg-gray-100 text-gray-800' };
+    if (props.activeLease.is_active) return { label: t('tenants.show.status.active'), color: 'bg-green-100 text-green-800' };
+    return { label: t('tenants.show.status.inactive'), color: 'bg-yellow-100 text-yellow-800' };
 });
 
 // Submission handlers
@@ -188,7 +190,7 @@ const editNote = (note) => {
 };
 
 const deleteNote = (noteId) => {
-    if (confirm('Delete this note?')) {
+    if (confirm(t('tenants.show.confirm.delete_note'))) {
         router.delete(route('tenants.notes.destroy', noteId), { preserveScroll: true });
     }
 };
@@ -225,7 +227,7 @@ const editContact = (contact) => {
 };
 
 const deleteContact = (contactId) => {
-    if (confirm('Delete this emergency contact?')) {
+    if (confirm(t('tenants.show.confirm.delete_contact'))) {
         router.delete(route('tenants.emergency-contacts.destroy', contactId), { preserveScroll: true });
     }
 };
@@ -293,7 +295,7 @@ const getActivityIcon = (action) => {
 </script>
 
 <template>
-    <Head :title="`Tenant: ${tenant.name}`" />
+    <Head :title="t('tenants.show.head_title', { name: tenant.name })" />
 
     <AuthenticatedLayout>
         <div class="py-6">
@@ -305,7 +307,7 @@ const getActivityIcon = (action) => {
                         class="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 mb-4"
                     >
                         <ArrowLeftIcon class="w-4 h-4" />
-                        Back to Tenants
+                        {{ t('tenants.show.back_to_tenants') }}
                     </Link>
 
                     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -334,7 +336,7 @@ const getActivityIcon = (action) => {
                                 data-testid="tenant-message-cta"
                             >
                                 <ChatBubbleLeftIcon class="w-4 h-4" />
-                                Message
+                                {{ t('tenants.show.message') }}
                             </button>
                             <Link
                                 v-if="activeLease"
@@ -361,7 +363,7 @@ const getActivityIcon = (action) => {
                                 class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
                             >
                                 <PencilIcon class="w-4 h-4" />
-                                Edit Profile
+                                {{ t('tenants.show.edit_profile') }}
                             </button>
                         </div>
                     </div>
@@ -403,14 +405,14 @@ const getActivityIcon = (action) => {
                         <div v-show="activeSection === 'overview'" class="space-y-6">
                             <!-- Contact Info Card -->
                             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                                <h3 class="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
+                                <h3 class="text-lg font-semibold text-gray-900 mb-4">{{ t('tenants.show.contact_info.title') }}</h3>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div class="flex items-center gap-3">
                                         <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
                                             <EnvelopeIcon class="w-5 h-5 text-blue-600" />
                                         </div>
                                         <div>
-                                            <div class="text-xs text-gray-500">Email</div>
+                                            <div class="text-xs text-gray-500">{{ t('tenants.show.contact_info.email') }}</div>
                                             <div class="text-sm font-medium text-gray-900">{{ tenant.email }}</div>
                                         </div>
                                     </div>
@@ -419,7 +421,7 @@ const getActivityIcon = (action) => {
                                             <PhoneIcon class="w-5 h-5 text-green-600" />
                                         </div>
                                         <div>
-                                            <div class="text-xs text-gray-500">Phone</div>
+                                            <div class="text-xs text-gray-500">{{ t('tenants.show.contact_info.phone') }}</div>
                                             <div class="text-sm font-medium text-gray-900">{{ tenant.mobile_number || '-' }}</div>
                                         </div>
                                     </div>
@@ -428,7 +430,7 @@ const getActivityIcon = (action) => {
                                             <IdentificationIcon class="w-5 h-5 text-purple-600" />
                                         </div>
                                         <div>
-                                            <div class="text-xs text-gray-500">ID Number</div>
+                                            <div class="text-xs text-gray-500">{{ t('tenants.show.contact_info.id_number') }}</div>
                                             <div class="text-sm font-medium text-gray-900">{{ tenant.national_id || '-' }}</div>
                                         </div>
                                     </div>
@@ -437,7 +439,7 @@ const getActivityIcon = (action) => {
                                             <CalendarIcon class="w-5 h-5 text-orange-600" />
                                         </div>
                                         <div>
-                                            <div class="text-xs text-gray-500">Tenant Since</div>
+                                            <div class="text-xs text-gray-500">{{ t('tenants.show.contact_info.tenant_since') }}</div>
                                             <div class="text-sm font-medium text-gray-900">{{ formatDate(tenant.created_at) }}</div>
                                         </div>
                                     </div>
@@ -452,7 +454,7 @@ const getActivityIcon = (action) => {
                                             <HomeIcon class="w-5 h-5 text-indigo-600" />
                                         </div>
                                         <div>
-                                            <div class="text-xs text-gray-500">Unit</div>
+                                            <div class="text-xs text-gray-500">{{ t('tenants.show.stats.unit') }}</div>
                                             <div class="text-sm font-bold text-gray-900">
                                                 {{ activeLease?.unit?.unit_number || '-' }}
                                             </div>
@@ -465,7 +467,7 @@ const getActivityIcon = (action) => {
                                             <BanknotesIcon class="w-5 h-5 text-green-600" />
                                         </div>
                                         <div>
-                                            <div class="text-xs text-gray-500">Monthly Rent</div>
+                                            <div class="text-xs text-gray-500">{{ t('tenants.show.stats.monthly_rent') }}</div>
                                             <div class="text-sm font-bold text-gray-900">
                                                 {{ formatCurrency(activeLease?.rent_amount) }}
                                             </div>
@@ -478,7 +480,7 @@ const getActivityIcon = (action) => {
                                             <CurrencyDollarIcon class="w-5 h-5 text-yellow-600" />
                                         </div>
                                         <div>
-                                            <div class="text-xs text-gray-500">Deposit</div>
+                                            <div class="text-xs text-gray-500">{{ t('tenants.show.stats.deposit') }}</div>
                                             <div class="text-sm font-bold text-gray-900">
                                                 {{ formatCurrency(activeLease?.deposit_amount) }}
                                             </div>
@@ -492,7 +494,7 @@ const getActivityIcon = (action) => {
                                             <CheckCircleIcon v-else class="w-5 h-5 text-green-600" />
                                         </div>
                                         <div>
-                                            <div class="text-xs text-gray-500">Arrears</div>
+                                            <div class="text-xs text-gray-500">{{ t('tenants.show.stats.arrears') }}</div>
                                             <div :class="getPaymentStatus.amount > 0 ? 'text-red-600' : 'text-green-600'" class="text-sm font-bold">
                                                 {{ formatCurrency(activeLease?.arrears || 0) }}
                                             </div>
@@ -506,7 +508,7 @@ const getActivityIcon = (action) => {
                                                 <CurrencyDollarIcon :class="(activeLease?.wallet_balance || 0) > 0 ? 'text-emerald-600' : 'text-gray-400'" class="w-5 h-5" />
                                             </div>
                                             <div>
-                                                <div class="text-xs text-gray-500">Credit Balance</div>
+                                                <div class="text-xs text-gray-500">{{ t('tenants.show.stats.credit_balance') }}</div>
                                                 <div :class="(activeLease?.wallet_balance || 0) > 0 ? 'text-emerald-600' : 'text-gray-500'" class="text-sm font-bold">
                                                     {{ formatCurrency(activeLease?.wallet_balance || 0) }}
                                                 </div>
@@ -517,7 +519,7 @@ const getActivityIcon = (action) => {
                                             @click="openWalletModal"
                                             class="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
                                         >
-                                            Adjust
+                                            {{ t('tenants.show.stats.adjust') }}
                                         </button>
                                     </div>
                                 </div>
@@ -525,7 +527,7 @@ const getActivityIcon = (action) => {
 
                             <!-- Primary Emergency Contact -->
                             <div v-if="tenant.emergency_contacts?.length" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                                <h3 class="text-lg font-semibold text-gray-900 mb-4">Primary Emergency Contact</h3>
+                                <h3 class="text-lg font-semibold text-gray-900 mb-4">{{ t('tenants.show.primary_contact.title') }}</h3>
                                 <div v-if="tenant.emergency_contacts.find(c => c.is_primary)" class="flex items-start gap-4">
                                     <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
                                         <UserGroupIcon class="w-6 h-6 text-red-600" />
@@ -536,53 +538,53 @@ const getActivityIcon = (action) => {
                                         <div class="text-sm text-gray-600 mt-1">{{ tenant.emergency_contacts.find(c => c.is_primary).phone }}</div>
                                     </div>
                                 </div>
-                                <div v-else class="text-sm text-gray-500">No primary contact set</div>
+                                <div v-else class="text-sm text-gray-500">{{ t('tenants.show.primary_contact.none') }}</div>
                             </div>
                         </div>
 
                         <!-- LEASE DETAILS SECTION -->
                         <div v-show="activeSection === 'lease'" class="space-y-6">
                             <div v-if="activeLease" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                                <h3 class="text-lg font-semibold text-gray-900 mb-4">Current Lease</h3>
+                                <h3 class="text-lg font-semibold text-gray-900 mb-4">{{ t('tenants.show.lease.current_title') }}</h3>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div>
-                                        <div class="text-sm text-gray-500">Property / Building / Unit</div>
+                                        <div class="text-sm text-gray-500">{{ t('tenants.show.lease.property_building_unit') }}</div>
                                         <div class="text-lg font-medium text-gray-900">
-                                            {{ activeLease.unit?.building?.property?.name || 'Property' }} /
-                                            {{ activeLease.unit?.building?.name || 'Building' }} /
-                                            Unit {{ activeLease.unit?.unit_number }}
+                                            {{ activeLease.unit?.building?.property?.name || t('tenants.show.lease.property_fallback') }} /
+                                            {{ activeLease.unit?.building?.name || t('tenants.show.lease.building_fallback') }} /
+                                            {{ t('tenants.show.lease.unit_prefix') }} {{ activeLease.unit?.unit_number }}
                                         </div>
                                     </div>
                                     <div>
-                                        <div class="text-sm text-gray-500">Lease Period</div>
+                                        <div class="text-sm text-gray-500">{{ t('tenants.show.lease.lease_period') }}</div>
                                         <div class="text-lg font-medium text-gray-900">
                                             {{ formatDate(activeLease.start_date) }} -
-                                            {{ activeLease.end_date ? formatDate(activeLease.end_date) : 'Ongoing' }}
+                                            {{ activeLease.end_date ? formatDate(activeLease.end_date) : t('tenants.show.lease.ongoing') }}
                                         </div>
                                     </div>
                                     <div>
-                                        <div class="text-sm text-gray-500">Monthly Rent</div>
+                                        <div class="text-sm text-gray-500">{{ t('tenants.show.lease.monthly_rent') }}</div>
                                         <div class="text-lg font-medium text-gray-900">{{ formatCurrency(activeLease.rent_amount) }}</div>
                                     </div>
                                     <div>
-                                        <div class="text-sm text-gray-500">Deposit Paid</div>
+                                        <div class="text-sm text-gray-500">{{ t('tenants.show.lease.deposit_paid') }}</div>
                                         <div class="text-lg font-medium text-gray-900">{{ formatCurrency(activeLease.deposit_amount) }}</div>
                                     </div>
                                     <div>
-                                        <div class="text-sm text-gray-500">Service Charge</div>
+                                        <div class="text-sm text-gray-500">{{ t('tenants.show.lease.service_charge') }}</div>
                                         <div class="text-lg font-medium text-gray-900">{{ formatCurrency(activeLease.service_charge) }}</div>
                                     </div>
                                     <div>
-                                        <div class="text-sm text-gray-500">Status</div>
+                                        <div class="text-sm text-gray-500">{{ t('tenants.show.lease.status_label') }}</div>
                                         <span :class="activeLease.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'" class="px-2 py-1 text-sm font-medium rounded-full">
-                                            {{ activeLease.is_active ? 'Active' : 'Inactive' }}
+                                            {{ activeLease.is_active ? t('tenants.show.status.active') : t('tenants.show.status.inactive') }}
                                         </span>
                                     </div>
                                 </div>
 
                                 <!-- Rent History -->
                                 <div v-if="activeLease.rent_history?.length" class="mt-6 pt-6 border-t border-gray-200">
-                                    <h4 class="text-md font-medium text-gray-900 mb-3">Rent History</h4>
+                                    <h4 class="text-md font-medium text-gray-900 mb-3">{{ t('tenants.show.lease.rent_history') }}</h4>
                                     <div class="space-y-2">
                                         <div v-for="history in activeLease.rent_history" :key="history.id" class="flex justify-between items-center py-2 border-b border-gray-100">
                                             <div class="text-sm text-gray-600">{{ formatDate(history.effective_date) }}</div>
@@ -598,23 +600,23 @@ const getActivityIcon = (action) => {
 
                             <div v-else class="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
                                 <DocumentTextIcon class="mx-auto h-12 w-12 text-gray-400" />
-                                <h3 class="mt-2 text-sm font-medium text-gray-900">No Active Lease</h3>
-                                <p class="mt-1 text-sm text-gray-500">This tenant does not have an active lease.</p>
+                                <h3 class="mt-2 text-sm font-medium text-gray-900">{{ t('tenants.show.lease.no_active_title') }}</h3>
+                                <p class="mt-1 text-sm text-gray-500">{{ t('tenants.show.lease.no_active_body') }}</p>
                             </div>
 
                             <!-- Past Leases -->
                             <div v-if="pastLeases.length" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                                <h3 class="text-lg font-semibold text-gray-900 mb-4">Past Leases</h3>
+                                <h3 class="text-lg font-semibold text-gray-900 mb-4">{{ t('tenants.show.lease.past_leases') }}</h3>
                                 <div class="space-y-4">
                                     <div v-for="lease in pastLeases" :key="lease.id" class="border border-gray-200 rounded-lg p-4">
                                         <div class="flex justify-between items-start">
                                             <div>
-                                                <div class="font-medium text-gray-900">Unit {{ lease.unit?.unit_number }}</div>
+                                                <div class="font-medium text-gray-900">{{ t('tenants.show.lease.unit_prefix') }} {{ lease.unit?.unit_number }}</div>
                                                 <div class="text-sm text-gray-500">{{ lease.unit?.building?.name }}</div>
                                             </div>
                                             <div class="text-end">
                                                 <div class="text-sm text-gray-500">{{ formatDate(lease.start_date) }} - {{ formatDate(lease.end_date) }}</div>
-                                                <div class="text-sm font-medium text-gray-900">{{ formatCurrency(lease.rent_amount) }}/mo</div>
+                                                <div class="text-sm font-medium text-gray-900">{{ formatCurrency(lease.rent_amount) }}{{ t('tenants.show.lease.per_month_suffix') }}</div>
                                             </div>
                                         </div>
                                     </div>
@@ -626,15 +628,15 @@ const getActivityIcon = (action) => {
                         <div v-show="activeSection === 'payments'" class="space-y-6">
                             <!-- Recent Invoices -->
                             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                                <h3 class="text-lg font-semibold text-gray-900 mb-4">Recent Invoices</h3>
+                                <h3 class="text-lg font-semibold text-gray-900 mb-4">{{ t('tenants.show.payments.recent_invoices') }}</h3>
                                 <div v-if="invoices?.length" class="overflow-x-auto">
                                     <table class="min-w-full divide-y divide-gray-200">
                                         <thead class="bg-gray-50">
                                             <tr>
-                                                <th class="px-4 py-2 text-start text-xs font-medium text-gray-500 uppercase">Invoice #</th>
-                                                <th class="px-4 py-2 text-start text-xs font-medium text-gray-500 uppercase">Date</th>
-                                                <th class="px-4 py-2 text-start text-xs font-medium text-gray-500 uppercase">Amount</th>
-                                                <th class="px-4 py-2 text-start text-xs font-medium text-gray-500 uppercase">Status</th>
+                                                <th class="px-4 py-2 text-start text-xs font-medium text-gray-500 uppercase">{{ t('tenants.show.payments.invoice_number') }}</th>
+                                                <th class="px-4 py-2 text-start text-xs font-medium text-gray-500 uppercase">{{ t('tenants.show.payments.date') }}</th>
+                                                <th class="px-4 py-2 text-start text-xs font-medium text-gray-500 uppercase">{{ t('tenants.show.payments.amount') }}</th>
+                                                <th class="px-4 py-2 text-start text-xs font-medium text-gray-500 uppercase">{{ t('tenants.show.payments.status') }}</th>
                                             </tr>
                                         </thead>
                                         <tbody class="divide-y divide-gray-200">
@@ -657,13 +659,13 @@ const getActivityIcon = (action) => {
                                     </table>
                                 </div>
                                 <div v-else class="text-center py-8 text-gray-500">
-                                    No invoices found
+                                    {{ t('tenants.show.payments.no_invoices') }}
                                 </div>
                             </div>
 
                             <!-- Recent Payments -->
                             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                                <h3 class="text-lg font-semibold text-gray-900 mb-4">Recent Payments</h3>
+                                <h3 class="text-lg font-semibold text-gray-900 mb-4">{{ t('tenants.show.payments.recent_payments') }}</h3>
                                 <div v-if="payments?.length" class="space-y-3">
                                     <div v-for="payment in payments" :key="payment.id" class="flex justify-between items-center py-2 border-b border-gray-100">
                                         <div>
@@ -677,7 +679,7 @@ const getActivityIcon = (action) => {
                                     </div>
                                 </div>
                                 <div v-else class="text-center py-8 text-gray-500">
-                                    No payments recorded
+                                    {{ t('tenants.show.payments.no_payments') }}
                                 </div>
                             </div>
                         </div>
@@ -686,8 +688,8 @@ const getActivityIcon = (action) => {
                         <div v-show="activeSection === 'documents'" class="space-y-6">
                             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                                 <div class="flex justify-between items-center mb-4">
-                                    <h3 class="text-lg font-semibold text-gray-900">Documents</h3>
-                                    <span class="text-sm text-gray-500">{{ documents?.length || 0 }} files</span>
+                                    <h3 class="text-lg font-semibold text-gray-900">{{ t('tenants.show.documents.title') }}</h3>
+                                    <span class="text-sm text-gray-500">{{ t('tenants.show.documents.files_count', { count: documents?.length || 0 }) }}</span>
                                 </div>
 
                                 <div v-if="documents?.length" class="space-y-3">
@@ -699,7 +701,7 @@ const getActivityIcon = (action) => {
                                             <div>
                                                 <div class="text-sm font-medium text-gray-900">{{ doc.original_filename }}</div>
                                                 <div class="flex items-center gap-2 text-xs text-gray-500">
-                                                    <span class="px-2 py-0.5 bg-gray-200 rounded capitalize">{{ doc.document_type?.replace('_', ' ') || 'Other' }}</span>
+                                                    <span class="px-2 py-0.5 bg-gray-200 rounded capitalize">{{ doc.document_type?.replace('_', ' ') || t('tenants.show.documents.type_fallback') }}</span>
                                                     <span>{{ formatDate(doc.created_at) }}</span>
                                                 </div>
                                             </div>
@@ -709,14 +711,14 @@ const getActivityIcon = (action) => {
                                                 :href="route('documents.view', doc.id)"
                                                 target="_blank"
                                                 class="p-2 text-gray-400 hover:text-indigo-600"
-                                                title="View"
+                                                :title="t('tenants.show.documents.view')"
                                             >
                                                 <EyeIcon class="w-5 h-5" />
                                             </a>
                                             <a
                                                 :href="route('documents.download', doc.id)"
                                                 class="p-2 text-gray-400 hover:text-green-600"
-                                                title="Download"
+                                                :title="t('tenants.show.documents.download')"
                                             >
                                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -727,7 +729,7 @@ const getActivityIcon = (action) => {
                                 </div>
                                 <div v-else class="text-center py-8 text-gray-500">
                                     <DocumentIcon class="mx-auto h-8 w-8 text-gray-400 mb-2" />
-                                    No documents uploaded
+                                    {{ t('tenants.show.documents.none') }}
                                 </div>
                             </div>
                         </div>
@@ -736,14 +738,14 @@ const getActivityIcon = (action) => {
                         <div v-show="activeSection === 'notes'" class="space-y-6">
                             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                                 <div class="flex justify-between items-center mb-4">
-                                    <h3 class="text-lg font-semibold text-gray-900">Private Notes</h3>
+                                    <h3 class="text-lg font-semibold text-gray-900">{{ t('tenants.show.notes.title') }}</h3>
                                     <button
                                         v-if="canEditTenant"
                                         @click="openNewNoteModal"
                                         class="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
                                     >
                                         <PlusIcon class="w-4 h-4" />
-                                        Add Note
+                                        {{ t('tenants.show.notes.add') }}
                                     </button>
                                 </div>
 
@@ -754,12 +756,12 @@ const getActivityIcon = (action) => {
                                             <div class="flex items-center gap-2">
                                                 <StarIconSolid v-if="note.is_pinned" class="w-4 h-4 text-yellow-500" />
                                                 <span class="text-xs text-gray-500">
-                                                    {{ note.author?.name || 'Unknown' }} - {{ formatDateTime(note.created_at) }}
+                                                    {{ note.author?.name || t('tenants.show.notes.author_unknown') }} - {{ formatDateTime(note.created_at) }}
                                                 </span>
                                             </div>
                                             <div class="flex gap-1">
-                                                <IconButton v-if="canEditTenant" :icon="PencilIcon" size="sm" aria-label="Edit note" @click="editNote(note)" />
-                                                <IconButton v-if="canEditTenant" :icon="TrashIcon" size="sm" tone="danger" aria-label="Delete note" @click="deleteNote(note.id)" />
+                                                <IconButton v-if="canEditTenant" :icon="PencilIcon" size="sm" :aria-label="t('tenants.show.notes.edit_aria')" @click="editNote(note)" />
+                                                <IconButton v-if="canEditTenant" :icon="TrashIcon" size="sm" tone="danger" :aria-label="t('tenants.show.notes.delete_aria')" @click="deleteNote(note.id)" />
                                             </div>
                                         </div>
                                         <p class="mt-2 text-sm text-gray-700 whitespace-pre-wrap">{{ note.content }}</p>
@@ -767,7 +769,7 @@ const getActivityIcon = (action) => {
                                 </div>
                                 <div v-else class="text-center py-8 text-gray-500">
                                     <ChatBubbleLeftIcon class="mx-auto h-8 w-8 text-gray-400 mb-2" />
-                                    No notes yet. Add your first note about this tenant.
+                                    {{ t('tenants.show.notes.none') }}
                                 </div>
                             </div>
                         </div>
@@ -776,14 +778,14 @@ const getActivityIcon = (action) => {
                         <div v-show="activeSection === 'contacts'" class="space-y-6">
                             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                                 <div class="flex justify-between items-center mb-4">
-                                    <h3 class="text-lg font-semibold text-gray-900">Emergency Contacts</h3>
+                                    <h3 class="text-lg font-semibold text-gray-900">{{ t('tenants.show.contacts.title') }}</h3>
                                     <button
                                         v-if="canEditTenant"
                                         @click="openNewContactModal"
                                         class="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
                                     >
                                         <PlusIcon class="w-4 h-4" />
-                                        Add Contact
+                                        {{ t('tenants.show.contacts.add') }}
                                     </button>
                                 </div>
 
@@ -797,14 +799,14 @@ const getActivityIcon = (action) => {
                                                 <div>
                                                     <div class="flex items-center gap-2">
                                                         <span class="font-medium text-gray-900">{{ contact.name }}</span>
-                                                        <span v-if="contact.is_primary" class="px-2 py-0.5 text-xs bg-indigo-100 text-indigo-800 rounded-full">Primary</span>
+                                                        <span v-if="contact.is_primary" class="px-2 py-0.5 text-xs bg-indigo-100 text-indigo-800 rounded-full">{{ t('tenants.show.contacts.primary_badge') }}</span>
                                                     </div>
                                                     <div class="text-sm text-gray-500">{{ contact.relationship }}</div>
                                                 </div>
                                             </div>
                                             <div class="flex gap-1">
-                                                <IconButton v-if="canEditTenant" :icon="PencilIcon" size="sm" aria-label="Edit emergency contact" @click="editContact(contact)" />
-                                                <IconButton v-if="canEditTenant" :icon="TrashIcon" size="sm" tone="danger" aria-label="Delete emergency contact" @click="deleteContact(contact.id)" />
+                                                <IconButton v-if="canEditTenant" :icon="PencilIcon" size="sm" :aria-label="t('tenants.show.contacts.edit_aria')" @click="editContact(contact)" />
+                                                <IconButton v-if="canEditTenant" :icon="TrashIcon" size="sm" tone="danger" :aria-label="t('tenants.show.contacts.delete_aria')" @click="deleteContact(contact.id)" />
                                             </div>
                                         </div>
                                         <div class="mt-3 grid grid-cols-2 gap-4 text-sm">
@@ -821,7 +823,7 @@ const getActivityIcon = (action) => {
                                 </div>
                                 <div v-else class="text-center py-8 text-gray-500">
                                     <UserGroupIcon class="mx-auto h-8 w-8 text-gray-400 mb-2" />
-                                    No emergency contacts. Add one for this tenant.
+                                    {{ t('tenants.show.contacts.none') }}
                                 </div>
                             </div>
                         </div>
@@ -829,7 +831,7 @@ const getActivityIcon = (action) => {
                         <!-- ACTIVITY SECTION -->
                         <div v-show="activeSection === 'activity'" class="space-y-6">
                             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                                <h3 class="text-lg font-semibold text-gray-900 mb-4">Activity Timeline</h3>
+                                <h3 class="text-lg font-semibold text-gray-900 mb-4">{{ t('tenants.show.activity.title') }}</h3>
 
                                 <div v-if="tenant.activities?.length" class="flow-root">
                                     <ul role="list" class="-mb-8">
@@ -845,7 +847,7 @@ const getActivityIcon = (action) => {
                                                     <div class="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
                                                         <div>
                                                             <p class="text-sm text-gray-700">{{ activity.description }}</p>
-                                                            <p class="text-xs text-gray-400">by {{ activity.performer?.name || 'System' }}</p>
+                                                            <p class="text-xs text-gray-400">{{ t('tenants.show.activity.by', { name: activity.performer?.name || t('tenants.show.activity.system') }) }}</p>
                                                         </div>
                                                         <div class="whitespace-nowrap text-end text-xs text-gray-500">
                                                             {{ formatDateTime(activity.created_at) }}
@@ -858,7 +860,7 @@ const getActivityIcon = (action) => {
                                 </div>
                                 <div v-else class="text-center py-8 text-gray-500">
                                     <ClockIcon class="mx-auto h-8 w-8 text-gray-400 mb-2" />
-                                    No activity recorded yet.
+                                    {{ t('tenants.show.activity.none') }}
                                 </div>
                             </div>
                         </div>
@@ -873,34 +875,34 @@ const getActivityIcon = (action) => {
                 <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showEditModal = false"></div>
                 <div class="relative z-50 bg-white rounded-xl shadow-xl max-w-md w-full p-6">
                     <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-lg font-semibold text-gray-900">Edit Tenant Profile</h3>
+                        <h3 class="text-lg font-semibold text-gray-900">{{ t('tenants.show.edit_modal.title') }}</h3>
                         <button @click="showEditModal = false" class="text-gray-400 hover:text-gray-600">
                             <XMarkIcon class="w-5 h-5" />
                         </button>
                     </div>
                     <form @submit.prevent="submitEdit" class="space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.show.edit_modal.name') }}</label>
                             <input v-model="editForm.name" type="text" required class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.show.edit_modal.email') }}</label>
                             <input v-model="editForm.email" type="email" required class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.show.edit_modal.phone') }}</label>
                             <input v-model="editForm.phone" type="tel" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">ID Number</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.show.edit_modal.id_number') }}</label>
                             <input v-model="editForm.id_number" type="text" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" />
                         </div>
 
                         <!-- Phase-21 DEFER-DPA-1: Kenya DPA Article 8 / Section 33 children's data. -->
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">
-                                Date of Birth
-                                <span class="text-gray-400 text-xs">(optional — required for minor consent flow)</span>
+                                {{ t('tenants.show.edit_modal.dob') }}
+                                <span class="text-gray-400 text-xs">{{ t('tenants.show.edit_modal.dob_hint') }}</span>
                             </label>
                             <input
                                 v-model="editForm.dob"
@@ -919,21 +921,21 @@ const getActivityIcon = (action) => {
                             <div class="flex items-start gap-2">
                                 <ExclamationTriangleIcon class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
                                 <div>
-                                    <p class="text-sm font-semibold text-amber-900">Minor — Parental Consent Required</p>
+                                    <p class="text-sm font-semibold text-amber-900">{{ t('tenants.show.edit_modal.minor_title') }}</p>
                                     <p class="text-xs text-amber-800 mt-0.5">
-                                        Kenya DPA Article 8 / Section 33 requires verifiable parental consent before processing data for tenants under 18.
+                                        {{ t('tenants.show.edit_modal.minor_body') }}
                                     </p>
                                 </div>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">
-                                    Parental Consent Artefact URL
+                                    {{ t('tenants.show.edit_modal.consent_url') }}
                                     <span class="text-red-600">*</span>
                                 </label>
                                 <input
                                     v-model="editForm.parental_consent_artefact_url"
                                     type="url"
-                                    placeholder="https://drive.example.com/consent.pdf"
+                                    :placeholder="t('tenants.show.edit_modal.consent_url_placeholder')"
                                     :required="isMinorTenant"
                                     class="w-full border-amber-300 rounded-lg focus:ring-amber-500 focus:border-amber-500"
                                 />
@@ -942,7 +944,7 @@ const getActivityIcon = (action) => {
                                 </p>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Consent Provided At</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.show.edit_modal.consent_at') }}</label>
                                 <input
                                     v-model="editForm.parental_consent_provided_at"
                                     type="datetime-local"
@@ -953,18 +955,18 @@ const getActivityIcon = (action) => {
                                 </p>
                             </div>
                             <p v-if="!hasParentalConsent" class="text-xs text-amber-700">
-                                Both artefact URL and timestamp must be provided before save.
+                                {{ t('tenants.show.edit_modal.consent_required_note') }}
                             </p>
                         </div>
 
                         <div class="flex justify-end gap-3 pt-4">
-                            <button type="button" @click="showEditModal = false" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">Cancel</button>
+                            <button type="button" @click="showEditModal = false" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">{{ t('tenants.show.edit_modal.cancel') }}</button>
                             <button
                                 type="submit"
                                 :disabled="editForm.processing || (isMinorTenant && !hasParentalConsent)"
                                 class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
                             >
-                                Save Changes
+                                {{ t('tenants.show.edit_modal.save') }}
                             </button>
                         </div>
                     </form>
@@ -978,24 +980,24 @@ const getActivityIcon = (action) => {
                 <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showNoteModal = false"></div>
                 <div class="relative z-50 bg-white rounded-xl shadow-xl max-w-md w-full p-6">
                     <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-lg font-semibold text-gray-900">{{ editingNote ? 'Edit Note' : 'Add Note' }}</h3>
+                        <h3 class="text-lg font-semibold text-gray-900">{{ editingNote ? t('tenants.show.note_modal.edit_title') : t('tenants.show.note_modal.add_title') }}</h3>
                         <button @click="showNoteModal = false" class="text-gray-400 hover:text-gray-600">
                             <XMarkIcon class="w-5 h-5" />
                         </button>
                     </div>
                     <form @submit.prevent="submitNote" class="space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Note</label>
-                            <textarea v-model="noteForm.content" rows="4" required class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" placeholder="Write your note here..."></textarea>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.show.note_modal.label') }}</label>
+                            <textarea v-model="noteForm.content" rows="4" required class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" :placeholder="t('tenants.show.note_modal.placeholder')"></textarea>
                         </div>
                         <div class="flex items-center gap-2">
                             <input v-model="noteForm.is_pinned" type="checkbox" id="is_pinned" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                            <label for="is_pinned" class="text-sm text-gray-700">Pin this note</label>
+                            <label for="is_pinned" class="text-sm text-gray-700">{{ t('tenants.show.note_modal.pin') }}</label>
                         </div>
                         <div class="flex justify-end gap-3 pt-4">
-                            <button type="button" @click="showNoteModal = false" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">Cancel</button>
+                            <button type="button" @click="showNoteModal = false" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">{{ t('tenants.show.note_modal.cancel') }}</button>
                             <button type="submit" :disabled="noteForm.processing" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">
-                                {{ editingNote ? 'Save' : 'Add Note' }}
+                                {{ editingNote ? t('tenants.show.note_modal.save') : t('tenants.show.note_modal.add') }}
                             </button>
                         </div>
                     </form>
@@ -1009,36 +1011,36 @@ const getActivityIcon = (action) => {
                 <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showContactModal = false"></div>
                 <div class="relative z-50 bg-white rounded-xl shadow-xl max-w-md w-full p-6">
                     <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-lg font-semibold text-gray-900">{{ editingContact ? 'Edit Contact' : 'Add Emergency Contact' }}</h3>
+                        <h3 class="text-lg font-semibold text-gray-900">{{ editingContact ? t('tenants.show.contact_modal.edit_title') : t('tenants.show.contact_modal.add_title') }}</h3>
                         <button @click="showContactModal = false" class="text-gray-400 hover:text-gray-600">
                             <XMarkIcon class="w-5 h-5" />
                         </button>
                     </div>
                     <form @submit.prevent="submitContact" class="space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                            <input v-model="contactForm.name" type="text" required class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" placeholder="John Doe" />
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.show.contact_modal.name') }}</label>
+                            <input v-model="contactForm.name" type="text" required class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" :placeholder="t('tenants.show.contact_modal.name_placeholder')" />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Relationship</label>
-                            <input v-model="contactForm.relationship" type="text" required class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" placeholder="Spouse, Parent, Sibling, etc." />
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.show.contact_modal.relationship') }}</label>
+                            <input v-model="contactForm.relationship" type="text" required class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" :placeholder="t('tenants.show.contact_modal.relationship_placeholder')" />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                            <input v-model="contactForm.phone" type="tel" required class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" placeholder="+254 712 345 678" />
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.show.contact_modal.phone') }}</label>
+                            <input v-model="contactForm.phone" type="tel" required class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" :placeholder="t('tenants.show.contact_modal.phone_placeholder')" />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Email (Optional)</label>
-                            <input v-model="contactForm.email" type="email" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" placeholder="contact@example.com" />
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.show.contact_modal.email') }}</label>
+                            <input v-model="contactForm.email" type="email" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" :placeholder="t('tenants.show.contact_modal.email_placeholder')" />
                         </div>
                         <div class="flex items-center gap-2">
                             <input v-model="contactForm.is_primary" type="checkbox" id="is_primary" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                            <label for="is_primary" class="text-sm text-gray-700">Set as primary contact</label>
+                            <label for="is_primary" class="text-sm text-gray-700">{{ t('tenants.show.contact_modal.set_primary') }}</label>
                         </div>
                         <div class="flex justify-end gap-3 pt-4">
-                            <button type="button" @click="showContactModal = false" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">Cancel</button>
+                            <button type="button" @click="showContactModal = false" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">{{ t('tenants.show.contact_modal.cancel') }}</button>
                             <button type="submit" :disabled="contactForm.processing" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">
-                                {{ editingContact ? 'Save' : 'Add Contact' }}
+                                {{ editingContact ? t('tenants.show.contact_modal.save') : t('tenants.show.contact_modal.add') }}
                             </button>
                         </div>
                     </form>
@@ -1052,14 +1054,14 @@ const getActivityIcon = (action) => {
                 <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showWalletModal = false"></div>
                 <div class="relative z-50 bg-white rounded-xl shadow-xl max-w-md w-full p-6">
                     <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-lg font-semibold text-gray-900">Adjust Wallet Balance</h3>
+                        <h3 class="text-lg font-semibold text-gray-900">{{ t('tenants.show.wallet_modal.title') }}</h3>
                         <button @click="showWalletModal = false" class="text-gray-400 hover:text-gray-600">
                             <XMarkIcon class="w-5 h-5" />
                         </button>
                     </div>
 
                     <div class="mb-4 p-3 bg-gray-50 rounded-lg">
-                        <div class="text-xs text-gray-500 mb-1">Current Balance</div>
+                        <div class="text-xs text-gray-500 mb-1">{{ t('tenants.show.wallet_modal.current_balance') }}</div>
                         <div :class="(activeLease?.wallet_balance || 0) > 0 ? 'text-emerald-600' : 'text-gray-500'" class="text-lg font-bold">
                             {{ formatCurrency(activeLease?.wallet_balance || 0) }}
                         </div>
@@ -1067,7 +1069,7 @@ const getActivityIcon = (action) => {
 
                     <form @submit.prevent="submitWalletAdjustment" class="space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Adjustment Type</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('tenants.show.wallet_modal.adjustment_type') }}</label>
                             <div class="flex gap-2">
                                 <button
                                     type="button"
@@ -1075,7 +1077,7 @@ const getActivityIcon = (action) => {
                                     :class="walletForm.type === 'credit' ? 'bg-emerald-100 text-emerald-700 border-emerald-300' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'"
                                     class="flex-1 px-4 py-2 text-sm font-medium border rounded-lg transition-colors"
                                 >
-                                    + Credit (Add)
+                                    {{ t('tenants.show.wallet_modal.credit') }}
                                 </button>
                                 <button
                                     type="button"
@@ -1083,12 +1085,12 @@ const getActivityIcon = (action) => {
                                     :class="walletForm.type === 'debit' ? 'bg-red-100 text-red-700 border-red-300' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'"
                                     class="flex-1 px-4 py-2 text-sm font-medium border rounded-lg transition-colors"
                                 >
-                                    − Debit (Remove)
+                                    {{ t('tenants.show.wallet_modal.debit') }}
                                 </button>
                             </div>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Amount ({{ currencyCode }})</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.show.wallet_modal.amount', { currency: currencyCode }) }}</label>
                             <input
                                 v-model="walletForm.amount"
                                 type="number"
@@ -1096,38 +1098,38 @@ const getActivityIcon = (action) => {
                                 step="0.01"
                                 required
                                 class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-                                placeholder="Enter amount"
+                                :placeholder="t('tenants.show.wallet_modal.amount_placeholder')"
                             />
                             <p v-if="walletForm.errors.amount" class="mt-1 text-sm text-red-600">{{ walletForm.errors.amount }}</p>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Reason</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.show.wallet_modal.reason') }}</label>
                             <input
                                 v-model="walletForm.reason"
                                 type="text"
                                 required
                                 maxlength="255"
                                 class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-                                placeholder="e.g., Refund for overcharge, Goodwill credit"
+                                :placeholder="t('tenants.show.wallet_modal.reason_placeholder')"
                             />
                             <p v-if="walletForm.errors.reason" class="mt-1 text-sm text-red-600">{{ walletForm.errors.reason }}</p>
                         </div>
 
                         <div v-if="walletForm.type === 'debit' && parseFloat(walletForm.amount) > (activeLease?.wallet_balance || 0)" class="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                             <p class="text-sm text-yellow-700">
-                                <strong>Warning:</strong> Debit amount exceeds current balance. This will result in a negative balance.
+                                <strong>{{ t('tenants.show.wallet_modal.warning_label') }}</strong> {{ t('tenants.show.wallet_modal.warning_body') }}
                             </p>
                         </div>
 
                         <div class="flex justify-end gap-3 pt-4">
-                            <button type="button" @click="showWalletModal = false" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">Cancel</button>
+                            <button type="button" @click="showWalletModal = false" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">{{ t('tenants.show.wallet_modal.cancel') }}</button>
                             <button
                                 type="submit"
                                 :disabled="walletForm.processing"
                                 :class="walletForm.type === 'credit' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'"
                                 class="px-4 py-2 text-white rounded-lg disabled:opacity-50"
                             >
-                                {{ walletForm.type === 'credit' ? 'Add Credit' : 'Remove Credit' }}
+                                {{ walletForm.type === 'credit' ? t('tenants.show.wallet_modal.add_credit') : t('tenants.show.wallet_modal.remove_credit') }}
                             </button>
                         </div>
                     </form>

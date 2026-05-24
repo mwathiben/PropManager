@@ -27,10 +27,13 @@ class Phase43HardcodedStringBaselineTest extends TestCase
      *   false-positive — line-leading `class="..."` Tailwind attributes
      *   survived stripNoise's `\s`-anchored attribute strip and were
      *   mis-counted as English prose (~1400 of them), and (b) migrating
-     *   TenantInvitations/Index.vue to $t(). Lowering the constant
-     *   requires the scanner to confirm the new floor.
+     *   TenantInvitations/Index.vue to $t().
+     * - 2026-05-24: lowered to 1778 after migrating six high-traffic
+     *   screens (Onboarding, Finances Settings/Expenses tabs,
+     *   PaymentMethods, Tenants/Show, Leases/Create) to $t().
+     *   Lowering the constant requires the scanner to confirm the new floor.
      */
-    private const BASELINE = 2078;
+    private const BASELINE = 1778;
 
     public function test_hardcoded_english_count_does_not_grow_beyond_baseline(): void
     {
