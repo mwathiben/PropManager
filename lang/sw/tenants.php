@@ -184,4 +184,105 @@ return [
             'delete_contact' => 'Futa anwani hii ya dharura?',
         ],
     ],
+
+    'index' => [
+        'head_title' => 'Wapangaji',
+        'heading' => 'Wapangaji',
+        'subtitle' => 'Simamia wapangaji na mialiko yako',
+        'invite_tenant' => 'Alika Mpangaji',
+        'view' => 'Tazama',
+        'pending' => 'Inasubiri',
+        'viewed' => 'Imetazamwa',
+        'per_month' => '/mwezi',
+        'no_unit_assigned' => 'Hakuna kipengele kilichopangwa',
+        'unit_prefix' => 'Kipengele {number}',
+        'unit_label' => 'Kipengele',
+        'deposit_label' => 'Amana:',
+        'start_label' => 'Anza:',
+        'expires_label' => 'Inaisha:',
+
+        'tabs' => [
+            'active' => 'Wapangaji Hai',
+            'pending' => 'Mialiko Inayosubiri',
+            'past' => 'Wapangaji wa Zamani',
+        ],
+
+        'stats' => [
+            'active_tenants' => 'Wapangaji Hai',
+            'pending_invites' => 'Mialiko Inayosubiri',
+            'monthly_rent' => 'Kodi ya Mwezi',
+            'total_arrears' => 'Jumla ya Malimbikizo',
+        ],
+
+        'search' => [
+            'placeholder' => 'Tafuta wapangaji...',
+            'pending_placeholder' => 'Tafuta kwa jina, barua pepe, au simu...',
+        ],
+
+        'table' => [
+            'tenant' => 'Mpangaji',
+            'contact' => 'Mawasiliano',
+            'unit' => 'Kipengele',
+            'payment' => 'Malipo',
+            'rent' => 'Kodi',
+            'actions' => 'Vitendo',
+            'tenant_info' => 'Taarifa za Mpangaji',
+            'lease_terms' => 'Masharti ya Mkataba',
+            'status' => 'Hali',
+            'last_unit' => 'Kipengele cha Mwisho',
+            'end_date' => 'Tarehe ya Mwisho',
+        ],
+
+        'lease_status' => [
+            'no_lease' => 'Hakuna Mkataba',
+            'active' => 'Unaoendelea',
+            'inactive' => 'Haufanyi Kazi',
+        ],
+
+        'payment_status' => [
+            'na' => 'Haipo',
+            'arrears' => 'Malimbikizo',
+            'up_to_date' => 'Amelipa Kikamilifu',
+        ],
+
+        'empty_active' => [
+            'title' => 'Hakuna wapangaji hai',
+            'description' => 'Alika wapangaji ili kuanza.',
+            'search' => 'Jaribu neno tofauti la utafutaji.',
+        ],
+
+        'empty_pending' => [
+            'title' => 'Hakuna mialiko inayosubiri',
+            'description' => 'Mialiko yote imekubaliwa au imeisha muda.',
+            'search' => 'Jaribu neno tofauti la utafutaji.',
+        ],
+
+        'empty_past' => [
+            'title' => 'Hakuna wapangaji wa zamani',
+            'description' => 'Wapangaji wa zamani wataonekana hapa baada ya mkataba wao kuisha.',
+            'search' => 'Jaribu neno tofauti la utafutaji.',
+        ],
+
+        'pagination' => [
+            'page_of' => 'Ukurasa {current} kati ya {total}',
+            'previous' => 'Iliyotangulia',
+            'next' => 'Inayofuata',
+        ],
+
+        'actions' => [
+            'copy' => 'Nakili kiungo',
+            'resend' => 'Tuma tena',
+            'edit' => 'Hariri',
+            'cancel' => 'Ghairi',
+        ],
+
+        'confirm' => [
+            'resend' => 'Tuma mwaliko huu tena?',
+            'cancel' => 'Una uhakika unataka kughairi mwaliko huu?',
+        ],
+
+        'alert' => [
+            'copied' => 'Kiungo cha mwaliko kimenakiliwa!',
+        ],
+    ],
 ];

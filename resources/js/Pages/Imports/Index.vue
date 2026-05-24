@@ -4,12 +4,14 @@ import PaginatorLink from '@/Components/PaginatorLink.vue';
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { useFormatters } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import { useAuth } from '@/composables/useAuth';
 import BuildingWingFilter from '@/Components/BuildingWingFilter.vue';
 import type { ImportsIndexPageProps } from '@/types/operations';
 
 const props = defineProps<ImportsIndexPageProps>();
 const { can } = useAuth();
+const { t } = useI18n();
 
 const selectedType = ref('');
 const selectedFile = ref(null);
@@ -29,7 +31,7 @@ const handleFileSelect = (event) => {
     const file = event.target.files[0];
     if (file) {
         if (!file.name.endsWith('.csv')) {
-            alert('Please select a CSV file');
+            alert(t('imports.alert_csv_only'));
             event.target.value = '';
             return;
         }
@@ -40,7 +42,7 @@ const handleFileSelect = (event) => {
 
 const uploadImport = () => {
     if (!selectedFile.value || !selectedType.value) {
-        alert('Please select both file and import type');
+        alert(t('imports.alert_select_both'));
         return;
     }
 
@@ -83,13 +85,13 @@ const viewDetails = (importId) => {
 };
 
 const deleteImport = (importId) => {
-    if (confirm('Are you sure you want to delete this import record? This cannot be undone.')) {
+    if (confirm(t('imports.confirm_delete'))) {
         router.delete(route('imports.destroy', importId));
     }
 };
 
 const reprocessImport = (importId) => {
-    if (confirm('Reprocess this import? This will attempt to import the data again.')) {
+    if (confirm(t('imports.confirm_reprocess'))) {
         router.post(route('imports.reprocess', importId));
     }
 };
@@ -108,7 +110,7 @@ const { formatDateTime: formatDate } = useFormatters();
 </script>
 
 <template>
-    <Head title="Import Data" />
+    <Head :title="t('imports.page_title')" />
 
     <AuthenticatedLayout>
         <div class="py-6">
@@ -117,48 +119,43 @@ const { formatDateTime: formatDate } = useFormatters();
                 <!-- Header -->
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                     <div class="p-6 bg-white border-b border-gray-200">
-                        <h1 class="text-2xl font-bold text-gray-900">Import Historical Data</h1>
-                        <p class="mt-1 text-sm text-gray-600">Upload CSV files to import your existing records into the system</p>
+                        <h1 class="text-2xl font-bold text-gray-900">{{ t('imports.heading') }}</h1>
+                        <p class="mt-1 text-sm text-gray-600">{{ t('imports.description') }}</p>
                     </div>
                 </div>
 
                 <!-- Upload Section -->
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                     <div class="p-6">
-                        <h2 class="text-xl font-bold text-gray-900 mb-4">Upload Import File</h2>
+                        <h2 class="text-xl font-bold text-gray-900 mb-4">{{ t('imports.upload_heading') }}</h2>
 
                         <!-- Building/Wing Scope (for imports that require it) -->
                         <div v-if="buildings?.length > 0" class="mb-6 p-4 bg-gray-50 rounded-lg">
                             <label class="block text-sm font-medium text-gray-700 mb-2">
-                                Target Building/Wing (Optional)
+                                {{ t('imports.target_scope_label') }}
                             </label>
                             <BuildingWingFilter
                                 :buildings="buildings"
                                 v-model:buildingId="buildingId"
                                 v-model:wingId="wingId"
                                 :showBadge="true"
-                                buildingPlaceholder="All Buildings"
-                                wingPlaceholder="All Wings"
+                                :buildingPlaceholder="t('imports.all_buildings')"
+                                :wingPlaceholder="t('imports.all_wings')"
                             />
                             <p class="mt-2 text-xs text-gray-500">
-                                Selecting a building will scope unit-related imports (water readings, leases) to that building.
+                                {{ t('imports.scope_hint') }}
                             </p>
                         </div>
 
                         <!-- Import Type Selection -->
                         <div class="mb-6">
-                            <label class="block text-sm font-medium text-gray-700 mb-3">Select Import Type</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-3">{{ t('imports.select_type_label') }}</label>
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div
                                     v-for="(typeInfo, key) in importTypes"
                                     :key="key"
                                     @click="selectedType = key"
-                                    :class="[
-                                        'border rounded-lg p-4 cursor-pointer transition-all',
-                                        selectedType === key
-                                            ? 'border-indigo-600 bg-indigo-50 ring-2 ring-indigo-600'
-                                            : 'border-gray-200 hover:border-indigo-300'
-                                    ]"
+                                    :class="['border rounded-lg p-4 cursor-pointer transition-all', selectedType === key ? 'border-indigo-600 bg-indigo-50 ring-2 ring-indigo-600' : 'border-gray-200 hover:border-indigo-300']"
                                 >
                                     <div class="flex items-start gap-3">
                                         <input
@@ -175,7 +172,7 @@ const { formatDateTime: formatDate } = useFormatters();
                                                 @click.stop="downloadTemplate(key)"
                                                 class="mt-2 text-xs text-indigo-600 hover:text-indigo-800 font-medium"
                                             >
-                                                Download Template →
+                                                {{ t('imports.download_template') }}
                                             </button>
                                         </div>
                                     </div>
@@ -185,7 +182,7 @@ const { formatDateTime: formatDate } = useFormatters();
 
                         <!-- File Upload -->
                         <div class="mb-6">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">CSV File</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('imports.csv_file_label') }}</label>
                             <div class="flex items-center gap-3">
                                 <label class="flex-1 cursor-pointer">
                                     <div class="flex items-center justify-center gap-2 px-4 py-3 bg-white border-2 border-dashed border-gray-300 rounded-lg hover:border-indigo-400 transition-colors">
@@ -193,7 +190,7 @@ const { formatDateTime: formatDate } = useFormatters();
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                                         </svg>
                                         <span class="text-sm text-gray-700">
-                                            {{ selectedFile ? selectedFile.name : 'Choose CSV file or drag here' }}
+                                            {{ selectedFile ? selectedFile.name : t('imports.choose_file') }}
                                         </span>
                                     </div>
                                     <input
@@ -205,7 +202,7 @@ const { formatDateTime: formatDate } = useFormatters();
                                     >
                                 </label>
                             </div>
-                            <p class="mt-1 text-xs text-gray-500">Maximum file size: 10MB. Only CSV format supported.</p>
+                            <p class="mt-1 text-xs text-gray-500">{{ t('imports.file_size_hint') }}</p>
                         </div>
 
                         <!-- Upload Button -->
@@ -214,7 +211,7 @@ const { formatDateTime: formatDate } = useFormatters();
                             :disabled="!selectedFile || !selectedType || uploadForm.processing"
                             class="w-full px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
                         >
-                            {{ uploadForm.processing ? 'Processing Import...' : 'Upload and Import' }}
+                            {{ uploadForm.processing ? t('imports.processing') : t('imports.upload_button') }}
                         </button>
                     </div>
                 </div>
@@ -223,39 +220,39 @@ const { formatDateTime: formatDate } = useFormatters();
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                     <div class="p-6">
                         <div class="flex flex-wrap justify-between items-center gap-4 mb-4">
-                            <h2 class="text-xl font-bold text-gray-900">Import History</h2>
+                            <h2 class="text-xl font-bold text-gray-900">{{ t('imports.history_heading') }}</h2>
 
                             <!-- Filter by Building -->
                             <div v-if="buildings?.length > 0" class="flex items-center gap-2">
-                                <span class="text-sm text-gray-600">Filter by:</span>
+                                <span class="text-sm text-gray-600">{{ t('imports.filter_by') }}</span>
                                 <BuildingWingFilter
                                     :buildings="buildings"
                                     v-model:buildingId="buildingId"
                                     v-model:wingId="wingId"
                                     :showBadge="false"
-                                    buildingPlaceholder="All Buildings"
-                                    wingPlaceholder="All Wings"
+                                    :buildingPlaceholder="t('imports.all_buildings')"
+                                    :wingPlaceholder="t('imports.all_wings')"
                                     @change="onBuildingFilterChange"
                                 />
                             </div>
                         </div>
 
                         <div v-if="imports.data.length === 0" class="text-center py-12 text-gray-500">
-                            <p class="text-lg">No imports yet</p>
-                            <p class="text-sm mt-2">Upload a CSV file above to get started</p>
+                            <p class="text-lg">{{ t('imports.no_imports') }}</p>
+                            <p class="text-sm mt-2">{{ t('imports.no_imports_hint') }}</p>
                         </div>
 
                         <div v-else class="overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200">
                                 <thead class="bg-gray-50">
                                     <tr>
-                                        <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                                        <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">File</th>
-                                        <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                        <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Results</th>
-                                        <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Imported By</th>
-                                        <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                                        <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                        <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('imports.th_type') }}</th>
+                                        <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('imports.th_file') }}</th>
+                                        <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('imports.th_status') }}</th>
+                                        <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('imports.th_results') }}</th>
+                                        <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('imports.th_imported_by') }}</th>
+                                        <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('imports.th_date') }}</th>
+                                        <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('imports.th_actions') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white divide-y divide-gray-200">
@@ -279,7 +276,7 @@ const { formatDateTime: formatDate } = useFormatters();
                                                 <span class="text-gray-400 mx-1">/</span>
                                                 <span class="text-red-600">✗ {{ importRecord.failed_rows }}</span>
                                                 <span class="text-gray-400 mx-1">/</span>
-                                                <span class="text-gray-600">{{ importRecord.total_rows }} total</span>
+                                                <span class="text-gray-600">{{ importRecord.total_rows }} {{ t('imports.total_suffix') }}</span>
                                             </div>
                                             <span v-else class="text-gray-400">-</span>
                                         </td>
@@ -295,21 +292,21 @@ const { formatDateTime: formatDate } = useFormatters();
                                                     @click="viewDetails(importRecord.id)"
                                                     class="text-indigo-600 hover:text-indigo-800 font-medium"
                                                 >
-                                                    Details
+                                                    {{ t('imports.details') }}
                                                 </button>
                                                 <button
                                                     v-if="importRecord.status === 'failed' || importRecord.failed_rows > 0"
                                                     @click="reprocessImport(importRecord.id)"
                                                     class="text-blue-600 hover:text-blue-800 font-medium"
                                                 >
-                                                    Reprocess
+                                                    {{ t('imports.reprocess') }}
                                                 </button>
                                                 <button
                                                     v-if="can('imports:manage')"
                                                     @click="deleteImport(importRecord.id)"
                                                     class="text-red-600 hover:text-red-800 font-medium"
                                                 >
-                                                    Delete
+                                                    {{ t('imports.delete') }}
                                                 </button>
                                             </div>
                                         </td>
@@ -321,17 +318,14 @@ const { formatDateTime: formatDate } = useFormatters();
                         <!-- Pagination -->
                         <div v-if="imports.data.length > 0" class="mt-6 flex justify-between items-center">
                             <div class="text-sm text-gray-600">
-                                Showing {{ imports.from }} to {{ imports.to }} of {{ imports.total }} imports
+                                {{ t('imports.showing', { from: imports.from, to: imports.to, total: imports.total }) }}
                             </div>
                             <div class="flex gap-2">
                                 <a
                                     v-for="link in imports.links"
                                     :key="link.label"
                                     :href="link.url"
-                                    :class="[
-                                        'px-3 py-1 rounded-md text-sm',
-                                        link.active ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                    ]"
+                                    :class="['px-3 py-1 rounded-md text-sm', link.active ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300']"
                                     class="transition-colors"
                                 >
                                     <PaginatorLink :label="link.label" />

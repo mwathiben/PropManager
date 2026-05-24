@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { usePage, Link, router } from '@inertiajs/vue3';
 import { onClickOutside } from '@vueuse/core';
 import { useEcho, useErrorHandler } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import BellIcon from '@heroicons/vue/24/outline/BellIcon';
 import ClockIcon from '@heroicons/vue/24/outline/ClockIcon';
 import ExclamationTriangleIcon from '@heroicons/vue/24/outline/ExclamationTriangleIcon';
@@ -19,6 +20,7 @@ import BellIconSolid from '@heroicons/vue/24/solid/BellIcon';
 const page = usePage();
 const { subscribePrivate, unsubscribe } = useEcho();
 const { logError } = useErrorHandler();
+const { t } = useI18n();
 
 const isOpen = ref(false);
 const notifications = ref([]);
@@ -73,7 +75,7 @@ const declineInvitation = async (notification, event) => {
     event.stopPropagation();
     if (!notification.invitation_id) return;
 
-    if (!confirm('Are you sure you want to decline this invitation?')) {
+    if (!confirm(t('notification_bell.confirm_decline'))) {
         return;
     }
 
@@ -193,7 +195,7 @@ onUnmounted(() => {
         <!-- Bell Button -->
         <button
             @click="toggleDropdown"
-            :aria-label="unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'"
+            :aria-label="unreadCount > 0 ? t('notification_bell.aria_label_unread', { count: unreadCount }) : t('notification_bell.aria_label')"
             :aria-expanded="isOpen"
             class="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
         >
@@ -210,27 +212,21 @@ onUnmounted(() => {
         </button>
 
         <!-- Dropdown Panel -->
-        <Transition
-            enter-active-class="transition ease-out duration-200"
-            enter-from-class="transform opacity-0 scale-95"
-            enter-to-class="transform opacity-100 scale-100"
-            leave-active-class="transition ease-in duration-150"
-            leave-from-class="transform opacity-100 scale-100"
-            leave-to-class="transform opacity-0 scale-95"
-        >
+        <!-- i18n-ignore -->
+        <Transition enter-active-class="transition ease-out duration-200" enter-from-class="transform opacity-0 scale-95" enter-to-class="transform opacity-100 scale-100" leave-active-class="transition ease-in duration-150" leave-from-class="transform opacity-100 scale-100" leave-to-class="transform opacity-0 scale-95">
             <div
                 v-if="isOpen"
                 class="absolute end-0 mt-2 w-80 sm:w-96 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50"
             >
                 <!-- Header -->
                 <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50">
-                    <h3 class="font-semibold text-gray-900">Notifications</h3>
+                    <h3 class="font-semibold text-gray-900">{{ t('notification_bell.heading') }}</h3>
                     <button
                         v-if="notifications.some(n => !n.read_at)"
                         @click="markAllAsRead"
                         class="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
                     >
-                        Mark all read
+                        {{ t('notification_bell.mark_all_read') }}
                     </button>
                 </div>
 
@@ -239,13 +235,13 @@ onUnmounted(() => {
                     <!-- Loading -->
                     <div v-if="loading" class="p-8 text-center">
                         <div class="animate-spin w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full mx-auto"></div>
-                        <p class="text-sm text-gray-500 mt-2">Loading...</p>
+                        <p class="text-sm text-gray-500 mt-2">{{ t('notification_bell.loading') }}</p>
                     </div>
 
                     <!-- Empty State -->
                     <div v-else-if="notifications.length === 0" class="p-8 text-center">
                         <BellIcon class="w-12 h-12 text-gray-300 mx-auto" />
-                        <p class="text-gray-500 mt-2">No notifications yet</p>
+                        <p class="text-gray-500 mt-2">{{ t('notification_bell.empty') }}</p>
                     </div>
 
                     <!-- Notification Items -->
@@ -254,17 +250,11 @@ onUnmounted(() => {
                             v-for="notification in notifications"
                             :key="notification.id"
                             @click="markAsRead(notification)"
-                            :class="[
-                                'px-4 py-3 border-b border-gray-50 hover:bg-gray-50 cursor-pointer transition-colors',
-                                !notification.read_at ? 'bg-indigo-50/50' : ''
-                            ]"
+                            :class="['px-4 py-3 border-b border-gray-50 hover:bg-gray-50 cursor-pointer transition-colors', !notification.read_at ? 'bg-indigo-50/50' : '']"
                         >
                             <div class="flex gap-3">
                                 <!-- Type Icon -->
-                                <div :class="[
-                                    'shrink-0 w-10 h-10 rounded-full flex items-center justify-center',
-                                    getTypeConfig(notification.type).bg
-                                ]">
+                                <div :class="['shrink-0 w-10 h-10 rounded-full flex items-center justify-center', getTypeConfig(notification.type).bg]">
                                     <component
                                         :is="getTypeConfig(notification.type).icon"
                                         :class="['w-5 h-5', getTypeConfig(notification.type).color]"
@@ -274,10 +264,7 @@ onUnmounted(() => {
                                 <!-- Content -->
                                 <div class="flex-1 min-w-0">
                                     <div class="flex items-start justify-between gap-2">
-                                        <p :class="[
-                                            'text-sm truncate',
-                                            !notification.read_at ? 'font-semibold text-gray-900' : 'text-gray-700'
-                                        ]">
+                                        <p :class="['text-sm truncate', !notification.read_at ? 'font-semibold text-gray-900' : 'text-gray-700']">
                                             {{ notification.subject }}
                                         </p>
                                         <!-- Unread Indicator -->
@@ -303,14 +290,14 @@ onUnmounted(() => {
                                             :disabled="processingInvitation === notification.id"
                                             class="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
                                         >
-                                            Accept
+                                            {{ t('notification_bell.accept') }}
                                         </button>
                                         <button
                                             @click="declineInvitation(notification, $event)"
                                             :disabled="processingInvitation === notification.id"
                                             class="px-3 py-1 text-xs bg-red-100 text-red-600 rounded hover:bg-red-200 disabled:opacity-50"
                                         >
-                                            Decline
+                                            {{ t('notification_bell.decline') }}
                                         </button>
                                     </div>
                                 </div>
@@ -326,7 +313,7 @@ onUnmounted(() => {
                         class="block text-center text-sm text-indigo-600 hover:text-indigo-800 font-medium"
                         @click="isOpen = false"
                     >
-                        View All Notifications
+                        {{ t('notification_bell.view_all') }}
                     </Link>
                 </div>
             </div>
@@ -334,23 +321,14 @@ onUnmounted(() => {
 
         <!-- Toast Notification for High-Priority Notifications -->
         <Teleport to="body">
-            <Transition
-                enter-active-class="transition ease-out duration-300"
-                enter-from-class="transform translate-y-2 opacity-0"
-                enter-to-class="transform translate-y-0 opacity-100"
-                leave-active-class="transition ease-in duration-200"
-                leave-from-class="transform translate-y-0 opacity-100"
-                leave-to-class="transform translate-y-2 opacity-0"
-            >
+            <!-- i18n-ignore -->
+            <Transition enter-active-class="transition ease-out duration-300" enter-from-class="transform translate-y-2 opacity-0" enter-to-class="transform translate-y-0 opacity-100" leave-active-class="transition ease-in duration-200" leave-from-class="transform translate-y-0 opacity-100" leave-to-class="transform translate-y-2 opacity-0">
                 <div
                     v-if="toast.show"
                     class="fixed bottom-4 end-4 z-50 max-w-sm bg-white rounded-lg shadow-lg border border-gray-200 p-4"
                 >
                     <div class="flex items-start gap-3">
-                        <div :class="[
-                            'shrink-0 w-10 h-10 rounded-full flex items-center justify-center',
-                            getTypeConfig(toast.type).bg
-                        ]">
+                        <div :class="['shrink-0 w-10 h-10 rounded-full flex items-center justify-center', getTypeConfig(toast.type).bg]">
                             <component
                                 :is="getTypeConfig(toast.type).icon"
                                 :class="['w-5 h-5', getTypeConfig(toast.type).color]"

@@ -184,4 +184,105 @@ return [
             'delete_contact' => 'Delete this emergency contact?',
         ],
     ],
+
+    'index' => [
+        'head_title' => 'Tenants',
+        'heading' => 'Tenants',
+        'subtitle' => 'Manage your tenants and invitations',
+        'invite_tenant' => 'Invite Tenant',
+        'view' => 'View',
+        'pending' => 'Pending',
+        'viewed' => 'Viewed',
+        'per_month' => '/mo',
+        'no_unit_assigned' => 'No unit assigned',
+        'unit_prefix' => 'Unit {number}',
+        'unit_label' => 'Unit',
+        'deposit_label' => 'Deposit:',
+        'start_label' => 'Start:',
+        'expires_label' => 'Expires:',
+
+        'tabs' => [
+            'active' => 'Active Tenants',
+            'pending' => 'Pending Invitations',
+            'past' => 'Past Tenants',
+        ],
+
+        'stats' => [
+            'active_tenants' => 'Active Tenants',
+            'pending_invites' => 'Pending Invites',
+            'monthly_rent' => 'Monthly Rent',
+            'total_arrears' => 'Total Arrears',
+        ],
+
+        'search' => [
+            'placeholder' => 'Search tenants...',
+            'pending_placeholder' => 'Search by name, email, or phone...',
+        ],
+
+        'table' => [
+            'tenant' => 'Tenant',
+            'contact' => 'Contact',
+            'unit' => 'Unit',
+            'payment' => 'Payment',
+            'rent' => 'Rent',
+            'actions' => 'Actions',
+            'tenant_info' => 'Tenant Info',
+            'lease_terms' => 'Lease Terms',
+            'status' => 'Status',
+            'last_unit' => 'Last Unit',
+            'end_date' => 'End Date',
+        ],
+
+        'lease_status' => [
+            'no_lease' => 'No Lease',
+            'active' => 'Active',
+            'inactive' => 'Inactive',
+        ],
+
+        'payment_status' => [
+            'na' => 'N/A',
+            'arrears' => 'Arrears',
+            'up_to_date' => 'Up to date',
+        ],
+
+        'empty_active' => [
+            'title' => 'No active tenants',
+            'description' => 'Invite tenants to get started.',
+            'search' => 'Try a different search term.',
+        ],
+
+        'empty_pending' => [
+            'title' => 'No pending invitations',
+            'description' => 'All invitations have been accepted or expired.',
+            'search' => 'Try a different search term.',
+        ],
+
+        'empty_past' => [
+            'title' => 'No past tenants',
+            'description' => 'Past tenants will appear here after their lease ends.',
+            'search' => 'Try a different search term.',
+        ],
+
+        'pagination' => [
+            'page_of' => 'Page {current} of {total}',
+            'previous' => 'Previous',
+            'next' => 'Next',
+        ],
+
+        'actions' => [
+            'copy' => 'Copy link',
+            'resend' => 'Resend',
+            'edit' => 'Edit',
+            'cancel' => 'Cancel',
+        ],
+
+        'confirm' => [
+            'resend' => 'Resend this invitation?',
+            'cancel' => 'Are you sure you want to cancel this invitation?',
+        ],
+
+        'alert' => [
+            'copied' => 'Invitation link copied!',
+        ],
+    ],
 ];

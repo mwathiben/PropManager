@@ -3,6 +3,7 @@ import { useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import { useAuth } from '@/composables/useAuth';
+import { useI18n } from '@/composables/useI18n';
 import type { OcrSettings, OcrProvidersLookup } from '@/types';
 
 const props = withDefaults(defineProps<{
@@ -14,6 +15,7 @@ const props = withDefaults(defineProps<{
 });
 
 const { can } = useAuth();
+const { t } = useI18n();
 
 const showApiKeyInput = ref(false);
 const selectedProvider = ref(props.ocrSettings.provider || 'none');
@@ -44,7 +46,7 @@ const testOcr = () => {
 };
 
 const deleteApiKey = (provider) => {
-    if (confirm('Are you sure you want to delete this API key? You will need to re-enter it to use OCR.')) {
+    if (confirm(t('integrations.ocr.delete_confirm'))) {
         useForm({ provider }).post(route('settings.apiKey.delete'), {
             preserveScroll: true,
         });
@@ -61,9 +63,9 @@ const providerChanged = (provider) => {
     <div class="space-y-6">
         <!-- Section Header -->
         <div>
-            <h3 class="text-lg font-semibold text-gray-900">Integrations</h3>
+            <h3 class="text-lg font-semibold text-gray-900">{{ t('integrations.title') }}</h3>
             <p class="mt-1 text-sm text-gray-600">
-                Connect external services to enhance PropManager functionality.
+                {{ t('integrations.subtitle') }}
             </p>
         </div>
 
@@ -71,11 +73,11 @@ const providerChanged = (provider) => {
         <div class="bg-gray-50 rounded-xl p-6 space-y-6">
             <div class="flex items-center justify-between">
                 <div>
-                    <h4 class="text-sm font-medium text-gray-700 uppercase tracking-wider">OCR (Optical Character Recognition)</h4>
-                    <p class="mt-1 text-sm text-gray-500">Automatically read water meter values from photos</p>
+                    <h4 class="text-sm font-medium text-gray-700 uppercase tracking-wider">{{ t('integrations.ocr.heading') }}</h4>
+                    <p class="mt-1 text-sm text-gray-500">{{ t('integrations.ocr.description') }}</p>
                 </div>
                 <div class="flex items-center gap-2">
-                    <span class="text-sm text-gray-600">Enable OCR</span>
+                    <span class="text-sm text-gray-600">{{ t('integrations.ocr.enable') }}</span>
                     <label class="relative inline-flex items-center cursor-pointer">
                         <input
                             type="checkbox"
@@ -89,18 +91,13 @@ const providerChanged = (provider) => {
 
             <!-- Provider Selection -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-3">Select OCR Provider</label>
+                <label class="block text-sm font-medium text-gray-700 mb-3">{{ t('integrations.ocr.select_provider') }}</label>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div
                         v-for="(provider, key) in ocrProviders"
                         :key="key"
                         @click="providerChanged(key)"
-                        :class="[
-                            'relative border-2 rounded-xl p-4 cursor-pointer transition-all',
-                            ocrForm.provider === key
-                                ? 'border-indigo-600 bg-indigo-50 ring-1 ring-indigo-600'
-                                : 'border-gray-200 hover:border-indigo-300'
-                        ]"
+                        :class="['relative border-2 rounded-xl p-4 cursor-pointer transition-all', ocrForm.provider === key ? 'border-indigo-600 bg-indigo-50 ring-1 ring-indigo-600' : 'border-gray-200 hover:border-indigo-300']"
                     >
                         <div class="flex items-start">
                             <input
@@ -113,7 +110,7 @@ const providerChanged = (provider) => {
                                 <div class="flex items-center gap-2">
                                     <h5 class="text-sm font-semibold text-gray-900">{{ provider.name }}</h5>
                                     <span v-if="provider.recommended" class="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800 rounded">
-                                        Recommended
+                                        {{ t('integrations.ocr.recommended') }}
                                     </span>
                                 </div>
                                 <p class="mt-1 text-xs text-gray-600">{{ provider.description }}</p>
@@ -121,11 +118,11 @@ const providerChanged = (provider) => {
                                     <span class="text-green-600 font-medium">{{ provider.free_tier }}</span>
                                     <span class="text-gray-400">|</span>
                                     <a :href="provider.setup_url" target="_blank" class="text-indigo-600 hover:text-indigo-800">
-                                        Setup Guide
+                                        {{ t('integrations.ocr.setup_guide') }}
                                     </a>
                                 </div>
                                 <div class="mt-1 text-xs text-gray-500">
-                                    Requires: {{ provider.requires.join(', ') }}
+                                    {{ t('integrations.ocr.requires', { requirements: provider.requires.join(', ') }) }}
                                 </div>
                             </div>
                         </div>
@@ -134,12 +131,7 @@ const providerChanged = (provider) => {
                     <!-- No OCR Option -->
                     <div
                         @click="providerChanged('none')"
-                        :class="[
-                            'relative border-2 rounded-xl p-4 cursor-pointer transition-all',
-                            ocrForm.provider === 'none'
-                                ? 'border-gray-400 bg-gray-100 ring-1 ring-gray-400'
-                                : 'border-gray-200 hover:border-gray-300'
-                        ]"
+                        :class="['relative border-2 rounded-xl p-4 cursor-pointer transition-all', ocrForm.provider === 'none' ? 'border-gray-400 bg-gray-100 ring-1 ring-gray-400' : 'border-gray-200 hover:border-gray-300']"
                     >
                         <div class="flex items-start">
                             <input
@@ -149,8 +141,8 @@ const providerChanged = (provider) => {
                                 class="mt-1 text-gray-600 focus:ring-gray-500"
                             >
                             <div class="ms-3">
-                                <h5 class="text-sm font-semibold text-gray-900">No OCR (Manual Only)</h5>
-                                <p class="mt-1 text-xs text-gray-600">Disable automatic reading detection. Caretakers will only enter values manually.</p>
+                                <h5 class="text-sm font-semibold text-gray-900">{{ t('integrations.ocr.none.name') }}</h5>
+                                <p class="mt-1 text-xs text-gray-600">{{ t('integrations.ocr.none.description') }}</p>
                             </div>
                         </div>
                     </div>
@@ -165,9 +157,9 @@ const providerChanged = (provider) => {
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         <div class="text-sm text-blue-800">
-                            <strong>API Key Required:</strong> You need to sign up for {{ ocrProviders[ocrForm.provider]?.name }} and get an API key.
+                            <strong>{{ t('integrations.ocr.api_key_required_label') }}</strong> {{ t('integrations.ocr.api_key_required_body', { provider: ocrProviders[ocrForm.provider]?.name }) }}
                             <a :href="ocrProviders[ocrForm.provider]?.setup_url" target="_blank" class="underline font-medium ms-1">
-                                Get API Key
+                                {{ t('integrations.ocr.get_api_key') }}
                             </a>
                         </div>
                     </div>
@@ -178,7 +170,7 @@ const providerChanged = (provider) => {
                         <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        <span class="text-sm font-medium text-green-800">API Key Configured</span>
+                        <span class="text-sm font-medium text-green-800">{{ t('integrations.ocr.api_key_configured') }}</span>
                     </div>
                     <div class="flex gap-2">
                         <button
@@ -186,7 +178,7 @@ const providerChanged = (provider) => {
                             type="button"
                             class="px-3 py-1 text-sm bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50"
                         >
-                            Update Key
+                            {{ t('integrations.ocr.update_key') }}
                         </button>
                         <button
                             v-if="can('settings:manage')"
@@ -194,26 +186,26 @@ const providerChanged = (provider) => {
                             type="button"
                             class="px-3 py-1 text-sm bg-red-600 text-white rounded-md hover:bg-red-700"
                         >
-                            Delete
+                            {{ t('integrations.ocr.delete') }}
                         </button>
                     </div>
                 </div>
 
                 <div v-if="!ocrSettings.has_api_key || showApiKeyInput" class="space-y-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">API Key</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('integrations.ocr.api_key_label') }}</label>
                         <input
                             v-model="ocrForm.api_key"
                             type="password"
-                            placeholder="Enter your API key"
+                            :placeholder="t('integrations.ocr.api_key_placeholder')"
                             class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                         >
-                        <p class="mt-1 text-xs text-gray-500">Your API key will be encrypted and stored securely</p>
+                        <p class="mt-1 text-xs text-gray-500">{{ t('integrations.ocr.api_key_hint') }}</p>
                     </div>
 
                     <!-- Azure Endpoint (if Azure selected) -->
                     <div v-if="ocrForm.provider === 'azure_vision'">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Endpoint URL</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('integrations.ocr.endpoint_label') }}</label>
                         <input
                             v-model="ocrForm.azure_endpoint"
                             type="url"
@@ -235,8 +227,8 @@ const providerChanged = (provider) => {
                     <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                 </label>
                 <div>
-                    <span class="text-sm font-medium text-gray-700">Auto-verify readings</span>
-                    <p class="text-xs text-gray-500">Automatically verify if OCR reading matches manual input within tolerance</p>
+                    <span class="text-sm font-medium text-gray-700">{{ t('integrations.ocr.auto_verify') }}</span>
+                    <p class="text-xs text-gray-500">{{ t('integrations.ocr.auto_verify_hint') }}</p>
                 </div>
             </div>
 
@@ -247,7 +239,7 @@ const providerChanged = (provider) => {
                     :disabled="ocrForm.processing"
                     :class="{ 'opacity-50': ocrForm.processing }"
                 >
-                    {{ ocrForm.processing ? 'Saving...' : 'Save OCR Settings' }}
+                    {{ ocrForm.processing ? t('integrations.ocr.saving') : t('integrations.ocr.save') }}
                 </PrimaryButton>
                 <button
                     v-if="ocrForm.provider !== 'none' && ocrSettings.has_api_key"
@@ -255,7 +247,7 @@ const providerChanged = (provider) => {
                     type="button"
                     class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 font-medium"
                 >
-                    Test Connection
+                    {{ t('integrations.ocr.test_connection') }}
                 </button>
             </div>
         </div>
@@ -266,9 +258,9 @@ const providerChanged = (provider) => {
                 <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                 </svg>
-                <h4 class="mt-2 text-sm font-medium text-gray-900">More integrations coming soon</h4>
+                <h4 class="mt-2 text-sm font-medium text-gray-900">{{ t('integrations.coming_soon.title') }}</h4>
                 <p class="mt-1 text-sm text-gray-500">
-                    SMS gateways, accounting software, and more
+                    {{ t('integrations.coming_soon.body') }}
                 </p>
             </div>
         </div>

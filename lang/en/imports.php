@@ -1,0 +1,44 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Phase-105+ i18n migration: data import landing page. Mirror en/sw/ar.
+ */
+return [
+    'page_title' => 'Import Data',
+    'heading' => 'Import Historical Data',
+    'description' => 'Upload CSV files to import your existing records into the system',
+    'upload_heading' => 'Upload Import File',
+    'target_scope_label' => 'Target Building/Wing (Optional)',
+    'all_buildings' => 'All Buildings',
+    'all_wings' => 'All Wings',
+    'scope_hint' => 'Selecting a building will scope unit-related imports (water readings, leases) to that building.',
+    'select_type_label' => 'Select Import Type',
+    'download_template' => 'Download Template →',
+    'csv_file_label' => 'CSV File',
+    'choose_file' => 'Choose CSV file or drag here',
+    'file_size_hint' => 'Maximum file size: 10MB. Only CSV format supported.',
+    'processing' => 'Processing Import...',
+    'upload_button' => 'Upload and Import',
+    'history_heading' => 'Import History',
+    'filter_by' => 'Filter by:',
+    'no_imports' => 'No imports yet',
+    'no_imports_hint' => 'Upload a CSV file above to get started',
+    'th_type' => 'Type',
+    'th_file' => 'File',
+    'th_status' => 'Status',
+    'th_results' => 'Results',
+    'th_imported_by' => 'Imported By',
+    'th_date' => 'Date',
+    'th_actions' => 'Actions',
+    'total_suffix' => 'total',
+    'details' => 'Details',
+    'reprocess' => 'Reprocess',
+    'delete' => 'Delete',
+    'showing' => 'Showing {from} to {to} of {total} imports',
+    'alert_csv_only' => 'Please select a CSV file',
+    'alert_select_both' => 'Please select both file and import type',
+    'confirm_delete' => 'Are you sure you want to delete this import record? This cannot be undone.',
+    'confirm_reprocess' => 'Reprocess this import? This will attempt to import the data again.',
+];

@@ -3,6 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { ref, watch, computed } from 'vue';
 import { useErrorHandler } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import { useZodForm } from '@/composables/forms/useZodForm';
 import { ticketSchema } from '@/composables/forms/schemas/ticketSchema';
 import type { TicketCreatePageProps, Unit } from '@/types';
@@ -15,6 +16,7 @@ import {
 const props = defineProps<TicketCreatePageProps>();
 
 const { logError } = useErrorHandler();
+const { t } = useI18n();
 
 const form = useForm({
     building_id: props.defaultBuildingId || '',
@@ -79,7 +81,7 @@ const submit = () => {
 </script>
 
 <template>
-    <Head title="Report Issue" />
+    <Head :title="t('tickets.create.page_title')" />
 
     <AuthenticatedLayout>
         <div class="py-6">
@@ -91,43 +93,33 @@ const submit = () => {
                         class="inline-flex items-center text-sm text-gray-500 hover:text-gray-700 mb-4"
                     >
                         <ArrowLeftIcon class="h-4 w-4 me-1" />
-                        Back to Tickets
+                        {{ t('tickets.create.back_to_tickets') }}
                     </Link>
-                    <h1 class="text-3xl font-bold text-gray-900">Report an Issue or Complaint</h1>
-                    <p class="text-gray-600 mt-1">Let us know what needs attention</p>
+                    <h1 class="text-3xl font-bold text-gray-900">{{ t('tickets.create.heading') }}</h1>
+                    <p class="text-gray-600 mt-1">{{ t('tickets.create.subheading') }}</p>
                 </div>
 
                 <div class="bg-white shadow-sm rounded-lg overflow-hidden border">
                     <form @submit.prevent="submit" class="p-6 space-y-6">
                         <!-- Category Selection -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-3">What type of report is this?</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-3">{{ t('tickets.create.report_type_label') }}</label>
                             <div class="grid grid-cols-2 gap-4">
                                 <button
                                     type="button"
                                     @click="form.category = 'issue'"
-                                    :class="[
-                                        form.category === 'issue'
-                                            ? 'border-orange-500 bg-orange-50 text-orange-700'
-                                            : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50',
-                                        'relative flex items-center justify-center p-4 border-2 rounded-lg cursor-pointer transition'
-                                    ]"
+                                    :class="[form.category === 'issue' ? 'border-orange-500 bg-orange-50 text-orange-700' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50', 'relative flex items-center justify-center p-4 border-2 rounded-lg cursor-pointer transition']"
                                 >
                                     <WrenchScrewdriverIcon class="h-6 w-6 me-2" />
-                                    <span class="font-medium">Maintenance Issue</span>
+                                    <span class="font-medium">{{ t('tickets.create.maintenance_issue') }}</span>
                                 </button>
                                 <button
                                     type="button"
                                     @click="form.category = 'complaint'"
-                                    :class="[
-                                        form.category === 'complaint'
-                                            ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                                            : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50',
-                                        'relative flex items-center justify-center p-4 border-2 rounded-lg cursor-pointer transition'
-                                    ]"
+                                    :class="[form.category === 'complaint' ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50', 'relative flex items-center justify-center p-4 border-2 rounded-lg cursor-pointer transition']"
                                 >
                                     <ChatBubbleBottomCenterTextIcon class="h-6 w-6 me-2" />
-                                    <span class="font-medium">Complaint</span>
+                                    <span class="font-medium">{{ t('tickets.create.complaint') }}</span>
                                 </button>
                             </div>
                         </div>
@@ -135,7 +127,7 @@ const submit = () => {
                         <!-- Building Selection -->
                         <div>
                             <label for="building_id" class="block text-sm font-medium text-gray-700 mb-1">
-                                Building <span class="text-red-500">*</span>
+                                {{ t('tickets.create.building_label') }} <span class="text-red-500">*</span>
                             </label>
                             <select
                                 id="building_id"
@@ -143,7 +135,7 @@ const submit = () => {
                                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                                 :class="{ 'border-red-300': form.errors.building_id }"
                             >
-                                <option value="">Select a building</option>
+                                <option value="">{{ t('tickets.create.select_building') }}</option>
                                 <option v-for="building in buildings" :key="building.id" :value="building.id">
                                     {{ building.name }}
                                 </option>
@@ -156,8 +148,8 @@ const submit = () => {
                         <!-- Unit Selection (Optional) -->
                         <div>
                             <label for="unit_id" class="block text-sm font-medium text-gray-700 mb-1">
-                                Unit
-                                <span class="text-gray-400 text-xs">(optional - leave blank for common area issues)</span>
+                                {{ t('tickets.create.unit_label') }}
+                                <span class="text-gray-400 text-xs">{{ t('tickets.create.unit_optional') }}</span>
                             </label>
                             <select
                                 id="unit_id"
@@ -165,9 +157,9 @@ const submit = () => {
                                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                                 :disabled="!form.building_id"
                             >
-                                <option value="">Common Area / Property-wide</option>
+                                <option value="">{{ t('tickets.create.common_area') }}</option>
                                 <option v-for="unit in availableUnits" :key="unit.id" :value="unit.id">
-                                    Unit {{ unit.unit_number }}
+                                    {{ t('tickets.create.unit_prefix', { number: unit.unit_number }) }}
                                 </option>
                             </select>
                         </div>
@@ -175,7 +167,7 @@ const submit = () => {
                         <!-- Subcategory -->
                         <div>
                             <label for="subcategory" class="block text-sm font-medium text-gray-700 mb-1">
-                                {{ form.category === 'issue' ? 'Issue Type' : 'Complaint Type' }}
+                                {{ form.category === 'issue' ? t('tickets.create.issue_type') : t('tickets.create.complaint_type') }}
                                 <span class="text-red-500">*</span>
                             </label>
                             <select
@@ -184,7 +176,7 @@ const submit = () => {
                                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                                 :class="{ 'border-red-300': form.errors.subcategory }"
                             >
-                                <option value="">Select a type</option>
+                                <option value="">{{ t('tickets.create.select_type') }}</option>
                                 <option v-for="(label, value) in currentSubcategories" :key="value" :value="value">
                                     {{ label }}
                                 </option>
@@ -197,13 +189,13 @@ const submit = () => {
                         <!-- Title -->
                         <div>
                             <label for="title" class="block text-sm font-medium text-gray-700 mb-1">
-                                Brief Summary <span class="text-red-500">*</span>
+                                {{ t('tickets.create.title_label') }} <span class="text-red-500">*</span>
                             </label>
                             <input
                                 type="text"
                                 id="title"
                                 v-model="form.title"
-                                placeholder="e.g., Leaking pipe in bathroom"
+                                :placeholder="t('tickets.create.title_placeholder')"
                                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                                 :class="{ 'border-red-300': form.errors.title }"
                             />
@@ -215,13 +207,13 @@ const submit = () => {
                         <!-- Description -->
                         <div>
                             <label for="description" class="block text-sm font-medium text-gray-700 mb-1">
-                                Detailed Description <span class="text-red-500">*</span>
+                                {{ t('tickets.create.description_label') }} <span class="text-red-500">*</span>
                             </label>
                             <textarea
                                 id="description"
                                 v-model="form.description"
                                 rows="4"
-                                placeholder="Please describe the issue in detail..."
+                                :placeholder="t('tickets.create.description_placeholder')"
                                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                                 :class="{ 'border-red-300': form.errors.description }"
                             />
@@ -233,14 +225,14 @@ const submit = () => {
                         <!-- Location -->
                         <div>
                             <label for="location" class="block text-sm font-medium text-gray-700 mb-1">
-                                Specific Location
-                                <span class="text-gray-400 text-xs">(optional)</span>
+                                {{ t('tickets.create.location_label') }}
+                                <span class="text-gray-400 text-xs">{{ t('tickets.create.location_optional') }}</span>
                             </label>
                             <input
                                 type="text"
                                 id="location"
                                 v-model="form.location"
-                                placeholder="e.g., Kitchen, Bathroom, Parking area"
+                                :placeholder="t('tickets.create.location_placeholder')"
                                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                             />
                         </div>
@@ -248,7 +240,7 @@ const submit = () => {
                         <!-- Priority -->
                         <div>
                             <label for="priority" class="block text-sm font-medium text-gray-700 mb-1">
-                                Priority <span class="text-red-500">*</span>
+                                {{ t('tickets.create.priority_label') }} <span class="text-red-500">*</span>
                             </label>
                             <select
                                 id="priority"
@@ -260,17 +252,17 @@ const submit = () => {
                                 </option>
                             </select>
                             <p class="mt-1 text-xs text-gray-500">
-                                <span class="font-medium">Urgent:</span> Safety hazard, no water/electricity.
-                                <span class="font-medium">High:</span> Major inconvenience.
-                                <span class="font-medium">Medium:</span> Standard issues.
-                                <span class="font-medium">Low:</span> Minor issues.
+                                <span class="font-medium">{{ t('tickets.create.priority_urgent') }}</span> {{ t('tickets.create.priority_urgent_desc') }}
+                                <span class="font-medium">{{ t('tickets.create.priority_high') }}</span> {{ t('tickets.create.priority_high_desc') }}
+                                <span class="font-medium">{{ t('tickets.create.priority_medium') }}</span> {{ t('tickets.create.priority_medium_desc') }}
+                                <span class="font-medium">{{ t('tickets.create.priority_low') }}</span> {{ t('tickets.create.priority_low_desc') }}
                             </p>
                         </div>
 
                         <!-- Phase-28 TENANT-MAINT-2: multi-photo upload -->
                         <div>
                             <label for="photos" class="block text-sm font-medium text-gray-700 mb-1">
-                                Photos (optional)
+                                {{ t('tickets.create.photos_label') }}
                             </label>
                             <input
                                 id="photos"
@@ -281,10 +273,10 @@ const submit = () => {
                                 @change="onPhotosSelected"
                             />
                             <p class="mt-1 text-xs text-gray-500">
-                                Up to 5 photos, max 5MB each. JPEG, PNG, or WebP.
+                                {{ t('tickets.create.photos_hint') }}
                             </p>
                             <p v-if="form.photos.length" class="mt-1 text-xs text-emerald-700">
-                                {{ form.photos.length }} {{ form.photos.length === 1 ? 'photo' : 'photos' }} attached
+                                {{ t('tickets.create.photos_attached', form.photos.length) }}
                             </p>
                             <p v-if="form.errors.photos" class="mt-1 text-sm text-red-600">{{ form.errors.photos }}</p>
                         </div>
@@ -295,15 +287,15 @@ const submit = () => {
                                 :href="route('tickets.index')"
                                 class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
                             >
-                                Cancel
+                                {{ t('tickets.create.cancel') }}
                             </Link>
                             <button
                                 type="submit"
                                 :disabled="form.processing"
                                 class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
                             >
-                                <span v-if="form.processing">Submitting...</span>
-                                <span v-else>Submit Report</span>
+                                <span v-if="form.processing">{{ t('tickets.create.submitting') }}</span>
+                                <span v-else>{{ t('tickets.create.submit_report') }}</span>
                             </button>
                         </div>
                     </form>
