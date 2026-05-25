@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import PaginatorLink from '@/Components/PaginatorLink.vue';
 import { useFormatters } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import type { TenantFinancesHistoryPageProps } from '@/types';
 import {
@@ -23,25 +24,26 @@ import {
 const props = defineProps<TenantFinancesHistoryPageProps>();
 
 const { formatDate } = useFormatters();
+const { t } = useI18n();
 
 const activeTab = ref('payments');
 
-const paymentColumns = [
-    { key: 'payment_date', label: 'Date', sortable: true },
-    { key: 'amount', label: 'Amount', align: 'right', sortable: true },
-    { key: 'payment_method', label: 'Method', sortable: false },
-    { key: 'reference', label: 'Reference', sortable: false },
+const paymentColumns = computed(() => [
+    { key: 'payment_date', label: t('tenant_finances_history.columns.date'), sortable: true },
+    { key: 'amount', label: t('tenant_finances_history.columns.amount'), align: 'right', sortable: true },
+    { key: 'payment_method', label: t('tenant_finances_history.columns.method'), sortable: false },
+    { key: 'reference', label: t('tenant_finances_history.columns.reference'), sortable: false },
     { key: 'actions', label: '', align: 'right' },
-];
+]);
 
-const invoiceColumns = [
-    { key: 'created_at', label: 'Date', sortable: true },
-    { key: 'invoice_number', label: 'Invoice #', sortable: false },
-    { key: 'total_due', label: 'Amount', align: 'right', sortable: true },
-    { key: 'amount_paid', label: 'Paid', align: 'right', sortable: true },
-    { key: 'status', label: 'Status', sortable: true },
+const invoiceColumns = computed(() => [
+    { key: 'created_at', label: t('tenant_finances_history.columns.date'), sortable: true },
+    { key: 'invoice_number', label: t('tenant_finances_history.columns.invoice_number'), sortable: false },
+    { key: 'total_due', label: t('tenant_finances_history.columns.amount'), align: 'right', sortable: true },
+    { key: 'amount_paid', label: t('tenant_finances_history.columns.paid'), align: 'right', sortable: true },
+    { key: 'status', label: t('tenant_finances_history.columns.status'), sortable: true },
     { key: 'actions', label: '', align: 'right', sortable: false },
-];
+]);
 
 const downloadReceipt = (payment) => {
     window.open(route('payments.downloadReceipt', payment.id), '_blank');
@@ -49,7 +51,7 @@ const downloadReceipt = (payment) => {
 </script>
 
 <template>
-    <Head title="Payment History" />
+    <Head :title="t('tenant_finances_history.page_title')" />
 
     <AuthenticatedLayout>
         <template #header>
@@ -61,8 +63,8 @@ const downloadReceipt = (payment) => {
                     <ChevronLeftIcon class="w-5 h-5" />
                 </Link>
                 <div>
-                    <h1 class="text-lg font-semibold text-gray-900">Payment History</h1>
-                    <p class="text-sm text-gray-500">View all your payments and invoices</p>
+                    <h1 class="text-lg font-semibold text-gray-900">{{ t('tenant_finances_history.heading') }}</h1>
+                    <p class="text-sm text-gray-500">{{ t('tenant_finances_history.subtitle') }}</p>
                 </div>
             </div>
         </template>
@@ -82,7 +84,7 @@ const downloadReceipt = (payment) => {
                                 ]"
                             >
                                 <BanknotesIcon :class="['w-5 h-5', activeTab === 'payments' ? 'text-emerald-500' : 'text-gray-400']" />
-                                Payments
+                                {{ t('tenant_finances_history.tabs.payments') }}
                             </button>
                             <button
                                 @click="activeTab = 'invoices'"
@@ -94,7 +96,7 @@ const downloadReceipt = (payment) => {
                                 ]"
                             >
                                 <DocumentTextIcon :class="['w-5 h-5', activeTab === 'invoices' ? 'text-emerald-500' : 'text-gray-400']" />
-                                Invoices
+                                {{ t('tenant_finances_history.tabs.invoices') }}
                             </button>
                         </nav>
                     </div>
@@ -107,8 +109,8 @@ const downloadReceipt = (payment) => {
                                 :loading="false"
                                 row-key="id"
                                 :empty-icon="BanknotesIcon"
-                                empty-title="No payments yet"
-                                empty-description="Your payment history will appear here"
+                                :empty-title="t('tenant_finances_history.payments_empty.title')"
+                                :empty-description="t('tenant_finances_history.payments_empty.description')"
                             >
                                 <template #cell-payment_date="{ row }">
                                     <span class="text-sm text-gray-900">{{ formatDate(row.payment_date) }}</span>
@@ -130,7 +132,7 @@ const downloadReceipt = (payment) => {
                                     <button
                                         @click.stop="downloadReceipt(row)"
                                         class="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded"
-                                        title="Download Receipt"
+                                        :title="t('tenant_finances_history.download_receipt')"
                                     >
                                         <DocumentArrowDownIcon class="h-4 w-4" />
                                     </button>
@@ -143,12 +145,7 @@ const downloadReceipt = (payment) => {
                                         <button
                                             v-if="link.url"
                                             @click="router.visit(link.url)"
-                                            :class="[
-                                                'px-3 py-1.5 text-sm rounded-lg transition-colors',
-                                                link.active
-                                                    ? 'bg-emerald-600 text-white'
-                                                    : 'text-gray-600 hover:bg-gray-100'
-                                            ]"
+                                            :class="['px-3 py-1.5 text-sm rounded-lg transition-colors', link.active ? 'bg-emerald-600 text-white' : 'text-gray-600 hover:bg-gray-100']"
                                         >
                                             <PaginatorLink :label="link.label" />
                                         </button>
@@ -170,8 +167,8 @@ const downloadReceipt = (payment) => {
                                 :loading="false"
                                 row-key="id"
                                 :empty-icon="DocumentTextIcon"
-                                empty-title="No invoices yet"
-                                empty-description="Your invoices will appear here"
+                                :empty-title="t('tenant_finances_history.invoices_empty.title')"
+                                :empty-description="t('tenant_finances_history.invoices_empty.description')"
                             >
                                 <template #cell-created_at="{ row }">
                                     <span class="text-sm text-gray-900">{{ formatDate(row.created_at) }}</span>
@@ -206,12 +203,7 @@ const downloadReceipt = (payment) => {
                                         <button
                                             v-if="link.url"
                                             @click="router.visit(link.url)"
-                                            :class="[
-                                                'px-3 py-1.5 text-sm rounded-lg transition-colors',
-                                                link.active
-                                                    ? 'bg-emerald-600 text-white'
-                                                    : 'text-gray-600 hover:bg-gray-100'
-                                            ]"
+                                            :class="['px-3 py-1.5 text-sm rounded-lg transition-colors', link.active ? 'bg-emerald-600 text-white' : 'text-gray-600 hover:bg-gray-100']"
                                         >
                                             <PaginatorLink :label="link.label" />
                                         </button>

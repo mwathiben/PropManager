@@ -3,6 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { useFormatters } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import { useAuth } from '@/composables/useAuth';
 import type { AdminUsersPageProps } from '@/types';
 import {
@@ -14,6 +15,7 @@ import {
 
 const props = defineProps<AdminUsersPageProps>();
 const { can } = useAuth();
+const { t } = useI18n();
 
 const searchQuery = ref(props.filters?.search || '');
 const selectedRole = ref(props.filters?.role || '');
@@ -29,13 +31,13 @@ const search = () => {
 };
 
 const impersonate = (userId) => {
-    if (confirm('This will log you in as this user. Continue?')) {
+    if (confirm(t('admin_users.confirm.impersonate'))) {
         router.post(route('admin.impersonate', userId));
     }
 };
 
 const toggleStatus = (userId) => {
-    if (confirm('Are you sure you want to toggle this user\'s status?')) {
+    if (confirm(t('admin_users.confirm.toggle_status'))) {
         router.post(route('admin.users.toggleStatus', userId));
     }
 };
@@ -59,13 +61,13 @@ const getRoleLabel = (role) => {
 </script>
 
 <template>
-    <Head title="Manage Users" />
+    <Head :title="t('admin_users.title')" />
 
     <AuthenticatedLayout>
         <div class="py-12">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
                 <div class="flex items-center justify-between mb-6">
-                    <h1 class="text-2xl font-bold text-gray-900">All Users</h1>
+                    <h1 class="text-2xl font-bold text-gray-900">{{ t('admin_users.heading') }}</h1>
                 </div>
 
                 <!-- Filters -->
@@ -75,19 +77,19 @@ const getRoleLabel = (role) => {
                             <MagnifyingGlassIcon class="absolute start-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                             <input type="text"
                                    v-model="searchQuery"
-                                   placeholder="Search by name or email..."
+                                   :placeholder="t('admin_users.search_placeholder')"
                                    class="w-full ps-10 pe-4 py-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500" />
                         </div>
                         <select v-model="selectedRole"
                                 class="border rounded-lg px-4 py-2 focus:ring-indigo-500 focus:border-indigo-500">
-                            <option value="">All Roles</option>
+                            <option value="">{{ t('admin_users.all_roles') }}</option>
                             <option v-for="(label, value) in roles" :key="value" :value="value">
                                 {{ label }}
                             </option>
                         </select>
                         <button type="submit"
                                 class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition">
-                            Filter
+                            {{ t('admin_users.filter') }}
                         </button>
                     </form>
                 </div>
@@ -95,17 +97,17 @@ const getRoleLabel = (role) => {
                 <!-- Users Table -->
                 <div class="bg-white rounded-lg shadow-sm border overflow-hidden">
                     <div v-if="users.data.length === 0" class="p-8 text-center text-gray-500">
-                        No users found.
+                        {{ t('admin_users.empty') }}
                     </div>
                     <div v-else class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
-                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">User</th>
-                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Role</th>
-                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Status</th>
-                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Joined</th>
-                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">{{ t('admin_users.table.user') }}</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">{{ t('admin_users.table.role') }}</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">{{ t('admin_users.table.status') }}</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">{{ t('admin_users.table.joined') }}</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">{{ t('admin_users.table.actions') }}</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-200">
@@ -126,7 +128,7 @@ const getRoleLabel = (role) => {
                                             <CheckCircleIcon v-if="user.email_verified_at" class="h-5 w-5 text-green-500 me-1" />
                                             <XCircleIcon v-else class="h-5 w-5 text-red-500 me-1" />
                                             <span :class="user.email_verified_at ? 'text-green-600' : 'text-red-600'">
-                                                {{ user.email_verified_at ? 'Active' : 'Inactive' }}
+                                                {{ user.email_verified_at ? t('admin_users.status.active') : t('admin_users.status.inactive') }}
                                             </span>
                                         </div>
                                     </td>
@@ -136,13 +138,13 @@ const getRoleLabel = (role) => {
                                             <button v-if="user.role !== 'super_admin'"
                                                     @click="toggleStatus(user.id)"
                                                     class="text-gray-600 hover:text-gray-900">
-                                                {{ user.email_verified_at ? 'Deactivate' : 'Activate' }}
+                                                {{ user.email_verified_at ? t('admin_users.actions.deactivate') : t('admin_users.actions.activate') }}
                                             </button>
                                             <button v-if="can('access-admin') && user.role !== 'super_admin'"
                                                     @click="impersonate(user.id)"
                                                     class="text-indigo-600 hover:text-indigo-900 flex items-center">
                                                 <ArrowRightOnRectangleIcon class="h-4 w-4 me-1" />
-                                                Login As
+                                                {{ t('admin_users.actions.login_as') }}
                                             </button>
                                         </div>
                                     </td>
@@ -155,18 +157,18 @@ const getRoleLabel = (role) => {
                     <div v-if="users.links && users.links.length > 3" class="px-4 py-3 border-t bg-gray-50">
                         <div class="flex justify-between items-center">
                             <span class="text-sm text-gray-500">
-                                Showing {{ users.from }} to {{ users.to }} of {{ users.total }} results
+                                {{ t('admin_users.pagination.showing', { from: users.from, to: users.to, total: users.total }) }}
                             </span>
                             <div class="flex gap-2">
                                 <Link v-if="users.prev_page_url"
                                       :href="users.prev_page_url"
                                       class="px-3 py-1 border rounded text-sm hover:bg-gray-100">
-                                    Previous
+                                    {{ t('admin_users.pagination.previous') }}
                                 </Link>
                                 <Link v-if="users.next_page_url"
                                       :href="users.next_page_url"
                                       class="px-3 py-1 border rounded text-sm hover:bg-gray-100">
-                                    Next
+                                    {{ t('admin_users.pagination.next') }}
                                 </Link>
                             </div>
                         </div>
