@@ -3,6 +3,7 @@ import { computed, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
 import Modal from '@/Components/Modal.vue';
 import { useFormatters, usePayments, usePaymentForm } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import { PaymentMethodSelector } from '@/Components/Finances';
 import { useFinancesStore } from '@/stores/finances';
 import {
@@ -28,6 +29,7 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits(['close', 'success']);
 
 const store = useFinancesStore();
+const { t } = useI18n();
 const { formatMoney } = useFormatters();
 const { recordManualPayment, isProcessing, error: paymentError, paymentMethods: methodsRecord } = usePayments();
 const { form, errors, isSuccess, resetForm, validate } = usePaymentForm();
@@ -69,10 +71,10 @@ const handleValidate = () => {
     return validate(() => {
         const extra: Record<string, string> = {};
         if (!form.value.invoice_id) {
-            extra.invoice_id = 'Please select an invoice';
+            extra.invoice_id = t('finances_record_payment.errors.select_invoice');
         }
         if (form.value.amount && Number(form.value.amount) > maxAmount.value && maxAmount.value > 0) {
-            extra.amount = `Amount cannot exceed ${formatMoney(maxAmount.value)}`;
+            extra.amount = t('finances_record_payment.errors.amount_exceeds', { max: formatMoney(maxAmount.value) });
         }
         return extra;
     });
@@ -98,7 +100,7 @@ const handleSubmit = async () => {
             router.reload({ only: ['invoices', 'payments', 'stats'] });
         }, 1500);
     } catch (err) {
-        errors.value = { ...errors.value, general: paymentError.value || 'Failed to record payment' };
+        errors.value = { ...errors.value, general: paymentError.value || t('finances_record_payment.errors.failed') };
     }
 };
 
@@ -115,8 +117,8 @@ const setFullAmount = () => {
                             <div class="inline-flex items-center justify-center w-16 h-16 bg-emerald-100 rounded-full mb-4">
                                 <CheckIcon class="w-8 h-8 text-emerald-600" />
                             </div>
-                            <h3 class="text-lg font-semibold text-gray-900">Payment Recorded!</h3>
-                            <p class="text-sm text-gray-500 mt-2">The payment has been successfully recorded.</p>
+                            <h3 class="text-lg font-semibold text-gray-900">{{ t('finances_record_payment.success_title') }}</h3>
+                            <p class="text-sm text-gray-500 mt-2">{{ t('finances_record_payment.success_body') }}</p>
                         </div>
 
                         <template v-else>
@@ -125,7 +127,7 @@ const setFullAmount = () => {
                                     <div class="p-2 bg-emerald-100 rounded-lg">
                                         <BanknotesIcon class="w-5 h-5 text-emerald-600" />
                                     </div>
-                                    <h2 class="text-lg font-semibold text-gray-900">Record Payment</h2>
+                                    <h2 class="text-lg font-semibold text-gray-900">{{ t('finances_record_payment.heading') }}</h2>
                                 </div>
                                 <button
                                     @click="close"
@@ -141,17 +143,12 @@ const setFullAmount = () => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Invoice</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_record_payment.invoice_label') }}</label>
                                     <select
                                         v-model="form.invoice_id"
-                                        :class="[
-                                            'w-full px-3 py-2.5 text-sm border rounded-lg transition-colors',
-                                            errors.invoice_id
-                                                ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                                                : 'border-gray-300 focus:ring-emerald-500 focus:border-emerald-500'
-                                        ]"
+                                        :class="['w-full px-3 py-2.5 text-sm border rounded-lg transition-colors', errors.invoice_id ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-emerald-500 focus:border-emerald-500']"
                                     >
-                                        <option :value="null">Select an invoice</option>
+                                        <option :value="null">{{ t('finances_record_payment.select_invoice') }}</option>
                                         <option v-for="invoice in invoices" :key="invoice.id" :value="invoice.id">
                                             {{ invoice.invoice_number }} - {{ invoice.tenant_name }} ({{ formatMoney(invoice.balance) }} due)
                                         </option>
@@ -160,7 +157,7 @@ const setFullAmount = () => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_record_payment.amount_label') }}</label>
                                     <div class="relative">
                                         <input
                                             v-model.number="form.amount"
@@ -168,12 +165,7 @@ const setFullAmount = () => {
                                             min="0"
                                             :max="maxAmount"
                                             step="0.01"
-                                            :class="[
-                                                'w-full px-3 py-2.5 text-sm border rounded-lg transition-colors pe-20',
-                                                errors.amount
-                                                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                                                    : 'border-gray-300 focus:ring-emerald-500 focus:border-emerald-500'
-                                            ]"
+                                            :class="['w-full px-3 py-2.5 text-sm border rounded-lg transition-colors pe-20', errors.amount ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-emerald-500 focus:border-emerald-500']"
                                             placeholder="0.00"
                                         />
                                         <button
@@ -182,17 +174,17 @@ const setFullAmount = () => {
                                             @click="setFullAmount"
                                             class="absolute end-2 top-1/2 -translate-y-1/2 px-2 py-1 text-xs font-medium text-emerald-600 hover:bg-emerald-50 rounded transition-colors"
                                         >
-                                            Full Amount
+                                            {{ t('finances_record_payment.full_amount') }}
                                         </button>
                                     </div>
                                     <p v-if="errors.amount" class="mt-1 text-sm text-red-600">{{ errors.amount }}</p>
                                     <p v-else-if="selectedInvoice" class="mt-1 text-xs text-gray-500">
-                                        Balance due: {{ formatMoney(selectedInvoice.balance) }}
+                                        {{ t('finances_record_payment.balance_due', { amount: formatMoney(selectedInvoice.balance) }) }}
                                     </p>
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_record_payment.payment_method') }}</label>
                                     <PaymentMethodSelector
                                         v-model="form.payment_method"
                                         :methods="paymentMethodOptions"
@@ -201,37 +193,32 @@ const setFullAmount = () => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Payment Date</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_record_payment.payment_date') }}</label>
                                     <input
                                         v-model="form.payment_date"
                                         type="date"
-                                        :class="[
-                                            'w-full px-3 py-2.5 text-sm border rounded-lg transition-colors',
-                                            errors.payment_date
-                                                ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                                                : 'border-gray-300 focus:ring-emerald-500 focus:border-emerald-500'
-                                        ]"
+                                        :class="['w-full px-3 py-2.5 text-sm border rounded-lg transition-colors', errors.payment_date ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-emerald-500 focus:border-emerald-500']"
                                     />
                                     <p v-if="errors.payment_date" class="mt-1 text-sm text-red-600">{{ errors.payment_date }}</p>
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Reference (optional)</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_record_payment.reference_label') }}</label>
                                     <input
                                         v-model="form.reference"
                                         type="text"
                                         class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
-                                        placeholder="e.g., Receipt number, transaction ID"
+                                        :placeholder="t('finances_record_payment.reference_placeholder')"
                                     />
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_record_payment.notes_label') }}</label>
                                     <textarea
                                         v-model="form.notes"
                                         rows="2"
                                         class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 transition-colors resize-none"
-                                        placeholder="Any additional notes..."
+                                        :placeholder="t('finances_record_payment.notes_placeholder')"
                                     />
                                 </div>
 
@@ -241,14 +228,14 @@ const setFullAmount = () => {
                                         @click="close"
                                         class="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                                     >
-                                        Cancel
+                                        {{ t('finances_record_payment.cancel') }}
                                     </button>
                                     <button
                                         type="submit"
                                         :disabled="isProcessing"
                                         class="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
-                                        {{ isProcessing ? 'Recording...' : 'Record Payment' }}
+                                        {{ isProcessing ? t('finances_record_payment.recording') : t('finances_record_payment.heading') }}
                                     </button>
                                 </div>
                             </form>

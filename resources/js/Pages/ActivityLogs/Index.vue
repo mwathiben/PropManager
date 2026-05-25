@@ -4,7 +4,9 @@ import CursorPagination from '@/Components/CursorPagination.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { useFormatters } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 const { formatDateTime } = useFormatters();
+const { t } = useI18n();
 import type { ActivityLogsIndexPageProps } from '@/types';
 import {
     ClipboardDocumentListIcon,
@@ -47,15 +49,15 @@ const clearFilters = () => {
 </script>
 
 <template>
-    <Head title="Activity Logs" />
+    <Head :title="t('activity_logs.title')" />
 
     <AuthenticatedLayout>
         <div class="py-6">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
                 <!-- Header -->
                 <div class="mb-6">
-                    <h1 class="text-3xl font-bold text-gray-900">Activity Logs</h1>
-                    <p class="text-gray-600 mt-1">Track all tenant and property activities</p>
+                    <h1 class="text-3xl font-bold text-gray-900">{{ t('activity_logs.title') }}</h1>
+                    <p class="text-gray-600 mt-1">{{ t('activity_logs.subtitle') }}</p>
                 </div>
 
                 <!-- Stats Cards -->
@@ -66,7 +68,7 @@ const clearFilters = () => {
                                 <ClipboardDocumentListIcon class="w-6 h-6 text-indigo-600" />
                             </div>
                             <div class="ms-4">
-                                <p class="text-sm font-medium text-gray-500">Total Activities</p>
+                                <p class="text-sm font-medium text-gray-500">{{ t('activity_logs.stats.total') }}</p>
                                 <p class="text-2xl font-bold text-gray-900">{{ stats.total_activities }}</p>
                             </div>
                         </div>
@@ -77,7 +79,7 @@ const clearFilters = () => {
                                 <CalendarDaysIcon class="w-6 h-6 text-green-600" />
                             </div>
                             <div class="ms-4">
-                                <p class="text-sm font-medium text-gray-500">Today</p>
+                                <p class="text-sm font-medium text-gray-500">{{ t('activity_logs.stats.today') }}</p>
                                 <p class="text-2xl font-bold text-green-600">{{ stats.today }}</p>
                             </div>
                         </div>
@@ -88,7 +90,7 @@ const clearFilters = () => {
                                 <ClockIcon class="w-6 h-6 text-blue-600" />
                             </div>
                             <div class="ms-4">
-                                <p class="text-sm font-medium text-gray-500">This Week</p>
+                                <p class="text-sm font-medium text-gray-500">{{ t('activity_logs.stats.this_week') }}</p>
                                 <p class="text-2xl font-bold text-blue-600">{{ stats.this_week }}</p>
                             </div>
                         </div>
@@ -99,7 +101,7 @@ const clearFilters = () => {
                                 <CalendarDaysIcon class="w-6 h-6 text-purple-600" />
                             </div>
                             <div class="ms-4">
-                                <p class="text-sm font-medium text-gray-500">This Month</p>
+                                <p class="text-sm font-medium text-gray-500">{{ t('activity_logs.stats.this_month') }}</p>
                                 <p class="text-2xl font-bold text-purple-600">{{ stats.this_month }}</p>
                             </div>
                         </div>
@@ -110,13 +112,13 @@ const clearFilters = () => {
                 <div class="mb-6 bg-white shadow-sm rounded-lg p-4">
                     <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
                         <div class="md:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Search</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('activity_logs.filters.search') }}</label>
                             <div class="relative">
                                 <input
                                     v-model="search"
                                     @keyup.enter="applyFilters"
                                     type="text"
-                                    placeholder="Search by description..."
+                                    :placeholder="t('activity_logs.filters.search_placeholder')"
                                     class="w-full ps-10 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                                 >
                                 <MagnifyingGlassIcon class="w-5 h-5 text-gray-400 absolute start-3 top-2.5" />
@@ -124,13 +126,13 @@ const clearFilters = () => {
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Activity Type</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('activity_logs.filters.activity_type') }}</label>
                             <select
                                 v-model="type"
                                 @change="applyFilters"
                                 class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                             >
-                                <option value="">All Types</option>
+                                <option value="">{{ t('activity_logs.filters.all_types') }}</option>
                                 <option v-for="activityType in activityTypes" :key="activityType.value" :value="activityType.value">
                                     {{ activityType.label }}
                                 </option>
@@ -138,7 +140,7 @@ const clearFilters = () => {
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">From Date</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('activity_logs.filters.from_date') }}</label>
                             <input
                                 v-model="dateFrom"
                                 @change="applyFilters"
@@ -148,7 +150,7 @@ const clearFilters = () => {
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">To Date</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('activity_logs.filters.to_date') }}</label>
                             <input
                                 v-model="dateTo"
                                 @change="applyFilters"
@@ -162,7 +164,7 @@ const clearFilters = () => {
                                 @click="clearFilters"
                                 class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
                             >
-                                Clear
+                                {{ t('activity_logs.filters.clear') }}
                             </button>
                         </div>
                     </div>
@@ -197,7 +199,7 @@ const clearFilters = () => {
                                             </span>
                                             <!-- Performer -->
                                             <span v-if="activity.performer" class="flex items-center gap-1">
-                                                By: {{ activity.performer.name }}
+                                                {{ t('activity_logs.by_prefix') }} {{ activity.performer.name }}
                                             </span>
                                         </div>
                                     </div>
@@ -211,8 +213,8 @@ const clearFilters = () => {
                             </li>
                             <li v-if="activities.data.length === 0" class="px-6 py-12 text-center">
                                 <ClipboardDocumentListIcon class="w-12 h-12 mx-auto text-gray-300 mb-4" />
-                                <p class="text-lg font-medium text-gray-500">No activity logs found</p>
-                                <p class="text-sm text-gray-400">Activities will appear here as they occur</p>
+                                <p class="text-lg font-medium text-gray-500">{{ t('activity_logs.empty.title') }}</p>
+                                <p class="text-sm text-gray-400">{{ t('activity_logs.empty.body') }}</p>
                             </li>
                         </ul>
                     </div>

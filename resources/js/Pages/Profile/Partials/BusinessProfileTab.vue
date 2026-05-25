@@ -4,6 +4,7 @@ import InputLabel from '@/Components/InputLabel.vue';
 import TextInput from '@/Components/TextInput.vue';
 import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
+import { useI18n } from '@/composables/useI18n';
 import {
     BuildingOfficeIcon,
     DocumentTextIcon,
@@ -11,6 +12,8 @@ import {
     GlobeAltIcon,
 } from '@heroicons/vue/24/outline';
 import type { ProfileUser, LandlordProfile } from '@/types';
+
+const { t } = useI18n();
 
 const props = defineProps<{
     user: ProfileUser;
@@ -48,9 +51,9 @@ const submit = () => {
                     <BuildingOfficeIcon class="h-5 w-5 text-emerald-400" />
                 </div>
                 <div class="ms-3">
-                    <h3 class="text-sm font-medium text-emerald-800">Business Profile</h3>
+                    <h3 class="text-sm font-medium text-emerald-800">{{ t('profile_business.banner.title') }}</h3>
                     <p class="mt-1 text-sm text-emerald-700">
-                        Your business information is displayed on invoices and tenant communications.
+                        {{ t('profile_business.banner.body') }}
                     </p>
                 </div>
             </div>
@@ -65,15 +68,15 @@ const submit = () => {
                         <BuildingOfficeIcon class="w-5 h-5 text-gray-600" />
                     </div>
                     <div>
-                        <h3 class="text-sm font-medium text-gray-900">Company Information</h3>
-                        <p class="text-xs text-gray-500">Your business name and registration details</p>
+                        <h3 class="text-sm font-medium text-gray-900">{{ t('profile_business.company.title') }}</h3>
+                        <p class="text-xs text-gray-500">{{ t('profile_business.company.subtitle') }}</p>
                     </div>
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <!-- Company Name -->
                     <div class="sm:col-span-2">
-                        <InputLabel for="company_name" value="Company Name" />
+                        <InputLabel for="company_name" :value="t('profile_business.labels.company_name')" />
                         <div class="mt-1 relative">
                             <div class="absolute inset-y-0 start-0 ps-3 flex items-center pointer-events-none">
                                 <BuildingOfficeIcon class="h-5 w-5 text-gray-400" />
@@ -83,7 +86,7 @@ const submit = () => {
                                 v-model="form.business_profile.company_name"
                                 type="text"
                                 class="ps-10 block w-full"
-                                placeholder="Your company or business name"
+                                :placeholder="t('profile_business.placeholders.company_name')"
                             />
                         </div>
                         <InputError :message="form.errors['business_profile.company_name']" class="mt-2" />
@@ -91,7 +94,7 @@ const submit = () => {
 
                     <!-- Business Registration Number -->
                     <div>
-                        <InputLabel for="business_registration_number" value="Registration Number" />
+                        <InputLabel for="business_registration_number" :value="t('profile_business.labels.registration_number')" />
                         <div class="mt-1 relative">
                             <div class="absolute inset-y-0 start-0 ps-3 flex items-center pointer-events-none">
                                 <DocumentTextIcon class="h-5 w-5 text-gray-400" />
@@ -101,7 +104,7 @@ const submit = () => {
                                 v-model="form.business_profile.business_registration_number"
                                 type="text"
                                 class="ps-10 block w-full"
-                                placeholder="CR-123456"
+                                :placeholder="t('profile_business.placeholders.registration_number')"
                             />
                         </div>
                         <InputError :message="form.errors['business_profile.business_registration_number']" class="mt-2" />
@@ -109,7 +112,7 @@ const submit = () => {
 
                     <!-- Tax ID -->
                     <div>
-                        <InputLabel for="tax_id" value="Tax ID / KRA PIN" />
+                        <InputLabel for="tax_id" :value="t('profile_business.labels.tax_id')" />
                         <div class="mt-1 relative">
                             <div class="absolute inset-y-0 start-0 ps-3 flex items-center pointer-events-none">
                                 <DocumentTextIcon class="h-5 w-5 text-gray-400" />
@@ -119,7 +122,7 @@ const submit = () => {
                                 v-model="form.business_profile.tax_id"
                                 type="text"
                                 class="ps-10 block w-full"
-                                placeholder="A123456789X"
+                                :placeholder="t('profile_business.placeholders.tax_id')"
                             />
                         </div>
                         <InputError :message="form.errors['business_profile.tax_id']" class="mt-2" />
@@ -134,15 +137,15 @@ const submit = () => {
                         <MapPinIcon class="w-5 h-5 text-gray-600" />
                     </div>
                     <div>
-                        <h3 class="text-sm font-medium text-gray-900">Business Address</h3>
-                        <p class="text-xs text-gray-500">Where your business is located</p>
+                        <h3 class="text-sm font-medium text-gray-900">{{ t('profile_business.address.title') }}</h3>
+                        <p class="text-xs text-gray-500">{{ t('profile_business.address.subtitle') }}</p>
                     </div>
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <!-- Address -->
                     <div class="sm:col-span-2">
-                        <InputLabel for="address" value="Street Address" />
+                        <InputLabel for="address" :value="t('profile_business.labels.street_address')" />
                         <div class="mt-1 relative">
                             <div class="absolute inset-y-0 start-0 ps-3 flex items-center pointer-events-none">
                                 <MapPinIcon class="h-5 w-5 text-gray-400" />
@@ -152,7 +155,7 @@ const submit = () => {
                                 v-model="form.business_profile.address"
                                 type="text"
                                 class="ps-10 block w-full"
-                                placeholder="123 Business Street"
+                                :placeholder="t('profile_business.placeholders.street_address')"
                             />
                         </div>
                         <InputError :message="form.errors['business_profile.address']" class="mt-2" />
@@ -160,26 +163,26 @@ const submit = () => {
 
                     <!-- City -->
                     <div>
-                        <InputLabel for="city" value="City" />
+                        <InputLabel for="city" :value="t('profile_business.labels.city')" />
                         <TextInput
                             id="city"
                             v-model="form.business_profile.city"
                             type="text"
                             class="mt-1 block w-full"
-                            placeholder="Nairobi"
+                            :placeholder="t('profile_business.placeholders.city')"
                         />
                         <InputError :message="form.errors['business_profile.city']" class="mt-2" />
                     </div>
 
                     <!-- Country -->
                     <div>
-                        <InputLabel for="country" value="Country" />
+                        <InputLabel for="country" :value="t('profile_business.labels.country')" />
                         <TextInput
                             id="country"
                             v-model="form.business_profile.country"
                             type="text"
                             class="mt-1 block w-full"
-                            placeholder="Kenya"
+                            :placeholder="t('profile_business.placeholders.country')"
                         />
                         <InputError :message="form.errors['business_profile.country']" class="mt-2" />
                     </div>
@@ -193,13 +196,13 @@ const submit = () => {
                         <GlobeAltIcon class="w-5 h-5 text-gray-600" />
                     </div>
                     <div>
-                        <h3 class="text-sm font-medium text-gray-900">Online Presence</h3>
-                        <p class="text-xs text-gray-500">Your company website (optional)</p>
+                        <h3 class="text-sm font-medium text-gray-900">{{ t('profile_business.online.title') }}</h3>
+                        <p class="text-xs text-gray-500">{{ t('profile_business.online.subtitle') }}</p>
                     </div>
                 </div>
 
                 <div>
-                    <InputLabel for="website" value="Website" />
+                    <InputLabel for="website" :value="t('profile_business.labels.website')" />
                     <div class="mt-1 relative">
                         <div class="absolute inset-y-0 start-0 ps-3 flex items-center pointer-events-none">
                             <GlobeAltIcon class="h-5 w-5 text-gray-400" />
@@ -209,7 +212,7 @@ const submit = () => {
                             v-model="form.business_profile.website"
                             type="url"
                             class="ps-10 block w-full"
-                            placeholder="https://yourcompany.com"
+                            :placeholder="t('profile_business.placeholders.website')"
                         />
                     </div>
                     <InputError :message="form.errors['business_profile.website']" class="mt-2" />
@@ -219,19 +222,15 @@ const submit = () => {
             <!-- Submit -->
             <div class="flex items-center justify-end">
                 <div class="flex items-center gap-4">
-                    <Transition
-                        enter-active-class="transition ease-in-out"
-                        enter-from-class="opacity-0"
-                        leave-active-class="transition ease-in-out"
-                        leave-to-class="opacity-0"
-                    >
+                    <!-- i18n-ignore -->
+                    <Transition enter-active-class="transition ease-in-out" enter-from-class="opacity-0" leave-active-class="transition ease-in-out" leave-to-class="opacity-0">
                         <p v-if="form.recentlySuccessful" class="text-sm text-green-600">
-                            Business profile saved.
+                            {{ t('profile_business.saved') }}
                         </p>
                     </Transition>
                     <PrimaryButton :disabled="form.processing">
-                        <span v-if="form.processing">Saving...</span>
-                        <span v-else>Save Business Profile</span>
+                        <span v-if="form.processing">{{ t('profile_business.saving') }}</span>
+                        <span v-else>{{ t('profile_business.save') }}</span>
                     </PrimaryButton>
                 </div>
             </div>
