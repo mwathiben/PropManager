@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import type { LeaseManagementTabProps } from '@/types';
 
 const { todayAsISODate } = useFormatters();
+const { t } = useI18n();
 
 const props = withDefaults(defineProps<LeaseManagementTabProps>(), {
     unitsWithLeases: () => [],
@@ -41,6 +44,14 @@ const depositForm = useForm({
     wing_id: null
 });
 
+const extensionPeriodOptions = computed(() => [
+    { value: 1, label: t('bulk_lease_management.extend.months_1') },
+    { value: 3, label: t('bulk_lease_management.extend.months_3') },
+    { value: 6, label: t('bulk_lease_management.extend.months_6') },
+    { value: 12, label: t('bulk_lease_management.extend.months_12') },
+    { value: 24, label: t('bulk_lease_management.extend.months_24') },
+]);
+
 const selectAllLeases = () => {
     emit('update:selectedLeaseIds', props.unitsWithLeases.map(u => u.active_lease.id));
 };
@@ -61,10 +72,10 @@ const submitTermination = () => {
     terminateForm.building_id = props.buildingId;
     terminateForm.wing_id = props.wingId;
     if (terminateForm.lease_ids.length === 0) {
-        alert('Please select at least one lease');
+        alert(t('bulk_lease_management.alert.select_at_least_one'));
         return;
     }
-    if (!confirm(`Are you sure you want to terminate ${terminateForm.lease_ids.length} lease(s)?`)) {
+    if (!confirm(t('bulk_lease_management.confirm.terminate', { count: terminateForm.lease_ids.length }))) {
         return;
     }
     terminateForm.post(route('bulk.terminateLeases'), {
@@ -80,7 +91,7 @@ const submitExtension = () => {
     extendForm.building_id = props.buildingId;
     extendForm.wing_id = props.wingId;
     if (extendForm.lease_ids.length === 0) {
-        alert('Please select at least one lease');
+        alert(t('bulk_lease_management.alert.select_at_least_one'));
         return;
     }
     extendForm.post(route('bulk.extendLeases'), {
@@ -96,7 +107,7 @@ const submitDepositAdjustment = () => {
     depositForm.building_id = props.buildingId;
     depositForm.wing_id = props.wingId;
     if (depositForm.lease_ids.length === 0) {
-        alert('Please select at least one lease');
+        alert(t('bulk_lease_management.alert.select_at_least_one'));
         return;
     }
     depositForm.post(route('bulk.adjustDeposits'), {
@@ -113,20 +124,20 @@ const submitDepositAdjustment = () => {
         <!-- Selection Panel -->
         <div>
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-semibold">Select Leases</h3>
+                <h3 class="text-lg font-semibold">{{ t('bulk_lease_management.select_leases') }}</h3>
                 <div class="flex gap-2">
                     <button @click="selectAllLeases" class="text-sm text-indigo-600 hover:text-indigo-800">
-                        Select All
+                        {{ t('bulk_lease_management.select_all') }}
                     </button>
                     <button @click="deselectAllLeases" class="text-sm text-gray-600 hover:text-gray-800">
-                        Deselect All
+                        {{ t('bulk_lease_management.deselect_all') }}
                     </button>
                 </div>
             </div>
 
             <div class="border border-gray-200 rounded-lg max-h-80 overflow-y-auto">
                 <div v-if="unitsWithLeases.length === 0" class="p-4 text-center text-gray-500">
-                    No units with active leases found
+                    {{ t('bulk_lease_management.no_units') }}
                 </div>
                 <div v-else>
                     <div
@@ -143,14 +154,14 @@ const submitDepositAdjustment = () => {
                         <div class="flex-1">
                             <div class="font-medium">{{ unit.unit_number }}</div>
                             <div class="text-sm text-gray-600">
-                                {{ unit.active_lease.tenant?.name || 'Unknown Tenant' }}
+                                {{ unit.active_lease.tenant?.name || t('bulk_lease_management.unknown_tenant') }}
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
             <p class="mt-2 text-sm text-gray-600">
-                {{ selectedLeaseIds.length }} lease(s) selected
+                {{ t('bulk_lease_management.selected_count', selectedLeaseIds.length) }}
             </p>
         </div>
 
@@ -158,52 +169,48 @@ const submitDepositAdjustment = () => {
         <div class="space-y-6">
             <!-- Extend Leases -->
             <div class="border border-gray-200 rounded-lg p-4">
-                <h4 class="font-semibold text-gray-900 mb-3">Extend Leases</h4>
+                <h4 class="font-semibold text-gray-900 mb-3">{{ t('bulk_lease_management.extend.title') }}</h4>
                 <form @submit.prevent="submitExtension" class="space-y-3">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Extension Period</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_lease_management.extend.period_label') }}</label>
                         <select v-model.number="extendForm.extension_months" class="w-full border-gray-300 rounded-md">
-                            <option :value="1">1 Month</option>
-                            <option :value="3">3 Months</option>
-                            <option :value="6">6 Months</option>
-                            <option :value="12">12 Months</option>
-                            <option :value="24">24 Months</option>
+                            <option v-for="option in extensionPeriodOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
                         </select>
                     </div>
                     <div class="flex items-center gap-2">
                         <input v-model="extendForm.notify_tenants" type="checkbox" id="notify-extend" class="rounded border-gray-300">
-                        <label for="notify-extend" class="text-sm text-gray-700">Notify tenants</label>
+                        <label for="notify-extend" class="text-sm text-gray-700">{{ t('bulk_lease_management.notify_tenants') }}</label>
                     </div>
                     <button
                         type="submit"
                         :disabled="extendForm.processing || selectedLeaseIds.length === 0"
                         class="w-full px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 text-sm"
                     >
-                        {{ extendForm.processing ? 'Processing...' : 'Extend Leases' }}
+                        {{ extendForm.processing ? t('bulk_lease_management.extend.processing') : t('bulk_lease_management.extend.submit') }}
                     </button>
                 </form>
             </div>
 
             <!-- Terminate Leases -->
             <div class="border border-red-200 rounded-lg p-4 bg-red-50">
-                <h4 class="font-semibold text-red-900 mb-3">Terminate Leases</h4>
+                <h4 class="font-semibold text-red-900 mb-3">{{ t('bulk_lease_management.terminate.title') }}</h4>
                 <form @submit.prevent="submitTermination" class="space-y-3">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Termination Date</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_lease_management.terminate.date_label') }}</label>
                         <input v-model="terminateForm.termination_date" type="date" class="w-full border-gray-300 rounded-md">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Reason</label>
-                        <input v-model="terminateForm.reason" type="text" class="w-full border-gray-300 rounded-md" placeholder="Optional">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_lease_management.terminate.reason_label') }}</label>
+                        <input v-model="terminateForm.reason" type="text" class="w-full border-gray-300 rounded-md" :placeholder="t('bulk_lease_management.terminate.reason_placeholder')">
                     </div>
                     <div class="flex flex-col gap-2">
                         <div class="flex items-center gap-2">
                             <input v-model="terminateForm.notify_tenants" type="checkbox" id="notify-term" class="rounded border-gray-300">
-                            <label for="notify-term" class="text-sm text-gray-700">Notify tenants</label>
+                            <label for="notify-term" class="text-sm text-gray-700">{{ t('bulk_lease_management.notify_tenants') }}</label>
                         </div>
                         <div class="flex items-center gap-2">
                             <input v-model="terminateForm.update_unit_status" type="checkbox" id="update-status" class="rounded border-gray-300">
-                            <label for="update-status" class="text-sm text-gray-700">Mark units as vacant</label>
+                            <label for="update-status" class="text-sm text-gray-700">{{ t('bulk_lease_management.terminate.mark_vacant') }}</label>
                         </div>
                     </div>
                     <button
@@ -211,39 +218,39 @@ const submitDepositAdjustment = () => {
                         :disabled="terminateForm.processing || selectedLeaseIds.length === 0"
                         class="w-full px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 text-sm"
                     >
-                        {{ terminateForm.processing ? 'Processing...' : 'Terminate Leases' }}
+                        {{ terminateForm.processing ? t('bulk_lease_management.terminate.processing') : t('bulk_lease_management.terminate.submit') }}
                     </button>
                 </form>
             </div>
 
             <!-- Adjust Deposits -->
             <div class="border border-gray-200 rounded-lg p-4">
-                <h4 class="font-semibold text-gray-900 mb-3">Adjust Deposits</h4>
+                <h4 class="font-semibold text-gray-900 mb-3">{{ t('bulk_lease_management.deposit.title') }}</h4>
                 <form @submit.prevent="submitDepositAdjustment" class="space-y-3">
                     <div class="grid grid-cols-2 gap-2">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_lease_management.deposit.type_label') }}</label>
                             <select v-model="depositForm.adjustment_type" class="w-full border-gray-300 rounded-md text-sm">
-                                <option value="percentage">%</option>
-                                <option value="fixed">+/-</option>
-                                <option value="set">Set</option>
+                                <option value="percentage">{{ t('bulk_lease_management.deposit.type_percentage') }}</option>
+                                <option value="fixed">{{ t('bulk_lease_management.deposit.type_fixed') }}</option>
+                                <option value="set">{{ t('bulk_lease_management.deposit.type_set') }}</option>
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Value</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_lease_management.deposit.value_label') }}</label>
                             <input v-model.number="depositForm.adjustment_value" type="number" step="0.01" class="w-full border-gray-300 rounded-md text-sm">
                         </div>
                     </div>
                     <div class="flex items-center gap-2">
                         <input v-model="depositForm.notify_tenants" type="checkbox" id="notify-deposit" class="rounded border-gray-300">
-                        <label for="notify-deposit" class="text-sm text-gray-700">Notify tenants</label>
+                        <label for="notify-deposit" class="text-sm text-gray-700">{{ t('bulk_lease_management.notify_tenants') }}</label>
                     </div>
                     <button
                         type="submit"
                         :disabled="depositForm.processing || selectedLeaseIds.length === 0"
                         class="w-full px-3 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 text-sm"
                     >
-                        {{ depositForm.processing ? 'Processing...' : 'Adjust Deposits' }}
+                        {{ depositForm.processing ? t('bulk_lease_management.deposit.processing') : t('bulk_lease_management.deposit.submit') }}
                     </button>
                 </form>
             </div>

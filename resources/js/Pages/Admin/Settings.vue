@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import { useI18n } from '@/composables/useI18n';
 import type { AdminSettingsPageProps } from '@/types';
 import {
     CreditCardIcon,
@@ -15,6 +16,8 @@ import {
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps<AdminSettingsPageProps>();
+
+const { t } = useI18n();
 
 // Payment form
 const paymentForm = useForm({
@@ -38,7 +41,7 @@ const savePaymentSettings = () => {
 
 const testPaystackConnection = async () => {
     if (!paymentForm.paystack_secret_key) {
-        paystackTestResult.value = { success: false, message: 'Please enter your secret key first' };
+        paystackTestResult.value = { success: false, message: t('admin_settings.errors.secret_key_required') };
         return;
     }
 
@@ -58,7 +61,7 @@ const testPaystackConnection = async () => {
         });
         paystackTestResult.value = await response.json();
     } catch (error) {
-        paystackTestResult.value = { success: false, message: 'Connection failed: ' + error.message };
+        paystackTestResult.value = { success: false, message: t('admin_settings.errors.connection_failed', { message: error.message }) };
     } finally {
         testingPaystack.value = false;
     }
@@ -66,7 +69,7 @@ const testPaystackConnection = async () => {
 </script>
 
 <template>
-    <Head title="System Settings" />
+    <Head :title="t('admin_settings.title')" />
 
     <AuthenticatedLayout>
         <div class="py-8">
@@ -74,11 +77,11 @@ const testPaystackConnection = async () => {
                 <!-- Header -->
                 <div class="flex items-center justify-between mb-8">
                     <div>
-                        <h1 class="text-2xl font-bold text-gray-900">System Settings</h1>
-                        <p class="text-gray-600">Configure payment gateway for subscription payments</p>
+                        <h1 class="text-2xl font-bold text-gray-900">{{ t('admin_settings.title') }}</h1>
+                        <p class="text-gray-600">{{ t('admin_settings.subtitle') }}</p>
                     </div>
                     <Link :href="route('dashboard')" class="text-indigo-600 hover:text-indigo-700">
-                        Back to Dashboard
+                        {{ t('admin_settings.back_to_dashboard') }}
                     </Link>
                 </div>
 
@@ -87,13 +90,13 @@ const testPaystackConnection = async () => {
                     <div class="flex gap-3">
                         <InformationCircleIcon class="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
                         <div class="text-sm text-blue-800">
-                            <p class="font-medium">Email and SMS Configuration</p>
+                            <p class="font-medium">{{ t('admin_settings.email_sms.heading') }}</p>
                             <p class="mt-1">
-                                Email and SMS provider settings are now configured in the
+                                {{ t('admin_settings.email_sms.intro') }}
                                 <Link :href="route('notifications.overview')" class="underline font-medium">
-                                    Notification Center
+                                    {{ t('admin_settings.email_sms.notification_center') }}
                                 </Link>
-                                under Operations &gt; Notifications &gt; Settings.
+                                {{ t('admin_settings.email_sms.location') }}
                             </p>
                         </div>
                     </div>
@@ -106,17 +109,17 @@ const testPaystackConnection = async () => {
                             <CreditCardIcon class="h-6 w-6 text-green-600" />
                         </div>
                         <div class="flex-1 min-w-0">
-                            <h2 class="text-lg font-semibold text-gray-900">Payment Gateway (Paystack)</h2>
-                            <p class="text-sm text-gray-500">Configure Paystack for subscription payments</p>
+                            <h2 class="text-lg font-semibold text-gray-900">{{ t('admin_settings.gateway.title') }}</h2>
+                            <p class="text-sm text-gray-500">{{ t('admin_settings.gateway.subtitle') }}</p>
                         </div>
                         <div class="shrink-0">
                             <span v-if="paymentSettings.has_paystack_secret_key" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-100 text-green-700 text-xs font-semibold rounded-full">
                                 <CheckCircleIcon class="h-4 w-4" />
-                                Configured
+                                {{ t('admin_settings.gateway.configured') }}
                             </span>
                             <span v-else class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 text-amber-700 text-xs font-semibold rounded-full">
                                 <ExclamationTriangleIcon class="h-4 w-4" />
-                                Not Configured
+                                {{ t('admin_settings.gateway.not_configured') }}
                             </span>
                         </div>
                     </div>
@@ -124,7 +127,7 @@ const testPaystackConnection = async () => {
                     <form @submit.prevent="savePaymentSettings" class="p-6 space-y-4">
                         <!-- Public Key -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Public Key</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('admin_settings.form.public_key') }}</label>
                             <div class="relative">
                                 <input
                                     :type="showPaystackPublicKey ? 'text' : 'password'"
@@ -142,13 +145,13 @@ const testPaystackConnection = async () => {
                                 </button>
                             </div>
                             <p v-if="paymentSettings.has_paystack_public_key" class="mt-1 text-xs text-gray-500">
-                                Leave blank to keep current key
+                                {{ t('admin_settings.form.public_key_hint') }}
                             </p>
                         </div>
 
                         <!-- Secret Key -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Secret Key</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('admin_settings.form.secret_key') }}</label>
                             <div class="relative">
                                 <input
                                     :type="showPaystackSecretKey ? 'text' : 'password'"
@@ -181,14 +184,14 @@ const testPaystackConnection = async () => {
                                 class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
                             >
                                 <ArrowPathIcon v-if="testingPaystack" class="h-4 w-4 animate-spin" />
-                                {{ testingPaystack ? 'Testing...' : 'Test Connection' }}
+                                {{ testingPaystack ? t('admin_settings.actions.testing') : t('admin_settings.actions.test_connection') }}
                             </button>
                             <button
                                 type="submit"
                                 :disabled="paymentForm.processing"
                                 class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
                             >
-                                {{ paymentForm.processing ? 'Saving...' : 'Save Changes' }}
+                                {{ paymentForm.processing ? t('admin_settings.actions.saving') : t('admin_settings.actions.save') }}
                             </button>
                         </div>
                     </form>

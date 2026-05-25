@@ -1,12 +1,15 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { usePushNotifications, useErrorHandler } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import {
     BellAlertIcon,
     XMarkIcon,
     CheckCircleIcon,
     ExclamationCircleIcon
 } from '@heroicons/vue/24/outline';
+
+const { t } = useI18n();
 
 const {
     isSupported,
@@ -64,7 +67,7 @@ const handleEnable = async () => {
         const data = await response.json();
 
         if (!data.key) {
-            subscribeError.value = 'Push notifications are not configured by your landlord yet.';
+            subscribeError.value = t('push_notification_prompt.errors.not_configured');
             return;
         }
 
@@ -77,11 +80,11 @@ const handleEnable = async () => {
                 isVisible.value = false;
             }, 3000);
         } else {
-            subscribeError.value = error.value || 'Failed to enable notifications. Please try again.';
+            subscribeError.value = error.value || t('push_notification_prompt.errors.failed');
         }
     } catch (err) {
         logError(err, { component: 'PushNotificationPrompt', action: 'handleEnable' });
-        subscribeError.value = 'Something went wrong. Please try again later.';
+        subscribeError.value = t('push_notification_prompt.errors.generic');
     }
 };
 
@@ -106,14 +109,8 @@ onMounted(() => {
 </script>
 
 <template>
-    <Transition
-        enter-active-class="transition ease-out duration-300"
-        enter-from-class="transform opacity-0 -translate-y-4"
-        enter-to-class="transform opacity-100 translate-y-0"
-        leave-active-class="transition ease-in duration-200"
-        leave-from-class="transform opacity-100 translate-y-0"
-        leave-to-class="transform opacity-0 -translate-y-4"
-    >
+    <!-- i18n-ignore -->
+    <Transition enter-active-class="transition ease-out duration-300" enter-from-class="transform opacity-0 -translate-y-4" enter-to-class="transform opacity-100 translate-y-0" leave-active-class="transition ease-in duration-200" leave-from-class="transform opacity-100 translate-y-0" leave-to-class="transform opacity-0 -translate-y-4">
         <div
             v-if="shouldShow"
             class="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl shadow-lg p-5 mb-6"
@@ -130,10 +127,10 @@ onMounted(() => {
                     <template v-if="subscribeSuccess">
                         <div class="flex items-center gap-2 text-white">
                             <CheckCircleIcon class="w-5 h-5" />
-                            <span class="font-medium">Notifications enabled!</span>
+                            <span class="font-medium">{{ t('push_notification_prompt.success.title') }}</span>
                         </div>
                         <p class="text-white/80 text-sm mt-1">
-                            You'll now receive instant updates about your rent and payments.
+                            {{ t('push_notification_prompt.success.body') }}
                         </p>
                     </template>
 
@@ -141,7 +138,7 @@ onMounted(() => {
                     <template v-else-if="subscribeError">
                         <div class="flex items-center gap-2 text-white">
                             <ExclamationCircleIcon class="w-5 h-5" />
-                            <span class="font-medium">Couldn't enable notifications</span>
+                            <span class="font-medium">{{ t('push_notification_prompt.error.title') }}</span>
                         </div>
                         <p class="text-white/80 text-sm mt-1">{{ subscribeError }}</p>
                         <div class="flex gap-3 mt-3">
@@ -150,22 +147,22 @@ onMounted(() => {
                                 :disabled="isLoading"
                                 class="px-4 py-2 bg-white text-indigo-600 font-medium rounded-lg hover:bg-white/90 transition-colors disabled:opacity-50"
                             >
-                                Try Again
+                                {{ t('push_notification_prompt.actions.try_again') }}
                             </button>
                             <button
                                 @click="handleDismiss"
                                 class="px-4 py-2 text-white/90 hover:text-white transition-colors"
                             >
-                                Dismiss
+                                {{ t('push_notification_prompt.actions.dismiss') }}
                             </button>
                         </div>
                     </template>
 
                     <!-- Default State -->
                     <template v-else>
-                        <h3 class="font-semibold text-white">Stay Updated!</h3>
+                        <h3 class="font-semibold text-white">{{ t('push_notification_prompt.default.title') }}</h3>
                         <p class="text-white/80 text-sm mt-1">
-                            Enable push notifications to receive instant updates about rent reminders, payments, and important announcements.
+                            {{ t('push_notification_prompt.default.body') }}
                         </p>
 
                         <!-- Actions -->
@@ -177,17 +174,17 @@ onMounted(() => {
                             >
                                 <template v-if="isLoading">
                                     <div class="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-                                    Enabling...
+                                    {{ t('push_notification_prompt.actions.enabling') }}
                                 </template>
                                 <template v-else>
-                                    Enable Notifications
+                                    {{ t('push_notification_prompt.actions.enable') }}
                                 </template>
                             </button>
                             <button
                                 @click="handleMaybeLater"
                                 class="px-4 py-2 text-white/90 hover:text-white transition-colors"
                             >
-                                Maybe Later
+                                {{ t('push_notification_prompt.actions.maybe_later') }}
                             </button>
                         </div>
                     </template>

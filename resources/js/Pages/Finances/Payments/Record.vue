@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue';
 import { router, Head, Link } from '@inertiajs/vue3';
 import { useFormatters, useErrorHandler, useCurrency, usePaymentForm } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import { PaymentMethodSelector } from '@/Components/Finances';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import {
@@ -21,6 +22,7 @@ const props = withDefaults(defineProps<PaymentsRecordPageProps>(), {
     buildings: () => [],
 });
 
+const { t } = useI18n();
 const { formatMoney, todayAsISODate } = useFormatters();
 const { logError } = useErrorHandler();
 const { currencySymbol } = useCurrency();
@@ -148,10 +150,10 @@ const handleValidate = () => {
     return validate(() => {
         const extra: Record<string, string> = {};
         if (!selectedTenant.value && !form.value.invoice_id) {
-            extra.tenant = 'Please select a tenant';
+            extra.tenant = t('finances_payment_record.tenant.required');
         }
         if (!isUnallocated.value && !form.value.invoice_id && tenantInvoices.value.length > 0) {
-            extra.invoice = 'Please select an invoice or mark as unallocated';
+            extra.invoice = t('finances_payment_record.invoice.required');
         }
         return extra;
     });
@@ -186,7 +188,7 @@ const handleSubmit = () => {
 </script>
 
 <template>
-    <Head title="Record Payment" />
+    <Head :title="t('finances_payment_record.page_title')" />
 
     <AuthenticatedLayout>
         <div class="py-6">
@@ -197,7 +199,7 @@ const handleSubmit = () => {
                         class="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
                     >
                         <ArrowLeftIcon class="w-4 h-4" />
-                        Back to Payments
+                        {{ t('finances_payment_record.back') }}
                     </Link>
                 </div>
 
@@ -208,8 +210,8 @@ const handleSubmit = () => {
                                 <BanknotesIcon class="w-5 h-5 text-emerald-600" />
                             </div>
                             <div>
-                                <h1 class="text-lg font-semibold text-gray-900">Record Payment</h1>
-                                <p class="text-sm text-gray-500">Manually record a payment from a tenant</p>
+                                <h1 class="text-lg font-semibold text-gray-900">{{ t('finances_payment_record.heading') }}</h1>
+                                <p class="text-sm text-gray-500">{{ t('finances_payment_record.subheading') }}</p>
                             </div>
                         </div>
                     </div>
@@ -218,14 +220,14 @@ const handleSubmit = () => {
                         <div class="inline-flex items-center justify-center w-16 h-16 bg-emerald-100 rounded-full mb-4">
                             <CheckIcon class="w-8 h-8 text-emerald-600" />
                         </div>
-                        <h3 class="text-lg font-semibold text-gray-900">Payment Recorded!</h3>
-                        <p class="text-sm text-gray-500 mt-2">The payment has been successfully recorded.</p>
+                        <h3 class="text-lg font-semibold text-gray-900">{{ t('finances_payment_record.success.title') }}</h3>
+                        <p class="text-sm text-gray-500 mt-2">{{ t('finances_payment_record.success.body') }}</p>
                         <div class="mt-6">
                             <Link
                                 :href="route('finances.payments')"
                                 class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors"
                             >
-                                View Payments
+                                {{ t('finances_payment_record.success.view_payments') }}
                             </Link>
                         </div>
                     </div>
@@ -238,7 +240,7 @@ const handleSubmit = () => {
                         <div class="space-y-4">
                             <h3 class="text-sm font-medium text-gray-900 flex items-center gap-2">
                                 <UserIcon class="w-4 h-4 text-gray-400" />
-                                Tenant Selection
+                                {{ t('finances_payment_record.tenant.section') }}
                             </h3>
 
                             <div v-if="selectedTenant" class="p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
@@ -258,7 +260,7 @@ const handleSubmit = () => {
                                         @click="clearTenant"
                                         class="text-sm text-gray-500 hover:text-gray-700"
                                     >
-                                        Change
+                                        {{ t('finances_payment_record.tenant.change') }}
                                     </button>
                                 </div>
                             </div>
@@ -270,7 +272,7 @@ const handleSubmit = () => {
                                         v-model="searchQuery"
                                         type="text"
                                         class="w-full ps-10 pe-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
-                                        placeholder="Search tenant by name, phone, or unit number..."
+                                        :placeholder="t('finances_payment_record.tenant.search_placeholder')"
                                         @focus="showSearchResults = searchResults.length > 0"
                                     />
                                     <div v-if="isSearching" class="absolute end-3 top-1/2 -translate-y-1/2">
@@ -294,7 +296,7 @@ const handleSubmit = () => {
                                     >
                                         <p class="font-medium text-gray-900">{{ tenant.name }}</p>
                                         <p class="text-sm text-gray-500">
-                                            {{ tenant.unit?.unit_number || 'No unit' }}
+                                            {{ tenant.unit?.unit_number || t('finances_payment_record.tenant.no_unit') }}
                                             <span v-if="tenant.unit?.building_name">· {{ tenant.unit.building_name }}</span>
                                         </p>
                                     </button>
@@ -307,7 +309,7 @@ const handleSubmit = () => {
                         <div v-if="selectedTenant" class="space-y-4">
                             <h3 class="text-sm font-medium text-gray-900 flex items-center gap-2">
                                 <DocumentTextIcon class="w-4 h-4 text-gray-400" />
-                                Invoice Selection
+                                {{ t('finances_payment_record.invoice.section') }}
                             </h3>
 
                             <div v-if="isLoadingInvoices" class="text-center py-4">
@@ -315,7 +317,7 @@ const handleSubmit = () => {
                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                 </svg>
-                                <p class="text-sm text-gray-500 mt-2">Loading invoices...</p>
+                                <p class="text-sm text-gray-500 mt-2">{{ t('finances_payment_record.invoice.loading') }}</p>
                             </div>
 
                             <template v-else>
@@ -327,13 +329,13 @@ const handleSubmit = () => {
                                         class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
                                     />
                                     <label for="is_unallocated" class="text-sm text-gray-700">
-                                        Unallocated payment (not linked to specific invoice)
+                                        {{ t('finances_payment_record.invoice.unallocated') }}
                                     </label>
                                 </div>
 
                                 <div v-if="!isUnallocated">
                                     <div v-if="tenantInvoices.length === 0" class="p-4 bg-gray-50 rounded-lg text-center">
-                                        <p class="text-sm text-gray-500">No outstanding invoices for this tenant</p>
+                                        <p class="text-sm text-gray-500">{{ t('finances_payment_record.invoice.none') }}</p>
                                     </div>
 
                                     <div v-else class="space-y-2">
@@ -341,12 +343,7 @@ const handleSubmit = () => {
                                             v-for="invoice in tenantInvoices"
                                             :key="invoice.id"
                                             @click="form.invoice_id = invoice.id"
-                                            :class="[
-                                                'p-3 border rounded-lg cursor-pointer transition-colors',
-                                                form.invoice_id === invoice.id
-                                                    ? 'border-emerald-500 bg-emerald-50'
-                                                    : 'border-gray-200 hover:border-gray-300'
-                                            ]"
+                                            :class="['p-3 border rounded-lg cursor-pointer transition-colors', form.invoice_id === invoice.id ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 hover:border-gray-300']"
                                         >
                                             <div class="flex items-center justify-between">
                                                 <div>
@@ -356,14 +353,14 @@ const handleSubmit = () => {
                                                 <div class="text-end">
                                                     <p class="font-semibold text-gray-900">{{ formatMoney(invoice.balance) }}</p>
                                                     <p class="text-xs text-gray-500">
-                                                        Due: {{ invoice.due_date || 'N/A' }}
+                                                        {{ t('finances_payment_record.invoice.due', { date: invoice.due_date || t('finances_payment_record.invoice.due_na') }) }}
                                                     </p>
                                                 </div>
                                             </div>
                                         </div>
 
                                         <p v-if="totalOutstanding > 0" class="text-sm text-gray-600 pt-2">
-                                            Total outstanding: <span class="font-semibold">{{ formatMoney(totalOutstanding) }}</span>
+                                            {{ t('finances_payment_record.invoice.total_outstanding') }} <span class="font-semibold">{{ formatMoney(totalOutstanding) }}</span>
                                         </p>
                                     </div>
                                 </div>
@@ -375,12 +372,12 @@ const handleSubmit = () => {
                         <div v-if="selectedTenant" class="space-y-4 pt-4 border-t border-gray-200">
                             <h3 class="text-sm font-medium text-gray-900 flex items-center gap-2">
                                 <BanknotesIcon class="w-4 h-4 text-gray-400" />
-                                Payment Details
+                                {{ t('finances_payment_record.details.section') }}
                             </h3>
 
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Amount *</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_payment_record.details.amount') }}</label>
                                     <div class="relative">
                                         <span class="absolute start-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">{{ currencySymbol }}</span>
                                         <input
@@ -402,14 +399,14 @@ const handleSubmit = () => {
                                             @click="setFullAmount"
                                             class="absolute end-2 top-1/2 -translate-y-1/2 px-2 py-1 text-xs font-medium text-emerald-600 hover:bg-emerald-50 rounded transition-colors"
                                         >
-                                            Full
+                                            {{ t('finances_payment_record.details.full') }}
                                         </button>
                                     </div>
                                     <p v-if="errors.amount" class="mt-1 text-sm text-red-600">{{ errors.amount }}</p>
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Payment Method *</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_payment_record.details.method') }}</label>
                                     <PaymentMethodSelector
                                         v-model="form.payment_method"
                                         :methods="normalizedMethods"
@@ -418,7 +415,7 @@ const handleSubmit = () => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Payment Date *</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_payment_record.details.date') }}</label>
                                     <input
                                         v-model="form.payment_date"
                                         type="date"
@@ -434,48 +431,47 @@ const handleSubmit = () => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Reference (optional)</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_payment_record.details.reference') }}</label>
                                     <input
                                         v-model="form.reference"
                                         type="text"
                                         class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
-                                        placeholder="Receipt/transaction ID"
+                                        :placeholder="t('finances_payment_record.details.reference_placeholder')"
                                     />
                                 </div>
                             </div>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_payment_record.details.notes') }}</label>
                                 <textarea
                                     v-model="form.notes"
                                     rows="2"
                                     class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 transition-colors resize-none"
-                                    placeholder="Any additional notes..."
+                                    :placeholder="t('finances_payment_record.details.notes_placeholder')"
                                 />
                             </div>
 
                             <div v-if="isOverpayment" class="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
                                 <ExclamationTriangleIcon class="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                                 <div>
-                                    <p class="text-sm font-medium text-amber-800">Overpayment detected</p>
+                                    <p class="text-sm font-medium text-amber-800">{{ t('finances_payment_record.overpayment.title') }}</p>
                                     <p class="text-sm text-amber-700">
-                                        This amount exceeds the invoice balance by {{ formatMoney(Number(form.amount) - selectedInvoice.balance) }}.
-                                        The excess will be credited to the tenant's wallet.
+                                        {{ t('finances_payment_record.overpayment.body', { amount: formatMoney(Number(form.amount) - selectedInvoice.balance) }) }}
                                     </p>
                                 </div>
                             </div>
 
                             <div v-if="selectedInvoice && remainingAfterPayment !== null && !isUnallocated" class="p-3 bg-gray-50 rounded-lg">
                                 <div class="flex justify-between text-sm">
-                                    <span class="text-gray-600">Invoice Balance</span>
+                                    <span class="text-gray-600">{{ t('finances_payment_record.summary.invoice_balance') }}</span>
                                     <span class="font-medium">{{ formatMoney(selectedInvoice.balance) }}</span>
                                 </div>
                                 <div class="flex justify-between text-sm mt-1">
-                                    <span class="text-gray-600">Payment Amount</span>
+                                    <span class="text-gray-600">{{ t('finances_payment_record.summary.payment_amount') }}</span>
                                     <span class="font-medium text-emerald-600">- {{ formatMoney(form.amount || 0) }}</span>
                                 </div>
                                 <div class="flex justify-between text-sm mt-2 pt-2 border-t border-gray-200">
-                                    <span class="text-gray-700 font-medium">Remaining</span>
+                                    <span class="text-gray-700 font-medium">{{ t('finances_payment_record.summary.remaining') }}</span>
                                     <span class="font-semibold">{{ formatMoney(remainingAfterPayment) }}</span>
                                 </div>
                             </div>
@@ -486,14 +482,14 @@ const handleSubmit = () => {
                                 :href="route('finances.payments')"
                                 class="flex-1 px-4 py-2.5 text-sm font-medium text-center text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                             >
-                                Cancel
+                                {{ t('finances_payment_record.cancel') }}
                             </Link>
                             <button
                                 type="submit"
                                 :disabled="isSubmitting || !selectedTenant"
                                 class="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                {{ isSubmitting ? 'Recording...' : 'Record Payment' }}
+                                {{ isSubmitting ? t('finances_payment_record.submitting') : t('finances_payment_record.submit') }}
                             </button>
                         </div>
                     </form>
