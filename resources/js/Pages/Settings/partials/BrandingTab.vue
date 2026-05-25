@@ -5,6 +5,7 @@ import InputLabel from '@/Components/InputLabel.vue';
 import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import { useAuth } from '@/composables/useAuth';
+import { useI18n } from '@/composables/useI18n';
 import {
     PhotoIcon,
     DocumentTextIcon,
@@ -21,6 +22,7 @@ const props = withDefaults(defineProps<{
 });
 
 const { can } = useAuth();
+const { t } = useI18n();
 
 const form = useForm({
     invoice_number_format: props.brandingSettings?.invoice_number_format || 'INV-{YYYY}{MM}-{NNNN}',
@@ -46,7 +48,7 @@ const onLogoSelected = (event) => {
     if (file) {
         // Validate file size (2MB max)
         if (file.size > 2 * 1024 * 1024) {
-            alert('Logo file must be less than 2MB');
+            alert(t('branding.logo.size_error'));
             return;
         }
 
@@ -69,7 +71,7 @@ const onLogoSelected = (event) => {
 };
 
 const deleteLogo = () => {
-    if (confirm('Are you sure you want to delete your business logo?')) {
+    if (confirm(t('branding.logo.delete_confirm'))) {
         router.delete(route('settings.branding.logo.delete'), {
             preserveScroll: true,
             onSuccess: () => {
@@ -90,16 +92,16 @@ const submit = () => {
     <div class="space-y-6">
         <!-- Section Header -->
         <div>
-            <h3 class="text-lg font-semibold text-gray-900">Branding</h3>
+            <h3 class="text-lg font-semibold text-gray-900">{{ t('branding.heading') }}</h3>
             <p class="mt-1 text-sm text-gray-600">
-                Customize how your invoices and receipts look to tenants.
+                {{ t('branding.intro') }}
             </p>
         </div>
 
         <!-- Logo Upload -->
         <div class="bg-gray-50 rounded-xl p-6 space-y-4">
-            <h4 class="text-sm font-medium text-gray-700 uppercase tracking-wider">Business Logo</h4>
-            <p class="text-sm text-gray-500">Your logo will appear on invoices and receipts. Recommended size: 200x80 pixels.</p>
+            <h4 class="text-sm font-medium text-gray-700 uppercase tracking-wider">{{ t('branding.logo.heading') }}</h4>
+            <p class="text-sm text-gray-500">{{ t('branding.logo.description') }}</p>
 
             <div class="flex items-start gap-6">
                 <!-- Logo Preview -->
@@ -110,7 +112,7 @@ const submit = () => {
                     >
                         <img
                             :src="logoPreview"
-                            alt="Business logo"
+                            :alt="t('branding.logo.alt')"
                             loading="lazy"
                             decoding="async"
                             class="w-full h-full object-contain p-2"
@@ -119,7 +121,7 @@ const submit = () => {
                             v-if="can('settings:manage')"
                             @click="deleteLogo"
                             class="absolute top-1 end-1 p-1 bg-red-100 text-red-600 rounded-full hover:bg-red-200 transition-colors"
-                            title="Delete logo"
+                            :title="t('branding.logo.delete_title')"
                         >
                             <TrashIcon class="w-4 h-4" />
                         </button>
@@ -130,7 +132,7 @@ const submit = () => {
                         class="w-48 h-24 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-colors"
                     >
                         <PhotoIcon class="w-8 h-8 text-gray-400" />
-                        <span class="mt-1 text-xs text-gray-500">Click to upload</span>
+                        <span class="mt-1 text-xs text-gray-500">{{ t('branding.logo.click_to_upload') }}</span>
                     </div>
                 </div>
 
@@ -149,10 +151,10 @@ const submit = () => {
                         class="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
                         :disabled="logoForm.processing"
                     >
-                        {{ logoForm.processing ? 'Uploading...' : (hasLogo ? 'Change Logo' : 'Upload Logo') }}
+                        {{ logoForm.processing ? t('branding.logo.uploading') : (hasLogo ? t('branding.logo.change') : t('branding.logo.upload')) }}
                     </button>
                     <p class="mt-2 text-xs text-gray-500">
-                        Accepted formats: JPEG, PNG, GIF, SVG. Max size: 2MB.
+                        {{ t('branding.logo.accepted_formats') }}
                     </p>
                     <InputError :message="logoForm.errors.logo" class="mt-2" />
                 </div>
@@ -162,10 +164,10 @@ const submit = () => {
         <form @submit.prevent="submit" class="space-y-6">
             <!-- Invoice Number Format -->
             <div class="bg-gray-50 rounded-xl p-6 space-y-4">
-                <h4 class="text-sm font-medium text-gray-700 uppercase tracking-wider">Invoice Numbering</h4>
+                <h4 class="text-sm font-medium text-gray-700 uppercase tracking-wider">{{ t('branding.numbering.heading') }}</h4>
 
                 <div>
-                    <InputLabel for="invoice_number_format" value="Invoice Number Format" />
+                    <InputLabel for="invoice_number_format" :value="t('branding.numbering.format_label')" />
                     <select
                         id="invoice_number_format"
                         v-model="form.invoice_number_format"
@@ -176,11 +178,11 @@ const submit = () => {
                             :key="format"
                             :value="format"
                         >
-                            {{ format }} (e.g., {{ example }})
+                            {{ t('branding.numbering.example', { format, example }) }}
                         </option>
                     </select>
                     <p class="mt-1 text-xs text-gray-500">
-                        {YYYY} = Year, {MM} = Month, {NNNN} = Sequential number
+                        {{ t('branding.numbering.legend', { yyyy: '{YYYY}', mm: '{MM}', nnnn: '{NNNN}' }) }}
                     </p>
                     <InputError :message="form.errors.invoice_number_format" class="mt-2" />
                 </div>
@@ -188,34 +190,34 @@ const submit = () => {
 
             <!-- Footer Texts -->
             <div class="bg-gray-50 rounded-xl p-6 space-y-6">
-                <h4 class="text-sm font-medium text-gray-700 uppercase tracking-wider">Document Footers</h4>
+                <h4 class="text-sm font-medium text-gray-700 uppercase tracking-wider">{{ t('branding.footers.heading') }}</h4>
 
                 <div>
-                    <InputLabel for="invoice_footer_text" value="Invoice Footer Text" />
+                    <InputLabel for="invoice_footer_text" :value="t('branding.footers.invoice_label')" />
                     <textarea
                         id="invoice_footer_text"
                         v-model="form.invoice_footer_text"
                         rows="2"
                         class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                        placeholder="e.g., Thank you for your business. Payment is due within 7 days."
+                        :placeholder="t('branding.footers.invoice_placeholder')"
                     ></textarea>
                     <p class="mt-1 text-xs text-gray-500">
-                        This text appears at the bottom of all invoices (max 500 characters)
+                        {{ t('branding.footers.invoice_help') }}
                     </p>
                     <InputError :message="form.errors.invoice_footer_text" class="mt-2" />
                 </div>
 
                 <div>
-                    <InputLabel for="receipt_footer_text" value="Receipt Footer Text" />
+                    <InputLabel for="receipt_footer_text" :value="t('branding.footers.receipt_label')" />
                     <textarea
                         id="receipt_footer_text"
                         v-model="form.receipt_footer_text"
                         rows="2"
                         class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                        placeholder="e.g., Thank you for your payment. This receipt is auto-generated."
+                        :placeholder="t('branding.footers.receipt_placeholder')"
                     ></textarea>
                     <p class="mt-1 text-xs text-gray-500">
-                        This text appears at the bottom of all payment receipts (max 500 characters)
+                        {{ t('branding.footers.receipt_help') }}
                     </p>
                     <InputError :message="form.errors.receipt_footer_text" class="mt-2" />
                 </div>
@@ -223,7 +225,7 @@ const submit = () => {
 
             <!-- Preview Section -->
             <div class="bg-white border border-gray-200 rounded-xl p-6">
-                <h4 class="text-sm font-medium text-gray-700 uppercase tracking-wider mb-4">Invoice Preview</h4>
+                <h4 class="text-sm font-medium text-gray-700 uppercase tracking-wider mb-4">{{ t('branding.preview.heading') }}</h4>
 
                 <div class="bg-gray-50 rounded-lg p-6 border border-gray-200">
                     <!-- Mini Invoice Preview -->
@@ -231,15 +233,15 @@ const submit = () => {
                         <div class="flex items-start justify-between">
                             <div>
                                 <div v-if="logoPreview" class="w-24 h-12 bg-white rounded border border-gray-200 overflow-hidden mb-2">
-                                    <img :src="logoPreview" alt="Logo" loading="lazy" decoding="async" class="w-full h-full object-contain p-1">
+                                    <img :src="logoPreview" :alt="t('branding.preview.logo_alt')" loading="lazy" decoding="async" class="w-full h-full object-contain p-1">
                                 </div>
                                 <div v-else class="w-24 h-12 bg-gray-200 rounded flex items-center justify-center mb-2">
-                                    <span class="text-xs text-gray-400">No Logo</span>
+                                    <span class="text-xs text-gray-400">{{ t('branding.preview.no_logo') }}</span>
                                 </div>
-                                <p class="text-xs text-gray-500">Your Company Name</p>
+                                <p class="text-xs text-gray-500">{{ t('branding.preview.company_name') }}</p>
                             </div>
                             <div class="text-end">
-                                <p class="text-lg font-bold text-gray-900">INVOICE</p>
+                                <p class="text-lg font-bold text-gray-900">{{ t('branding.preview.invoice') }}</p>
                                 <p class="text-sm text-gray-600">{{ invoiceNumberFormats[form.invoice_number_format] || 'INV-202501-0001' }}</p>
                             </div>
                         </div>
@@ -253,7 +255,7 @@ const submit = () => {
                             <p class="text-xs text-gray-500 italic">{{ form.invoice_footer_text }}</p>
                         </div>
                         <div v-else class="border-t border-gray-200 pt-4">
-                            <p class="text-xs text-gray-400 italic">Your invoice footer text will appear here</p>
+                            <p class="text-xs text-gray-400 italic">{{ t('branding.preview.footer_placeholder') }}</p>
                         </div>
                     </div>
                 </div>
@@ -265,7 +267,7 @@ const submit = () => {
                     :disabled="form.processing"
                     :class="{ 'opacity-50': form.processing }"
                 >
-                    {{ form.processing ? 'Saving...' : 'Save Branding Settings' }}
+                    {{ form.processing ? t('branding.save.saving') : t('branding.save.submit') }}
                 </PrimaryButton>
             </div>
         </form>

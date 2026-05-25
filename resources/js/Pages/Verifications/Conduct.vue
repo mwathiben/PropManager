@@ -3,9 +3,11 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, router, Link } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import { useFormatters } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import type { VerificationsConductPageProps, LeaseVerificationItem } from '@/types/tenants';
 
 const { formatDate } = useFormatters();
+const { t } = useI18n();
 import ClipboardDocumentCheckIcon from '@heroicons/vue/24/outline/ClipboardDocumentCheckIcon';
 import CheckCircleIcon from '@heroicons/vue/24/outline/CheckCircleIcon';
 import XCircleIcon from '@heroicons/vue/24/outline/XCircleIcon';
@@ -78,7 +80,7 @@ const startForm = useForm({ template_id: '' });
 
 const startVerification = () => {
     if (!selectedTemplateId.value) {
-        alert('Please select a template');
+        alert(t('verifications_conduct.alert.select_template'));
         return;
     }
     startForm.template_id = selectedTemplateId.value;
@@ -118,7 +120,7 @@ const saveNote = () => {
 };
 
 const resetVerification = () => {
-    if (confirm('Are you sure you want to reset the verification? All progress will be lost.')) {
+    if (confirm(t('verifications_conduct.confirm.reset'))) {
         router.post(route('verifications.reset', props.lease.id), {}, {
             preserveScroll: true,
         });
@@ -127,10 +129,10 @@ const resetVerification = () => {
 
 const completeVerification = () => {
     if (!canComplete.value) {
-        alert('All required items must be verified or waived before completing.');
+        alert(t('verifications_conduct.alert.required_first'));
         return;
     }
-    if (confirm('Complete verification for this tenant? This will mark the lease as verified.')) {
+    if (confirm(t('verifications_conduct.confirm.complete'))) {
         router.post(route('verifications.complete', props.lease.id), {}, {
             preserveScroll: true,
         });
@@ -139,7 +141,7 @@ const completeVerification = () => {
 </script>
 
 <template>
-    <Head :title="`Verify ${tenant?.name}`" />
+    <Head :title="t('verifications_conduct.page_title', { name: tenant?.name })" />
 
     <AuthenticatedLayout>
         <div class="py-6">
@@ -151,15 +153,15 @@ const completeVerification = () => {
                             <ArrowLeftIcon class="w-5 h-5" />
                         </Link>
                         <div>
-                            <h1 class="text-2xl font-bold text-gray-900">Tenant Verification</h1>
-                            <p class="text-sm text-gray-500">Verify {{ tenant?.name }}</p>
+                            <h1 class="text-2xl font-bold text-gray-900">{{ t('verifications_conduct.heading') }}</h1>
+                            <p class="text-sm text-gray-500">{{ t('verifications_conduct.verify_subtitle', { name: tenant?.name }) }}</p>
                         </div>
                     </div>
                     <Link
                         :href="route('verifications.index')"
                         class="text-sm text-indigo-600 hover:text-indigo-800"
                     >
-                        Manage Templates
+                        {{ t('verifications_conduct.manage_templates') }}
                     </Link>
                 </div>
 
@@ -175,7 +177,7 @@ const completeVerification = () => {
                             <div class="mt-2 flex flex-wrap gap-4 text-sm text-gray-600">
                                 <span class="flex items-center gap-1">
                                     <HomeIcon class="w-4 h-4" />
-                                    Unit {{ unit?.unit_number }} - {{ unit?.building?.name }}
+                                    {{ t('verifications_conduct.unit_line', { number: unit?.unit_number, building: unit?.building?.name }) }}
                                 </span>
                                 <span v-if="tenant?.mobile_number" class="flex items-center gap-1">
                                     {{ tenant.mobile_number }}
@@ -189,21 +191,21 @@ const completeVerification = () => {
                 <div v-if="!hasVerifications" class="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
                     <div class="text-center">
                         <ClipboardDocumentCheckIcon class="mx-auto h-16 w-16 text-gray-400" />
-                        <h3 class="mt-4 text-lg font-medium text-gray-900">Start Verification</h3>
+                        <h3 class="mt-4 text-lg font-medium text-gray-900">{{ t('verifications_conduct.start.title') }}</h3>
                         <p class="mt-2 text-sm text-gray-500 max-w-md mx-auto">
-                            Select a verification template to begin the verification process for this tenant.
+                            {{ t('verifications_conduct.start.description') }}
                         </p>
 
                         <div class="mt-6 max-w-md mx-auto">
-                            <label class="block text-sm font-medium text-gray-700 text-start mb-2">Select Template</label>
+                            <label class="block text-sm font-medium text-gray-700 text-start mb-2">{{ t('verifications_conduct.start.select_template') }}</label>
                             <select
                                 v-model="selectedTemplateId"
                                 class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                             >
-                                <option value="">Choose a template...</option>
+                                <option value="">{{ t('verifications_conduct.start.choose_template') }}</option>
                                 <option v-for="template in templates" :key="template.id" :value="template.id">
-                                    {{ template.name }} ({{ template.items?.length }} items)
-                                    {{ template.is_default ? ' - Default' : '' }}
+                                    {{ t('verifications_conduct.start.option', { name: template.name, count: template.items?.length }) }}
+                                    {{ template.is_default ? t('verifications_conduct.start.option_default_suffix') : '' }}
                                 </option>
                             </select>
 
@@ -213,13 +215,13 @@ const completeVerification = () => {
                                 class="mt-4 w-full px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2"
                             >
                                 <ClipboardDocumentCheckIcon class="w-5 h-5" />
-                                {{ startForm.processing ? 'Starting...' : 'Start Verification' }}
+                                {{ startForm.processing ? t('verifications_conduct.start.starting') : t('verifications_conduct.start.button') }}
                             </button>
                         </div>
 
                         <p v-if="!templates.length" class="mt-4 text-sm text-red-600">
-                            No verification templates found.
-                            <Link :href="route('verifications.index')" class="underline">Create one first</Link>.
+                            {{ t('verifications_conduct.start.no_templates') }}
+                            <Link :href="route('verifications.index')" class="underline">{{ t('verifications_conduct.start.create_one') }}</Link>.
                         </p>
                     </div>
                 </div>
@@ -229,8 +231,8 @@ const completeVerification = () => {
                     <!-- Progress Bar -->
                     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
                         <div class="flex items-center justify-between mb-3">
-                            <h3 class="text-sm font-medium text-gray-900">Verification Progress</h3>
-                            <span class="text-sm text-gray-500">{{ progress }}% Complete</span>
+                            <h3 class="text-sm font-medium text-gray-900">{{ t('verifications_conduct.progress.title') }}</h3>
+                            <span class="text-sm text-gray-500">{{ t('verifications_conduct.progress.percent_complete', { percent: progress }) }}</span>
                         </div>
                         <div class="w-full bg-gray-200 rounded-full h-3">
                             <div
@@ -244,19 +246,19 @@ const completeVerification = () => {
                         <div class="mt-4 grid grid-cols-4 gap-4 text-center">
                             <div>
                                 <div class="text-2xl font-bold text-green-600">{{ verifiedCount }}</div>
-                                <div class="text-xs text-gray-500">Verified</div>
+                                <div class="text-xs text-gray-500">{{ t('verifications_conduct.stats.verified') }}</div>
                             </div>
                             <div>
                                 <div class="text-2xl font-bold text-yellow-600">{{ waivedCount }}</div>
-                                <div class="text-xs text-gray-500">Waived</div>
+                                <div class="text-xs text-gray-500">{{ t('verifications_conduct.stats.waived') }}</div>
                             </div>
                             <div>
                                 <div class="text-2xl font-bold text-gray-600">{{ pendingCount }}</div>
-                                <div class="text-xs text-gray-500">Pending</div>
+                                <div class="text-xs text-gray-500">{{ t('verifications_conduct.stats.pending') }}</div>
                             </div>
                             <div>
                                 <div class="text-2xl font-bold text-red-600">{{ rejectedCount }}</div>
-                                <div class="text-xs text-gray-500">Rejected</div>
+                                <div class="text-xs text-gray-500">{{ t('verifications_conduct.stats.rejected') }}</div>
                             </div>
                         </div>
                     </div>
@@ -264,13 +266,13 @@ const completeVerification = () => {
                     <!-- Verification Items -->
                     <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                         <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                            <h3 class="text-lg font-medium text-gray-900">Verification Checklist</h3>
+                            <h3 class="text-lg font-medium text-gray-900">{{ t('verifications_conduct.checklist.title') }}</h3>
                             <button
                                 @click="resetVerification"
                                 class="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
                             >
                                 <ArrowPathIcon class="w-4 h-4" />
-                                Reset
+                                {{ t('verifications_conduct.checklist.reset') }}
                             </button>
                         </div>
 
@@ -300,7 +302,7 @@ const completeVerification = () => {
                                                 class="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-red-100 text-red-700 text-xs rounded"
                                             >
                                                 <ExclamationCircleIcon class="w-3 h-3" />
-                                                Required
+                                                {{ t('verifications_conduct.item.required') }}
                                             </span>
                                             <span
                                                 v-if="verification.item?.document_type"
@@ -314,11 +316,14 @@ const completeVerification = () => {
                                             {{ verification.item.description }}
                                         </p>
                                         <p v-if="verification.notes" class="mt-2 text-sm text-gray-600 italic">
-                                            Note: {{ verification.notes }}
+                                            {{ t('verifications_conduct.item.note_prefix', { note: verification.notes }) }}
                                         </p>
                                         <p v-if="verification.verifier && verification.verified_at" class="mt-1 text-xs text-gray-400">
-                                            {{ verification.status === 'verified' ? 'Verified' : verification.status === 'waived' ? 'Waived' : verification.status === 'rejected' ? 'Rejected' : 'Updated' }}
-                                            by {{ verification.verifier.name }} on {{ formatDate(verification.verified_at) }}
+                                            {{ t('verifications_conduct.item.audit', {
+                                                action: verification.status === 'verified' ? t('verifications_conduct.action_label.verified') : verification.status === 'waived' ? t('verifications_conduct.action_label.waived') : verification.status === 'rejected' ? t('verifications_conduct.action_label.rejected') : t('verifications_conduct.action_label.updated'),
+                                                name: verification.verifier.name,
+                                                date: formatDate(verification.verified_at),
+                                            }) }}
                                         </p>
                                     </div>
 
@@ -327,7 +332,7 @@ const completeVerification = () => {
                                         <button
                                             @click="openNoteModal(verification)"
                                             class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
-                                            title="Add note"
+                                            :title="t('verifications_conduct.title.add_note')"
                                         >
                                             <ChatBubbleLeftIcon class="w-5 h-5" />
                                         </button>
@@ -336,7 +341,7 @@ const completeVerification = () => {
                                                 @click="updateVerification(verification, 'verified')"
                                                 :class="verification.status === 'verified' ? 'bg-green-100 text-green-700' : 'text-gray-400 hover:text-green-600'"
                                                 class="p-1.5 rounded transition-colors"
-                                                title="Verify"
+                                                :title="t('verifications_conduct.title.verify')"
                                             >
                                                 <CheckIcon class="w-5 h-5" />
                                             </button>
@@ -344,7 +349,7 @@ const completeVerification = () => {
                                                 @click="updateVerification(verification, 'rejected')"
                                                 :class="verification.status === 'rejected' ? 'bg-red-100 text-red-700' : 'text-gray-400 hover:text-red-600'"
                                                 class="p-1.5 rounded transition-colors"
-                                                title="Reject"
+                                                :title="t('verifications_conduct.title.reject')"
                                             >
                                                 <XMarkIcon class="w-5 h-5" />
                                             </button>
@@ -352,7 +357,7 @@ const completeVerification = () => {
                                                 @click="updateVerification(verification, 'waived')"
                                                 :class="verification.status === 'waived' ? 'bg-yellow-100 text-yellow-700' : 'text-gray-400 hover:text-yellow-600'"
                                                 class="p-1.5 rounded transition-colors"
-                                                title="Waive"
+                                                :title="t('verifications_conduct.title.waive')"
                                             >
                                                 <MinusCircleIcon class="w-5 h-5" />
                                             </button>
@@ -360,7 +365,7 @@ const completeVerification = () => {
                                                 v-if="verification.status !== 'pending'"
                                                 @click="updateVerification(verification, 'pending')"
                                                 class="p-1.5 text-gray-400 hover:text-gray-600 rounded transition-colors"
-                                                title="Reset to pending"
+                                                :title="t('verifications_conduct.title.reset_pending')"
                                             >
                                                 <ArrowPathIcon class="w-5 h-5" />
                                             </button>
@@ -376,12 +381,12 @@ const completeVerification = () => {
                                 <div>
                                     <p v-if="!canComplete" class="text-sm text-yellow-700">
                                         <ExclamationCircleIcon class="w-4 h-4 inline me-1" />
-                                        {{ requiredPending }} required item(s) pending
-                                        <span v-if="rejectedCount > 0">, {{ rejectedCount }} rejected</span>
+                                        {{ t('verifications_conduct.complete.pending_notice', { count: requiredPending }) }}
+                                        <span v-if="rejectedCount > 0">{{ t('verifications_conduct.complete.rejected_notice', { count: rejectedCount }) }}</span>
                                     </p>
                                     <p v-else class="text-sm text-green-700">
                                         <CheckCircleIcon class="w-4 h-4 inline me-1" />
-                                        All required items verified. Ready to complete!
+                                        {{ t('verifications_conduct.complete.ready') }}
                                     </p>
                                 </div>
                                 <button
@@ -390,7 +395,7 @@ const completeVerification = () => {
                                     class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                                 >
                                     <CheckCircleIcon class="w-5 h-5" />
-                                    Complete Verification
+                                    {{ t('verifications_conduct.complete.button') }}
                                 </button>
                             </div>
                         </div>
@@ -406,7 +411,7 @@ const completeVerification = () => {
 
                 <div class="relative z-50 inline-block w-full max-w-md my-8 overflow-hidden text-start align-middle transition-all transform bg-white rounded-xl shadow-xl">
                     <div class="px-6 py-4 bg-gray-50 border-b border-gray-200">
-                        <h3 class="text-lg font-semibold text-gray-900">Add Note</h3>
+                        <h3 class="text-lg font-semibold text-gray-900">{{ t('verifications_conduct.note_modal.title') }}</h3>
                         <p class="text-sm text-gray-500">{{ currentVerification?.item?.name }}</p>
                     </div>
 
@@ -415,7 +420,7 @@ const completeVerification = () => {
                             v-model="noteText"
                             rows="4"
                             class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                            placeholder="Add a note about this verification item..."
+                            :placeholder="t('verifications_conduct.note_modal.placeholder')"
                         ></textarea>
                     </div>
 
@@ -424,13 +429,13 @@ const completeVerification = () => {
                             @click="showNoteModal = false"
                             class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
                         >
-                            Cancel
+                            {{ t('verifications_conduct.note_modal.cancel') }}
                         </button>
                         <button
                             @click="saveNote"
                             class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
                         >
-                            Save Note
+                            {{ t('verifications_conduct.note_modal.save') }}
                         </button>
                     </div>
                 </div>

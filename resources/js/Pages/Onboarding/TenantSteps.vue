@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, useForm, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
+import { useI18n } from '@/composables/useI18n';
 import WizardProgressBar from './Components/WizardProgressBar.vue';
 
 type KycProgress = {
@@ -29,8 +30,16 @@ const form = useForm<Record<string, unknown>>({
     is_default: false,
 });
 
+const { t } = useI18n();
+
 const page = usePage();
 const flashError = computed(() => (page.props as { flash?: { error?: string } }).flash?.error ?? '');
+
+const paymentTypeOptions = computed(() => [
+    { value: '', label: t('onboarding_tenant_steps.payment_type_none') },
+    { value: 'mpesa', label: t('onboarding_tenant_steps.payment_type_mpesa') },
+    { value: 'bank', label: t('onboarding_tenant_steps.payment_type_bank') },
+]);
 
 function submit() {
     form.post(route('onboarding.step.save', { step: props.currentStep }));
@@ -56,17 +65,17 @@ function submit() {
             <form @submit.prevent="submit" class="space-y-5">
                 <template v-if="currentStep === 1">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">Full name</label>
+                        <label class="block text-sm font-medium text-gray-700">{{ t('onboarding_tenant_steps.full_name') }}</label>
                         <input v-model="form.name" type="text" class="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required />
                         <p v-if="form.errors.name" class="mt-1 text-sm text-red-600">{{ form.errors.name }}</p>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">Mobile number</label>
+                        <label class="block text-sm font-medium text-gray-700">{{ t('onboarding_tenant_steps.mobile_number') }}</label>
                         <input v-model="form.mobile_number" type="text" class="mt-1 w-full rounded-md border-gray-300 shadow-sm" />
                         <p v-if="form.errors.mobile_number" class="mt-1 text-sm text-red-600">{{ form.errors.mobile_number }}</p>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">National ID</label>
+                        <label class="block text-sm font-medium text-gray-700">{{ t('onboarding_tenant_steps.national_id') }}</label>
                         <input v-model="form.national_id" type="text" class="mt-1 w-full rounded-md border-gray-300 shadow-sm" />
                         <p v-if="form.errors.national_id" class="mt-1 text-sm text-red-600">{{ form.errors.national_id }}</p>
                     </div>
@@ -77,7 +86,7 @@ function submit() {
                     <div v-if="kycProgress" class="rounded-lg border border-indigo-100 bg-indigo-50/60 px-4 py-3">
                         <div class="flex items-baseline justify-between">
                             <p class="text-sm font-medium text-indigo-900">
-                                KYC documents: {{ kycProgress.submitted }} of {{ kycProgress.required }} uploaded
+                                {{ t('onboarding_tenant_steps.kyc_progress', { submitted: kycProgress.submitted, required: kycProgress.required }) }}
                             </p>
                             <p class="text-xs text-indigo-700">{{ kycProgress.percent }}%</p>
                         </div>
@@ -91,41 +100,32 @@ function submit() {
                             v-if="kycProgress.remaining_labels.length > 0"
                             class="mt-2 text-xs text-indigo-700"
                         >
-                            Still to upload: {{ kycProgress.remaining_labels.join(', ') }}
+                            {{ t('onboarding_tenant_steps.still_to_upload', { labels: kycProgress.remaining_labels.join(', ') }) }}
                         </p>
                     </div>
 
                     <p class="text-gray-700">
-                        KYC documents are uploaded from the
-                        <a :href="route('tenant.kyc.show')" class="text-indigo-600 underline">KYC verification</a> page.
-                        Submit every required document before continuing — review by the landlord can happen after.
+                        {{ t('onboarding_tenant_steps.kyc_intro') }}
+                        <a :href="route('tenant.kyc.show')" class="text-indigo-600 underline">{{ t('onboarding_tenant_steps.kyc_link') }}</a> {{ t('onboarding_tenant_steps.kyc_intro_suffix') }}
                     </p>
                     <label class="inline-flex items-center gap-2">
                         <input v-model="form.acknowledged" type="checkbox" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                        <span class="text-sm text-gray-700">I have submitted my required documents</span>
+                        <span class="text-sm text-gray-700">{{ t('onboarding_tenant_steps.kyc_acknowledged') }}</span>
                     </label>
                 </template>
 
                 <template v-else-if="currentStep === 3">
-                    <p class="text-gray-700">Optionally save a payment method so your landlord can auto-debit rent.</p>
+                    <p class="text-gray-700">{{ t('onboarding_tenant_steps.payment_intro') }}</p>
                     <!-- Phase-51 TENANT-WIZARD-POLISH-2: per-type SVG icon card-grid picker -->
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">Payment type</label>
+                        <label class="block text-sm font-medium text-gray-700">{{ t('onboarding_tenant_steps.payment_type') }}</label>
                         <div class="mt-2 grid grid-cols-3 gap-2">
                             <button
-                                v-for="option in [
-                                    { value: '', label: 'None' },
-                                    { value: 'mpesa', label: 'M-Pesa' },
-                                    { value: 'bank', label: 'Bank' },
-                                ]"
+                                v-for="option in paymentTypeOptions"
                                 :key="option.value"
                                 type="button"
                                 class="flex flex-col items-center gap-1 rounded-lg border px-3 py-3 text-xs font-medium transition"
-                                :class="
-                                    form.type === option.value
-                                        ? 'border-indigo-500 bg-indigo-50 text-indigo-700 ring-2 ring-indigo-100'
-                                        : 'border-gray-200 bg-white text-gray-600 hover:border-indigo-200'
-                                "
+                                :class="form.type === option.value ? 'border-indigo-500 bg-indigo-50 text-indigo-700 ring-2 ring-indigo-100' : 'border-gray-200 bg-white text-gray-600 hover:border-indigo-200'"
                                 @click="form.type = option.value"
                             >
                                 <svg
@@ -169,7 +169,7 @@ function submit() {
                         </div>
                     </div>
                     <div v-if="form.type === 'mpesa'">
-                        <label class="block text-sm font-medium text-gray-700">M-Pesa phone</label>
+                        <label class="block text-sm font-medium text-gray-700">{{ t('onboarding_tenant_steps.mpesa_phone') }}</label>
                         <input
                             v-model="(form.details as Record<string, unknown>).phone"
                             type="text"
@@ -179,21 +179,21 @@ function submit() {
                     </div>
                     <template v-else-if="form.type === 'bank'">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">Bank name</label>
+                            <label class="block text-sm font-medium text-gray-700">{{ t('onboarding_tenant_steps.bank_name') }}</label>
                             <input v-model="(form.details as Record<string, unknown>).bank_name" type="text" class="mt-1 w-full rounded-md border-gray-300 shadow-sm" />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">Account number</label>
+                            <label class="block text-sm font-medium text-gray-700">{{ t('onboarding_tenant_steps.account_number') }}</label>
                             <input v-model="(form.details as Record<string, unknown>).account_number" type="text" class="mt-1 w-full rounded-md border-gray-300 shadow-sm" />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">Account name</label>
+                            <label class="block text-sm font-medium text-gray-700">{{ t('onboarding_tenant_steps.account_name') }}</label>
                             <input v-model="(form.details as Record<string, unknown>).account_name" type="text" class="mt-1 w-full rounded-md border-gray-300 shadow-sm" />
                         </div>
                     </template>
                     <label v-if="form.type" class="inline-flex items-center gap-2">
                         <input v-model="form.is_default" type="checkbox" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                        <span class="text-sm text-gray-700">Set as default</span>
+                        <span class="text-sm text-gray-700">{{ t('onboarding_tenant_steps.set_as_default') }}</span>
                     </label>
                 </template>
 

@@ -2,6 +2,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import type { TenantLeasePageProps } from '@/types';
 import {
     HomeIcon,
@@ -19,23 +20,24 @@ const props = defineProps<TenantLeasePageProps>();
 
 // Use composables
 const { formatCurrency, formatDate } = useFormatters();
+const { t } = useI18n();
 </script>
 
 <template>
-    <Head title="My Lease" />
+    <Head :title="t('tenant_lease.page_title')" />
 
     <AuthenticatedLayout>
         <div class="py-12">
             <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
                 <div class="flex items-center justify-between mb-6">
-                    <h1 class="text-2xl font-bold text-gray-900">My Lease Details</h1>
+                    <h1 class="text-2xl font-bold text-gray-900">{{ t('tenant_lease.heading') }}</h1>
                     <Link :href="route('dashboard')" class="text-indigo-600 hover:text-indigo-700">
-                        Back to Dashboard
+                        {{ t('tenant_lease.back_to_dashboard') }}
                     </Link>
                 </div>
 
                 <div v-if="!hasLease" class="bg-white rounded-lg shadow-sm p-8 text-center">
-                    <p class="text-gray-600">No active lease found.</p>
+                    <p class="text-gray-600">{{ t('tenant_lease.no_active_lease') }}</p>
                 </div>
 
                 <template v-else>
@@ -62,21 +64,21 @@ const { formatCurrency, formatDate } = useFormatters();
                         <div class="px-4 py-3 border-b bg-gray-50">
                             <div class="flex items-center">
                                 <HomeIcon class="h-5 w-5 text-gray-500 me-2" />
-                                <h3 class="font-semibold text-gray-900">Property Information</h3>
+                                <h3 class="font-semibold text-gray-900">{{ t('tenant_lease.property_information') }}</h3>
                             </div>
                         </div>
                         <div class="p-4">
                             <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
                                 <div>
-                                    <p class="text-sm text-gray-500">Building</p>
+                                    <p class="text-sm text-gray-500">{{ t('tenant_lease.building') }}</p>
                                     <p class="font-medium text-gray-900">{{ building.name }}</p>
                                 </div>
                                 <div>
-                                    <p class="text-sm text-gray-500">Unit Number</p>
+                                    <p class="text-sm text-gray-500">{{ t('tenant_lease.unit_number') }}</p>
                                     <p class="font-medium text-gray-900">{{ unit.unit_number }}</p>
                                 </div>
                                 <div>
-                                    <p class="text-sm text-gray-500">Floor</p>
+                                    <p class="text-sm text-gray-500">{{ t('tenant_lease.floor') }}</p>
                                     <p class="font-medium text-gray-900">{{ unit.floor_number }}</p>
                                 </div>
                             </div>
@@ -88,25 +90,25 @@ const { formatCurrency, formatDate } = useFormatters();
                         <div class="px-4 py-3 border-b bg-gray-50">
                             <div class="flex items-center">
                                 <DocumentTextIcon class="h-5 w-5 text-gray-500 me-2" />
-                                <h3 class="font-semibold text-gray-900">Lease Terms</h3>
+                                <h3 class="font-semibold text-gray-900">{{ t('tenant_lease.lease_terms') }}</h3>
                             </div>
                         </div>
                         <div class="p-4">
                             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                                 <div>
-                                    <p class="text-sm text-gray-500">Start Date</p>
+                                    <p class="text-sm text-gray-500">{{ t('tenant_lease.start_date') }}</p>
                                     <p class="font-medium text-gray-900">{{ formatDate(lease.start_date) }}</p>
                                 </div>
                                 <div>
-                                    <p class="text-sm text-gray-500">End Date</p>
-                                    <p class="font-medium text-gray-900">{{ lease.end_date ? formatDate(lease.end_date) : 'Open-ended' }}</p>
+                                    <p class="text-sm text-gray-500">{{ t('tenant_lease.end_date') }}</p>
+                                    <p class="font-medium text-gray-900">{{ lease.end_date ? formatDate(lease.end_date) : t('tenant_lease.open_ended') }}</p>
                                 </div>
                                 <div>
-                                    <p class="text-sm text-gray-500">Monthly Rent</p>
+                                    <p class="text-sm text-gray-500">{{ t('tenant_lease.monthly_rent') }}</p>
                                     <p class="font-medium text-gray-900">{{ formatCurrency(lease.rent_amount) }}</p>
                                 </div>
                                 <div>
-                                    <p class="text-sm text-gray-500">Security Deposit</p>
+                                    <p class="text-sm text-gray-500">{{ t('tenant_lease.security_deposit') }}</p>
                                     <p class="font-medium text-gray-900">{{ formatCurrency(lease.deposit_amount) }}</p>
                                 </div>
                             </div>
@@ -146,18 +148,18 @@ const { formatCurrency, formatDate } = useFormatters();
                         <div class="px-4 py-3 border-b bg-gray-50">
                             <div class="flex items-center">
                                 <ArrowTrendingUpIcon class="h-5 w-5 text-gray-500 me-2" />
-                                <h3 class="font-semibold text-gray-900">Rent History</h3>
+                                <h3 class="font-semibold text-gray-900">{{ t('tenant_lease.rent_history') }}</h3>
                             </div>
                         </div>
                         <div class="overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200">
                                 <thead class="bg-gray-50">
                                     <tr>
-                                        <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Effective Date</th>
-                                        <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Previous Rent</th>
-                                        <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">New Rent</th>
-                                        <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Change</th>
-                                        <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Reason</th>
+                                        <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">{{ t('tenant_lease.effective_date') }}</th>
+                                        <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">{{ t('tenant_lease.previous_rent') }}</th>
+                                        <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">{{ t('tenant_lease.new_rent') }}</th>
+                                        <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">{{ t('tenant_lease.change') }}</th>
+                                        <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">{{ t('tenant_lease.reason') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-200">
@@ -172,7 +174,7 @@ const { formatCurrency, formatDate } = useFormatters();
                                             <span v-else-if="history.new_rent < history.previous_rent" class="text-green-600">
                                                 {{ formatCurrency(history.new_rent - history.previous_rent) }}
                                             </span>
-                                            <span v-else class="text-gray-500">No change</span>
+                                            <span v-else class="text-gray-500">{{ t('tenant_lease.no_change') }}</span>
                                         </td>
                                         <td class="px-4 py-3 text-sm text-gray-500">{{ history.reason || '-' }}</td>
                                     </tr>
@@ -183,7 +185,7 @@ const { formatCurrency, formatDate } = useFormatters();
 
                     <!-- No Rent History -->
                     <div v-else class="bg-white rounded-lg shadow-sm border p-4 text-center text-gray-500">
-                        <p>No rent adjustments have been made since your lease started.</p>
+                        <p>{{ t('tenant_lease.no_rent_adjustments') }}</p>
                     </div>
                 </template>
             </div>

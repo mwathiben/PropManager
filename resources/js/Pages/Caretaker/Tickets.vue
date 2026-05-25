@@ -6,6 +6,7 @@ import { ref, computed } from 'vue';
 import TicketStatusBadge from '@/Components/TicketStatusBadge.vue';
 import TicketPriorityBadge from '@/Components/TicketPriorityBadge.vue';
 import { useFormatters } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import type { CaretakerTicketsPageProps, Ticket } from '@/types';
 import {
     WrenchScrewdriverIcon,
@@ -20,6 +21,8 @@ import {
 import EmptyState from '@/Components/EmptyState.vue';
 
 const props = defineProps<CaretakerTicketsPageProps>();
+
+const { t } = useI18n();
 
 const status = ref(props.filters.status || 'active');
 const priority = ref(props.filters.priority || '');
@@ -88,22 +91,22 @@ const getTimeAgo = (dateString) => {
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffDays = Math.floor(diffHours / 24);
 
-    if (diffDays > 0) return `${diffDays}d ago`;
-    if (diffHours > 0) return `${diffHours}h ago`;
-    return 'Just now';
+    if (diffDays > 0) return t('caretaker_tickets.time_ago.days', { count: diffDays });
+    if (diffHours > 0) return t('caretaker_tickets.time_ago.hours', { count: diffHours });
+    return t('caretaker_tickets.time_ago.just_now');
 };
 </script>
 
 <template>
-    <Head title="My Tickets" />
+    <Head :title="t('caretaker_tickets.title')" />
 
     <AuthenticatedLayout>
         <div class="py-6">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
                 <!-- Header -->
                 <div class="mb-6">
-                    <h1 class="text-3xl font-bold text-gray-900">My Work Queue</h1>
-                    <p class="text-gray-600 mt-1">Manage tickets assigned to you</p>
+                    <h1 class="text-3xl font-bold text-gray-900">{{ t('caretaker_tickets.heading') }}</h1>
+                    <p class="text-gray-600 mt-1">{{ t('caretaker_tickets.subtitle') }}</p>
                 </div>
 
                 <!-- Stats Cards -->
@@ -113,7 +116,7 @@ const getTimeAgo = (dateString) => {
                             <ExclamationTriangleIcon class="h-8 w-8 text-red-500 me-3" />
                             <div>
                                 <div class="text-2xl font-bold text-red-600">{{ stats.urgent }}</div>
-                                <div class="text-sm text-gray-500">Urgent</div>
+                                <div class="text-sm text-gray-500">{{ t('caretaker_tickets.stats.urgent') }}</div>
                             </div>
                         </div>
                     </div>
@@ -122,7 +125,7 @@ const getTimeAgo = (dateString) => {
                             <ClockIcon class="h-8 w-8 text-yellow-500 me-3" />
                             <div>
                                 <div class="text-2xl font-bold text-yellow-600">{{ stats.open }}</div>
-                                <div class="text-sm text-gray-500">Open</div>
+                                <div class="text-sm text-gray-500">{{ t('caretaker_tickets.stats.open') }}</div>
                             </div>
                         </div>
                     </div>
@@ -131,7 +134,7 @@ const getTimeAgo = (dateString) => {
                             <PlayIcon class="h-8 w-8 text-purple-500 me-3" />
                             <div>
                                 <div class="text-2xl font-bold text-purple-600">{{ stats.in_progress || 0 }}</div>
-                                <div class="text-sm text-gray-500">In Progress</div>
+                                <div class="text-sm text-gray-500">{{ t('caretaker_tickets.stats.in_progress') }}</div>
                             </div>
                         </div>
                     </div>
@@ -140,7 +143,7 @@ const getTimeAgo = (dateString) => {
                             <CheckCircleIcon class="h-8 w-8 text-green-500 me-3" />
                             <div>
                                 <div class="text-2xl font-bold text-green-600">{{ stats.resolved }}</div>
-                                <div class="text-sm text-gray-500">Resolved</div>
+                                <div class="text-sm text-gray-500">{{ t('caretaker_tickets.stats.resolved') }}</div>
                             </div>
                         </div>
                     </div>
@@ -151,7 +154,7 @@ const getTimeAgo = (dateString) => {
                     <div class="flex flex-wrap items-center gap-4">
                         <div class="flex items-center">
                             <FunnelIcon class="h-5 w-5 text-gray-400 me-2" />
-                            <span class="text-sm font-medium text-gray-700">Filter:</span>
+                            <span class="text-sm font-medium text-gray-700">{{ t('caretaker_tickets.filter_label') }}</span>
                         </div>
                         <div>
                             <select
@@ -159,8 +162,8 @@ const getTimeAgo = (dateString) => {
                                 @change="applyFilters"
                                 class="border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                             >
-                                <option value="">All Statuses</option>
-                                <option value="active">Active (Open/In Progress)</option>
+                                <option value="">{{ t('caretaker_tickets.all_statuses') }}</option>
+                                <option value="active">{{ t('caretaker_tickets.active_option') }}</option>
                                 <option v-for="(label, value) in statuses" :key="value" :value="value">
                                     {{ label }}
                                 </option>
@@ -172,7 +175,7 @@ const getTimeAgo = (dateString) => {
                                 @change="applyFilters"
                                 class="border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                             >
-                                <option value="">All Priorities</option>
+                                <option value="">{{ t('caretaker_tickets.all_priorities') }}</option>
                                 <option v-for="(label, value) in priorities" :key="value" :value="value">
                                     {{ label }}
                                 </option>
@@ -208,7 +211,7 @@ const getTimeAgo = (dateString) => {
                                         </Link>
                                         <div class="mt-1 flex flex-wrap items-center gap-2 text-sm text-gray-500">
                                             <span>{{ ticket.building?.name }}</span>
-                                            <span v-if="ticket.unit">- Unit {{ ticket.unit.unit_number }}</span>
+                                            <span v-if="ticket.unit">{{ t('caretaker_tickets.unit_prefix', { number: ticket.unit.unit_number }) }}</span>
                                             <span class="text-gray-300">|</span>
                                             <span>{{ ticket.subcategory }}</span>
                                             <span class="text-gray-300">|</span>
@@ -230,7 +233,7 @@ const getTimeAgo = (dateString) => {
                             <!-- Quick Actions -->
                             <div class="mt-4 pt-4 border-t flex items-center justify-between">
                                 <div class="text-xs text-gray-500">
-                                    Reported by {{ ticket.reporter?.name || 'Unknown' }}
+                                    {{ t('caretaker_tickets.reported_by', { name: ticket.reporter?.name || t('caretaker_tickets.unknown_reporter') }) }}
                                 </div>
                                 <div class="flex items-center space-x-2">
                                     <Link
@@ -238,7 +241,7 @@ const getTimeAgo = (dateString) => {
                                         class="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50"
                                     >
                                         <EyeIcon class="h-4 w-4 me-1" />
-                                        View
+                                        {{ t('caretaker_tickets.view') }}
                                     </Link>
 
                                     <!-- Acknowledge Button (for open tickets) -->
@@ -249,7 +252,7 @@ const getTimeAgo = (dateString) => {
                                         class="inline-flex items-center px-3 py-1.5 border border-blue-300 text-xs font-medium rounded text-blue-700 bg-blue-50 hover:bg-blue-100 disabled:opacity-50"
                                     >
                                         <CheckCircleIcon class="h-4 w-4 me-1" />
-                                        Acknowledge
+                                        {{ t('caretaker_tickets.acknowledge') }}
                                     </button>
 
                                     <!-- Start Work Button (for acknowledged tickets) -->
@@ -260,7 +263,7 @@ const getTimeAgo = (dateString) => {
                                         class="inline-flex items-center px-3 py-1.5 border border-purple-300 text-xs font-medium rounded text-purple-700 bg-purple-50 hover:bg-purple-100 disabled:opacity-50"
                                     >
                                         <PlayIcon class="h-4 w-4 me-1" />
-                                        Start Work
+                                        {{ t('caretaker_tickets.start_work') }}
                                     </button>
 
                                     <!-- Resolve Button (for in_progress tickets) -->
@@ -270,7 +273,7 @@ const getTimeAgo = (dateString) => {
                                         class="inline-flex items-center px-3 py-1.5 border border-green-300 text-xs font-medium rounded text-green-700 bg-green-50 hover:bg-green-100"
                                     >
                                         <CheckCircleIcon class="h-4 w-4 me-1" />
-                                        Resolve
+                                        {{ t('caretaker_tickets.resolve') }}
                                     </button>
                                 </div>
                             </div>
@@ -281,8 +284,8 @@ const getTimeAgo = (dateString) => {
                     <div v-if="tickets.data.length === 0" class="bg-white rounded-lg shadow-sm border">
                         <EmptyState
                             :icon="CheckCircleIcon"
-                            title="All caught up!"
-                            description="No tickets in your queue matching the current filters."
+                            :title="t('caretaker_tickets.empty.title')"
+                            :description="t('caretaker_tickets.empty.description')"
                         />
                     </div>
                 </div>
@@ -291,17 +294,14 @@ const getTimeAgo = (dateString) => {
                 <div v-if="tickets.data.length > 0" class="mt-6 bg-white rounded-lg shadow-sm border px-4 py-3">
                     <div class="flex items-center justify-between">
                         <div class="text-sm text-gray-700">
-                            Showing {{ tickets.from }} to {{ tickets.to }} of {{ tickets.total }} tickets
+                            {{ t('caretaker_tickets.pagination', { from: tickets.from, to: tickets.to, total: tickets.total }) }}
                         </div>
                         <div class="flex space-x-2">
                             <Link
                                 v-for="link in tickets.links"
                                 :key="link.label"
                                 :href="link.url || '#'"
-                                :class="[
-                                    link.active ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50',
-                                    'px-3 py-1 text-sm border rounded-md'
-                                ]"
+                                :class="[link.active ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50', 'px-3 py-1 text-sm border rounded-md']"
                                 :disabled="!link.url"
                             >
                                 <PaginatorLink :label="link.label" />
@@ -327,7 +327,7 @@ const getTimeAgo = (dateString) => {
                             </div>
                             <div class="mt-3 text-center sm:mt-5">
                                 <h3 class="text-lg leading-6 font-medium text-gray-900">
-                                    Resolve Ticket
+                                    {{ t('caretaker_tickets.resolve_modal.title') }}
                                 </h3>
                                 <p class="mt-2 text-sm text-gray-500">
                                     {{ selectedTicket?.title }}
@@ -338,7 +338,7 @@ const getTimeAgo = (dateString) => {
                         <form @submit.prevent="resolveTicket" class="mt-5">
                             <div>
                                 <label for="resolution_notes" class="block text-sm font-medium text-gray-700">
-                                    Resolution Notes <span class="text-red-500">*</span>
+                                    {{ t('caretaker_tickets.resolve_modal.notes_label') }} <span class="text-red-500">*</span>
                                 </label>
                                 <textarea
                                     id="resolution_notes"
@@ -346,7 +346,7 @@ const getTimeAgo = (dateString) => {
                                     rows="4"
                                     required
                                     class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                                    placeholder="Describe what was done to resolve this issue..."
+                                    :placeholder="t('caretaker_tickets.resolve_modal.notes_placeholder')"
                                 ></textarea>
                                 <p v-if="resolveForm.errors.resolution_notes" class="mt-1 text-sm text-red-600">
                                     {{ resolveForm.errors.resolution_notes }}
@@ -359,15 +359,15 @@ const getTimeAgo = (dateString) => {
                                     :disabled="resolveForm.processing"
                                     class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:col-start-2 sm:text-sm disabled:opacity-50"
                                 >
-                                    <span v-if="resolveForm.processing">Resolving...</span>
-                                    <span v-else>Mark as Resolved</span>
+                                    <span v-if="resolveForm.processing">{{ t('caretaker_tickets.resolve_modal.resolving') }}</span>
+                                    <span v-else>{{ t('caretaker_tickets.resolve_modal.submit') }}</span>
                                 </button>
                                 <button
                                     type="button"
                                     @click="showResolveModal = false"
                                     class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:col-start-1 sm:text-sm"
                                 >
-                                    Cancel
+                                    {{ t('caretaker_tickets.resolve_modal.cancel') }}
                                 </button>
                             </div>
                         </form>
