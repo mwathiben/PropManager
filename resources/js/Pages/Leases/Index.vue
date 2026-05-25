@@ -4,6 +4,7 @@ import Pagination from '@/Components/Pagination.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { useFormatters } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import type { LeasesIndexPageProps } from '@/types/finances';
 import {
     DocumentDuplicateIcon,
@@ -17,6 +18,7 @@ import {
 const props = defineProps<LeasesIndexPageProps>();
 
 const { formatCurrency, formatDate } = useFormatters();
+const { t } = useI18n();
 
 // Filter state
 const search = ref(props.filters.search || '');
@@ -52,24 +54,26 @@ const getStatusBadge = (isActive) => {
 
 // Calculate lease duration
 const getLeaseDuration = (startDate, endDate) => {
-    if (!startDate) return 'N/A';
+    if (!startDate) return t('leases.index.na');
     const start = new Date(startDate);
     const end = endDate ? new Date(endDate) : new Date();
     const months = Math.round((end - start) / (1000 * 60 * 60 * 24 * 30));
-    return months > 0 ? `${months} months` : 'Less than a month';
+    return months > 0
+        ? t('leases.index.duration.months', months, { count: months })
+        : t('leases.index.duration.less_than_month');
 };
 </script>
 
 <template>
-    <Head title="Lease Agreements" />
+    <Head :title="t('leases.index.title')" />
 
     <AuthenticatedLayout>
         <div class="py-6">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
                 <!-- Header -->
                 <div class="mb-6">
-                    <h1 class="text-3xl font-bold text-gray-900">Lease Agreements</h1>
-                    <p class="text-gray-600 mt-1">View and manage all lease agreements</p>
+                    <h1 class="text-3xl font-bold text-gray-900">{{ t('leases.index.title') }}</h1>
+                    <p class="text-gray-600 mt-1">{{ t('leases.index.subtitle') }}</p>
                 </div>
 
                 <!-- Stats Cards -->
@@ -80,7 +84,7 @@ const getLeaseDuration = (startDate, endDate) => {
                                 <DocumentDuplicateIcon class="w-6 h-6 text-indigo-600" />
                             </div>
                             <div class="ms-4">
-                                <p class="text-sm font-medium text-gray-500">Total Leases</p>
+                                <p class="text-sm font-medium text-gray-500">{{ t('leases.index.stats.total') }}</p>
                                 <p class="text-2xl font-bold text-gray-900">{{ stats.total_leases }}</p>
                             </div>
                         </div>
@@ -91,7 +95,7 @@ const getLeaseDuration = (startDate, endDate) => {
                                 <CheckCircleIcon class="w-6 h-6 text-green-600" />
                             </div>
                             <div class="ms-4">
-                                <p class="text-sm font-medium text-gray-500">Active Leases</p>
+                                <p class="text-sm font-medium text-gray-500">{{ t('leases.index.stats.active') }}</p>
                                 <p class="text-2xl font-bold text-green-600">{{ stats.active_leases }}</p>
                             </div>
                         </div>
@@ -102,7 +106,7 @@ const getLeaseDuration = (startDate, endDate) => {
                                 <XCircleIcon class="w-6 h-6 text-gray-600" />
                             </div>
                             <div class="ms-4">
-                                <p class="text-sm font-medium text-gray-500">Terminated Leases</p>
+                                <p class="text-sm font-medium text-gray-500">{{ t('leases.index.stats.terminated') }}</p>
                                 <p class="text-2xl font-bold text-gray-600">{{ stats.terminated_leases }}</p>
                             </div>
                         </div>
@@ -113,13 +117,13 @@ const getLeaseDuration = (startDate, endDate) => {
                 <div class="mb-6 bg-white shadow-sm rounded-lg p-4">
                     <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
                         <div class="md:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Search</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('leases.index.filters.search') }}</label>
                             <div class="relative">
                                 <input
                                     v-model="search"
                                     @keyup.enter="applyFilters"
                                     type="text"
-                                    placeholder="Search by tenant name or unit..."
+                                    :placeholder="t('leases.index.filters.search_placeholder')"
                                     class="w-full ps-10 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                                 >
                                 <MagnifyingGlassIcon class="w-5 h-5 text-gray-400 absolute start-3 top-2.5" />
@@ -127,26 +131,26 @@ const getLeaseDuration = (startDate, endDate) => {
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('leases.index.filters.status') }}</label>
                             <select
                                 v-model="status"
                                 @change="applyFilters"
                                 class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                             >
-                                <option value="">All Statuses</option>
-                                <option value="active">Active</option>
-                                <option value="terminated">Terminated</option>
+                                <option value="">{{ t('leases.index.filters.all_statuses') }}</option>
+                                <option value="active">{{ t('leases.index.status.active') }}</option>
+                                <option value="terminated">{{ t('leases.index.status.terminated') }}</option>
                             </select>
                         </div>
 
                         <div v-if="buildings?.length > 0">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Building</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('leases.index.filters.building') }}</label>
                             <select
                                 v-model="buildingId"
                                 @change="applyFilters"
                                 class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                             >
-                                <option value="">All Buildings</option>
+                                <option value="">{{ t('leases.index.filters.all_buildings') }}</option>
                                 <option v-for="building in buildings" :key="building.id" :value="building.id">
                                     {{ building.name }}
                                 </option>
@@ -158,7 +162,7 @@ const getLeaseDuration = (startDate, endDate) => {
                                 @click="clearFilters"
                                 class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
                             >
-                                Clear
+                                {{ t('leases.index.filters.clear') }}
                             </button>
                         </div>
                     </div>
@@ -169,27 +173,27 @@ const getLeaseDuration = (startDate, endDate) => {
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Tenant</th>
-                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
-                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Start Date</th>
-                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Rent</th>
-                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Documents</th>
-                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('leases.index.table.tenant') }}</th>
+                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('leases.index.table.unit') }}</th>
+                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('leases.index.table.start_date') }}</th>
+                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('leases.index.table.rent') }}</th>
+                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('leases.index.table.status') }}</th>
+                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('leases.index.table.documents') }}</th>
+                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('leases.index.table.actions') }}</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
                             <tr v-for="lease in leases.data" :key="lease.id" class="hover:bg-gray-50">
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="text-sm font-medium text-gray-900">
-                                        {{ lease.tenant?.name || 'N/A' }}
+                                        {{ lease.tenant?.name || t('leases.index.na') }}
                                     </div>
                                     <div class="text-sm text-gray-500">
                                         {{ lease.tenant?.email || '' }}
                                     </div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                    {{ lease.unit?.unit_number || 'N/A' }}
+                                    {{ lease.unit?.unit_number || t('leases.index.na') }}
                                     <span class="text-gray-500" v-if="lease.unit?.building">
                                         ({{ lease.unit.building.name }})
                                     </span>
@@ -205,15 +209,15 @@ const getLeaseDuration = (startDate, endDate) => {
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <span :class="getStatusBadge(lease.is_active)" class="px-2 py-1 text-xs font-medium rounded-full">
-                                        {{ lease.is_active ? 'Active' : 'Terminated' }}
+                                        {{ lease.is_active ? t('leases.index.status.active') : t('leases.index.status.terminated') }}
                                     </span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                     <span v-if="lease.documents?.length > 0" class="flex items-center gap-1">
                                         <DocumentArrowDownIcon class="w-4 h-4 text-green-600" />
-                                        {{ lease.documents.length }} doc(s)
+                                        {{ t('leases.index.documents.count', lease.documents.length, { count: lease.documents.length }) }}
                                     </span>
-                                    <span v-else class="text-gray-400">No documents</span>
+                                    <span v-else class="text-gray-400">{{ t('leases.index.documents.none') }}</span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm">
                                     <Link
@@ -222,15 +226,15 @@ const getLeaseDuration = (startDate, endDate) => {
                                         class="text-indigo-600 hover:text-indigo-900 flex items-center gap-1"
                                     >
                                         <EyeIcon class="w-4 h-4" />
-                                        View Tenant
+                                        {{ t('leases.index.view_tenant') }}
                                     </Link>
                                 </td>
                             </tr>
                             <tr v-if="leases.data.length === 0">
                                 <td colspan="7" class="px-6 py-12 text-center text-gray-500">
                                     <DocumentDuplicateIcon class="w-12 h-12 mx-auto text-gray-300 mb-4" />
-                                    <p class="text-lg font-medium">No lease agreements found</p>
-                                    <p class="text-sm">Lease agreements will appear here when tenants are added</p>
+                                    <p class="text-lg font-medium">{{ t('leases.index.empty.title') }}</p>
+                                    <p class="text-sm">{{ t('leases.index.empty.description') }}</p>
                                 </td>
                             </tr>
                         </tbody>

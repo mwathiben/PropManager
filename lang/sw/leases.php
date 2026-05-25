@@ -6,6 +6,51 @@ declare(strict_types=1);
  * Phase-105+ i18n migration: lease-creation (tenant invitation) page. Mirror en/sw/ar.
  */
 return [
+    'index' => [
+        'title' => 'Mikataba ya Ukodishaji',
+        'subtitle' => 'Tazama na simamia mikataba yote ya ukodishaji',
+        'stats' => [
+            'total' => 'Jumla ya Mikataba',
+            'active' => 'Mikataba Inayotumika',
+            'terminated' => 'Mikataba Iliyositishwa',
+        ],
+        'filters' => [
+            'search' => 'Tafuta',
+            'search_placeholder' => 'Tafuta kwa jina la mpangaji au kipengele...',
+            'status' => 'Hali',
+            'all_statuses' => 'Hali Zote',
+            'building' => 'Jengo',
+            'all_buildings' => 'Majengo Yote',
+            'clear' => 'Futa',
+        ],
+        'status' => [
+            'active' => 'Inatumika',
+            'terminated' => 'Imesitishwa',
+        ],
+        'table' => [
+            'tenant' => 'Mpangaji',
+            'unit' => 'Kipengele',
+            'start_date' => 'Tarehe ya Kuanza',
+            'rent' => 'Kodi',
+            'status' => 'Hali',
+            'documents' => 'Nyaraka',
+            'actions' => 'Vitendo',
+        ],
+        'na' => 'Haipatikani',
+        'duration' => [
+            'months' => 'Mwezi {count} | Miezi {count}',
+            'less_than_month' => 'Chini ya mwezi mmoja',
+        ],
+        'documents' => [
+            'count' => 'Hati {count} | Hati {count}',
+            'none' => 'Hakuna nyaraka',
+        ],
+        'view_tenant' => 'Tazama Mpangaji',
+        'empty' => [
+            'title' => 'Hakuna mikataba ya ukodishaji iliyopatikana',
+            'description' => 'Mikataba ya ukodishaji itaonekana hapa wapangaji wanapoongezwa',
+        ],
+    ],
     'create' => [
         'title' => 'Alika Mpangaji',
         'heading' => 'Alika Mpangaji: Kipengele {unit}',

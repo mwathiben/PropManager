@@ -115,12 +115,12 @@ function submit() {
 
                 <template v-else-if="currentStep === 2">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">Full name</label>
+                        <label class="block text-sm font-medium text-gray-700">{{ t('onboarding_caretaker_steps.full_name') }}</label>
                         <input v-model="form.name" type="text" class="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required />
                         <p v-if="form.errors.name" class="mt-1 text-sm text-red-600">{{ form.errors.name }}</p>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">Mobile number</label>
+                        <label class="block text-sm font-medium text-gray-700">{{ t('onboarding_caretaker_steps.mobile_number') }}</label>
                         <input v-model="form.mobile_number" type="text" class="mt-1 w-full rounded-md border-gray-300 shadow-sm" />
                         <p v-if="form.errors.mobile_number" class="mt-1 text-sm text-red-600">{{ form.errors.mobile_number }}</p>
                     </div>
@@ -128,11 +128,11 @@ function submit() {
 
                 <template v-else-if="currentStep === 3">
                     <p class="text-gray-700">
-                        Your landlord has invited you to manage one or more buildings. Confirm acceptance below; decline to skip a building you cannot cover.
+                        {{ t('onboarding_caretaker_steps.assignments_intro') }}
                     </p>
 
                     <p v-if="assignments.length === 0" class="rounded-md border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                        No pending building assignments. You can advance to the next step.
+                        {{ t('onboarding_caretaker_steps.no_assignments') }}
                     </p>
 
                     <ul v-else class="space-y-3">
@@ -145,7 +145,7 @@ function submit() {
                                 <div>
                                     <p class="font-medium text-gray-900">{{ assignment.building_name }}</p>
                                     <p class="text-xs text-gray-500">
-                                        {{ assignment.unit_count }} units · {{ assignment.occupied_count }} occupied · {{ assignment.open_ticket_count }} open tickets
+                                        {{ t('onboarding_caretaker_steps.building_stats', { units: assignment.unit_count, occupied: assignment.occupied_count, tickets: assignment.open_ticket_count }) }}
                                     </p>
                                 </div>
                                 <div class="flex items-center gap-2 text-sm">
@@ -157,7 +157,7 @@ function submit() {
                                             @change="isDeclined(assignment.id) && toggleDecline(assignment.id)"
                                             class="text-emerald-600 focus:ring-emerald-500"
                                         />
-                                        <span class="text-emerald-700">Accept</span>
+                                        <span class="text-emerald-700">{{ t('onboarding_caretaker_steps.accept') }}</span>
                                     </label>
                                     <label class="inline-flex items-center gap-1">
                                         <input
@@ -167,18 +167,18 @@ function submit() {
                                             @change="!isDeclined(assignment.id) && toggleDecline(assignment.id)"
                                             class="text-rose-600 focus:ring-rose-500"
                                         />
-                                        <span class="text-rose-700">Decline</span>
+                                        <span class="text-rose-700">{{ t('onboarding_caretaker_steps.decline') }}</span>
                                     </label>
                                 </div>
                             </div>
                             <div v-if="isDeclined(assignment.id)" class="mt-3">
-                                <label class="block text-xs font-medium text-gray-700">Reason (optional)</label>
+                                <label class="block text-xs font-medium text-gray-700">{{ t('onboarding_caretaker_steps.reason_label') }}</label>
                                 <textarea
                                     v-model="(form.decline_reason as Record<number, string>)[assignment.id]"
                                     :maxlength="MAX_DECLINE_REASON_LENGTH"
                                     rows="2"
                                     class="mt-1 w-full rounded-md border-gray-300 text-sm focus:border-rose-500 focus:ring-rose-500"
-                                    placeholder="Why you cannot cover this building"
+                                    :placeholder="t('onboarding_caretaker_steps.reason_placeholder')"
                                 ></textarea>
                                 <p class="mt-1 text-end text-xs text-gray-400">
                                     {{ reasonLength(assignment.id) }} / {{ MAX_DECLINE_REASON_LENGTH }}
@@ -190,19 +190,19 @@ function submit() {
 
                 <template v-else-if="currentStep === 4">
                     <fieldset>
-                        <legend class="text-sm font-medium text-gray-700 mb-2">Channels</legend>
-                        <label class="flex items-center gap-2"><input v-model="form.email_enabled" type="checkbox" class="rounded border-gray-300 text-indigo-600" /> <span class="text-sm text-gray-700">Email</span></label>
-                        <label class="flex items-center gap-2"><input v-model="form.sms_enabled" type="checkbox" class="rounded border-gray-300 text-indigo-600" /> <span class="text-sm text-gray-700">SMS</span></label>
-                        <label class="flex items-center gap-2"><input v-model="form.whatsapp_enabled" type="checkbox" class="rounded border-gray-300 text-indigo-600" /> <span class="text-sm text-gray-700">WhatsApp</span></label>
-                        <label class="flex items-center gap-2"><input v-model="form.push_enabled" type="checkbox" class="rounded border-gray-300 text-indigo-600" /> <span class="text-sm text-gray-700">Push</span></label>
+                        <legend class="text-sm font-medium text-gray-700 mb-2">{{ t('onboarding_caretaker_steps.channels') }}</legend>
+                        <label class="flex items-center gap-2"><input v-model="form.email_enabled" type="checkbox" class="rounded border-gray-300 text-indigo-600" /> <span class="text-sm text-gray-700">{{ t('onboarding_caretaker_steps.channel_email') }}</span></label>
+                        <label class="flex items-center gap-2"><input v-model="form.sms_enabled" type="checkbox" class="rounded border-gray-300 text-indigo-600" /> <span class="text-sm text-gray-700">{{ t('onboarding_caretaker_steps.channel_sms') }}</span></label>
+                        <label class="flex items-center gap-2"><input v-model="form.whatsapp_enabled" type="checkbox" class="rounded border-gray-300 text-indigo-600" /> <span class="text-sm text-gray-700">{{ t('onboarding_caretaker_steps.channel_whatsapp') }}</span></label>
+                        <label class="flex items-center gap-2"><input v-model="form.push_enabled" type="checkbox" class="rounded border-gray-300 text-indigo-600" /> <span class="text-sm text-gray-700">{{ t('onboarding_caretaker_steps.channel_push') }}</span></label>
                     </fieldset>
                     <fieldset>
-                        <legend class="text-sm font-medium text-gray-700 mb-2">Notification types</legend>
-                        <label class="flex items-center gap-2"><input v-model="form.maintenance_notice_enabled" type="checkbox" class="rounded border-gray-300 text-indigo-600" /> <span class="text-sm text-gray-700">Maintenance notices</span></label>
-                        <label class="flex items-center gap-2"><input v-model="form.general_enabled" type="checkbox" class="rounded border-gray-300 text-indigo-600" /> <span class="text-sm text-gray-700">General announcements</span></label>
-                        <label class="flex items-center gap-2"><input v-model="form.caretaker_invitation_enabled" type="checkbox" class="rounded border-gray-300 text-indigo-600" /> <span class="text-sm text-gray-700">Caretaker invitations</span></label>
-                        <label class="flex items-center gap-2"><input v-model="form.tenant_invitation_enabled" type="checkbox" class="rounded border-gray-300 text-indigo-600" /> <span class="text-sm text-gray-700">Tenant invitations</span></label>
-                        <label class="flex items-center gap-2"><input v-model="form.lease_expiry_enabled" type="checkbox" class="rounded border-gray-300 text-indigo-600" /> <span class="text-sm text-gray-700">Lease expiry alerts</span></label>
+                        <legend class="text-sm font-medium text-gray-700 mb-2">{{ t('onboarding_caretaker_steps.notification_types') }}</legend>
+                        <label class="flex items-center gap-2"><input v-model="form.maintenance_notice_enabled" type="checkbox" class="rounded border-gray-300 text-indigo-600" /> <span class="text-sm text-gray-700">{{ t('onboarding_caretaker_steps.maintenance_notices') }}</span></label>
+                        <label class="flex items-center gap-2"><input v-model="form.general_enabled" type="checkbox" class="rounded border-gray-300 text-indigo-600" /> <span class="text-sm text-gray-700">{{ t('onboarding_caretaker_steps.general_announcements') }}</span></label>
+                        <label class="flex items-center gap-2"><input v-model="form.caretaker_invitation_enabled" type="checkbox" class="rounded border-gray-300 text-indigo-600" /> <span class="text-sm text-gray-700">{{ t('onboarding_caretaker_steps.caretaker_invitations') }}</span></label>
+                        <label class="flex items-center gap-2"><input v-model="form.tenant_invitation_enabled" type="checkbox" class="rounded border-gray-300 text-indigo-600" /> <span class="text-sm text-gray-700">{{ t('onboarding_caretaker_steps.tenant_invitations') }}</span></label>
+                        <label class="flex items-center gap-2"><input v-model="form.lease_expiry_enabled" type="checkbox" class="rounded border-gray-300 text-indigo-600" /> <span class="text-sm text-gray-700">{{ t('onboarding_caretaker_steps.lease_expiry_alerts') }}</span></label>
                     </fieldset>
                 </template>
 
@@ -218,7 +218,7 @@ function submit() {
                             <li v-for="b in summary" :key="b.building_id" class="rounded-lg border border-gray-200 px-4 py-3">
                                 <p class="font-medium text-gray-900">{{ b.name }}</p>
                                 <p class="text-xs text-gray-500">
-                                    {{ b.unit_count }} units · {{ b.occupied_count }} occupied · {{ b.open_ticket_count }} open tickets
+                                    {{ t('onboarding_caretaker_steps.building_stats', { units: b.unit_count, occupied: b.occupied_count, tickets: b.open_ticket_count }) }}
                                 </p>
                             </li>
                         </ul>

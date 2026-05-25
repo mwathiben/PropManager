@@ -6,6 +6,51 @@ declare(strict_types=1);
  * Phase-105+ i18n migration: lease-creation (tenant invitation) page. Mirror en/sw/ar.
  */
 return [
+    'index' => [
+        'title' => 'عقود الإيجار',
+        'subtitle' => 'عرض وإدارة جميع عقود الإيجار',
+        'stats' => [
+            'total' => 'إجمالي العقود',
+            'active' => 'العقود النشطة',
+            'terminated' => 'العقود المنتهية',
+        ],
+        'filters' => [
+            'search' => 'بحث',
+            'search_placeholder' => 'ابحث باسم المستأجر أو الوحدة...',
+            'status' => 'الحالة',
+            'all_statuses' => 'جميع الحالات',
+            'building' => 'المبنى',
+            'all_buildings' => 'جميع المباني',
+            'clear' => 'مسح',
+        ],
+        'status' => [
+            'active' => 'نشط',
+            'terminated' => 'منتهٍ',
+        ],
+        'table' => [
+            'tenant' => 'المستأجر',
+            'unit' => 'الوحدة',
+            'start_date' => 'تاريخ البدء',
+            'rent' => 'الإيجار',
+            'status' => 'الحالة',
+            'documents' => 'المستندات',
+            'actions' => 'الإجراءات',
+        ],
+        'na' => 'غير متوفر',
+        'duration' => [
+            'months' => 'شهر {count} | {count} أشهر',
+            'less_than_month' => 'أقل من شهر',
+        ],
+        'documents' => [
+            'count' => 'مستند {count} | {count} مستندات',
+            'none' => 'لا توجد مستندات',
+        ],
+        'view_tenant' => 'عرض المستأجر',
+        'empty' => [
+            'title' => 'لم يتم العثور على عقود إيجار',
+            'description' => 'ستظهر عقود الإيجار هنا عند إضافة المستأجرين',
+        ],
+    ],
     'create' => [
         'title' => 'دعوة مستأجر',
         'heading' => 'دعوة مستأجر: الوحدة {unit}',

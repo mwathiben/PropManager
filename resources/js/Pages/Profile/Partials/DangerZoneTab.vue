@@ -8,6 +8,7 @@ import DangerButton from '@/Components/DangerButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import Modal from '@/Components/Modal.vue';
 import { useFormatters } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import type { DangerZoneTabProps } from '@/types';
 import {
     ExclamationTriangleIcon,
@@ -16,6 +17,7 @@ import {
 
 const props = defineProps<DangerZoneTabProps>();
 const { formatDate } = useFormatters();
+const { t } = useI18n();
 
 const confirmingUserDeletion = ref(false);
 const passwordInput = ref(null);
@@ -54,9 +56,9 @@ const closeModal = () => {
                     <ExclamationTriangleIcon class="h-5 w-5 text-red-400" />
                 </div>
                 <div class="ms-3">
-                    <h3 class="text-sm font-medium text-red-800">Danger Zone</h3>
+                    <h3 class="text-sm font-medium text-red-800">{{ t('profile_danger_zone.banner_title') }}</h3>
                     <p class="mt-1 text-sm text-red-700">
-                        The actions in this section are irreversible. Please proceed with caution.
+                        {{ t('profile_danger_zone.banner_body') }}
                     </p>
                 </div>
             </div>
@@ -69,16 +71,15 @@ const closeModal = () => {
                     <TrashIcon class="w-5 h-5 text-red-600" />
                 </div>
                 <div class="flex-1">
-                    <h3 class="text-sm font-medium text-gray-900">Delete Account</h3>
+                    <h3 class="text-sm font-medium text-gray-900">{{ t('profile_danger_zone.delete_account') }}</h3>
                     <p class="mt-1 text-sm text-gray-600">
-                        Once your account is deleted, all of its resources and data will be permanently deleted.
-                        Before deleting your account, please download any data or information that you wish to retain.
+                        {{ t('profile_danger_zone.delete_account_body') }}
                     </p>
 
                     <div class="mt-4">
                         <DangerButton @click="confirmUserDeletion">
                             <TrashIcon class="w-4 h-4 me-2" />
-                            Delete Account
+                            {{ t('profile_danger_zone.delete_account') }}
                         </DangerButton>
                     </div>
                 </div>
@@ -87,16 +88,16 @@ const closeModal = () => {
 
         <!-- Account Info -->
         <div class="bg-gray-50 rounded-xl border border-gray-200 p-4">
-            <h4 class="text-xs font-medium text-gray-700 mb-3">Account Information</h4>
+            <h4 class="text-xs font-medium text-gray-700 mb-3">{{ t('profile_danger_zone.account_information') }}</h4>
             <dl class="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                    <dt class="text-gray-500">Account Created</dt>
+                    <dt class="text-gray-500">{{ t('profile_danger_zone.account_created') }}</dt>
                     <dd class="text-gray-900 font-medium">
                         {{ formatDate(user.created_at, 'long') }}
                     </dd>
                 </div>
                 <div>
-                    <dt class="text-gray-500">Account Type</dt>
+                    <dt class="text-gray-500">{{ t('profile_danger_zone.account_type') }}</dt>
                     <dd class="text-gray-900 font-medium capitalize">{{ user.role.replace('_', ' ') }}</dd>
                 </div>
             </dl>
@@ -110,24 +111,23 @@ const closeModal = () => {
                         <ExclamationTriangleIcon class="w-6 h-6 text-red-600" />
                     </div>
                     <h2 class="text-lg font-medium text-gray-900">
-                        Delete Your Account?
+                        {{ t('profile_danger_zone.modal_title') }}
                     </h2>
                 </div>
 
                 <p class="text-sm text-gray-600 mb-4">
-                    Once your account is deleted, all of its resources and data will be permanently deleted.
-                    Please enter your password to confirm you would like to permanently delete your account.
+                    {{ t('profile_danger_zone.modal_body') }}
                 </p>
 
                 <div>
-                    <InputLabel for="password" value="Password" class="sr-only" />
+                    <InputLabel for="password" :value="t('profile_danger_zone.password')" class="sr-only" />
                     <TextInput
                         id="password"
                         ref="passwordInput"
                         v-model="form.password"
                         type="password"
                         class="block w-full"
-                        placeholder="Enter your password to confirm"
+                        :placeholder="t('profile_danger_zone.password_placeholder')"
                         @keyup.enter="deleteUser"
                     />
                     <InputError :message="form.errors.password" class="mt-2" />
@@ -135,7 +135,7 @@ const closeModal = () => {
 
                 <div class="mt-6 flex justify-end gap-3">
                     <SecondaryButton @click="closeModal">
-                        Cancel
+                        {{ t('profile_danger_zone.cancel') }}
                     </SecondaryButton>
 
                     <DangerButton
@@ -143,8 +143,8 @@ const closeModal = () => {
                         :disabled="form.processing"
                         @click="deleteUser"
                     >
-                        <span v-if="form.processing">Deleting...</span>
-                        <span v-else>Delete Account</span>
+                        <span v-if="form.processing">{{ t('profile_danger_zone.deleting') }}</span>
+                        <span v-else>{{ t('profile_danger_zone.delete_account') }}</span>
                     </DangerButton>
                 </div>
             </div>

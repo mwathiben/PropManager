@@ -6,6 +6,51 @@ declare(strict_types=1);
  * Phase-105+ i18n migration: lease-creation (tenant invitation) page. Mirror en/sw/ar.
  */
 return [
+    'index' => [
+        'title' => 'Lease Agreements',
+        'subtitle' => 'View and manage all lease agreements',
+        'stats' => [
+            'total' => 'Total Leases',
+            'active' => 'Active Leases',
+            'terminated' => 'Terminated Leases',
+        ],
+        'filters' => [
+            'search' => 'Search',
+            'search_placeholder' => 'Search by tenant name or unit...',
+            'status' => 'Status',
+            'all_statuses' => 'All Statuses',
+            'building' => 'Building',
+            'all_buildings' => 'All Buildings',
+            'clear' => 'Clear',
+        ],
+        'status' => [
+            'active' => 'Active',
+            'terminated' => 'Terminated',
+        ],
+        'table' => [
+            'tenant' => 'Tenant',
+            'unit' => 'Unit',
+            'start_date' => 'Start Date',
+            'rent' => 'Rent',
+            'status' => 'Status',
+            'documents' => 'Documents',
+            'actions' => 'Actions',
+        ],
+        'na' => 'N/A',
+        'duration' => [
+            'months' => '{count} month | {count} months',
+            'less_than_month' => 'Less than a month',
+        ],
+        'documents' => [
+            'count' => '{count} doc | {count} docs',
+            'none' => 'No documents',
+        ],
+        'view_tenant' => 'View Tenant',
+        'empty' => [
+            'title' => 'No lease agreements found',
+            'description' => 'Lease agreements will appear here when tenants are added',
+        ],
+    ],
     'create' => [
         'title' => 'Invite Tenant',
         'heading' => 'Invite Tenant: Unit {unit}',
