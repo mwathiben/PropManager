@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue';
 import { router, Head, Link } from '@inertiajs/vue3';
 import { useFormatters, useErrorHandler, useCurrency } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import {
     ArrowUturnLeftIcon,
@@ -18,6 +19,7 @@ const props = withDefaults(defineProps<RefundsCreatePageProps>(), {
     refundReasons: () => [],
 });
 
+const { t } = useI18n();
 const { formatMoney, formatDate } = useFormatters();
 const { logError } = useErrorHandler();
 const { currencySymbol } = useCurrency();
@@ -135,31 +137,31 @@ const validate = () => {
     errors.value = {};
 
     if (!selectedTenant.value) {
-        errors.value.tenant = 'Please select a tenant';
+        errors.value.tenant = t('finances_refunds_create.errors.select_tenant');
     }
 
     if (!form.value.payment_id) {
-        errors.value.payment = 'Please select a payment to refund';
+        errors.value.payment = t('finances_refunds_create.errors.select_payment');
     }
 
     if (!form.value.amount || Number(form.value.amount) <= 0) {
-        errors.value.amount = 'Please enter a valid amount';
+        errors.value.amount = t('finances_refunds_create.errors.valid_amount');
     }
 
     if (Number(form.value.amount) > maxAmount.value) {
-        errors.value.amount = `Amount cannot exceed ${formatMoney(maxAmount.value)}`;
+        errors.value.amount = t('finances_refunds_create.errors.amount_exceeds', { amount: formatMoney(maxAmount.value) });
     }
 
     if (!form.value.reason) {
-        errors.value.reason = 'Please select a reason';
+        errors.value.reason = t('finances_refunds_create.errors.select_reason');
     }
 
     if (form.value.reason === 'Other' && !form.value.custom_reason) {
-        errors.value.custom_reason = 'Please specify the reason';
+        errors.value.custom_reason = t('finances_refunds_create.errors.specify_reason');
     }
 
     if (!form.value.refund_method) {
-        errors.value.refund_method = 'Please select a refund method';
+        errors.value.refund_method = t('finances_refunds_create.errors.select_method');
     }
 
     return Object.keys(errors.value).length === 0;
@@ -189,16 +191,16 @@ const handleSubmit = () => {
     });
 };
 
-const paymentMethodLabels = {
-    cash: 'Cash',
-    bank_transfer: 'Bank Transfer',
-    mobile_money: 'M-Pesa',
-    paystack: 'Paystack (Online)',
-};
+const paymentMethodLabels = computed(() => ({
+    cash: t('finances_refunds_create.payment_methods.cash'),
+    bank_transfer: t('finances_refunds_create.payment_methods.bank_transfer'),
+    mobile_money: t('finances_refunds_create.payment_methods.mobile_money'),
+    paystack: t('finances_refunds_create.payment_methods.paystack'),
+}));
 </script>
 
 <template>
-    <Head title="Process Refund" />
+    <Head :title="t('finances_refunds_create.page_title')" />
 
     <AuthenticatedLayout>
         <div class="py-6">
@@ -209,7 +211,7 @@ const paymentMethodLabels = {
                         class="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
                     >
                         <ArrowLeftIcon class="w-4 h-4" />
-                        Back to Refunds
+                        {{ t('finances_refunds_create.back_to_refunds') }}
                     </Link>
                 </div>
 
@@ -220,8 +222,8 @@ const paymentMethodLabels = {
                                 <ArrowUturnLeftIcon class="w-5 h-5 text-amber-600" />
                             </div>
                             <div>
-                                <h1 class="text-lg font-semibold text-gray-900">Process Refund</h1>
-                                <p class="text-sm text-gray-500">Create a refund request for a tenant payment</p>
+                                <h1 class="text-lg font-semibold text-gray-900">{{ t('finances_refunds_create.heading') }}</h1>
+                                <p class="text-sm text-gray-500">{{ t('finances_refunds_create.subheading') }}</p>
                             </div>
                         </div>
                     </div>
@@ -230,14 +232,14 @@ const paymentMethodLabels = {
                         <div class="inline-flex items-center justify-center w-16 h-16 bg-emerald-100 rounded-full mb-4">
                             <CheckIcon class="w-8 h-8 text-emerald-600" />
                         </div>
-                        <h3 class="text-lg font-semibold text-gray-900">Refund Request Created!</h3>
-                        <p class="text-sm text-gray-500 mt-2">The refund has been submitted for processing.</p>
+                        <h3 class="text-lg font-semibold text-gray-900">{{ t('finances_refunds_create.success.title') }}</h3>
+                        <p class="text-sm text-gray-500 mt-2">{{ t('finances_refunds_create.success.body') }}</p>
                         <div class="mt-6">
                             <Link
                                 :href="route('finances.refunds')"
                                 class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors"
                             >
-                                View Refunds
+                                {{ t('finances_refunds_create.success.view_refunds') }}
                             </Link>
                         </div>
                     </div>
@@ -250,7 +252,7 @@ const paymentMethodLabels = {
                         <div class="space-y-4">
                             <h3 class="text-sm font-medium text-gray-900 flex items-center gap-2">
                                 <UserIcon class="w-4 h-4 text-gray-400" />
-                                Tenant Selection
+                                {{ t('finances_refunds_create.tenant_selection') }}
                             </h3>
 
                             <div v-if="selectedTenant" class="p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
@@ -270,7 +272,7 @@ const paymentMethodLabels = {
                                         @click="clearTenant"
                                         class="text-sm text-gray-500 hover:text-gray-700"
                                     >
-                                        Change
+                                        {{ t('finances_refunds_create.change') }}
                                     </button>
                                 </div>
                             </div>
@@ -282,7 +284,7 @@ const paymentMethodLabels = {
                                         v-model="searchQuery"
                                         type="text"
                                         class="w-full ps-10 pe-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
-                                        placeholder="Search tenant by name, phone, or unit number..."
+                                        :placeholder="t('finances_refunds_create.search_placeholder')"
                                         @focus="showSearchResults = searchResults.length > 0"
                                     />
                                     <div v-if="isSearching" class="absolute end-3 top-1/2 -translate-y-1/2">
@@ -306,7 +308,7 @@ const paymentMethodLabels = {
                                     >
                                         <p class="font-medium text-gray-900">{{ tenant.name }}</p>
                                         <p class="text-sm text-gray-500">
-                                            {{ tenant.unit?.unit_number || 'No unit' }}
+                                            {{ tenant.unit?.unit_number || t('finances_refunds_create.no_unit') }}
                                             <span v-if="tenant.unit?.building_name">· {{ tenant.unit.building_name }}</span>
                                         </p>
                                     </button>
@@ -319,7 +321,7 @@ const paymentMethodLabels = {
                         <div v-if="selectedTenant" class="space-y-4">
                             <h3 class="text-sm font-medium text-gray-900 flex items-center gap-2">
                                 <BanknotesIcon class="w-4 h-4 text-gray-400" />
-                                Payment Selection
+                                {{ t('finances_refunds_create.payment_selection') }}
                             </h3>
 
                             <div v-if="isLoadingPayments" class="text-center py-4">
@@ -327,12 +329,12 @@ const paymentMethodLabels = {
                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                 </svg>
-                                <p class="text-sm text-gray-500 mt-2">Loading payments...</p>
+                                <p class="text-sm text-gray-500 mt-2">{{ t('finances_refunds_create.loading_payments') }}</p>
                             </div>
 
                             <template v-else>
                                 <div v-if="tenantPayments.length === 0" class="p-4 bg-gray-50 rounded-lg text-center">
-                                    <p class="text-sm text-gray-500">No refundable payments found for this tenant</p>
+                                    <p class="text-sm text-gray-500">{{ t('finances_refunds_create.no_refundable_payments') }}</p>
                                 </div>
 
                                 <div v-else class="space-y-2">
@@ -341,7 +343,7 @@ const paymentMethodLabels = {
                                         :key="payment.id"
                                         @click="form.payment_id = payment.id"
                                         :class="[
-                                            'p-3 border rounded-lg cursor-pointer transition-colors',
+                                            /* i18n-ignore */ 'p-3 border rounded-lg cursor-pointer transition-colors',
                                             form.payment_id === payment.id
                                                 ? 'border-emerald-500 bg-emerald-50'
                                                 : 'border-gray-200 hover:border-gray-300'
@@ -355,13 +357,13 @@ const paymentMethodLabels = {
                                                     · {{ payment.payment_date }}
                                                 </p>
                                                 <p v-if="payment.invoice_number" class="text-xs text-gray-400">
-                                                    Invoice: {{ payment.invoice_number }}
+                                                    {{ t('finances_refunds_create.invoice_prefix') }} {{ payment.invoice_number }}
                                                 </p>
                                             </div>
                                             <div class="text-end">
                                                 <p class="font-semibold text-gray-900">{{ formatMoney(payment.refundable_amount) }}</p>
                                                 <p class="text-xs text-gray-500">
-                                                    of {{ formatMoney(payment.amount) }}
+                                                    {{ t('finances_refunds_create.of_amount', { amount: formatMoney(payment.amount) }) }}
                                                 </p>
                                             </div>
                                         </div>
@@ -375,12 +377,12 @@ const paymentMethodLabels = {
                         <div v-if="selectedPayment" class="space-y-4 pt-4 border-t border-gray-200">
                             <h3 class="text-sm font-medium text-gray-900 flex items-center gap-2">
                                 <ArrowUturnLeftIcon class="w-4 h-4 text-gray-400" />
-                                Refund Details
+                                {{ t('finances_refunds_create.refund_details') }}
                             </h3>
 
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Amount *</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_refunds_create.amount_label') }}</label>
                                     <div class="relative">
                                         <span class="absolute start-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">{{ currencySymbol }}</span>
                                         <input
@@ -395,22 +397,22 @@ const paymentMethodLabels = {
                                                     ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
                                                     : 'border-gray-300 focus:ring-emerald-500 focus:border-emerald-500'
                                             ]"
-                                            placeholder="0.00"
+                                            :placeholder="t('finances_refunds_create.amount_placeholder')"
                                         />
                                         <button
                                             type="button"
                                             @click="setFullAmount"
                                             class="absolute end-2 top-1/2 -translate-y-1/2 px-2 py-1 text-xs font-medium text-emerald-600 hover:bg-emerald-50 rounded transition-colors"
                                         >
-                                            Max
+                                            {{ t('finances_refunds_create.max') }}
                                         </button>
                                     </div>
                                     <p v-if="errors.amount" class="mt-1 text-sm text-red-600">{{ errors.amount }}</p>
-                                    <p class="mt-1 text-xs text-gray-500">Max refundable: {{ formatMoney(maxAmount) }}</p>
+                                    <p class="mt-1 text-xs text-gray-500">{{ t('finances_refunds_create.max_refundable', { amount: formatMoney(maxAmount) }) }}</p>
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Refund Method *</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_refunds_create.refund_method_label') }}</label>
                                     <select
                                         v-model="form.refund_method"
                                         :class="[
@@ -428,7 +430,7 @@ const paymentMethodLabels = {
                                 </div>
 
                                 <div class="sm:col-span-2">
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Reason *</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_refunds_create.reason_label') }}</label>
                                     <select
                                         v-model="form.reason"
                                         :class="[
@@ -438,7 +440,7 @@ const paymentMethodLabels = {
                                                 : 'border-gray-300 focus:ring-emerald-500 focus:border-emerald-500'
                                         ]"
                                     >
-                                        <option value="">Select a reason...</option>
+                                        <option value="">{{ t('finances_refunds_create.select_reason') }}</option>
                                         <option v-for="reason in refundReasons" :key="reason.value" :value="reason.value">
                                             {{ reason.label }}
                                         </option>
@@ -447,7 +449,7 @@ const paymentMethodLabels = {
                                 </div>
 
                                 <div v-if="form.reason === 'Other'" class="sm:col-span-2">
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Specify Reason *</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_refunds_create.specify_reason_label') }}</label>
                                     <input
                                         v-model="form.custom_reason"
                                         type="text"
@@ -457,33 +459,33 @@ const paymentMethodLabels = {
                                                 ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
                                                 : 'border-gray-300 focus:ring-emerald-500 focus:border-emerald-500'
                                         ]"
-                                        placeholder="Enter the reason for this refund..."
+                                        :placeholder="t('finances_refunds_create.custom_reason_placeholder')"
                                     />
                                     <p v-if="errors.custom_reason" class="mt-1 text-sm text-red-600">{{ errors.custom_reason }}</p>
                                 </div>
                             </div>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_refunds_create.notes_label') }}</label>
                                 <textarea
                                     v-model="form.notes"
                                     rows="2"
                                     class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 transition-colors resize-none"
-                                    placeholder="Any additional notes..."
+                                    :placeholder="t('finances_refunds_create.notes_placeholder')"
                                 />
                             </div>
 
                             <div class="p-3 bg-amber-50 border border-amber-200 rounded-lg">
                                 <div class="flex justify-between text-sm">
-                                    <span class="text-gray-600">Original Payment</span>
+                                    <span class="text-gray-600">{{ t('finances_refunds_create.original_payment') }}</span>
                                     <span class="font-medium">{{ formatMoney(selectedPayment.amount) }}</span>
                                 </div>
                                 <div v-if="selectedPayment.refunded_amount > 0" class="flex justify-between text-sm mt-1">
-                                    <span class="text-gray-600">Already Refunded</span>
+                                    <span class="text-gray-600">{{ t('finances_refunds_create.already_refunded') }}</span>
                                     <span class="font-medium text-red-600">- {{ formatMoney(selectedPayment.refunded_amount) }}</span>
                                 </div>
                                 <div class="flex justify-between text-sm mt-2 pt-2 border-t border-amber-200">
-                                    <span class="text-gray-700 font-medium">This Refund</span>
+                                    <span class="text-gray-700 font-medium">{{ t('finances_refunds_create.this_refund') }}</span>
                                     <span class="font-semibold text-amber-600">{{ formatMoney(form.amount || 0) }}</span>
                                 </div>
                             </div>
@@ -494,14 +496,14 @@ const paymentMethodLabels = {
                                 :href="route('finances.refunds')"
                                 class="flex-1 px-4 py-2.5 text-sm font-medium text-center text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                             >
-                                Cancel
+                                {{ t('finances_refunds_create.cancel') }}
                             </Link>
                             <button
                                 type="submit"
                                 :disabled="isSubmitting || !selectedPayment"
                                 class="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                {{ isSubmitting ? 'Processing...' : 'Create Refund' }}
+                                {{ isSubmitting ? t('finances_refunds_create.processing') : t('finances_refunds_create.create_refund') }}
                             </button>
                         </div>
                     </form>

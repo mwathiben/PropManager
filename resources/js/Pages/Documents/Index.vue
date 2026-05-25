@@ -73,7 +73,7 @@ const viewDocument = (documentId) => {
 };
 
 const deleteDocument = (documentId) => {
-    if (confirm('Are you sure you want to delete this document? This action cannot be undone.')) {
+    if (confirm(t('documents.confirm.delete'))) {
         router.delete(route('documents.destroy', documentId), {
             preserveScroll: true
         });
@@ -82,14 +82,14 @@ const deleteDocument = (documentId) => {
 
 const getDocumentTypeLabel = (type) => {
     const labels = {
-        'lease_agreement': 'Lease Agreement',
-        'tenant_id': 'Tenant ID',
-        'tenant_passport': 'Passport',
-        'bank_statement': 'Bank Statement',
-        'payslip': 'Payslip',
-        'reference_letter': 'Reference Letter',
-        'utility_bill': 'Utility Bill',
-        'other': 'Other'
+        'lease_agreement': t('documents.type.lease_agreement'),
+        'tenant_id': t('documents.type.tenant_id'),
+        'tenant_passport': t('documents.type.tenant_passport'),
+        'bank_statement': t('documents.type.bank_statement'),
+        'payslip': t('documents.type.payslip'),
+        'reference_letter': t('documents.type.reference_letter'),
+        'utility_bill': t('documents.type.utility_bill'),
+        'other': t('documents.type.other')
     };
     return labels[type] || type;
 };
@@ -186,7 +186,7 @@ const getFileIcon = (document) => {
 </script>
 
 <template>
-    <Head title="Documents" />
+    <Head :title="t('documents.title')" />
 
     <AuthenticatedLayout>
         <div class="py-6">
@@ -194,9 +194,9 @@ const getFileIcon = (document) => {
                 <!-- Header -->
                 <div class="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
                     <div>
-                        <h1 class="text-3xl font-bold text-gray-900">{{ isTenant ? 'My Documents' : 'Documents' }}</h1>
+                        <h1 class="text-3xl font-bold text-gray-900">{{ isTenant ? t('documents.heading.mine') : t('documents.heading.all') }}</h1>
                         <p class="mt-1 text-sm text-gray-500">
-                            {{ isTenant ? 'View your lease documents and files' : 'Manage lease agreements, tenant documents, and files' }}
+                            {{ isTenant ? t('documents.subtitle.mine') : t('documents.subtitle.all') }}
                         </p>
                     </div>
                     <button
@@ -205,7 +205,7 @@ const getFileIcon = (document) => {
                         class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 gap-2"
                     >
                         <PlusIcon class="w-5 h-5" />
-                        Upload Document
+                        {{ t('documents.upload') }}
                     </button>
                 </div>
 
@@ -213,13 +213,13 @@ const getFileIcon = (document) => {
                 <div class="mb-6 bg-white shadow-sm rounded-lg p-4">
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Search</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('documents.filters.search') }}</label>
                             <div class="relative">
                                 <input
                                     v-model="search"
                                     @keyup.enter="applyFilters"
                                     type="text"
-                                    placeholder="Search documents..."
+                                    :placeholder="t('documents.filters.search_placeholder')"
                                     class="w-full ps-10 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                                 >
                                 <MagnifyingGlassIcon class="w-5 h-5 text-gray-400 absolute start-3 top-2.5" />
@@ -227,40 +227,40 @@ const getFileIcon = (document) => {
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Document Type</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('documents.filters.document_type') }}</label>
                             <select
                                 v-model="typeFilter"
                                 @change="applyFilters"
                                 class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                             >
-                                <option value="">All Types</option>
-                                <option value="lease_agreement">Lease Agreement</option>
-                                <option value="tenant_id">Tenant ID</option>
-                                <option value="tenant_passport">Passport</option>
-                                <option value="bank_statement">Bank Statement</option>
-                                <option value="payslip">Payslip</option>
-                                <option value="reference_letter">Reference Letter</option>
-                                <option value="utility_bill">Utility Bill</option>
-                                <option value="other">Other</option>
+                                <option value="">{{ t('documents.type.all') }}</option>
+                                <option value="lease_agreement">{{ t('documents.type.lease_agreement') }}</option>
+                                <option value="tenant_id">{{ t('documents.type.tenant_id') }}</option>
+                                <option value="tenant_passport">{{ t('documents.type.tenant_passport') }}</option>
+                                <option value="bank_statement">{{ t('documents.type.bank_statement') }}</option>
+                                <option value="payslip">{{ t('documents.type.payslip') }}</option>
+                                <option value="reference_letter">{{ t('documents.type.reference_letter') }}</option>
+                                <option value="utility_bill">{{ t('documents.type.utility_bill') }}</option>
+                                <option value="other">{{ t('documents.type.other') }}</option>
                             </select>
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Attached To</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('documents.filters.attached_to') }}</label>
                             <select
                                 v-model="modelFilter"
                                 @change="applyFilters"
                                 class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                             >
-                                <option value="">All</option>
-                                <option value="Lease">Leases</option>
-                                <option value="User">Tenants</option>
+                                <option value="">{{ t('documents.attached.all') }}</option>
+                                <option value="Lease">{{ t('documents.attached.leases') }}</option>
+                                <option value="User">{{ t('documents.attached.tenants') }}</option>
                             </select>
                         </div>
 
                         <!-- Building/Wing Filter -->
                         <div v-if="!isTenant && buildings?.length > 0">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Building / Wing</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('documents.filters.building_wing') }}</label>
                             <BuildingWingFilter
                                 :buildings="buildings"
                                 v-model:buildingId="buildingId"
@@ -276,13 +276,13 @@ const getFileIcon = (document) => {
                                 class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 flex items-center gap-2"
                             >
                                 <FunnelIcon class="w-4 h-4" />
-                                Apply
+                                {{ t('documents.filters.apply') }}
                             </button>
                             <button
                                 @click="clearFilters"
                                 class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
                             >
-                                Clear
+                                {{ t('documents.filters.clear') }}
                             </button>
                         </div>
                     </div>
@@ -350,22 +350,22 @@ const getFileIcon = (document) => {
                                     />
                                 </th>
                                 <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Document
+                                    {{ t('documents.table.document') }}
                                 </th>
                                 <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Type
+                                    {{ t('documents.table.type') }}
                                 </th>
                                 <th class="hidden md:table-cell px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Attached To
+                                    {{ t('documents.table.attached_to') }}
                                 </th>
                                 <th class="hidden sm:table-cell px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Size
+                                    {{ t('documents.table.size') }}
                                 </th>
                                 <th class="hidden lg:table-cell px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Uploaded
+                                    {{ t('documents.table.uploaded') }}
                                 </th>
                                 <th class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Actions
+                                    {{ t('documents.table.actions') }}
                                 </th>
                             </tr>
                         </thead>
@@ -376,7 +376,7 @@ const getFileIcon = (document) => {
                                         type="checkbox"
                                         class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                         :checked="selectedIds.includes(document.id)"
-                                        :aria-label="`Select ${document.title}`"
+                                        :aria-label="t('documents.select_row', { title: document.title })"
                                         @change="toggleSelect(document.id)"
                                     />
                                 </td>
@@ -416,21 +416,21 @@ const getFileIcon = (document) => {
                                 </td>
                                 <td class="hidden lg:table-cell px-6 py-4 whitespace-nowrap">
                                     <div class="text-sm text-gray-900">{{ document.uploaded_at }}</div>
-                                    <div class="text-xs text-gray-500">by {{ document.uploaded_by }}</div>
+                                    <div class="text-xs text-gray-500">{{ t('documents.uploaded_by', { name: document.uploaded_by }) }}</div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-end text-sm space-x-2">
                                     <button
                                         v-if="document.is_pdf || document.is_image"
                                         @click="viewDocument(document.id)"
                                         class="text-blue-600 hover:text-blue-900"
-                                        title="View"
+                                        :title="t('documents.actions.view')"
                                     >
                                         <EyeIcon class="w-5 h-5 inline" />
                                     </button>
                                     <button
                                         @click="downloadDocument(document.id)"
                                         class="text-green-600 hover:text-green-900"
-                                        title="Download"
+                                        :title="t('documents.actions.download')"
                                     >
                                         <ArrowDownTrayIcon class="w-5 h-5 inline" />
                                     </button>
@@ -438,7 +438,7 @@ const getFileIcon = (document) => {
                                         v-if="canDeleteDocuments && !document.is_held"
                                         @click="deleteDocument(document.id)"
                                         class="text-red-600 hover:text-red-900"
-                                        title="Delete"
+                                        :title="t('documents.actions.delete')"
                                     >
                                         <TrashIcon class="w-5 h-5 inline" />
                                     </button>
@@ -488,7 +488,7 @@ const getFileIcon = (document) => {
                     <!-- Pagination -->
                     <div v-if="documents.data.length > 0" class="px-6 py-4 border-t border-gray-200 flex justify-between items-center">
                         <div class="text-sm text-gray-700">
-                            Showing {{ documents.from }} to {{ documents.to }} of {{ documents.total }} documents
+                            {{ t('documents.pagination.showing', { from: documents.from, to: documents.to, total: documents.total }) }}
                         </div>
                         <div class="flex gap-2">
                             <Link
@@ -511,9 +511,9 @@ const getFileIcon = (document) => {
                     <EmptyState
                         v-if="documents.data.length === 0"
                         :icon="FolderIcon"
-                        title="No documents found"
-                        :description="isTenant ? 'No documents have been shared with you yet.' : 'Upload your first document to get started.'"
-                        :action-label="canUploadDocuments ? 'Upload First Document' : null"
+                        :title="t('documents.empty.title')"
+                        :description="isTenant ? t('documents.empty.description.mine') : t('documents.empty.description.all')"
+                        :action-label="canUploadDocuments ? t('documents.empty.action') : null"
                         @action="showUploadModal = true"
                     />
                 </div>

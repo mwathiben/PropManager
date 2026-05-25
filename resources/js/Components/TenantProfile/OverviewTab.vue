@@ -2,10 +2,12 @@
 import KycBadge from '@/Components/KycBadge.vue';
 import FinancialSummaryCard from '@/Components/FinancialSummaryCard.vue';
 import { useFormatters } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import type { TenantOverviewTabProps } from '@/types';
 
 const props = defineProps<TenantOverviewTabProps>();
 const { formatDate, formatMoney: formatCurrency } = useFormatters();
+const { t } = useI18n();
 
 const primaryContact = () => {
     return props.emergencyContacts?.find(c => c.is_primary) || props.emergencyContacts?.[0];
@@ -30,60 +32,55 @@ const getActivityIcon = (type) => {
     <div class="space-y-6">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div class="bg-white border rounded-lg p-4">
-                <h3 class="text-sm font-medium text-gray-900 mb-4">Contact Information</h3>
+                <h3 class="text-sm font-medium text-gray-900 mb-4">{{ t('tenant_profile_overview.contact_information') }}</h3>
                 <dl class="space-y-3">
                     <div class="flex justify-between">
-                        <dt class="text-sm text-gray-500">Email</dt>
-                        <dd class="text-sm text-gray-900">{{ tenant?.email || 'N/A' }}</dd>
+                        <dt class="text-sm text-gray-500">{{ t('tenant_profile_overview.email') }}</dt>
+                        <dd class="text-sm text-gray-900">{{ tenant?.email || t('tenant_profile_overview.not_available') }}</dd>
                     </div>
                     <div class="flex justify-between">
-                        <dt class="text-sm text-gray-500">Phone</dt>
-                        <dd class="text-sm text-gray-900">{{ tenant?.mobile_number || 'N/A' }}</dd>
+                        <dt class="text-sm text-gray-500">{{ t('tenant_profile_overview.phone') }}</dt>
+                        <dd class="text-sm text-gray-900">{{ tenant?.mobile_number || t('tenant_profile_overview.not_available') }}</dd>
                     </div>
                     <div class="flex justify-between">
-                        <dt class="text-sm text-gray-500">ID Number</dt>
-                        <dd class="text-sm text-gray-900">{{ tenant?.national_id || 'Not provided' }}</dd>
+                        <dt class="text-sm text-gray-500">{{ t('tenant_profile_overview.id_number') }}</dt>
+                        <dd class="text-sm text-gray-900">{{ tenant?.national_id || t('tenant_profile_overview.not_provided') }}</dd>
                     </div>
                     <div class="flex justify-between">
-                        <dt class="text-sm text-gray-500">Tenant Since</dt>
+                        <dt class="text-sm text-gray-500">{{ t('tenant_profile_overview.tenant_since') }}</dt>
                         <dd class="text-sm text-gray-900">{{ formatDate(tenant?.created_at) }}</dd>
                     </div>
                 </dl>
             </div>
 
             <div class="bg-white border rounded-lg p-4">
-                <h3 class="text-sm font-medium text-gray-900 mb-4">Verification Status</h3>
+                <h3 class="text-sm font-medium text-gray-900 mb-4">{{ t('tenant_profile_overview.verification_status') }}</h3>
                 <div class="space-y-3">
                     <div class="flex items-center justify-between">
-                        <span class="text-sm text-gray-500">KYC Status</span>
+                        <span class="text-sm text-gray-500">{{ t('tenant_profile_overview.kyc_status') }}</span>
                         <KycBadge
                             :completed="verificationStatus?.kyc_completed"
                             :completed-at="verificationStatus?.kyc_completed_at"
                         />
                     </div>
                     <div class="flex items-center justify-between" v-if="activeLease">
-                        <span class="text-sm text-gray-500">Lease Verification</span>
+                        <span class="text-sm text-gray-500">{{ t('tenant_profile_overview.lease_verification') }}</span>
                         <span
-                            :class="[
-                                verificationStatus?.lease_verified
-                                    ? 'bg-green-100 text-green-800'
-                                    : 'bg-yellow-100 text-yellow-800',
-                                'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium'
-                            ]"
+                            :class="[verificationStatus?.lease_verified ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800', 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium']"
                         >
-                            {{ verificationStatus?.verified_count || 0 }}/{{ verificationStatus?.verification_count || 0 }} verified
+                            {{ t('tenant_profile_overview.verified_count', { verified: verificationStatus?.verified_count || 0, total: verificationStatus?.verification_count || 0 }) }}
                         </span>
                     </div>
                     <div v-if="tenant?.occupation" class="flex justify-between">
-                        <span class="text-sm text-gray-500">Occupation</span>
+                        <span class="text-sm text-gray-500">{{ t('tenant_profile_overview.occupation') }}</span>
                         <span class="text-sm text-gray-900">{{ tenant.occupation }}</span>
                     </div>
                     <div v-if="tenant?.employer" class="flex justify-between">
-                        <span class="text-sm text-gray-500">Employer</span>
+                        <span class="text-sm text-gray-500">{{ t('tenant_profile_overview.employer') }}</span>
                         <span class="text-sm text-gray-900">{{ tenant.employer }}</span>
                     </div>
                     <div v-if="tenant?.monthly_income" class="flex justify-between">
-                        <span class="text-sm text-gray-500">Monthly Income</span>
+                        <span class="text-sm text-gray-500">{{ t('tenant_profile_overview.monthly_income') }}</span>
                         <span class="text-sm text-gray-900">{{ formatCurrency(tenant.monthly_income) }}</span>
                     </div>
                 </div>
@@ -93,7 +90,7 @@ const getActivityIcon = (type) => {
         <FinancialSummaryCard :summary="financialSummary" />
 
         <div v-if="primaryContact()" class="bg-white border rounded-lg p-4">
-            <h3 class="text-sm font-medium text-gray-900 mb-3">Primary Emergency Contact</h3>
+            <h3 class="text-sm font-medium text-gray-900 mb-3">{{ t('tenant_profile_overview.primary_emergency_contact') }}</h3>
             <div class="flex items-start gap-3">
                 <div class="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center">
                     <svg class="h-5 w-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -109,7 +106,7 @@ const getActivityIcon = (type) => {
         </div>
 
         <div v-if="recentActivities().length" class="bg-white border rounded-lg p-4">
-            <h3 class="text-sm font-medium text-gray-900 mb-3">Recent Activity</h3>
+            <h3 class="text-sm font-medium text-gray-900 mb-3">{{ t('tenant_profile_overview.recent_activity') }}</h3>
             <ul class="space-y-3">
                 <li v-for="activity in recentActivities()" :key="activity.id" class="flex items-start gap-3">
                     <div class="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
@@ -121,7 +118,7 @@ const getActivityIcon = (type) => {
                         <p class="text-sm text-gray-900">{{ activity.description }}</p>
                         <p class="text-xs text-gray-500 mt-0.5">
                             {{ formatDate(activity.created_at) }}
-                            <span v-if="activity.performer"> by {{ activity.performer.name }}</span>
+                            <span v-if="activity.performer"> {{ t('tenant_profile_overview.performed_by', { name: activity.performer.name }) }}</span>
                         </p>
                     </div>
                 </li>

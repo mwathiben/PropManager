@@ -2,7 +2,10 @@
 import { useForm, usePage } from '@inertiajs/vue3';
 import { computed, watch } from 'vue';
 import Modal from '@/Components/Modal.vue';
+import { useI18n } from '@/composables/useI18n';
 import type { AddWingModalProps } from '@/types';
+
+const { t } = useI18n();
 
 const props = withDefaults(defineProps<AddWingModalProps>(), {
     buildings: () => [],
@@ -121,38 +124,38 @@ const close = () => {
     <Modal :show="show" max-width="lg" @close="close">
         <div class="px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
             <h3 class="text-lg font-bold text-gray-900 mb-4">
-                {{ form.parent_building_id ? 'Add Wing to Building' : 'Add New Building / Block' }}
+                {{ form.parent_building_id ? t('add_wing_modal.title_wing') : t('add_wing_modal.title_building') }}
             </h3>
 
             <form @submit.prevent="submit" class="space-y-4">
                         <!-- Building Selector (for adding wings) -->
                         <div v-if="hasBuildings">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Add to Building</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('add_wing_modal.add_to_building') }}</label>
                             <select
                                 v-model="form.parent_building_id"
                                 class="block w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                             >
-                                <option :value="null">-- Create as New Building --</option>
+                                <option :value="null">{{ t('add_wing_modal.create_new_option') }}</option>
                                 <option v-for="building in mainBuildings" :key="building.id" :value="building.id">
-                                    {{ building.name }} (add wing)
+                                    {{ t('add_wing_modal.building_option', { name: building.name }) }}
                                 </option>
                             </select>
                             <p class="mt-1 text-xs text-gray-500">
                                 {{ form.parent_building_id
-                                    ? 'This wing will be added to the selected building'
-                                    : 'This will create a new standalone building' }}
+                                    ? t('add_wing_modal.hint_wing')
+                                    : t('add_wing_modal.hint_building') }}
                             </p>
                         </div>
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700">
-                                {{ form.parent_building_id ? 'Wing Name' : 'Building Name' }}
+                                {{ form.parent_building_id ? t('add_wing_modal.wing_name') : t('add_wing_modal.building_name') }}
                             </label>
                             <input
                                 v-model="form.name"
                                 type="text"
                                 class="mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                                :placeholder="form.parent_building_id ? 'e.g. Wing A, Block B' : 'e.g. Main Building'"
+                                :placeholder="form.parent_building_id ? t('add_wing_modal.name_placeholder_wing') : t('add_wing_modal.name_placeholder_building')"
                                 required
                             >
                             <p v-if="form.errors.name" class="mt-1 text-sm text-red-600">{{ form.errors.name }}</p>
@@ -160,7 +163,7 @@ const close = () => {
 
                         <!-- Unit Prefix (only for wings) -->
                         <div v-if="form.parent_building_id">
-                            <label class="block text-sm font-medium text-gray-700">Unit Prefix</label>
+                            <label class="block text-sm font-medium text-gray-700">{{ t('add_wing_modal.unit_prefix') }}</label>
                             <div class="mt-1 flex items-center gap-3">
                                 <input
                                     v-model="form.unit_prefix"
@@ -171,18 +174,18 @@ const close = () => {
                                     placeholder="A"
                                     required
                                 >
-                                <span class="text-sm text-gray-500">1-3 characters</span>
+                                <span class="text-sm text-gray-500">{{ t('add_wing_modal.prefix_chars') }}</span>
                             </div>
                             <p v-if="form.errors.unit_prefix" class="mt-1 text-sm text-red-600">{{ form.errors.unit_prefix }}</p>
-                            <p v-else-if="isPrefixDuplicate" class="mt-1 text-sm text-red-600">This prefix is already in use by another wing.</p>
+                            <p v-else-if="isPrefixDuplicate" class="mt-1 text-sm text-red-600">{{ t('add_wing_modal.prefix_duplicate') }}</p>
                             <p v-else-if="unitPreview" class="mt-1 text-xs text-gray-500">
-                                Units will be named: {{ unitPreview }}
+                                {{ t('add_wing_modal.units_named', { preview: unitPreview }) }}
                             </p>
                         </div>
 
                         <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700">Floors</label>
+                                <label class="block text-sm font-medium text-gray-700">{{ t('add_wing_modal.floors') }}</label>
                                 <input
                                     v-model="form.floors"
                                     type="number"
@@ -194,7 +197,7 @@ const close = () => {
                                 <p v-if="form.errors.floors" class="mt-1 text-sm text-red-600">{{ form.errors.floors }}</p>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700">Units/Floor</label>
+                                <label class="block text-sm font-medium text-gray-700">{{ t('add_wing_modal.units_per_floor') }}</label>
                                 <input
                                     v-model="form.units_per_floor"
                                     type="number"
@@ -209,8 +212,8 @@ const close = () => {
 
                         <!-- Summary -->
                         <div class="bg-gray-50 rounded-lg p-3 text-sm text-gray-600">
-                            <span class="font-medium">This will create:</span>
-                            {{ form.floors * form.units_per_floor }} units ({{ form.floors }} floors x {{ form.units_per_floor }} units/floor)
+                            <span class="font-medium">{{ t('add_wing_modal.will_create') }}</span>
+                            {{ t('add_wing_modal.summary', { total: form.floors * form.units_per_floor, floors: form.floors, perFloor: form.units_per_floor }) }}
                         </div>
 
                 <div class="mt-6 flex justify-end gap-3">
@@ -219,14 +222,14 @@ const close = () => {
                         type="button"
                         class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium text-sm"
                     >
-                        Cancel
+                        {{ t('add_wing_modal.cancel') }}
                     </button>
                     <button
                         type="submit"
                         class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium text-sm shadow-sm"
                         :disabled="form.processing || (form.parent_building_id && isPrefixDuplicate)"
                     >
-                        {{ form.processing ? 'Creating...' : (form.parent_building_id ? 'Add Wing' : 'Create Building') }}
+                        {{ form.processing ? t('add_wing_modal.creating') : (form.parent_building_id ? t('add_wing_modal.add_wing') : t('add_wing_modal.create_building')) }}
                     </button>
                 </div>
             </form>

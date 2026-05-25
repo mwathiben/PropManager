@@ -1,5 +1,7 @@
 <script setup>
+import { computed } from 'vue';
 import { Link } from '@inertiajs/vue3';
+import { useI18n } from '@/composables/useI18n';
 import {
     ShieldCheckIcon,
     KeyIcon,
@@ -14,42 +16,44 @@ const props = defineProps({
     },
 });
 
-const securityLinks = [
+const { t } = useI18n();
+
+const securityLinks = computed(() => [
     {
-        title: 'Two-Factor Authentication',
-        description: 'Add an extra layer of security to your account with 2FA',
+        title: t('settings_security.links.two_factor.title'),
+        description: t('settings_security.links.two_factor.description'),
         icon: ShieldCheckIcon,
         route: 'two-factor.index',
         color: 'indigo',
-        status: props.twoFactorEnabled ? 'Enabled' : 'Disabled',
+        status: props.twoFactorEnabled ? t('settings_security.status.enabled') : t('settings_security.status.disabled'),
         statusColor: props.twoFactorEnabled ? 'green' : 'yellow',
     },
     {
-        title: 'Password & Profile',
-        description: 'Update your password and personal information',
+        title: t('settings_security.links.password.title'),
+        description: t('settings_security.links.password.description'),
         icon: KeyIcon,
         route: 'profile.edit',
         color: 'purple',
         status: null,
     },
     {
-        title: 'Privacy & Data',
-        description: 'Export or delete your personal data (GDPR compliance)',
+        title: t('settings_security.links.privacy.title'),
+        description: t('settings_security.links.privacy.description'),
         icon: FingerPrintIcon,
         route: 'gdpr.index',
         color: 'green',
         status: null,
     },
-];
+]);
 </script>
 
 <template>
     <div class="space-y-6">
         <!-- Section Header -->
         <div>
-            <h3 class="text-lg font-semibold text-gray-900">Security & Privacy</h3>
+            <h3 class="text-lg font-semibold text-gray-900">{{ t('settings_security.heading') }}</h3>
             <p class="mt-1 text-sm text-gray-600">
-                Manage your account security and data privacy settings.
+                {{ t('settings_security.subheading') }}
             </p>
         </div>
 
@@ -62,10 +66,7 @@ const securityLinks = [
                 class="block p-5 bg-white border border-gray-200 rounded-xl hover:border-indigo-300 hover:shadow-md transition-all group"
             >
                 <div class="flex items-start gap-4">
-                    <div :class="[
-                        'p-3 rounded-xl transition-colors',
-                        `bg-${item.color}-100 group-hover:bg-${item.color}-200`
-                    ]">
+                    <div :class="['p-3 rounded-xl transition-colors', `bg-${item.color}-100 group-hover:bg-${item.color}-200`]">
                         <component
                             :is="item.icon"
                             :class="[`w-6 h-6 text-${item.color}-600`]"
@@ -76,10 +77,7 @@ const securityLinks = [
                             <h4 class="text-sm font-semibold text-gray-900">{{ item.title }}</h4>
                             <span
                                 v-if="item.status"
-                                :class="[
-                                    'px-2 py-0.5 text-xs font-medium rounded',
-                                    item.statusColor === 'green' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                                ]"
+                                :class="['px-2 py-0.5 text-xs font-medium rounded', item.statusColor === 'green' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800']"
                             >
                                 {{ item.status }}
                             </span>
@@ -100,25 +98,22 @@ const securityLinks = [
                     <ShieldCheckIcon class="w-6 h-6 text-amber-600" />
                 </div>
                 <div>
-                    <h4 class="text-sm font-semibold text-amber-900">Security Recommendations</h4>
+                    <h4 class="text-sm font-semibold text-amber-900">{{ t('settings_security.recommendations.title') }}</h4>
                     <ul class="mt-2 space-y-2 text-sm text-amber-800">
                         <li class="flex items-center gap-2">
-                            <span :class="[
-                                'w-2 h-2 rounded-full',
-                                twoFactorEnabled ? 'bg-green-500' : 'bg-amber-500'
-                            ]"></span>
+                            <span :class="['w-2 h-2 rounded-full', twoFactorEnabled ? 'bg-green-500' : 'bg-amber-500']"></span>
                             <span :class="{ 'line-through opacity-60': twoFactorEnabled }">
-                                Enable two-factor authentication
+                                {{ t('settings_security.recommendations.enable_2fa') }}
                             </span>
-                            <span v-if="twoFactorEnabled" class="text-green-600 text-xs font-medium">Done</span>
+                            <span v-if="twoFactorEnabled" class="text-green-600 text-xs font-medium">{{ t('settings_security.recommendations.done') }}</span>
                         </li>
                         <li class="flex items-center gap-2">
                             <span class="w-2 h-2 rounded-full bg-amber-500"></span>
-                            Use a strong, unique password
+                            {{ t('settings_security.recommendations.strong_password') }}
                         </li>
                         <li class="flex items-center gap-2">
                             <span class="w-2 h-2 rounded-full bg-amber-500"></span>
-                            Review your data privacy settings regularly
+                            {{ t('settings_security.recommendations.review_privacy') }}
                         </li>
                     </ul>
                 </div>
@@ -127,7 +122,7 @@ const securityLinks = [
 
         <!-- Session Information -->
         <div class="bg-gray-50 rounded-xl p-6">
-            <h4 class="text-sm font-medium text-gray-700 uppercase tracking-wider mb-4">Account Security Status</h4>
+            <h4 class="text-sm font-medium text-gray-700 uppercase tracking-wider mb-4">{{ t('settings_security.account_status.title') }}</h4>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="flex items-center gap-3 p-4 bg-white rounded-lg border border-gray-200">
                     <div :class="[
@@ -140,12 +135,9 @@ const securityLinks = [
                         ]" />
                     </div>
                     <div>
-                        <p class="text-sm font-medium text-gray-900">Two-Factor Authentication</p>
-                        <p :class="[
-                            'text-xs',
-                            twoFactorEnabled ? 'text-green-600' : 'text-yellow-600'
-                        ]">
-                            {{ twoFactorEnabled ? 'Your account is protected with 2FA' : 'Not enabled - we recommend enabling 2FA' }}
+                        <p class="text-sm font-medium text-gray-900">{{ t('settings_security.account_status.two_factor') }}</p>
+                        <p :class="['text-xs', twoFactorEnabled ? 'text-green-600' : 'text-yellow-600']">
+                            {{ twoFactorEnabled ? t('settings_security.account_status.two_factor_protected') : t('settings_security.account_status.two_factor_not_enabled') }}
                         </p>
                     </div>
                 </div>
@@ -154,8 +146,8 @@ const securityLinks = [
                         <DocumentTextIcon class="w-5 h-5 text-blue-600" />
                     </div>
                     <div>
-                        <p class="text-sm font-medium text-gray-900">Data Privacy</p>
-                        <p class="text-xs text-gray-500">GDPR compliant data handling</p>
+                        <p class="text-sm font-medium text-gray-900">{{ t('settings_security.account_status.data_privacy') }}</p>
+                        <p class="text-xs text-gray-500">{{ t('settings_security.account_status.data_privacy_desc') }}</p>
                     </div>
                 </div>
             </div>

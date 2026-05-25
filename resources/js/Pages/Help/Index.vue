@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { useErrorHandler } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import type { HelpIndexPageProps } from '@/types/help';
 import {
     MagnifyingGlassIcon,
@@ -21,6 +22,7 @@ import {
 const props = defineProps<HelpIndexPageProps>();
 
 const { logError } = useErrorHandler();
+const { t } = useI18n();
 const searchQuery = ref('');
 const searchResults = ref({ faqs: [], articles: [] });
 const isSearching = ref(false);
@@ -70,15 +72,15 @@ const currentCategoryArticles = computed(() => {
 </script>
 
 <template>
-    <Head title="Help Center" />
+    <Head :title="t('help.page_title')" />
 
     <AuthenticatedLayout>
         <div class="py-8">
             <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
                 <!-- Header -->
                 <div class="text-center mb-10">
-                    <h1 class="text-3xl font-bold text-gray-900">Help Center</h1>
-                    <p class="mt-2 text-gray-600">Find answers to your questions about PropManager</p>
+                    <h1 class="text-3xl font-bold text-gray-900">{{ t('help.title') }}</h1>
+                    <p class="mt-2 text-gray-600">{{ t('help.subtitle') }}</p>
                 </div>
 
                 <!-- Search -->
@@ -89,7 +91,7 @@ const currentCategoryArticles = computed(() => {
                             v-model="searchQuery"
                             @input="searchHelp"
                             type="text"
-                            placeholder="Search for help..."
+                            :placeholder="t('help.search_placeholder')"
                             class="w-full ps-12 pe-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-lg"
                         />
                     </div>
@@ -97,11 +99,11 @@ const currentCategoryArticles = computed(() => {
                     <!-- Search Results -->
                     <div v-if="searchQuery.length >= 2" class="mt-4 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
                         <div v-if="isSearching" class="p-4 text-center text-gray-500">
-                            Searching...
+                            {{ t('help.searching') }}
                         </div>
                         <div v-else-if="hasSearchResults">
                             <div v-if="searchResults.faqs?.length" class="p-4 border-b border-gray-100">
-                                <h4 class="text-sm font-medium text-gray-500 mb-2">FAQs</h4>
+                                <h4 class="text-sm font-medium text-gray-500 mb-2">{{ t('help.faqs') }}</h4>
                                 <div v-for="faq in searchResults.faqs" :key="faq.id" class="py-2">
                                     <button
                                         @click="toggleFaq('search-' + faq.id)"
@@ -115,7 +117,7 @@ const currentCategoryArticles = computed(() => {
                                 </div>
                             </div>
                             <div v-if="searchResults.articles?.length" class="p-4">
-                                <h4 class="text-sm font-medium text-gray-500 mb-2">Articles</h4>
+                                <h4 class="text-sm font-medium text-gray-500 mb-2">{{ t('help.articles') }}</h4>
                                 <Link
                                     v-for="article in searchResults.articles"
                                     :key="article.id"
@@ -128,7 +130,7 @@ const currentCategoryArticles = computed(() => {
                             </div>
                         </div>
                         <div v-else class="p-4 text-center text-gray-500">
-                            No results found for "{{ searchQuery }}"
+                            {{ t('help.no_results', { query: searchQuery }) }}
                         </div>
                     </div>
                 </div>
@@ -139,12 +141,7 @@ const currentCategoryArticles = computed(() => {
                         v-for="(category, key) in categories"
                         :key="key"
                         @click="activeCategory = key"
-                        :class="[
-                            'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors',
-                            activeCategory === key
-                                ? 'bg-indigo-600 text-white'
-                                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
-                        ]"
+                        :class="['flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors', activeCategory === key ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200']"
                     >
                         <component :is="categoryIcons[key]" class="h-4 w-4" />
                         {{ category.name }}
@@ -157,7 +154,7 @@ const currentCategoryArticles = computed(() => {
                         <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                             <div class="px-6 py-4 border-b border-gray-100 bg-gray-50">
                                 <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">
-                                    Frequently Asked Questions
+                                    {{ t('help.frequently_asked') }}
                                 </h2>
                             </div>
                             <div class="px-6 py-4 border-b border-gray-100">
@@ -188,7 +185,7 @@ const currentCategoryArticles = computed(() => {
                                 </div>
 
                                 <div v-if="!currentCategoryFaqs.length" class="px-6 py-8 text-center text-gray-500">
-                                    No FAQs available for this category yet.
+                                    {{ t('help.no_faqs') }}
                                 </div>
                             </div>
                         </div>
@@ -199,7 +196,7 @@ const currentCategoryArticles = computed(() => {
                         <!-- Articles -->
                         <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                             <div class="px-6 py-4 border-b border-gray-100 bg-gray-50">
-                                <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Guides & Articles</h3>
+                                <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">{{ t('help.guides_articles') }}</h3>
                             </div>
                             <div class="divide-y divide-gray-100">
                                 <Link
@@ -214,23 +211,23 @@ const currentCategoryArticles = computed(() => {
                                     </div>
                                 </Link>
                                 <div v-if="!currentCategoryArticles.length" class="px-6 py-4 text-sm text-gray-500">
-                                    No articles available for this category.
+                                    {{ t('help.no_articles') }}
                                 </div>
                             </div>
                         </div>
 
                         <!-- Contact Support -->
                         <div class="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl shadow-sm p-6 text-white">
-                            <h3 class="font-semibold text-lg">Need More Help?</h3>
+                            <h3 class="font-semibold text-lg">{{ t('help.need_more_help') }}</h3>
                             <p class="mt-2 text-indigo-100 text-sm">
-                                Can't find what you're looking for? Our support team is here to help.
+                                {{ t('help.support_blurb') }}
                             </p>
                             <a
                                 :href="'mailto:' + supportEmail"
                                 class="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-white text-indigo-600 rounded-lg font-medium text-sm hover:bg-indigo-50 transition-colors"
                             >
                                 <EnvelopeIcon class="h-4 w-4" />
-                                Contact Support
+                                {{ t('help.contact_support') }}
                             </a>
                         </div>
                     </div>
