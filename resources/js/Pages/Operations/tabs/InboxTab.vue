@@ -14,8 +14,11 @@ import {
     ArrowTopRightOnSquareIcon,
 } from '@heroicons/vue/24/outline';
 import EmptyState from '@/Components/EmptyState.vue';
+import { useI18n } from '@/composables/useI18n';
 
 const props = defineProps<OperationsInboxTabProps>();
+
+const { t } = useI18n();
 
 const search = ref('');
 const statusFilter = ref('all');
@@ -45,7 +48,7 @@ const markAsRead = (messageId) => {
 };
 
 const markAllAsRead = () => {
-    if (confirm('Mark all messages as read?')) {
+    if (confirm(t('operations_inbox.confirm.mark_all_read'))) {
         router.put(route('inbox.mark-all-read'), {}, {
             preserveScroll: true,
         });
@@ -70,10 +73,10 @@ const statusBadge = (status) => {
 
 const statusLabel = (status) => {
     const labels = {
-        'received': 'Unread',
-        'processed': 'Read',
-        'action_taken': 'Actioned',
-        'ignored': 'Ignored',
+        'received': t('operations_inbox.status.received'),
+        'processed': t('operations_inbox.status.processed'),
+        'action_taken': t('operations_inbox.status.action_taken'),
+        'ignored': t('operations_inbox.status.ignored'),
     };
     return labels[status] || status;
 };
@@ -84,11 +87,11 @@ const statusLabel = (status) => {
         <!-- Header -->
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <div>
-                <h2 class="text-lg font-semibold text-gray-900">Inbox</h2>
+                <h2 class="text-lg font-semibold text-gray-900">{{ t('operations_inbox.title') }}</h2>
                 <p class="text-sm text-gray-500">
-                    Tenant messages from WhatsApp and SMS
+                    {{ t('operations_inbox.subtitle') }}
                     <span v-if="inboxUnreadCount > 0" class="font-medium text-indigo-600">
-                        ({{ inboxUnreadCount }} unread)
+                        {{ t('operations_inbox.unread_count', { count: inboxUnreadCount }) }}
                     </span>
                 </p>
             </div>
@@ -99,14 +102,14 @@ const statusLabel = (status) => {
                     class="px-3 py-1.5 text-sm border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 flex items-center gap-1"
                 >
                     <CheckCircleIcon class="w-4 h-4" />
-                    Mark All Read
+                    {{ t('operations_inbox.mark_all_read') }}
                 </button>
                 <Link
                     :href="route('inbox.index')"
                     class="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 flex items-center gap-1"
                 >
                     <ArrowTopRightOnSquareIcon class="w-4 h-4" />
-                    Full View
+                    {{ t('operations_inbox.full_view') }}
                 </Link>
             </div>
         </div>
@@ -118,7 +121,7 @@ const statusLabel = (status) => {
                 <input
                     v-model="search"
                     type="text"
-                    placeholder="Search messages..."
+                    :placeholder="t('operations_inbox.search_placeholder')"
                     class="w-full ps-10 pe-4 py-2 border border-gray-300 rounded-md text-sm focus:ring-indigo-500 focus:border-indigo-500"
                 />
             </div>
@@ -128,9 +131,9 @@ const statusLabel = (status) => {
                     v-model="statusFilter"
                     class="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500"
                 >
-                    <option value="all">All</option>
-                    <option value="unread">Unread</option>
-                    <option value="processed">Read</option>
+                    <option value="all">{{ t('operations_inbox.filter.all') }}</option>
+                    <option value="unread">{{ t('operations_inbox.filter.unread') }}</option>
+                    <option value="processed">{{ t('operations_inbox.filter.read') }}</option>
                 </select>
             </div>
         </div>
@@ -140,10 +143,7 @@ const statusLabel = (status) => {
             <div
                 v-for="message in inbox.data"
                 :key="message.id"
-                :class="[
-                    'p-4 hover:bg-gray-50 cursor-pointer transition-colors',
-                    message.status === 'received' ? 'bg-indigo-50/50' : ''
-                ]"
+                :class="['p-4 hover:bg-gray-50 cursor-pointer transition-colors', message.status === 'received' ? 'bg-indigo-50/50' : '']"
                 @click="router.get(route('inbox.show', message.id))"
             >
                 <div class="flex items-start gap-4">
@@ -179,7 +179,7 @@ const statusLabel = (status) => {
                         <p class="text-sm text-gray-600 mt-1 truncate">{{ message.body_preview }}</p>
                         <div v-if="message.has_ticket" class="flex items-center gap-1 mt-1 text-xs text-indigo-600">
                             <TicketIcon class="w-3 h-3" />
-                            Ticket #{{ message.ticket_id }}
+                            {{ t('operations_inbox.ticket', { id: message.ticket_id }) }}
                         </div>
                     </div>
                     <div v-if="message.status === 'received'" class="flex-shrink-0" @click.stop>
@@ -198,15 +198,15 @@ const statusLabel = (status) => {
         <div v-else class="border border-gray-200 rounded-lg bg-gray-50">
             <EmptyState
                 :icon="InboxIcon"
-                title="No messages"
-                description="Tenant messages from WhatsApp and SMS will appear here."
+                :title="t('operations_inbox.empty.title')"
+                :description="t('operations_inbox.empty.description')"
             />
         </div>
 
         <!-- Pagination -->
         <div v-if="inbox?.data?.length > 0" class="mt-4 flex justify-between items-center text-sm text-gray-500">
             <span>
-                Showing {{ inbox.from }} - {{ inbox.to }} of {{ inbox.total }}
+                {{ t('operations_inbox.showing', { from: inbox.from, to: inbox.to, total: inbox.total }) }}
             </span>
             <div class="flex gap-2">
                 <Link
@@ -214,14 +214,14 @@ const statusLabel = (status) => {
                     :href="inbox.prev_page_url"
                     class="px-3 py-1 border border-gray-300 rounded-md hover:bg-gray-50"
                 >
-                    Previous
+                    {{ t('operations_inbox.previous') }}
                 </Link>
                 <Link
                     v-if="inbox.next_page_url"
                     :href="inbox.next_page_url"
                     class="px-3 py-1 border border-gray-300 rounded-md hover:bg-gray-50"
                 >
-                    Next
+                    {{ t('operations_inbox.next') }}
                 </Link>
             </div>
         </div>
