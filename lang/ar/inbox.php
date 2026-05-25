@@ -71,6 +71,22 @@ return [
         ],
     ],
 
+    'show' => [
+        'head_title' => 'رسالة من {name}',
+        'back' => 'العودة إلى صندوق الوارد',
+        'replying_to' => 'الرد على: {subject}',
+        'sent_at' => 'أُرسلت {date}',
+        'auto_created_ticket' => 'تذكرة أُنشئت تلقائياً:',
+        'mark_as_read' => 'تحديد كمقروء',
+        'attachments' => 'المرفقات ({count})',
+        'attachment_alt' => 'المرفق {number}',
+        'reply_via' => 'الرد عبر {channel}',
+        'reply_placeholder' => 'اكتب ردك...',
+        'chars_remaining' => 'بقي {count} حرفاً',
+        'sending' => 'جارٍ الإرسال...',
+        'send_reply' => 'إرسال الرد',
+    ],
+
     'title' => 'صندوق الوارد',
     'subtitle' => 'رسائل المستأجرين من واتساب والرسائل النصية',
     'unread_count' => '({count} غير مقروءة)',

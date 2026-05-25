@@ -81,9 +81,12 @@ class Phase43HardcodedStringBaselineTest extends TestCase
      * - 2026-05-25: lowered to 337 after migrating six more screens
      *   (Profile/UpdateProfileInformationForm, Readings/Index, Tenants/History,
      *   Tickets/Index, Water/ReadingsTab, Finances/ExportDropdown) to $t().
+     * - 2026-05-25: lowered to 301 after migrating six more screens
+     *   (Admin/Landlords, Archive/ActivityTab, Finances/ReconciliationTab,
+     *   Inbox/Show, Invitations/AcceptExisting, Notifications/SettingsTab) to $t().
      *   Lowering the constant requires the scanner to confirm the new floor.
      */
-    private const BASELINE = 337;
+    private const BASELINE = 301;
 
     public function test_hardcoded_english_count_does_not_grow_beyond_baseline(): void
     {

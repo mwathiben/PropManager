@@ -23,6 +23,9 @@ import {
     ArrowTopRightOnSquareIcon
 } from '@heroicons/vue/24/outline';
 import type { ProviderSettings, GlobalNotificationPreferences, WhatsAppTemplate } from '@/types';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 const props = withDefaults(defineProps<{
     settings?: ProviderSettings;
@@ -41,83 +44,83 @@ const emit = defineEmits(['open-wizard']);
 // Internal settings tabs
 const settingsTab = ref('channels');
 
-const settingsTabs = [
-    { id: 'channels', name: 'Channels', icon: SignalIcon },
-    { id: 'templates', name: 'Templates', icon: DocumentTextIcon },
-    { id: 'delivery', name: 'Delivery & Retry', icon: ClockIcon },
-    { id: 'archive', name: 'Archive', icon: ArchiveBoxIcon },
-];
+const settingsTabs = computed(() => [
+    { id: 'channels', name: t('notifications_settings.tabs.channels'), icon: SignalIcon },
+    { id: 'templates', name: t('notifications_settings.tabs.templates'), icon: DocumentTextIcon },
+    { id: 'delivery', name: t('notifications_settings.tabs.delivery'), icon: ClockIcon },
+    { id: 'archive', name: t('notifications_settings.tabs.archive'), icon: ArchiveBoxIcon },
+]);
 
 const showPassword = ref({});
 const testingProvider = ref(null);
 const testResult = ref(null);
 
 // Provider configurations
-const providers = [
+const providers = computed(() => [
     {
         id: 'email',
-        name: 'Email',
+        name: t('notifications_settings.providers.email.name'),
         icon: EnvelopeIcon,
-        description: 'Send notifications via email using SMTP or a mail service',
+        description: t('notifications_settings.providers.email.description'),
         color: 'indigo',
         fields: [
-            { key: 'mail_mailer', label: 'Mail Driver', type: 'select', options: ['smtp', 'mailgun', 'postmark', 'ses'], default: 'smtp' },
-            { key: 'mail_host', label: 'SMTP Host', type: 'text', placeholder: 'smtp.example.com' },
-            { key: 'mail_port', label: 'SMTP Port', type: 'text', placeholder: '587' },
-            { key: 'mail_username', label: 'Username', type: 'text' },
-            { key: 'mail_password', label: 'Password', type: 'password' },
-            { key: 'mail_encryption', label: 'Encryption', type: 'select', options: ['tls', 'ssl', 'none'], default: 'tls' },
-            { key: 'mail_from_address', label: 'From Address', type: 'email', placeholder: 'noreply@example.com' },
-            { key: 'mail_from_name', label: 'From Name', type: 'text', placeholder: 'Property Manager' },
+            { key: 'mail_mailer', label: t('notifications_settings.fields.mail_mailer'), type: 'select', options: ['smtp', 'mailgun', 'postmark', 'ses'], default: 'smtp' },
+            { key: 'mail_host', label: t('notifications_settings.fields.mail_host'), type: 'text', placeholder: 'smtp.example.com' },
+            { key: 'mail_port', label: t('notifications_settings.fields.mail_port'), type: 'text', placeholder: '587' },
+            { key: 'mail_username', label: t('notifications_settings.fields.mail_username'), type: 'text' },
+            { key: 'mail_password', label: t('notifications_settings.fields.mail_password'), type: 'password' },
+            { key: 'mail_encryption', label: t('notifications_settings.fields.mail_encryption'), type: 'select', options: ['tls', 'ssl', 'none'], default: 'tls' },
+            { key: 'mail_from_address', label: t('notifications_settings.fields.mail_from_address'), type: 'email', placeholder: 'noreply@example.com' },
+            { key: 'mail_from_name', label: t('notifications_settings.fields.mail_from_name'), type: 'text', placeholder: t('notifications_settings.placeholders.from_name') },
         ]
     },
     {
         id: 'sms',
-        name: 'SMS',
+        name: t('notifications_settings.providers.sms.name'),
         icon: DevicePhoneMobileIcon,
-        description: 'Send text messages via Africa\'s Talking or Twilio',
+        description: t('notifications_settings.providers.sms.description'),
         color: 'green',
         fields: [
-            { key: 'sms_provider', label: 'SMS Provider', type: 'select', options: ['africastalking', 'twilio'], default: 'africastalking' },
-            { key: 'africastalking_username', label: 'AT Username', type: 'text', showWhen: 'africastalking' },
-            { key: 'africastalking_api_key', label: 'AT API Key', type: 'password', showWhen: 'africastalking' },
-            { key: 'africastalking_sender_id', label: 'AT Sender ID', type: 'text', showWhen: 'africastalking', placeholder: 'Optional' },
-            { key: 'twilio_sid', label: 'Twilio Account SID', type: 'text', showWhen: 'twilio' },
-            { key: 'twilio_token', label: 'Twilio Auth Token', type: 'password', showWhen: 'twilio' },
-            { key: 'twilio_from', label: 'Twilio From Number', type: 'text', showWhen: 'twilio', placeholder: '+1234567890' },
+            { key: 'sms_provider', label: t('notifications_settings.fields.sms_provider'), type: 'select', options: ['africastalking', 'twilio'], default: 'africastalking' },
+            { key: 'africastalking_username', label: t('notifications_settings.fields.africastalking_username'), type: 'text', showWhen: 'africastalking' },
+            { key: 'africastalking_api_key', label: t('notifications_settings.fields.africastalking_api_key'), type: 'password', showWhen: 'africastalking' },
+            { key: 'africastalking_sender_id', label: t('notifications_settings.fields.africastalking_sender_id'), type: 'text', showWhen: 'africastalking', placeholder: t('notifications_settings.placeholders.optional') },
+            { key: 'twilio_sid', label: t('notifications_settings.fields.twilio_sid'), type: 'text', showWhen: 'twilio' },
+            { key: 'twilio_token', label: t('notifications_settings.fields.twilio_token'), type: 'password', showWhen: 'twilio' },
+            { key: 'twilio_from', label: t('notifications_settings.fields.twilio_from'), type: 'text', showWhen: 'twilio', placeholder: '+1234567890' },
         ]
     },
     {
         id: 'whatsapp',
-        name: 'WhatsApp',
+        name: t('notifications_settings.providers.whatsapp.name'),
         icon: ChatBubbleLeftRightIcon,
-        description: 'Send WhatsApp messages via Twilio WhatsApp API',
+        description: t('notifications_settings.providers.whatsapp.description'),
         color: 'emerald',
         fields: [
-            { key: 'whatsapp_provider', label: 'WhatsApp Provider', type: 'select', options: ['twilio'], default: 'twilio' },
-            { key: 'whatsapp_twilio_sid', label: 'Twilio Account SID', type: 'text' },
-            { key: 'whatsapp_twilio_token', label: 'Twilio Auth Token', type: 'password' },
-            { key: 'whatsapp_from', label: 'WhatsApp From Number', type: 'text', placeholder: '+14155238886' },
+            { key: 'whatsapp_provider', label: t('notifications_settings.fields.whatsapp_provider'), type: 'select', options: ['twilio'], default: 'twilio' },
+            { key: 'whatsapp_twilio_sid', label: t('notifications_settings.fields.whatsapp_twilio_sid'), type: 'text' },
+            { key: 'whatsapp_twilio_token', label: t('notifications_settings.fields.whatsapp_twilio_token'), type: 'password' },
+            { key: 'whatsapp_from', label: t('notifications_settings.fields.whatsapp_from'), type: 'text', placeholder: '+14155238886' },
         ]
     },
     {
         id: 'push',
-        name: 'Push Notifications',
+        name: t('notifications_settings.providers.push.name'),
         icon: BellIcon,
-        description: 'Send browser push notifications using Web Push',
+        description: t('notifications_settings.providers.push.description'),
         color: 'purple',
         fields: [
-            { key: 'vapid_public_key', label: 'VAPID Public Key', type: 'text', readonly: true },
-            { key: 'vapid_private_key', label: 'VAPID Private Key', type: 'password', readonly: true },
-            { key: 'vapid_subject', label: 'VAPID Subject', type: 'email', placeholder: 'mailto:admin@example.com' },
+            { key: 'vapid_public_key', label: t('notifications_settings.fields.vapid_public_key'), type: 'text', readonly: true },
+            { key: 'vapid_private_key', label: t('notifications_settings.fields.vapid_private_key'), type: 'password', readonly: true },
+            { key: 'vapid_subject', label: t('notifications_settings.fields.vapid_subject'), type: 'email', placeholder: 'mailto:admin@example.com' },
         ]
     },
-];
+]);
 
 const forms = ref({});
 
 // Initialize forms for each provider
-providers.forEach(provider => {
+providers.value.forEach(provider => {
     const formData = {};
     provider.fields.forEach(field => {
         formData[field.key] = props.settings[field.key] || field.default || '';
@@ -156,9 +159,9 @@ const saveGlobalPreferences = () => {
 
 // WhatsApp Templates form
 const templatesForm = useForm({
-    templates: props.whatsappTemplates.map(t => ({
-        type: t.type,
-        sid: t.sid || '',
+    templates: props.whatsappTemplates.map(tmpl => ({
+        type: tmpl.type,
+        sid: tmpl.sid || '',
     })),
 });
 
@@ -169,7 +172,7 @@ const saveTemplates = () => {
 };
 
 const getTemplateByType = (type) => {
-    return props.whatsappTemplates.find(t => t.type === type);
+    return props.whatsappTemplates.find(tmpl => tmpl.type === type);
 };
 
 const getProviderStatus = (providerId) => {
@@ -213,14 +216,14 @@ const testProvider = async (providerId) => {
         const data = await response.json();
         testResult.value = { provider: providerId, success: data.success, message: data.message };
     } catch (error) {
-        testResult.value = { provider: providerId, success: false, message: 'Test failed: ' + error.message };
+        testResult.value = { provider: providerId, success: false, message: t('notifications_settings.test_failed', { error: error.message }) };
     } finally {
         testingProvider.value = null;
     }
 };
 
 const generateVapidKeys = async () => {
-    if (!confirm('Generate new VAPID keys? Existing push subscriptions will need to re-subscribe.')) {
+    if (!confirm(t('notifications_settings.vapid.confirm'))) {
         return;
     }
 
@@ -238,7 +241,7 @@ const generateVapidKeys = async () => {
             forms.value.push.vapid_private_key = data.private_key;
         }
     } catch (error) {
-        alert('Failed to generate VAPID keys: ' + error.message);
+        alert(t('notifications_settings.vapid.failed', { error: error.message }));
     }
 };
 
@@ -273,12 +276,7 @@ const getColorClasses = (color) => {
                     v-for="tab in settingsTabs"
                     :key="tab.id"
                     @click="settingsTab = tab.id"
-                    :class="[
-                        'flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-all',
-                        settingsTab === tab.id
-                            ? 'bg-indigo-600 text-white shadow-sm'
-                            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                    ]"
+                    :class="['flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-all', settingsTab === tab.id ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50']"
                 >
                     <component :is="tab.icon" class="w-4 h-4" />
                     <span>{{ tab.name }}</span>
@@ -295,15 +293,15 @@ const getColorClasses = (color) => {
                     <SparklesIcon class="w-6 h-6 text-indigo-600" />
                 </div>
                 <div class="flex-1">
-                    <h3 class="font-semibold text-indigo-900">Quick Setup Wizard</h3>
+                    <h3 class="font-semibold text-indigo-900">{{ t('notifications_settings.wizard.title') }}</h3>
                     <p class="text-sm text-indigo-700 mt-1">
-                        Not sure where to start? Run the setup wizard to configure your notification channels step by step.
+                        {{ t('notifications_settings.wizard.description') }}
                     </p>
                     <button
                         @click="$emit('open-wizard')"
                         class="mt-3 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"
                     >
-                        Run Setup Wizard
+                        {{ t('notifications_settings.wizard.run') }}
                     </button>
                 </div>
             </div>
@@ -333,14 +331,14 @@ const getColorClasses = (color) => {
                             class="inline-flex items-center gap-1.5 px-3 py-1 text-sm font-medium bg-green-100 text-green-700 rounded-full"
                         >
                             <CheckCircleIcon class="w-4 h-4" />
-                            Configured
+                            {{ t('notifications_settings.status.configured') }}
                         </span>
                         <span
                             v-else
                             class="inline-flex items-center gap-1.5 px-3 py-1 text-sm font-medium bg-yellow-100 text-yellow-700 rounded-full"
                         >
                             <ExclamationCircleIcon class="w-4 h-4" />
-                            Not Configured
+                            {{ t('notifications_settings.status.not_configured') }}
                         </span>
                     </div>
                 </div>
@@ -412,10 +410,10 @@ const getColorClasses = (color) => {
                             class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-purple-700 bg-purple-100 rounded-lg hover:bg-purple-200 transition-colors"
                         >
                             <Cog6ToothIcon class="w-4 h-4" />
-                            Generate New VAPID Keys
+                            {{ t('notifications_settings.vapid.generate') }}
                         </button>
                         <p class="text-xs text-gray-500 mt-2">
-                            VAPID keys are required for Web Push notifications. Generate keys if you haven't already.
+                            {{ t('notifications_settings.vapid.hint') }}
                         </p>
                     </div>
 
@@ -437,7 +435,7 @@ const getColorClasses = (color) => {
                                 <input type="checkbox" v-model="forms[provider.id].enabled" class="sr-only peer" />
                                 <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                             </label>
-                            <span class="text-sm text-gray-700">Enable {{ provider.name }}</span>
+                            <span class="text-sm text-gray-700">{{ t('notifications_settings.enable', { provider: provider.name }) }}</span>
                         </div>
 
                         <div class="flex items-center gap-3">
@@ -448,7 +446,7 @@ const getColorClasses = (color) => {
                                 class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 <ArrowPathIcon :class="['w-4 h-4', testingProvider === provider.id ? 'animate-spin' : '']" />
-                                Test Connection
+                                {{ t('notifications_settings.test_connection') }}
                             </button>
                             <button
                                 type="submit"
@@ -456,7 +454,7 @@ const getColorClasses = (color) => {
                                 class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
                             >
                                 <CheckCircleIcon class="w-4 h-4" />
-                                Save Settings
+                                {{ t('notifications_settings.save_settings') }}
                             </button>
                         </div>
                     </div>
@@ -476,8 +474,8 @@ const getColorClasses = (color) => {
                             <DocumentTextIcon class="w-6 h-6 text-emerald-600" />
                         </div>
                         <div>
-                            <h3 class="font-semibold text-gray-900">WhatsApp Message Templates</h3>
-                            <p class="text-sm text-gray-500">Configure Meta-approved template SIDs for WhatsApp Business API</p>
+                            <h3 class="font-semibold text-gray-900">{{ t('notifications_settings.templates.heading') }}</h3>
+                            <p class="text-sm text-gray-500">{{ t('notifications_settings.templates.subheading') }}</p>
                         </div>
                     </div>
                     <button
@@ -486,7 +484,7 @@ const getColorClasses = (color) => {
                         class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50"
                     >
                         <CheckCircleIcon class="w-4 h-4" />
-                        {{ templatesForm.processing ? 'Saving...' : 'Save Templates' }}
+                        {{ templatesForm.processing ? t('notifications_settings.templates.saving') : t('notifications_settings.templates.save') }}
                     </button>
                 </div>
 
@@ -497,9 +495,7 @@ const getColorClasses = (color) => {
                             <ChatBubbleLeftRightIcon class="w-5 h-5 text-blue-600 mt-0.5" />
                             <div>
                                 <p class="text-sm text-blue-800">
-                                    WhatsApp Business API requires pre-approved message templates for business-initiated conversations.
-                                    Submit templates via the <a href="https://console.twilio.com/us1/develop/sms/try-it-out/whatsapp-templates" target="_blank" class="font-medium underline inline-flex items-center gap-1">Twilio Console <ArrowTopRightOnSquareIcon class="w-3 h-3" /></a>,
-                                    then enter the approved Content SID below.
+                                    {{ t('notifications_settings.templates.info_before') }} <a href="https://console.twilio.com/us1/develop/sms/try-it-out/whatsapp-templates" target="_blank" class="font-medium underline inline-flex items-center gap-1">{{ t('notifications_settings.templates.twilio_console') }} <ArrowTopRightOnSquareIcon class="w-3 h-3" /></a>{{ t('notifications_settings.templates.info_after') }}
                                 </p>
                             </div>
                         </div>
@@ -529,7 +525,7 @@ const getColorClasses = (color) => {
                                     ]"
                                 >
                                     <span :class="['w-1.5 h-1.5 rounded-full', template.sid ? 'bg-green-500' : 'bg-gray-400']"></span>
-                                    {{ template.sid ? 'Configured' : 'Not Configured' }}
+                                    {{ template.sid ? t('notifications_settings.templates.status_configured') : t('notifications_settings.templates.status_not_configured') }}
                                 </span>
                             </div>
 
@@ -549,15 +545,15 @@ const getColorClasses = (color) => {
 
                             <!-- SID Input -->
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Content SID</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_settings.templates.content_sid') }}</label>
                                 <input
                                     type="text"
                                     v-model="templatesForm.templates[index].sid"
-                                    placeholder="HJXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+                                    :placeholder="t('notifications_settings.templates.sid_placeholder')"
                                     class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 font-mono text-sm"
                                 />
                                 <p class="text-xs text-gray-500 mt-1">
-                                    Enter the Content SID from Twilio after Meta approval (starts with HJ)
+                                    {{ t('notifications_settings.templates.sid_hint') }}
                                 </p>
                             </div>
                         </div>
@@ -567,7 +563,7 @@ const getColorClasses = (color) => {
                     <div v-if="templatesForm.recentlySuccessful" class="mt-4 bg-green-50 border border-green-200 rounded-xl p-4">
                         <div class="flex items-center gap-2">
                             <CheckCircleIcon class="w-5 h-5 text-green-600" />
-                            <p class="text-sm font-medium text-green-800">Templates saved successfully!</p>
+                            <p class="text-sm font-medium text-green-800">{{ t('notifications_settings.templates.saved') }}</p>
                         </div>
                     </div>
                 </div>
@@ -585,8 +581,8 @@ const getColorClasses = (color) => {
                             <ClockIcon class="w-6 h-6 text-indigo-600" />
                         </div>
                         <div>
-                            <h3 class="font-semibold text-gray-900">Delivery & Retry Settings</h3>
-                            <p class="text-sm text-gray-500">Control how and when notifications are sent</p>
+                            <h3 class="font-semibold text-gray-900">{{ t('notifications_settings.delivery.heading') }}</h3>
+                            <p class="text-sm text-gray-500">{{ t('notifications_settings.delivery.subheading') }}</p>
                         </div>
                     </div>
                     <button
@@ -595,7 +591,7 @@ const getColorClasses = (color) => {
                         class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
                     >
                         <CheckCircleIcon class="w-4 h-4" />
-                        {{ globalForm.processing ? 'Saving...' : 'Save Settings' }}
+                        {{ globalForm.processing ? t('notifications_settings.saving') : t('notifications_settings.save_settings') }}
                     </button>
                 </div>
 
@@ -607,14 +603,14 @@ const getColorClasses = (color) => {
                             <MoonIcon class="w-5 h-5 text-indigo-600" />
                         </div>
                         <div>
-                            <h4 class="font-medium text-gray-900">Quiet Hours (Do Not Disturb)</h4>
-                            <p class="text-sm text-gray-500">Pause notifications during specific hours</p>
+                            <h4 class="font-medium text-gray-900">{{ t('notifications_settings.delivery.quiet_hours.heading') }}</h4>
+                            <p class="text-sm text-gray-500">{{ t('notifications_settings.delivery.quiet_hours.subheading') }}</p>
                         </div>
                     </div>
 
                     <div class="space-y-4">
                         <div class="flex items-center justify-between">
-                            <span class="text-sm text-gray-700">Enable Quiet Hours</span>
+                            <span class="text-sm text-gray-700">{{ t('notifications_settings.delivery.quiet_hours.enable') }}</span>
                             <label class="relative inline-flex items-center cursor-pointer">
                                 <input type="checkbox" v-model="globalForm.quiet_hours_enabled" class="sr-only peer" />
                                 <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
@@ -623,7 +619,7 @@ const getColorClasses = (color) => {
 
                         <div v-if="globalForm.quiet_hours_enabled" class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_settings.delivery.quiet_hours.start_time') }}</label>
                                 <input
                                     type="time"
                                     v-model="globalForm.quiet_hours_start"
@@ -631,7 +627,7 @@ const getColorClasses = (color) => {
                                 />
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">End Time</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_settings.delivery.quiet_hours.end_time') }}</label>
                                 <input
                                     type="time"
                                     v-model="globalForm.quiet_hours_end"
@@ -642,8 +638,8 @@ const getColorClasses = (color) => {
 
                         <div v-if="globalForm.quiet_hours_enabled" class="flex items-center justify-between">
                             <div>
-                                <span class="text-sm text-gray-700">Queue notifications during quiet hours</span>
-                                <p class="text-xs text-gray-500">Instead of skipping, send them when quiet hours end</p>
+                                <span class="text-sm text-gray-700">{{ t('notifications_settings.delivery.quiet_hours.queue') }}</span>
+                                <p class="text-xs text-gray-500">{{ t('notifications_settings.delivery.quiet_hours.queue_hint') }}</p>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer">
                                 <input type="checkbox" v-model="globalForm.quiet_hours_queue_notifications" class="sr-only peer" />
@@ -654,7 +650,7 @@ const getColorClasses = (color) => {
                         <!-- Critical notifications bypass info -->
                         <div v-if="globalForm.quiet_hours_enabled" class="bg-blue-50 border border-blue-100 rounded-lg p-3 mt-2">
                             <p class="text-xs text-blue-700">
-                                <strong>Note:</strong> Critical and urgent notifications (eviction notices, arrears alerts) will still be delivered immediately regardless of quiet hours.
+                                <strong>{{ t('notifications_settings.delivery.quiet_hours.note_label') }}</strong> {{ t('notifications_settings.delivery.quiet_hours.note') }}
                             </p>
                         </div>
                     </div>
@@ -667,14 +663,14 @@ const getColorClasses = (color) => {
                             <ArrowPathRoundedSquareIcon class="w-5 h-5 text-orange-600" />
                         </div>
                         <div>
-                            <h4 class="font-medium text-gray-900">Retry Configuration</h4>
-                            <p class="text-sm text-gray-500">Configure how failed notifications are retried</p>
+                            <h4 class="font-medium text-gray-900">{{ t('notifications_settings.delivery.retry.heading') }}</h4>
+                            <p class="text-sm text-gray-500">{{ t('notifications_settings.delivery.retry.subheading') }}</p>
                         </div>
                     </div>
 
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Max Retries</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_settings.delivery.retry.max_retries') }}</label>
                             <input
                                 type="number"
                                 v-model.number="globalForm.notification_max_retries"
@@ -682,10 +678,10 @@ const getColorClasses = (color) => {
                                 max="10"
                                 class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                             />
-                            <p class="text-xs text-gray-500 mt-1">0-10 attempts</p>
+                            <p class="text-xs text-gray-500 mt-1">{{ t('notifications_settings.delivery.retry.max_retries_hint') }}</p>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Retry Delay (minutes)</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_settings.delivery.retry.retry_delay') }}</label>
                             <input
                                 type="number"
                                 v-model.number="globalForm.notification_retry_delay"
@@ -693,7 +689,7 @@ const getColorClasses = (color) => {
                                 max="60"
                                 class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                             />
-                            <p class="text-xs text-gray-500 mt-1">1-60 minutes</p>
+                            <p class="text-xs text-gray-500 mt-1">{{ t('notifications_settings.delivery.retry.retry_delay_hint') }}</p>
                         </div>
                     </div>
                 </div>
@@ -705,14 +701,14 @@ const getColorClasses = (color) => {
                             <ShieldCheckIcon class="w-5 h-5 text-red-600" />
                         </div>
                         <div>
-                            <h4 class="font-medium text-gray-900">Rate Limiting</h4>
-                            <p class="text-sm text-gray-500">Prevent notification spam to tenants</p>
+                            <h4 class="font-medium text-gray-900">{{ t('notifications_settings.delivery.rate_limit.heading') }}</h4>
+                            <p class="text-sm text-gray-500">{{ t('notifications_settings.delivery.rate_limit.subheading') }}</p>
                         </div>
                     </div>
 
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Daily Limit Per Tenant</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_settings.delivery.rate_limit.daily') }}</label>
                             <input
                                 type="number"
                                 v-model.number="globalForm.notification_daily_limit_per_tenant"
@@ -720,10 +716,10 @@ const getColorClasses = (color) => {
                                 max="100"
                                 class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                             />
-                            <p class="text-xs text-gray-500 mt-1">Max notifications per tenant per day</p>
+                            <p class="text-xs text-gray-500 mt-1">{{ t('notifications_settings.delivery.rate_limit.daily_hint') }}</p>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Hourly Limit Per Tenant</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_settings.delivery.rate_limit.hourly') }}</label>
                             <input
                                 type="number"
                                 v-model.number="globalForm.notification_hourly_limit_per_tenant"
@@ -731,7 +727,7 @@ const getColorClasses = (color) => {
                                 max="20"
                                 class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                             />
-                            <p class="text-xs text-gray-500 mt-1">Max notifications per tenant per hour</p>
+                            <p class="text-xs text-gray-500 mt-1">{{ t('notifications_settings.delivery.rate_limit.hourly_hint') }}</p>
                         </div>
                     </div>
                 </div>
@@ -750,8 +746,8 @@ const getColorClasses = (color) => {
                             <ArchiveBoxIcon class="w-6 h-6 text-purple-600" />
                         </div>
                         <div>
-                            <h3 class="font-semibold text-gray-900">Archive Settings</h3>
-                            <p class="text-sm text-gray-500">Configure notification history and tracking</p>
+                            <h3 class="font-semibold text-gray-900">{{ t('notifications_settings.archive.heading') }}</h3>
+                            <p class="text-sm text-gray-500">{{ t('notifications_settings.archive.subheading') }}</p>
                         </div>
                     </div>
                     <button
@@ -760,7 +756,7 @@ const getColorClasses = (color) => {
                         class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
                     >
                         <CheckCircleIcon class="w-4 h-4" />
-                        {{ globalForm.processing ? 'Saving...' : 'Save Settings' }}
+                        {{ globalForm.processing ? t('notifications_settings.saving') : t('notifications_settings.save_settings') }}
                     </button>
                 </div>
 
@@ -770,10 +766,10 @@ const getColorClasses = (color) => {
                         <div class="flex gap-3">
                             <BellIcon class="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
                             <div class="text-sm text-blue-800">
-                                <p class="font-medium">Default notification preferences for tenants</p>
+                                <p class="font-medium">{{ t('notifications_settings.archive.banner_title') }}</p>
                                 <p class="mt-1">
-                                    Configure default notification channels and types for new tenants in
-                                    <a :href="route('settings.index')" class="underline font-medium">Settings &gt; Notifications</a>.
+                                    {{ t('notifications_settings.archive.banner_body_before') }}
+                                    <a :href="route('settings.index')" class="underline font-medium">{{ t('notifications_settings.archive.banner_link') }}</a>{{ t('notifications_settings.archive.banner_body_after') }}
                                 </p>
                             </div>
                         </div>
@@ -786,15 +782,15 @@ const getColorClasses = (color) => {
                                 <ArchiveBoxIcon class="w-5 h-5 text-purple-600" />
                             </div>
                             <div>
-                                <h4 class="font-medium text-gray-900">History Retention</h4>
-                                <p class="text-sm text-gray-500">Configure how long notification history is kept</p>
+                                <h4 class="font-medium text-gray-900">{{ t('notifications_settings.archive.retention_heading') }}</h4>
+                                <p class="text-sm text-gray-500">{{ t('notifications_settings.archive.retention_subheading') }}</p>
                             </div>
                         </div>
 
                         <div class="space-y-4">
                             <div class="flex items-center justify-between">
                                 <div>
-                                    <span class="text-sm font-medium text-gray-700">Keep notification history for</span>
+                                    <span class="text-sm font-medium text-gray-700">{{ t('notifications_settings.archive.keep_history') }}</span>
                                 </div>
                                 <div class="flex items-center gap-2">
                                     <input
@@ -804,14 +800,14 @@ const getColorClasses = (color) => {
                                         max="365"
                                         class="w-20 border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                                     />
-                                    <span class="text-sm text-gray-500">days</span>
+                                    <span class="text-sm text-gray-500">{{ t('notifications_settings.archive.days') }}</span>
                                 </div>
                             </div>
 
                             <div class="flex items-center justify-between">
                                 <div>
-                                    <span class="text-sm text-gray-700">Track read status</span>
-                                    <p class="text-xs text-gray-500">Track when tenants view notifications</p>
+                                    <span class="text-sm text-gray-700">{{ t('notifications_settings.archive.track_read') }}</span>
+                                    <p class="text-xs text-gray-500">{{ t('notifications_settings.archive.track_read_hint') }}</p>
                                 </div>
                                 <label class="relative inline-flex items-center cursor-pointer">
                                     <input type="checkbox" v-model="globalForm.notification_track_read_status" class="sr-only peer" />
@@ -823,7 +819,7 @@ const getColorClasses = (color) => {
 
                     <!-- Form Errors -->
                     <div v-if="Object.keys(globalForm.errors).length > 0" class="bg-red-50 border border-red-200 rounded-xl p-4">
-                        <p class="text-sm font-medium text-red-800 mb-2">Please fix the following errors:</p>
+                        <p class="text-sm font-medium text-red-800 mb-2">{{ t('notifications_settings.errors_title') }}</p>
                         <ul class="list-disc list-inside text-sm text-red-700">
                             <li v-for="(error, key) in globalForm.errors" :key="key">{{ error }}</li>
                         </ul>
@@ -833,7 +829,7 @@ const getColorClasses = (color) => {
                     <div v-if="globalForm.recentlySuccessful" class="bg-green-50 border border-green-200 rounded-xl p-4">
                         <div class="flex items-center gap-2">
                             <CheckCircleIcon class="w-5 h-5 text-green-600" />
-                            <p class="text-sm font-medium text-green-800">Settings saved successfully!</p>
+                            <p class="text-sm font-medium text-green-800">{{ t('notifications_settings.saved') }}</p>
                         </div>
                     </div>
                 </form>

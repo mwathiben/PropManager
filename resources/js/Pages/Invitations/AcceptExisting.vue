@@ -2,6 +2,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
+import { useI18n } from '@/composables/useI18n';
 import type { InvitationAcceptExistingPageProps } from '@/types/tenants';
 import {
     CheckCircleIcon,
@@ -11,6 +12,8 @@ import {
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps<InvitationAcceptExistingPageProps>();
+
+const { t } = useI18n();
 
 const processing = ref(false);
 
@@ -24,7 +27,7 @@ const acceptInvitation = () => {
 };
 
 const declineInvitation = () => {
-    if (!confirm('Are you sure you want to decline this invitation?')) {
+    if (!confirm(t('invitations.accept_existing.decline_confirm'))) {
         return;
     }
 
@@ -39,7 +42,7 @@ const declineInvitation = () => {
 
 <template>
     <AuthenticatedLayout>
-        <Head title="Accept Caretaker Invitation" />
+        <Head :title="t('invitations.accept_existing.head_title')" />
 
         <div class="py-12">
             <div class="max-w-xl mx-auto sm:px-6 lg:px-8">
@@ -47,8 +50,8 @@ const declineInvitation = () => {
                     <!-- Header -->
                     <div class="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-8 text-center">
                         <CheckCircleIcon class="mx-auto h-16 w-16 text-white mb-4" />
-                        <h1 class="text-2xl font-bold text-white mb-2">Caretaker Invitation</h1>
-                        <p class="text-indigo-100">You've been invited to become a property caretaker</p>
+                        <h1 class="text-2xl font-bold text-white mb-2">{{ t('invitations.accept_existing.title') }}</h1>
+                        <p class="text-indigo-100">{{ t('invitations.accept_existing.subtitle') }}</p>
                     </div>
 
                     <!-- Invitation Details -->
@@ -59,7 +62,7 @@ const declineInvitation = () => {
                                     <UserIcon class="w-5 h-5 text-indigo-600" />
                                 </div>
                                 <div>
-                                    <p class="text-xs text-gray-500">Invited by</p>
+                                    <p class="text-xs text-gray-500">{{ t('invitations.accept_existing.invited_by') }}</p>
                                     <p class="text-sm font-semibold text-gray-900">{{ invitation.landlord_name }}</p>
                                 </div>
                             </div>
@@ -69,7 +72,7 @@ const declineInvitation = () => {
                                     <BuildingOfficeIcon class="w-5 h-5 text-green-600" />
                                 </div>
                                 <div>
-                                    <p class="text-xs text-gray-500">Property</p>
+                                    <p class="text-xs text-gray-500">{{ t('invitations.accept_existing.property') }}</p>
                                     <p class="text-sm font-semibold text-gray-900">{{ invitation.property_name }}</p>
                                 </div>
                             </div>
@@ -79,7 +82,7 @@ const declineInvitation = () => {
                                     <CalendarIcon class="w-5 h-5 text-yellow-600" />
                                 </div>
                                 <div>
-                                    <p class="text-xs text-gray-500">Expires on</p>
+                                    <p class="text-xs text-gray-500">{{ t('invitations.accept_existing.expires_on') }}</p>
                                     <p class="text-sm font-semibold text-gray-900">{{ invitation.expires_at }}</p>
                                 </div>
                             </div>
@@ -90,8 +93,8 @@ const declineInvitation = () => {
                     <div class="px-6 py-4">
                         <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
                             <p class="text-sm text-blue-800">
-                                By accepting this invitation, your account will be converted to a
-                                <strong>caretaker</strong> role. You'll gain access to manage operations for
+                                {{ t('invitations.accept_existing.info_intro') }}
+                                <strong>{{ t('invitations.accept_existing.info_role') }}</strong> {{ t('invitations.accept_existing.info_middle') }}
                                 <strong>{{ invitation.property_name }}</strong>.
                             </p>
                         </div>
@@ -104,14 +107,14 @@ const declineInvitation = () => {
                             :disabled="processing"
                             class="flex-1 px-4 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
-                            {{ processing ? 'Processing...' : 'Accept Invitation' }}
+                            {{ processing ? t('invitations.accept_existing.processing') : t('invitations.accept_existing.accept') }}
                         </button>
                         <button
                             @click="declineInvitation"
                             :disabled="processing"
                             class="flex-1 px-4 py-3 bg-white text-red-600 font-medium rounded-lg border border-red-200 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
-                            Decline
+                            {{ t('invitations.accept_existing.decline') }}
                         </button>
                     </div>
                 </div>

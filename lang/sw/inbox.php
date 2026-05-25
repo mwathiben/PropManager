@@ -71,6 +71,22 @@ return [
         ],
     ],
 
+    'show' => [
+        'head_title' => 'Ujumbe kutoka kwa {name}',
+        'back' => 'Rudi Kikasha',
+        'replying_to' => 'Unajibu: {subject}',
+        'sent_at' => 'Ilitumwa {date}',
+        'auto_created_ticket' => 'Tikiti iliyoundwa kiotomatiki:',
+        'mark_as_read' => 'Weka Kuwa Imesomwa',
+        'attachments' => 'Viambatisho ({count})',
+        'attachment_alt' => 'Kiambatisho {number}',
+        'reply_via' => 'Jibu kupitia {channel}',
+        'reply_placeholder' => 'Andika jibu lako...',
+        'chars_remaining' => 'Herufi {count} zimebaki',
+        'sending' => 'Inatuma...',
+        'send_reply' => 'Tuma Jibu',
+    ],
+
     'title' => 'Kikasha',
     'subtitle' => 'Ujumbe wa wapangaji kutoka WhatsApp na SMS',
     'unread_count' => '({count} ambazo hazijasomwa)',

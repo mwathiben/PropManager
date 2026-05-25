@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue';
 import { useForm, Link } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import { useFinancesStore } from '@/stores/finances';
 import { DataTable, PaymentMethodBadge, AmountDisplay } from '@/Components/Finances';
 import {
@@ -59,6 +60,8 @@ const props = withDefaults(defineProps<Props>(), {
     paystackReport: null,
 });
 
+const { t } = useI18n();
+
 const paystackStatusConfig = computed(() => {
     if (!props.paystackReport) return null;
 
@@ -73,7 +76,7 @@ const paystackStatusConfig = computed(() => {
             textColor: 'text-red-700',
             badgeBg: 'bg-red-100',
             badgeText: 'text-red-800',
-            label: 'Failed',
+            label: t('finances_reconciliation.paystack.status.failed'),
         };
     }
 
@@ -87,7 +90,7 @@ const paystackStatusConfig = computed(() => {
             textColor: 'text-yellow-700',
             badgeBg: 'bg-yellow-100',
             badgeText: 'text-yellow-800',
-            label: `${report.discrepancy_count} discrepancies`,
+            label: t('finances_reconciliation.paystack.status.discrepancies', { count: report.discrepancy_count }),
         };
     }
 
@@ -100,7 +103,7 @@ const paystackStatusConfig = computed(() => {
         textColor: 'text-emerald-700',
         badgeBg: 'bg-emerald-100',
         badgeText: 'text-emerald-800',
-        label: 'Clean',
+        label: t('finances_reconciliation.paystack.status.clean'),
     };
 });
 
@@ -121,36 +124,36 @@ const importForm = useForm({
     },
 });
 
-const bankOptions = [
-    { value: 'equity', label: 'Equity Bank' },
-    { value: 'kcb', label: 'KCB Bank' },
-    { value: 'coop', label: 'Co-operative Bank' },
-    { value: 'stanbic', label: 'Stanbic Bank' },
-    { value: 'absa', label: 'Absa Bank' },
-    { value: 'ncba', label: 'NCBA Bank' },
-    { value: 'dtb', label: 'DTB Bank' },
-    { value: 'i&m', label: 'I&M Bank' },
-    { value: 'family', label: 'Family Bank' },
-    { value: 'other', label: 'Other Bank' },
-];
+const bankOptions = computed(() => [
+    { value: 'equity', label: t('finances_reconciliation.banks.equity') },
+    { value: 'kcb', label: t('finances_reconciliation.banks.kcb') },
+    { value: 'coop', label: t('finances_reconciliation.banks.coop') },
+    { value: 'stanbic', label: t('finances_reconciliation.banks.stanbic') },
+    { value: 'absa', label: t('finances_reconciliation.banks.absa') },
+    { value: 'ncba', label: t('finances_reconciliation.banks.ncba') },
+    { value: 'dtb', label: t('finances_reconciliation.banks.dtb') },
+    { value: 'i&m', label: t('finances_reconciliation.banks.i_and_m') },
+    { value: 'family', label: t('finances_reconciliation.banks.family') },
+    { value: 'other', label: t('finances_reconciliation.banks.other') },
+]);
 
-const columns = [
-    { key: 'reference', label: 'Reference', sortable: false },
-    { key: 'tenant', label: 'Tenant', sortable: false },
-    { key: 'amount', label: 'Amount', align: 'right', sortable: true },
-    { key: 'payment_method', label: 'Method', sortable: false },
-    { key: 'payment_date', label: 'Date', sortable: true },
+const columns = computed(() => [
+    { key: 'reference', label: t('finances_reconciliation.table.reference'), sortable: false },
+    { key: 'tenant', label: t('finances_reconciliation.table.tenant'), sortable: false },
+    { key: 'amount', label: t('finances_reconciliation.table.amount'), align: 'right', sortable: true },
+    { key: 'payment_method', label: t('finances_reconciliation.table.method'), sortable: false },
+    { key: 'payment_date', label: t('finances_reconciliation.table.date'), sortable: true },
     { key: 'actions', label: '', align: 'right' },
-];
+]);
 
 const tableData = computed(() => {
     if (!props.unmatchedPayments) return [];
     return props.unmatchedPayments.map(payment => ({
         id: payment.id,
         reference: payment.reference || `PAY-${payment.id}`,
-        tenant: payment.tenant_name || 'Unknown',
-        tenant_name: payment.tenant_name || 'Unknown',
-        unit: payment.unit || 'N/A',
+        tenant: payment.tenant_name || t('finances_reconciliation.fallback.unknown_tenant'),
+        tenant_name: payment.tenant_name || t('finances_reconciliation.fallback.unknown_tenant'),
+        unit: payment.unit || t('finances_reconciliation.fallback.no_unit'),
         amount: payment.amount,
         payment_method: payment.payment_method,
         payment_date: payment.payment_date,
@@ -191,8 +194,8 @@ const processQueue = () => {
     <div class="space-y-6">
         <div class="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
             <div>
-                <h2 class="text-lg font-semibold text-gray-900">Bank Reconciliation</h2>
-                <p class="text-sm text-gray-500">Import bank statements and match transactions to invoices</p>
+                <h2 class="text-lg font-semibold text-gray-900">{{ t('finances_reconciliation.heading') }}</h2>
+                <p class="text-sm text-gray-500">{{ t('finances_reconciliation.subtitle') }}</p>
             </div>
             <div class="flex gap-3">
                 <Link
@@ -208,14 +211,14 @@ const processQueue = () => {
                     class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors"
                 >
                     <PlayIcon class="h-4 w-4" />
-                    Auto-Match All
+                    {{ t('finances_reconciliation.auto_match_all') }}
                 </button>
                 <button
                     @click="showImportPanel = !showImportPanel"
                     class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                 >
                     <ArrowUpTrayIcon class="h-4 w-4" />
-                    Import Statement
+                    {{ t('finances_reconciliation.import_statement') }}
                 </button>
             </div>
         </div>
@@ -226,14 +229,14 @@ const processQueue = () => {
                     <component :is="paystackStatusConfig.icon" :class="paystackStatusConfig.iconColor" class="h-5 w-5 mt-0.5" />
                     <div>
                         <div class="flex items-center gap-2">
-                            <h3 :class="paystackStatusConfig.titleColor" class="text-sm font-semibold">Paystack Reconciliation</h3>
+                            <h3 :class="paystackStatusConfig.titleColor" class="text-sm font-semibold">{{ t('finances_reconciliation.paystack.heading') }}</h3>
                             <span :class="[paystackStatusConfig.badgeBg, paystackStatusConfig.badgeText]" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium">
                                 {{ paystackStatusConfig.label }}
                             </span>
                         </div>
                         <p :class="paystackStatusConfig.textColor" class="mt-1 text-sm">
                             <template v-if="paystackReport.status === 'failed'">
-                                Last run failed: {{ paystackReport.error_message }}
+                                {{ t('finances_reconciliation.paystack.last_run_failed', { message: paystackReport.error_message }) }}
                             </template>
                             <template v-else>
                                 {{ formatDate(paystackReport.period_from) }} &ndash; {{ formatDate(paystackReport.period_to) }}
@@ -246,36 +249,36 @@ const processQueue = () => {
             <div v-if="paystackReport.status === 'completed'" class="mt-3 ms-8 grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div class="text-center">
                     <p class="text-lg font-semibold text-gray-900">{{ paystackReport.matched_count }}</p>
-                    <p class="text-xs text-gray-500">Matched</p>
+                    <p class="text-xs text-gray-500">{{ t('finances_reconciliation.paystack.matched') }}</p>
                 </div>
                 <div class="text-center">
                     <p class="text-lg font-semibold text-gray-900">{{ paystackReport.local_count }}</p>
-                    <p class="text-xs text-gray-500">Local</p>
+                    <p class="text-xs text-gray-500">{{ t('finances_reconciliation.paystack.local') }}</p>
                 </div>
                 <div class="text-center">
                     <p class="text-lg font-semibold text-gray-900">{{ paystackReport.remote_count }}</p>
-                    <p class="text-xs text-gray-500">Remote</p>
+                    <p class="text-xs text-gray-500">{{ t('finances_reconciliation.paystack.remote') }}</p>
                 </div>
                 <div class="text-center">
                     <p class="text-lg font-semibold" :class="paystackReport.discrepancy_count > 0 ? 'text-yellow-700' : 'text-gray-900'">{{ paystackReport.discrepancy_count }}</p>
-                    <p class="text-xs text-gray-500">Discrepancies</p>
+                    <p class="text-xs text-gray-500">{{ t('finances_reconciliation.paystack.discrepancies') }}</p>
                 </div>
             </div>
         </div>
 
         <div v-if="showImportPanel" class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-            <h3 class="text-sm font-semibold text-gray-900 mb-4">Import Bank Statement</h3>
+            <h3 class="text-sm font-semibold text-gray-900 mb-4">{{ t('finances_reconciliation.import.heading') }}</h3>
 
             <form @submit.prevent="submitImport" class="space-y-4">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Bank</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_reconciliation.import.bank_label') }}</label>
                         <select
                             v-model="importForm.bank_code"
                             class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                             required
                         >
-                            <option value="">Select bank...</option>
+                            <option value="">{{ t('finances_reconciliation.import.bank_placeholder') }}</option>
                             <option v-for="bank in bankOptions" :key="bank.value" :value="bank.value">
                                 {{ bank.label }}
                             </option>
@@ -283,7 +286,7 @@ const processQueue = () => {
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">CSV/Excel File</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_reconciliation.import.file_label') }}</label>
                         <input
                             id="bank-statement-file"
                             type="file"
@@ -292,7 +295,7 @@ const processQueue = () => {
                             class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 file:me-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
                             required
                         />
-                        <p class="mt-1 text-xs text-gray-500">Max 5MB. Supported: CSV, XLSX, XLS</p>
+                        <p class="mt-1 text-xs text-gray-500">{{ t('finances_reconciliation.import.file_hint') }}</p>
                     </div>
                 </div>
 
@@ -306,47 +309,47 @@ const processQueue = () => {
                             class="h-4 w-4 transition-transform"
                             :class="{ 'rotate-180': showColumnMapping }"
                         />
-                        Column Mapping (Optional)
+                        {{ t('finances_reconciliation.import.column_mapping_toggle') }}
                     </button>
 
                     <div v-if="showColumnMapping" class="mt-3 p-4 bg-gray-50 rounded-lg">
                         <p class="text-xs text-gray-500 mb-3">
-                            Specify column names if they differ from defaults (reference, amount, date, description)
+                            {{ t('finances_reconciliation.import.column_mapping_hint') }}
                         </p>
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1">Reference Column</label>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">{{ t('finances_reconciliation.import.reference_column') }}</label>
                                 <input
                                     v-model="importForm.column_mapping.reference"
                                     type="text"
-                                    placeholder="reference"
+                                    :placeholder="t('finances_reconciliation.placeholders.reference')"
                                     class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md"
                                 />
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1">Amount Column</label>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">{{ t('finances_reconciliation.import.amount_column') }}</label>
                                 <input
                                     v-model="importForm.column_mapping.amount"
                                     type="text"
-                                    placeholder="amount"
+                                    :placeholder="t('finances_reconciliation.placeholders.amount')"
                                     class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md"
                                 />
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1">Date Column</label>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">{{ t('finances_reconciliation.import.date_column') }}</label>
                                 <input
                                     v-model="importForm.column_mapping.date"
                                     type="text"
-                                    placeholder="date"
+                                    :placeholder="t('finances_reconciliation.placeholders.date')"
                                     class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md"
                                 />
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1">Description Column</label>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">{{ t('finances_reconciliation.import.description_column') }}</label>
                                 <input
                                     v-model="importForm.column_mapping.description"
                                     type="text"
-                                    placeholder="description"
+                                    :placeholder="t('finances_reconciliation.placeholders.description')"
                                     class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md"
                                 />
                             </div>
@@ -364,7 +367,7 @@ const processQueue = () => {
                         @click="showImportPanel = false"
                         class="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900"
                     >
-                        Cancel
+                        {{ t('finances_reconciliation.import.cancel') }}
                     </button>
                     <button
                         type="submit"
@@ -373,7 +376,7 @@ const processQueue = () => {
                     >
                         <ArrowUpTrayIcon v-if="!importForm.processing" class="h-4 w-4" />
                         <ArrowPathIcon v-else class="h-4 w-4 animate-spin" />
-                        {{ importForm.processing ? 'Importing...' : 'Import' }}
+                        {{ importForm.processing ? t('finances_reconciliation.import.importing') : t('finances_reconciliation.import.submit') }}
                     </button>
                 </div>
             </form>
@@ -381,19 +384,19 @@ const processQueue = () => {
 
         <div v-if="stats" class="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div class="bg-white border border-gray-200 rounded-xl p-4">
-                <p class="text-sm text-gray-500">Pending</p>
+                <p class="text-sm text-gray-500">{{ t('finances_reconciliation.stats.pending') }}</p>
                 <p class="text-2xl font-semibold text-yellow-600">{{ stats.pending || 0 }}</p>
             </div>
             <div class="bg-white border border-gray-200 rounded-xl p-4">
-                <p class="text-sm text-gray-500">Unmatched</p>
+                <p class="text-sm text-gray-500">{{ t('finances_reconciliation.stats.unmatched') }}</p>
                 <p class="text-2xl font-semibold text-orange-600">{{ stats.unmatched || 0 }}</p>
             </div>
             <div class="bg-white border border-gray-200 rounded-xl p-4">
-                <p class="text-sm text-gray-500">Matched</p>
+                <p class="text-sm text-gray-500">{{ t('finances_reconciliation.stats.matched') }}</p>
                 <p class="text-2xl font-semibold text-emerald-600">{{ stats.matched || 0 }}</p>
             </div>
             <div class="bg-white border border-gray-200 rounded-xl p-4">
-                <p class="text-sm text-gray-500">Unmatched Amount</p>
+                <p class="text-sm text-gray-500">{{ t('finances_reconciliation.stats.unmatched_amount') }}</p>
                 <p class="text-2xl font-semibold text-gray-900">{{ formatCurrency(stats.total_unmatched_amount || 0) }}</p>
             </div>
         </div>
@@ -402,9 +405,9 @@ const processQueue = () => {
             <div class="flex items-start gap-3">
                 <ArrowPathIcon class="h-5 w-5 text-yellow-600 mt-0.5" />
                 <div>
-                    <h3 class="text-sm font-medium text-yellow-800">Pending Reconciliation</h3>
+                    <h3 class="text-sm font-medium text-yellow-800">{{ t('finances_reconciliation.pending.heading') }}</h3>
                     <p class="mt-1 text-sm text-yellow-700">
-                        You have {{ pendingReconciliation }} payment(s) that need to be matched to invoices.
+                        {{ t('finances_reconciliation.pending.body', { count: pendingReconciliation }) }}
                     </p>
                 </div>
             </div>
@@ -414,9 +417,9 @@ const processQueue = () => {
             <div class="flex items-start gap-3">
                 <CheckCircleIcon class="h-5 w-5 text-emerald-600 mt-0.5" />
                 <div>
-                    <h3 class="text-sm font-medium text-emerald-800">All Reconciled</h3>
+                    <h3 class="text-sm font-medium text-emerald-800">{{ t('finances_reconciliation.reconciled.heading') }}</h3>
                     <p class="mt-1 text-sm text-emerald-700">
-                        All payments have been matched to invoices. Import a bank statement to reconcile new transactions.
+                        {{ t('finances_reconciliation.reconciled.body') }}
                     </p>
                 </div>
             </div>
@@ -428,8 +431,8 @@ const processQueue = () => {
             :loading="loading"
             row-key="id"
             :empty-icon="DocumentTextIcon"
-            empty-title="No unmatched payments"
-            empty-description="Import a bank statement to start reconciling transactions"
+            :empty-title="t('finances_reconciliation.table.empty_title')"
+            :empty-description="t('finances_reconciliation.table.empty_description')"
         >
             <template #cell-tenant="{ row }">
                 <div>
@@ -456,7 +459,7 @@ const processQueue = () => {
                     class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-colors"
                 >
                     <LinkIcon class="h-3.5 w-3.5" />
-                    Match
+                    {{ t('finances_reconciliation.table.match') }}
                 </button>
             </template>
         </DataTable>

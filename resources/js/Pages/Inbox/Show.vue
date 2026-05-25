@@ -2,6 +2,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, Link, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
+import { useI18n } from '@/composables/useI18n';
 import type { InboxShowPageProps } from '@/types/operations';
 import {
     ArrowLeftIcon,
@@ -16,6 +17,8 @@ import {
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps<InboxShowPageProps>();
+
+const { t } = useI18n();
 
 const replyForm = useForm({
     body: '',
@@ -54,17 +57,17 @@ const statusBadge = (status) => {
 
 const statusLabel = (status) => {
     const labels = {
-        'received': 'Unread',
-        'processed': 'Read',
-        'action_taken': 'Actioned',
-        'ignored': 'Ignored',
+        'received': t('inbox.status.received'),
+        'processed': t('inbox.status.processed'),
+        'action_taken': t('inbox.status.action_taken'),
+        'ignored': t('inbox.status.ignored'),
     };
     return labels[status] || status;
 };
 </script>
 
 <template>
-    <Head :title="`Message from ${message.tenant_name}`" />
+    <Head :title="t('inbox.show.head_title', { name: message.tenant_name })" />
 
     <AuthenticatedLayout>
         <div class="py-6">
@@ -76,7 +79,7 @@ const statusLabel = (status) => {
                         class="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900"
                     >
                         <ArrowLeftIcon class="w-4 h-4" />
-                        Back to Inbox
+                        {{ t('inbox.show.back') }}
                     </Link>
                 </div>
 
@@ -133,10 +136,10 @@ const statusLabel = (status) => {
                             <BellIcon class="w-5 h-5 text-indigo-500 shrink-0 mt-0.5" />
                             <div>
                                 <p class="text-sm font-medium text-indigo-900">
-                                    Replying to: {{ message.original_notification.subject }}
+                                    {{ t('inbox.show.replying_to', { subject: message.original_notification.subject }) }}
                                 </p>
                                 <p class="text-xs text-indigo-700 mt-1">
-                                    Sent {{ message.original_notification.created_at }}
+                                    {{ t('inbox.show.sent_at', { date: message.original_notification.created_at }) }}
                                 </p>
                                 <p v-if="message.original_notification.message" class="text-sm text-indigo-800 mt-2 bg-white/50 p-2 rounded">
                                     {{ message.original_notification.message }}
@@ -150,7 +153,7 @@ const statusLabel = (status) => {
                         <div class="flex items-center gap-2">
                             <TicketIcon class="w-5 h-5 text-green-600" />
                             <span class="text-sm text-green-800">
-                                Auto-created ticket:
+                                {{ t('inbox.show.auto_created_ticket') }}
                                 <Link
                                     :href="route('tickets.show', message.ticket.id)"
                                     class="font-medium underline hover:text-green-900"
@@ -174,7 +177,7 @@ const statusLabel = (status) => {
                                 class="text-xs text-indigo-600 hover:text-indigo-900 flex items-center gap-1"
                             >
                                 <CheckCircleIcon class="w-4 h-4" />
-                                Mark as Read
+                                {{ t('inbox.show.mark_as_read') }}
                             </button>
                         </div>
 
@@ -186,7 +189,7 @@ const statusLabel = (status) => {
                         <div v-if="message.media_urls && message.media_urls.length > 0" class="mt-4">
                             <h4 class="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
                                 <PhotoIcon class="w-4 h-4" />
-                                Attachments ({{ message.media_urls.length }})
+                                {{ t('inbox.show.attachments', { count: message.media_urls.length }) }}
                             </h4>
                             <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
                                 <a
@@ -198,7 +201,7 @@ const statusLabel = (status) => {
                                 >
                                     <img
                                         :src="url"
-                                        :alt="`Attachment ${index + 1}`"
+                                        :alt="t('inbox.show.attachment_alt', { number: index + 1 })"
                                         class="w-full h-full object-cover"
                                     />
                                 </a>
@@ -209,14 +212,14 @@ const statusLabel = (status) => {
                     <!-- Reply Form -->
                     <div class="px-6 py-4 border-t border-gray-200 bg-gray-50">
                         <h3 class="text-sm font-medium text-gray-700 mb-3">
-                            Reply via {{ message.source === 'whatsapp' ? 'WhatsApp' : 'SMS' }}
+                            {{ t('inbox.show.reply_via', { channel: message.source === 'whatsapp' ? 'WhatsApp' : 'SMS' }) }}
                         </h3>
                         <form @submit.prevent="sendReply">
                             <div class="mb-3">
                                 <textarea
                                     v-model="replyForm.body"
                                     rows="3"
-                                    placeholder="Type your reply..."
+                                    :placeholder="t('inbox.show.reply_placeholder')"
                                     class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                                     :disabled="replyForm.processing"
                                 ></textarea>
@@ -224,7 +227,7 @@ const statusLabel = (status) => {
                                     {{ replyForm.errors.body }}
                                 </p>
                                 <p class="mt-1 text-xs text-gray-500">
-                                    {{ 1000 - (replyForm.body?.length || 0) }} characters remaining
+                                    {{ t('inbox.show.chars_remaining', { count: 1000 - (replyForm.body?.length || 0) }) }}
                                 </p>
                             </div>
                             <div class="flex justify-end">
@@ -234,7 +237,7 @@ const statusLabel = (status) => {
                                     class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
                                 >
                                     <PaperAirplaneIcon class="w-4 h-4" />
-                                    {{ replyForm.processing ? 'Sending...' : 'Send Reply' }}
+                                    {{ replyForm.processing ? t('inbox.show.sending') : t('inbox.show.send_reply') }}
                                 </button>
                             </div>
                         </form>

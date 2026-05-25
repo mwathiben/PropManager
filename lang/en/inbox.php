@@ -71,6 +71,22 @@ return [
         ],
     ],
 
+    'show' => [
+        'head_title' => 'Message from {name}',
+        'back' => 'Back to Inbox',
+        'replying_to' => 'Replying to: {subject}',
+        'sent_at' => 'Sent {date}',
+        'auto_created_ticket' => 'Auto-created ticket:',
+        'mark_as_read' => 'Mark as Read',
+        'attachments' => 'Attachments ({count})',
+        'attachment_alt' => 'Attachment {number}',
+        'reply_via' => 'Reply via {channel}',
+        'reply_placeholder' => 'Type your reply...',
+        'chars_remaining' => '{count} characters remaining',
+        'sending' => 'Sending...',
+        'send_reply' => 'Send Reply',
+    ],
+
     'title' => 'Inbox',
     'subtitle' => 'Tenant messages from WhatsApp and SMS',
     'unread_count' => '({count} unread)',
