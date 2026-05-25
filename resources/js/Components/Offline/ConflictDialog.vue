@@ -14,6 +14,9 @@
  * comes in a follow-up).
  */
 import { ref, computed } from 'vue';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 interface ConflictPayload {
     current_version: number;
@@ -65,11 +68,10 @@ function onMerge(): void {
     >
         <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6 space-y-4">
             <h2 id="conflict-dialog-title" class="text-lg font-semibold text-gray-900">
-                Conflict — this record changed while you were offline
+                {{ t('conflict_dialog.title') }}
             </h2>
             <p class="text-sm text-gray-600">
-                Someone else updated this record. Your queued change conflicts with the latest version
-                (server version {{ payload.current_version }}).
+                {{ t('conflict_dialog.body', { version: payload.current_version }) }}
             </p>
 
             <div v-if="hasDiff" class="border border-gray-200 rounded-lg divide-y divide-gray-200">
@@ -89,7 +91,7 @@ function onMerge(): void {
                             class="text-indigo-600"
                         />
                         <span class="text-gray-600 truncate">
-                            Server: {{ payload.diff[field].current }}
+                            {{ t('conflict_dialog.server_value', { value: payload.diff[field].current }) }}
                         </span>
                     </label>
                     <label class="flex items-center gap-2">
@@ -101,7 +103,7 @@ function onMerge(): void {
                             class="text-indigo-600"
                         />
                         <span class="text-gray-600 truncate">
-                            Your change: {{ payload.diff[field].incoming }}
+                            {{ t('conflict_dialog.your_value', { value: payload.diff[field].incoming }) }}
                         </span>
                     </label>
                 </div>
@@ -114,7 +116,7 @@ function onMerge(): void {
                     class="px-4 py-2 rounded text-sm bg-gray-100 text-gray-700"
                     data-testid="conflict-discard"
                 >
-                    Discard my change
+                    {{ t('conflict_dialog.discard') }}
                 </button>
                 <button
                     type="button"
@@ -123,7 +125,7 @@ function onMerge(): void {
                     class="px-4 py-2 rounded text-sm bg-amber-100 text-amber-900 disabled:opacity-50"
                     data-testid="conflict-merge"
                 >
-                    Merge selected fields
+                    {{ t('conflict_dialog.merge') }}
                 </button>
                 <button
                     type="button"
@@ -131,7 +133,7 @@ function onMerge(): void {
                     class="px-4 py-2 rounded text-sm bg-rose-600 text-white"
                     data-testid="conflict-overwrite"
                 >
-                    Overwrite server version
+                    {{ t('conflict_dialog.overwrite') }}
                 </button>
             </div>
         </div>

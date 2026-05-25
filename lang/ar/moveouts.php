@@ -6,6 +6,51 @@ declare(strict_types=1);
  * Phase-105+ i18n migration: move-out detail/settlement page. Mirror en/sw/ar.
  */
 return [
+    'index' => [
+        'head_title' => 'حالات الإخلاء',
+        'title' => 'حالات الإخلاء',
+        'subtitle' => 'إدارة إخلاء المستأجرين وتسويات الودائع',
+        'stats' => [
+            'active' => 'حالات الإخلاء النشطة',
+            'inspection_pending' => 'الفحص قيد الانتظار',
+            'settlement_pending' => 'التسوية قيد الانتظار',
+            'completed_this_month' => 'المكتملة هذا الشهر',
+        ],
+        'tabs' => [
+            'active' => 'نشطة',
+            'completed' => 'مكتملة',
+        ],
+        'table' => [
+            'tenant' => 'المستأجر',
+            'unit' => 'الوحدة',
+            'move_out_date' => 'تاريخ الإخلاء',
+            'deposit' => 'الوديعة',
+            'status' => 'الحالة',
+            'actions' => 'الإجراءات',
+        ],
+        'unit_prefix' => 'الوحدة',
+        'intended' => '(مقصود)',
+        'refund' => 'الاسترداد: {amount}',
+        'status_label' => [
+            'notice_given' => 'تم تقديم الإشعار',
+            'inspection_pending' => 'الفحص قيد الانتظار',
+            'inspection_complete' => 'اكتمل الفحص',
+            'settlement_pending' => 'التسوية قيد الانتظار',
+            'completed' => 'مكتمل',
+            'cancelled' => 'ملغى',
+        ],
+        'view' => 'عرض',
+        'empty' => [
+            'title' => 'لا توجد حالات إخلاء',
+            'active_description' => 'لا توجد حالات إخلاء نشطة في الوقت الحالي.',
+            'completed_description' => 'لا توجد حالات إخلاء مكتملة لعرضها.',
+        ],
+        'pagination' => [
+            'page_of' => 'الصفحة {current} من {last}',
+            'previous' => 'السابق',
+            'next' => 'التالي',
+        ],
+    ],
     'create' => [
         'head_title' => 'بدء الإخلاء',
         'title' => 'بدء الإخلاء',

@@ -6,11 +6,13 @@ import { ref, computed } from 'vue';
 import { ClipboardDocumentListIcon } from '@heroicons/vue/24/outline';
 import EmptyState from '@/Components/EmptyState.vue';
 import { useFormatters } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import { useAuth } from '@/composables/useAuth';
 import type { ReadingsHistoryPageProps, WaterReading } from '@/types';
 
 const props = defineProps<ReadingsHistoryPageProps>();
 const { formatDate, formatMoney } = useFormatters();
+const { t } = useI18n();
 const { can } = useAuth();
 
 const filterForm = useForm({
@@ -69,7 +71,7 @@ const saveEdit = (readingId) => {
 };
 
 const deleteReading = (readingId) => {
-    if (confirm('Are you sure you want to delete this reading?')) {
+    if (confirm(t('readings_history.confirm.delete'))) {
         router.delete(route('readings.destroy', readingId), {
             preserveState: true
         });
@@ -78,7 +80,7 @@ const deleteReading = (readingId) => {
 </script>
 
 <template>
-    <Head title="Water Reading History" />
+    <Head :title="t('readings_history.title')" />
 
     <AuthenticatedLayout>
         <div class="py-6">
@@ -87,20 +89,20 @@ const deleteReading = (readingId) => {
                     <div class="p-6 bg-white border-b border-gray-200">
 
                         <div class="flex justify-between items-center mb-6">
-                            <h1 class="text-xl font-bold text-gray-800">Water Reading History</h1>
+                            <h1 class="text-xl font-bold text-gray-800">{{ t('readings_history.heading') }}</h1>
                             <Link :href="route('readings.index')" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
-                                Add Readings
+                                {{ t('readings_history.add_readings') }}
                             </Link>
                         </div>
 
                         <!-- Filters -->
                         <div class="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                            <h3 class="font-semibold text-gray-700 mb-3">Filters</h3>
+                            <h3 class="font-semibold text-gray-700 mb-3">{{ t('readings_history.filters.title') }}</h3>
                             <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Building</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('readings_history.filters.building') }}</label>
                                     <select v-model="filterForm.building_id" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
-                                        <option value="">All Buildings</option>
+                                        <option value="">{{ t('readings_history.filters.all_buildings') }}</option>
                                         <option v-for="building in buildings" :key="building.id" :value="building.id">
                                             {{ building.name }}
                                         </option>
@@ -108,9 +110,9 @@ const deleteReading = (readingId) => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Unit</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('readings_history.filters.unit') }}</label>
                                     <select v-model="filterForm.unit_id" :disabled="!filterForm.building_id" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100">
-                                        <option value="">All Units</option>
+                                        <option value="">{{ t('readings_history.filters.all_units') }}</option>
                                         <option v-for="unit in filteredUnits" :key="unit.id" :value="unit.id">
                                             {{ unit.unit_number }}
                                         </option>
@@ -118,31 +120,31 @@ const deleteReading = (readingId) => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">From Date</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('readings_history.filters.from_date') }}</label>
                                     <input type="date" v-model="filterForm.date_from" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">To Date</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('readings_history.filters.to_date') }}</label>
                                     <input type="date" v-model="filterForm.date_to" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('readings_history.filters.status') }}</label>
                                     <select v-model="filterForm.invoiced" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
-                                        <option value="">All</option>
-                                        <option value="false">Not Invoiced</option>
-                                        <option value="true">Invoiced</option>
+                                        <option value="">{{ t('readings_history.filters.all') }}</option>
+                                        <option value="false">{{ t('readings_history.filters.not_invoiced') }}</option>
+                                        <option value="true">{{ t('readings_history.filters.invoiced') }}</option>
                                     </select>
                                 </div>
                             </div>
 
                             <div class="flex gap-2 mt-4">
                                 <button @click="applyFilters" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
-                                    Apply Filters
+                                    {{ t('readings_history.filters.apply') }}
                                 </button>
                                 <button @click="clearFilters" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">
-                                    Clear
+                                    {{ t('readings_history.filters.clear') }}
                                 </button>
                             </div>
                         </div>
@@ -152,14 +154,14 @@ const deleteReading = (readingId) => {
                             <table class="min-w-full divide-y divide-gray-200">
                                 <thead class="bg-gray-50">
                                     <tr>
-                                        <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                                        <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
-                                        <th class="px-4 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">Previous</th>
-                                        <th class="px-4 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">Current</th>
-                                        <th class="px-4 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">Consumption</th>
-                                        <th class="px-4 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th>
-                                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                        <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('readings_history.table.date') }}</th>
+                                        <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('readings_history.table.unit') }}</th>
+                                        <th class="px-4 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('readings_history.table.previous') }}</th>
+                                        <th class="px-4 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('readings_history.table.current') }}</th>
+                                        <th class="px-4 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('readings_history.table.consumption') }}</th>
+                                        <th class="px-4 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('readings_history.table.cost') }}</th>
+                                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('readings_history.table.status') }}</th>
+                                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('readings_history.table.actions') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white divide-y divide-gray-200">
@@ -175,10 +177,10 @@ const deleteReading = (readingId) => {
                                             </td>
                                             <td colspan="4" class="px-4 py-3 text-center">
                                                 <button @click="saveEdit(reading.id)" class="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 me-2">
-                                                    Save
+                                                    {{ t('readings_history.actions.save') }}
                                                 </button>
                                                 <button @click="cancelEdit" class="px-3 py-1 bg-gray-300 text-gray-700 rounded text-sm hover:bg-gray-400">
-                                                    Cancel
+                                                    {{ t('readings_history.actions.cancel') }}
                                                 </button>
                                             </td>
                                         </template>
@@ -199,24 +201,24 @@ const deleteReading = (readingId) => {
                                                 {{ reading.consumption }}
                                             </td>
                                             <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-end font-mono">
-                                                {{ reading.cost ? formatMoney(reading.cost) : 'N/A' }}
+                                                {{ reading.cost ? formatMoney(reading.cost) : t('readings_history.cost_na') }}
                                             </td>
                                             <td class="px-4 py-3 whitespace-nowrap text-center">
                                                 <span v-if="reading.is_invoiced" class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                                    Invoiced
+                                                    {{ t('readings_history.status.invoiced') }}
                                                 </span>
                                                 <span v-else class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                                                    Pending
+                                                    {{ t('readings_history.status.pending') }}
                                                 </span>
                                             </td>
                                             <td class="px-4 py-3 whitespace-nowrap text-center text-sm">
                                                 <button v-if="!reading.is_invoiced" @click="startEdit(reading)" class="text-indigo-600 hover:text-indigo-900 me-3">
-                                                    Edit
+                                                    {{ t('readings_history.actions.edit') }}
                                                 </button>
                                                 <button v-if="can('finances:manage') && !reading.is_invoiced" @click="deleteReading(reading.id)" class="text-red-600 hover:text-red-900">
-                                                    Delete
+                                                    {{ t('readings_history.actions.delete') }}
                                                 </button>
-                                                <span v-if="reading.is_invoiced" class="text-gray-400 text-xs">Locked</span>
+                                                <span v-if="reading.is_invoiced" class="text-gray-400 text-xs">{{ t('readings_history.actions.locked') }}</span>
                                             </td>
                                         </template>
                                     </tr>
@@ -227,7 +229,7 @@ const deleteReading = (readingId) => {
                         <!-- Pagination -->
                         <div v-if="readings.data.length > 0" class="mt-6 flex justify-between items-center">
                             <div class="text-sm text-gray-700">
-                                Showing {{ readings.from }} to {{ readings.to }} of {{ readings.total }} readings
+                                {{ t('readings_history.pagination.showing', { from: readings.from, to: readings.to, total: readings.total }) }}
                             </div>
                             <div class="flex gap-2">
                                 <Link v-for="link in readings.links" :key="link.label" :href="link.url || '#'"
@@ -246,8 +248,8 @@ const deleteReading = (readingId) => {
                         <EmptyState
                             v-if="readings.data.length === 0"
                             :icon="ClipboardDocumentListIcon"
-                            title="No readings found"
-                            description="Try adjusting your filters or add new readings."
+                            :title="t('readings_history.empty.title')"
+                            :description="t('readings_history.empty.description')"
                         />
 
                     </div>

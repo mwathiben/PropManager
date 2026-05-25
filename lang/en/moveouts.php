@@ -6,6 +6,51 @@ declare(strict_types=1);
  * Phase-105+ i18n migration: move-out detail/settlement page. Mirror en/sw/ar.
  */
 return [
+    'index' => [
+        'head_title' => 'Move-Outs',
+        'title' => 'Move-Outs',
+        'subtitle' => 'Manage tenant move-outs and deposit settlements',
+        'stats' => [
+            'active' => 'Active Move-Outs',
+            'inspection_pending' => 'Inspection Pending',
+            'settlement_pending' => 'Settlement Pending',
+            'completed_this_month' => 'Completed This Month',
+        ],
+        'tabs' => [
+            'active' => 'Active',
+            'completed' => 'Completed',
+        ],
+        'table' => [
+            'tenant' => 'Tenant',
+            'unit' => 'Unit',
+            'move_out_date' => 'Move-Out Date',
+            'deposit' => 'Deposit',
+            'status' => 'Status',
+            'actions' => 'Actions',
+        ],
+        'unit_prefix' => 'Unit',
+        'intended' => '(Intended)',
+        'refund' => 'Refund: {amount}',
+        'status_label' => [
+            'notice_given' => 'Notice Given',
+            'inspection_pending' => 'Inspection Pending',
+            'inspection_complete' => 'Inspection Complete',
+            'settlement_pending' => 'Settlement Pending',
+            'completed' => 'Completed',
+            'cancelled' => 'Cancelled',
+        ],
+        'view' => 'View',
+        'empty' => [
+            'title' => 'No move-outs',
+            'active_description' => 'No active move-outs at the moment.',
+            'completed_description' => 'No completed move-outs to display.',
+        ],
+        'pagination' => [
+            'page_of' => 'Page {current} of {last}',
+            'previous' => 'Previous',
+            'next' => 'Next',
+        ],
+    ],
     'create' => [
         'head_title' => 'Initiate Move-Out',
         'title' => 'Initiate Move-Out',

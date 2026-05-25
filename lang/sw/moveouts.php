@@ -6,6 +6,51 @@ declare(strict_types=1);
  * Phase-105+ i18n migration: move-out detail/settlement page. Mirror en/sw/ar.
  */
 return [
+    'index' => [
+        'head_title' => 'Kuondoka',
+        'title' => 'Kuondoka',
+        'subtitle' => 'Simamia kuondoka kwa wapangaji na malipo ya amana',
+        'stats' => [
+            'active' => 'Kuondoka Kunakoendelea',
+            'inspection_pending' => 'Ukaguzi Unasubiri',
+            'settlement_pending' => 'Malipo Yanasubiri',
+            'completed_this_month' => 'Kumekamilika Mwezi Huu',
+        ],
+        'tabs' => [
+            'active' => 'Kunakoendelea',
+            'completed' => 'Kumekamilika',
+        ],
+        'table' => [
+            'tenant' => 'Mpangaji',
+            'unit' => 'Chumba',
+            'move_out_date' => 'Tarehe ya Kuondoka',
+            'deposit' => 'Amana',
+            'status' => 'Hali',
+            'actions' => 'Vitendo',
+        ],
+        'unit_prefix' => 'Chumba',
+        'intended' => '(Iliyokusudiwa)',
+        'refund' => 'Kurudishwa: {amount}',
+        'status_label' => [
+            'notice_given' => 'Notisi Imetolewa',
+            'inspection_pending' => 'Ukaguzi Unasubiri',
+            'inspection_complete' => 'Ukaguzi Umekamilika',
+            'settlement_pending' => 'Malipo Yanasubiri',
+            'completed' => 'Imekamilika',
+            'cancelled' => 'Imeghairiwa',
+        ],
+        'view' => 'Angalia',
+        'empty' => [
+            'title' => 'Hakuna kuondoka',
+            'active_description' => 'Hakuna kuondoka kunakoendelea kwa sasa.',
+            'completed_description' => 'Hakuna kuondoka kulikokamilika kuonyesha.',
+        ],
+        'pagination' => [
+            'page_of' => 'Ukurasa {current} kati ya {last}',
+            'previous' => 'Iliyopita',
+            'next' => 'Ifuatayo',
+        ],
+    ],
     'create' => [
         'head_title' => 'Anzisha Kuondoka',
         'title' => 'Anzisha Kuondoka',
