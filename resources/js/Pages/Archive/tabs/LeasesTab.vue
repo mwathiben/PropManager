@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue';
 import { router, Link } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import PaginatorLink from '@/Components/PaginatorLink.vue';
 import type { ArchiveLeasesTabProps } from '@/types';
 import {
@@ -14,6 +15,7 @@ import EmptyState from '@/Components/EmptyState.vue';
 
 const props = defineProps<ArchiveLeasesTabProps>();
 
+const { t } = useI18n();
 const { formatDate, formatCurrency } = useFormatters();
 
 const search = ref(props.filters?.search || '');
@@ -54,7 +56,7 @@ const hasActiveFilters = computed(() => {
                             v-model="search"
                             @keyup.enter="applyFilters"
                             type="text"
-                            placeholder="Search by tenant..."
+                            :placeholder="t('archive_leases.search_placeholder')"
                             class="w-full ps-10 border-gray-300 rounded-lg shadow-sm focus:ring-gray-500 focus:border-gray-500 sm:text-sm"
                         />
                         <MagnifyingGlassIcon class="w-5 h-5 text-gray-400 absolute start-3 top-2.5" />
@@ -66,7 +68,7 @@ const hasActiveFilters = computed(() => {
                     @change="applyFilters"
                     class="border-gray-300 rounded-lg shadow-sm focus:ring-gray-500 focus:border-gray-500 sm:text-sm"
                 >
-                    <option value="">All Buildings</option>
+                    <option value="">{{ t('archive_leases.all_buildings') }}</option>
                     <option v-for="building in buildings" :key="building.id" :value="building.id">
                         {{ building.name }}
                     </option>
@@ -77,16 +79,16 @@ const hasActiveFilters = computed(() => {
                     @change="applyFilters"
                     class="border-gray-300 rounded-lg shadow-sm focus:ring-gray-500 focus:border-gray-500 sm:text-sm"
                 >
-                    <option value="">All Status</option>
-                    <option value="active">Active</option>
-                    <option value="expired">Expired</option>
-                    <option value="terminated">Terminated</option>
+                    <option value="">{{ t('archive_leases.all_status') }}</option>
+                    <option value="active">{{ t('archive_leases.status.active') }}</option>
+                    <option value="expired">{{ t('archive_leases.status.expired') }}</option>
+                    <option value="terminated">{{ t('archive_leases.status.terminated') }}</option>
                 </select>
             </div>
 
             <div v-if="hasActiveFilters" class="mt-3 flex justify-end">
                 <button @click="clearFilters" class="text-sm text-gray-500 hover:text-gray-700">
-                    Clear filters
+                    {{ t('archive_leases.clear_filters') }}
                 </button>
             </div>
         </div>
@@ -97,22 +99,22 @@ const hasActiveFilters = computed(() => {
                 <thead class="bg-gray-50">
                     <tr>
                         <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Tenant
+                            {{ t('archive_leases.table.tenant') }}
                         </th>
                         <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Unit
+                            {{ t('archive_leases.table.unit') }}
                         </th>
                         <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Period
+                            {{ t('archive_leases.table.period') }}
                         </th>
                         <th class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Rent
+                            {{ t('archive_leases.table.rent') }}
                         </th>
                         <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Status
+                            {{ t('archive_leases.table.status') }}
                         </th>
                         <th class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Actions
+                            {{ t('archive_leases.table.actions') }}
                         </th>
                     </tr>
                 </thead>
@@ -120,7 +122,7 @@ const hasActiveFilters = computed(() => {
                     <tr v-for="lease in leases.data" :key="lease.id" class="hover:bg-gray-50">
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="text-sm font-medium text-gray-900">
-                                {{ lease.tenant?.name || 'Unknown' }}
+                                {{ lease.tenant?.name || t('archive_leases.unknown_tenant') }}
                             </div>
                             <div class="text-xs text-gray-500">
                                 {{ lease.tenant?.email }}
@@ -128,7 +130,7 @@ const hasActiveFilters = computed(() => {
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="text-sm text-gray-900">
-                                Unit {{ lease.unit?.unit_number }}
+                                {{ t('archive_leases.unit_prefix') }} {{ lease.unit?.unit_number }}
                             </div>
                             <div class="text-xs text-gray-500">
                                 {{ lease.unit?.building?.name }}
@@ -136,10 +138,10 @@ const hasActiveFilters = computed(() => {
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             <div>{{ formatDate(lease.start_date) }}</div>
-                            <div class="text-xs">to {{ formatDate(lease.end_date) || 'Ongoing' }}</div>
+                            <div class="text-xs">{{ t('archive_leases.period_to', { date: formatDate(lease.end_date) || t('archive_leases.ongoing') }) }}</div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-end">
-                            {{ formatCurrency(lease.rent_amount) }}/mo
+                            {{ formatCurrency(lease.rent_amount) }}{{ t('archive_leases.per_month') }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-center">
                             <span
@@ -148,7 +150,7 @@ const hasActiveFilters = computed(() => {
                                     : 'bg-gray-100 text-gray-800'"
                                 class="px-2 py-1 text-xs font-medium rounded-full"
                             >
-                                {{ lease.is_active ? 'Active' : 'Ended' }}
+                                {{ lease.is_active ? t('archive_leases.badge.active') : t('archive_leases.badge.ended') }}
                             </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-end">
@@ -176,25 +178,22 @@ const hasActiveFilters = computed(() => {
             <EmptyState
                 v-else
                 :icon="DocumentDuplicateIcon"
-                title="No leases found"
-                :description="hasActiveFilters ? 'Try adjusting your filters.' : 'Lease agreements will appear here.'"
+                :title="t('archive_leases.empty.title')"
+                :description="hasActiveFilters ? t('archive_leases.empty.filtered') : t('archive_leases.empty.default')"
             />
 
             <!-- Pagination -->
             <div v-if="leases?.data?.length > 0 && leases.last_page > 1" class="bg-gray-50 px-4 py-3 border-t border-gray-200">
                 <div class="flex items-center justify-between">
                     <div class="text-sm text-gray-700">
-                        Showing {{ leases.from }} to {{ leases.to }} of {{ leases.total }} results
+                        {{ t('archive_leases.pagination_summary', { from: leases.from, to: leases.to, total: leases.total }) }}
                     </div>
                     <div class="flex space-x-2">
                         <Link
                             v-for="link in leases.links"
                             :key="link.label"
                             :href="link.url || '#'"
-                            :class="[
-                                link.active ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50',
-                                'px-3 py-1 text-sm border rounded-md'
-                            ]"
+                            :class="[link.active ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50', 'px-3 py-1 text-sm border rounded-md']"
                             :disabled="!link.url"
                         >
                             <PaginatorLink :label="link.label" />

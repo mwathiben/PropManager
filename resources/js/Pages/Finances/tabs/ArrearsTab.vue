@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { router, Link } from '@inertiajs/vue3';
 import { useFormatters, usePayments, useTabFilters } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import { FilterBar, DataTable, AmountDisplay, MetricCard, InvoiceStatusBadge } from '@/Components/Finances';
 import {
     ExclamationTriangleIcon,
@@ -46,6 +47,7 @@ const props = withDefaults(defineProps<Props>(), {
     loading: false,
 });
 
+const { t } = useI18n();
 const { formatDate, formatMoney } = useFormatters();
 const { sendReminder: sendInvoiceReminder, isProcessing } = usePayments();
 
@@ -58,14 +60,14 @@ const { localFilters, applyFilters, clearFilters } = useTabFilters({
     },
 });
 
-const columns = [
-    { key: 'invoice_number', label: 'Invoice', sortable: false },
-    { key: 'tenant', label: 'Tenant', sortable: false },
-    { key: 'balance', label: 'Balance', align: 'right', sortable: true },
-    { key: 'days_overdue', label: 'Days Overdue', align: 'center', sortable: true },
-    { key: 'due_date', label: 'Due Date', sortable: true },
+const columns = computed(() => [
+    { key: 'invoice_number', label: t('finances_arrears.columns.invoice'), sortable: false },
+    { key: 'tenant', label: t('finances_arrears.columns.tenant'), sortable: false },
+    { key: 'balance', label: t('finances_arrears.columns.balance'), align: 'right', sortable: true },
+    { key: 'days_overdue', label: t('finances_arrears.columns.days_overdue'), align: 'center', sortable: true },
+    { key: 'due_date', label: t('finances_arrears.columns.due_date'), sortable: true },
     { key: 'actions', label: '', align: 'right' },
-];
+]);
 
 const tableData = computed(() => {
     if (!props.arrears) return [];
@@ -105,43 +107,43 @@ const sendReminder = async (item) => {
     <div class="space-y-6">
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <MetricCard
-                title="Total Arrears"
+                :title="t('finances_arrears.metric.total_arrears')"
                 :value="stats?.total_arrears"
                 format="currency"
                 :icon="ExclamationTriangleIcon"
                 color="red"
             />
             <MetricCard
-                title="Tenants in Arrears"
+                :title="t('finances_arrears.metric.tenants_in_arrears')"
                 :value="stats?.tenants_in_arrears"
                 format="number"
                 :icon="UsersIcon"
                 color="orange"
             />
             <MetricCard
-                title="Overdue Invoices"
+                :title="t('finances_arrears.metric.overdue_invoices')"
                 :value="stats?.overdue_count"
                 format="number"
                 :icon="ClockIcon"
                 color="yellow"
             />
             <div class="bg-white rounded-xl border border-gray-200 p-5">
-                <p class="text-sm font-medium text-gray-500 mb-3">Aging Breakdown</p>
+                <p class="text-sm font-medium text-gray-500 mb-3">{{ t('finances_arrears.aging.title') }}</p>
                 <div class="space-y-2 text-xs">
                     <div class="flex justify-between">
-                        <span class="text-gray-600">0-30 days</span>
+                        <span class="text-gray-600">{{ t('finances_arrears.aging.0_30') }}</span>
                         <span class="font-medium">{{ formatMoney(stats?.age_groups?.['0_30'] || 0) }}</span>
                     </div>
                     <div class="flex justify-between">
-                        <span class="text-gray-600">31-60 days</span>
+                        <span class="text-gray-600">{{ t('finances_arrears.aging.31_60') }}</span>
                         <span class="font-medium">{{ formatMoney(stats?.age_groups?.['31_60'] || 0) }}</span>
                     </div>
                     <div class="flex justify-between">
-                        <span class="text-gray-600">61-90 days</span>
+                        <span class="text-gray-600">{{ t('finances_arrears.aging.61_90') }}</span>
                         <span class="font-medium">{{ formatMoney(stats?.age_groups?.['61_90'] || 0) }}</span>
                     </div>
                     <div class="flex justify-between">
-                        <span class="text-red-600">90+ days</span>
+                        <span class="text-red-600">{{ t('finances_arrears.aging.90_plus') }}</span>
                         <span class="font-medium text-red-600">{{ formatMoney(stats?.age_groups?.['90_plus'] || 0) }}</span>
                     </div>
                 </div>
@@ -154,7 +156,7 @@ const sendReminder = async (item) => {
             :show-status="false"
             :show-payment-method="false"
             :show-date-range="false"
-            search-placeholder="Search tenants..."
+            :search-placeholder="t('finances_arrears.search_placeholder')"
             @filter="applyFilters"
             @clear="clearFilters"
         >
@@ -166,7 +168,7 @@ const sendReminder = async (item) => {
                     class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
                 >
                     <BellIcon class="h-4 w-4" />
-                    Send Arrears Notices
+                    {{ t('finances_arrears.send_notices') }}
                 </Link>
             </template>
         </FilterBar>
@@ -177,8 +179,8 @@ const sendReminder = async (item) => {
             :loading="loading"
             row-key="id"
             :empty-icon="ExclamationTriangleIcon"
-            empty-title="No arrears"
-            empty-description="Great news! No overdue invoices."
+            :empty-title="t('finances_arrears.empty.title')"
+            :empty-description="t('finances_arrears.empty.description')"
             @row-click="viewInvoice"
         >
             <template #cell-tenant="{ row }">
@@ -194,7 +196,7 @@ const sendReminder = async (item) => {
 
             <template #cell-days_overdue="{ row }">
                 <span :class="['inline-flex px-2 py-1 text-xs font-medium rounded-full', getDaysOverdueClass(row.days_overdue)]">
-                    {{ row.days_overdue }} days
+                    {{ t('finances_arrears.days_count', { count: row.days_overdue }) }}
                 </span>
             </template>
 
@@ -207,10 +209,10 @@ const sendReminder = async (item) => {
                     @click.stop="sendReminder(row)"
                     :disabled="isProcessing"
                     class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-orange-700 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors disabled:opacity-50"
-                    title="Send Reminder"
+                    :title="t('finances_arrears.reminder_title')"
                 >
                     <EnvelopeIcon class="h-3.5 w-3.5" />
-                    {{ isProcessing ? 'Sending...' : 'Remind' }}
+                    {{ isProcessing ? t('finances_arrears.sending') : t('finances_arrears.remind') }}
                 </button>
             </template>
         </DataTable>

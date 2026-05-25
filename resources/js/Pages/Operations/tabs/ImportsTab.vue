@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { router, Link, useForm } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import type { OperationsImportsTabProps } from '@/types/operations';
 import {
     DocumentArrowDownIcon,
@@ -14,6 +15,7 @@ import {
 
 const props = defineProps<OperationsImportsTabProps>();
 
+const { t } = useI18n();
 const { formatDate } = useFormatters();
 
 const showUploadModal = ref(false);
@@ -64,33 +66,33 @@ const getStatusColor = (status) => {
     return colors[status] || 'bg-gray-100 text-gray-800';
 };
 
-const templates = [
+const templates = computed(() => [
     {
         type: 'tenants',
-        name: 'Tenants',
-        description: 'Import tenant information from CSV',
+        name: t('operations_imports.templates.tenants.name'),
+        description: t('operations_imports.templates.tenants.description'),
         fields: ['name', 'email', 'phone', 'unit_id'],
     },
     {
         type: 'units',
-        name: 'Units',
-        description: 'Import unit data from CSV',
+        name: t('operations_imports.templates.units.name'),
+        description: t('operations_imports.templates.units.description'),
         fields: ['unit_number', 'building_id', 'rent', 'status'],
     },
     {
         type: 'payments',
-        name: 'Payments',
-        description: 'Import payment records from CSV',
+        name: t('operations_imports.templates.payments.name'),
+        description: t('operations_imports.templates.payments.description'),
         fields: ['tenant_id', 'amount', 'date', 'method'],
     },
-];
+]);
 </script>
 
 <template>
     <div>
         <!-- Import Templates -->
         <div class="mb-8">
-            <h3 class="font-semibold text-gray-900 mb-4">Import Data</h3>
+            <h3 class="font-semibold text-gray-900 mb-4">{{ t('operations_imports.import_data') }}</h3>
             <div class="grid gap-4 md:grid-cols-3">
                 <div
                     v-for="template in templates"
@@ -114,14 +116,14 @@ const templates = [
                             class="flex-1 inline-flex items-center justify-center px-3 py-1.5 text-sm text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
                         >
                             <ArrowDownTrayIcon class="w-4 h-4 me-1" />
-                            Template
+                            {{ t('operations_imports.template_button') }}
                         </a>
                         <button
                             @click="startImport(template.type)"
                             class="flex-1 inline-flex items-center justify-center px-3 py-1.5 text-sm text-white bg-purple-600 rounded hover:bg-purple-700"
                         >
                             <ArrowUpTrayIcon class="w-4 h-4 me-1" />
-                            Import
+                            {{ t('operations_imports.import_button') }}
                         </button>
                     </div>
                 </div>
@@ -130,16 +132,16 @@ const templates = [
 
         <!-- Import History -->
         <div>
-            <h3 class="font-semibold text-gray-900 mb-4">Import History</h3>
+            <h3 class="font-semibold text-gray-900 mb-4">{{ t('operations_imports.import_history') }}</h3>
             <div v-if="imports?.data?.length > 0" class="bg-white border border-gray-200 rounded-lg overflow-hidden">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase">Type</th>
-                            <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase">File</th>
-                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Records</th>
-                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
-                            <th class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase">Date</th>
+                            <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase">{{ t('operations_imports.table.type') }}</th>
+                            <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase">{{ t('operations_imports.table.file') }}</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{{ t('operations_imports.table.records') }}</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{{ t('operations_imports.table.status') }}</th>
+                            <th class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase">{{ t('operations_imports.table.date') }}</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200">
@@ -173,8 +175,8 @@ const templates = [
             </div>
             <div v-else class="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
                 <DocumentArrowDownIcon class="mx-auto h-12 w-12 text-gray-400" />
-                <h3 class="mt-2 text-sm font-medium text-gray-900">No imports yet</h3>
-                <p class="mt-1 text-sm text-gray-500">Import history will appear here.</p>
+                <h3 class="mt-2 text-sm font-medium text-gray-900">{{ t('operations_imports.no_imports') }}</h3>
+                <p class="mt-1 text-sm text-gray-500">{{ t('operations_imports.no_imports_hint') }}</p>
             </div>
         </div>
 
@@ -185,12 +187,12 @@ const templates = [
 
                 <div class="relative z-50 bg-white rounded-lg shadow-xl max-w-md w-full p-6">
                     <h3 class="text-lg font-semibold text-gray-900 mb-4">
-                        Import {{ selectedTemplate }}
+                        {{ t('operations_imports.import_modal_title', { type: selectedTemplate }) }}
                     </h3>
 
                     <form @submit.prevent="submitImport" class="space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">CSV File</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('operations_imports.csv_file_label') }}</label>
                             <input
                                 type="file"
                                 accept=".csv"
@@ -199,7 +201,7 @@ const templates = [
                                 required
                             />
                             <p class="mt-1 text-xs text-gray-500">
-                                Download the template first to see the required format.
+                                {{ t('operations_imports.csv_file_hint') }}
                             </p>
                         </div>
 
@@ -209,14 +211,14 @@ const templates = [
                                 @click="showUploadModal = false"
                                 class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
                             >
-                                Cancel
+                                {{ t('operations_imports.cancel') }}
                             </button>
                             <button
                                 type="submit"
                                 :disabled="uploadForm.processing"
                                 class="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
                             >
-                                Start Import
+                                {{ t('operations_imports.start_import') }}
                             </button>
                         </div>
                     </form>

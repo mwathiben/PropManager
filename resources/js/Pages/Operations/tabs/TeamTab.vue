@@ -2,6 +2,7 @@
 import { ref, watch, onMounted, onUnmounted } from 'vue';
 import { router, Link, useForm, usePage } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import { useAuth } from '@/composables/useAuth';
 import { useEcho } from '@/composables/useEcho';
 import type { OperationsTeamTabProps } from '@/types/operations';
@@ -20,6 +21,7 @@ import {
 const props = defineProps<OperationsTeamTabProps>();
 
 const { formatDate } = useFormatters();
+const { t } = useI18n();
 const { can } = useAuth();
 const page = usePage();
 const { subscribePrivate, unsubscribe } = useEcho();
@@ -56,7 +58,7 @@ const handleInvitationAccepted = (data) => {
         };
     }
 
-    showToast(`${data.accepted_by} accepted the invitation!`, 'success');
+    showToast(t('operations_team.toast.accepted', { name: data.accepted_by }), 'success');
     router.reload({ only: ['caretakers', 'invitations'] });
 };
 
@@ -79,28 +81,28 @@ const submitInvite = () => {
         onSuccess: () => {
             showInviteModal.value = false;
             inviteForm.reset();
-            showToast('Invitation sent successfully!');
+            showToast(t('operations_team.toast.sent'));
         },
     });
 };
 
 const resendInvitation = (id) => {
-    if (confirm('Resend this invitation?')) {
+    if (confirm(t('operations_team.confirm.resend'))) {
         router.post(route('invitations.resend', id), {}, {
             preserveScroll: true,
-            onSuccess: () => showToast('Invitation resent!'),
+            onSuccess: () => showToast(t('operations_team.toast.resent')),
         });
     }
 };
 
 const cancelInvitation = (id) => {
-    if (confirm('Cancel this invitation?')) {
+    if (confirm(t('operations_team.confirm.cancel'))) {
         router.delete(route('invitations.destroy', id), { preserveScroll: true });
     }
 };
 
 const removeCaretaker = (id) => {
-    if (confirm('Remove this caretaker? They will lose access to your properties.')) {
+    if (confirm(t('operations_team.confirm.remove_caretaker'))) {
         router.delete(route('caretakers.destroy', id), { preserveScroll: true });
     }
 };
@@ -108,9 +110,9 @@ const removeCaretaker = (id) => {
 const copyInviteLink = (invitation) => {
     const url = `${window.location.origin}/invitations/${invitation.token}`;
     navigator.clipboard.writeText(url).then(() => {
-        showToast('Invitation link copied to clipboard!');
+        showToast(t('operations_team.toast.link_copied'));
     }).catch(() => {
-        showToast('Failed to copy link', 'error');
+        showToast(t('operations_team.toast.copy_failed'), 'error');
     });
 };
 
@@ -137,20 +139,20 @@ const getStatusColor = (status) => {
     <div>
         <div class="flex items-center justify-between mb-6">
             <div>
-                <h3 class="font-semibold text-gray-900">Team Members</h3>
-                <p class="text-sm text-gray-500">Manage caretakers and property managers</p>
+                <h3 class="font-semibold text-gray-900">{{ t('operations_team.header_title') }}</h3>
+                <p class="text-sm text-gray-500">{{ t('operations_team.header_subtitle') }}</p>
             </div>
             <button
                 @click="showInviteModal = true"
                 class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium"
             >
                 <UserPlusIcon class="w-5 h-5 me-1" />
-                Invite Caretaker
+                {{ t('operations_team.invite_caretaker') }}
             </button>
         </div>
 
         <div class="mb-8">
-            <h4 class="text-sm font-medium text-gray-700 mb-3">Active Caretakers</h4>
+            <h4 class="text-sm font-medium text-gray-700 mb-3">{{ t('operations_team.active_caretakers') }}</h4>
             <div v-if="caretakers?.length > 0" class="space-y-3">
                 <div
                     v-for="caretaker in caretakers"
@@ -168,7 +170,7 @@ const getStatusColor = (status) => {
                     </div>
                     <div class="flex items-center gap-2">
                         <span class="text-sm text-gray-500">
-                            {{ caretaker.buildings_count || 0 }} buildings
+                            {{ t('operations_team.buildings_count', { count: caretaker.buildings_count || 0 }) }}
                         </span>
                         <button
                             v-if="can('team:manage')"
@@ -182,12 +184,12 @@ const getStatusColor = (status) => {
             </div>
             <div v-else class="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
                 <UserGroupIcon class="mx-auto h-10 w-10 text-gray-400" />
-                <p class="mt-2 text-sm text-gray-500">No active caretakers</p>
+                <p class="mt-2 text-sm text-gray-500">{{ t('operations_team.no_active_caretakers') }}</p>
             </div>
         </div>
 
         <div>
-            <h4 class="text-sm font-medium text-gray-700 mb-3">Pending Invitations</h4>
+            <h4 class="text-sm font-medium text-gray-700 mb-3">{{ t('operations_team.pending_invitations') }}</h4>
             <div v-if="localInvitations?.length > 0" class="space-y-3">
                 <div
                     v-for="invitation in localInvitations"
@@ -202,27 +204,27 @@ const getStatusColor = (status) => {
                             <div class="font-medium text-gray-900">{{ invitation.name || invitation.email }}</div>
                             <div class="text-sm text-gray-500">{{ invitation.email }}</div>
                             <div class="text-xs text-gray-400 mt-1">
-                                Expires: {{ formatDate(invitation.expires_at) }}
+                                {{ t('operations_team.expires', { date: formatDate(invitation.expires_at) }) }}
                             </div>
                         </div>
                     </div>
                     <div class="flex items-center gap-2">
                         <span :class="getStatusColor(invitation.status)" class="px-2 py-1 text-xs rounded-full flex items-center gap-1">
                             <component :is="getStatusIcon(invitation.status)" class="w-3 h-3" />
-                            {{ invitation.status }}
+                            {{ t(`operations_team.status.${invitation.status}`, invitation.status ?? '') }}
                         </span>
                         <template v-if="invitation.status === 'pending'">
                             <button
                                 @click="copyInviteLink(invitation)"
                                 class="p-1 text-blue-600 hover:bg-blue-50 rounded"
-                                title="Copy Link"
+                                :title="t('operations_team.actions.copy_link')"
                             >
                                 <ClipboardDocumentIcon class="w-5 h-5" />
                             </button>
                             <button
                                 @click="resendInvitation(invitation.id)"
                                 class="p-1 text-purple-600 hover:bg-purple-50 rounded"
-                                title="Resend"
+                                :title="t('operations_team.actions.resend')"
                             >
                                 <PaperAirplaneIcon class="w-5 h-5" />
                             </button>
@@ -230,7 +232,7 @@ const getStatusColor = (status) => {
                                 v-if="can('team:manage')"
                                 @click="cancelInvitation(invitation.id)"
                                 class="p-1 text-red-600 hover:bg-red-50 rounded"
-                                title="Cancel"
+                                :title="t('operations_team.actions.cancel')"
                             >
                                 <TrashIcon class="w-5 h-5" />
                             </button>
@@ -240,7 +242,7 @@ const getStatusColor = (status) => {
             </div>
             <div v-else class="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
                 <ClockIcon class="mx-auto h-10 w-10 text-gray-400" />
-                <p class="mt-2 text-sm text-gray-500">No pending invitations</p>
+                <p class="mt-2 text-sm text-gray-500">{{ t('operations_team.no_pending_invitations') }}</p>
             </div>
         </div>
 
@@ -249,11 +251,11 @@ const getStatusColor = (status) => {
                 <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showInviteModal = false"></div>
 
                 <div class="relative z-50 bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Invite Caretaker</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">{{ t('operations_team.modal.title') }}</h3>
 
                     <form @submit.prevent="submitInvite" class="space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('operations_team.modal.name') }}</label>
                             <input
                                 v-model="inviteForm.name"
                                 type="text"
@@ -263,7 +265,7 @@ const getStatusColor = (status) => {
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('operations_team.modal.email') }}</label>
                             <input
                                 v-model="inviteForm.email"
                                 type="email"
@@ -273,7 +275,7 @@ const getStatusColor = (status) => {
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Assign to Buildings</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('operations_team.modal.assign_buildings') }}</label>
                             <div class="space-y-2 max-h-40 overflow-y-auto">
                                 <label
                                     v-for="building in buildings"
@@ -297,14 +299,14 @@ const getStatusColor = (status) => {
                                 @click="showInviteModal = false"
                                 class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
                             >
-                                Cancel
+                                {{ t('operations_team.modal.cancel') }}
                             </button>
                             <button
                                 type="submit"
                                 :disabled="inviteForm.processing"
                                 class="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
                             >
-                                Send Invitation
+                                {{ t('operations_team.modal.send_invitation') }}
                             </button>
                         </div>
                     </form>

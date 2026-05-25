@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted } from 'vue';
 import { router } from '@inertiajs/vue3';
 import Modal from '@/Components/Modal.vue';
 import { useFinancesStore } from '@/stores/finances';
+import { useI18n } from '@/composables/useI18n';
 import {
     XMarkIcon,
     BellIcon,
@@ -17,6 +18,7 @@ const emit = defineEmits<{
 }>();
 
 const store = useFinancesStore();
+const { t } = useI18n();
 
 const modalData = computed(() => store.modals.sendReminders);
 
@@ -50,7 +52,7 @@ const handleSend = async () => {
             }, 2000);
         },
         onError: (errs) => {
-            error.value = Object.values(errs)[0] || 'Failed to send reminders';
+            error.value = Object.values(errs)[0] || t('finances_send_reminders.error_fallback');
         },
         onFinish: () => {
             isProcessing.value = false;
@@ -65,8 +67,8 @@ const handleSend = async () => {
             <div class="inline-flex items-center justify-center w-16 h-16 bg-emerald-100 rounded-full mb-4">
                 <CheckIcon class="w-8 h-8 text-emerald-600" />
             </div>
-            <h3 class="text-lg font-semibold text-gray-900">Reminders Sent!</h3>
-            <p class="text-sm text-gray-500 mt-2">Rent reminders have been queued for all active tenants.</p>
+            <h3 class="text-lg font-semibold text-gray-900">{{ t('finances_send_reminders.success_title') }}</h3>
+            <p class="text-sm text-gray-500 mt-2">{{ t('finances_send_reminders.success_body') }}</p>
         </div>
 
         <template v-else>
@@ -75,7 +77,7 @@ const handleSend = async () => {
                                     <div class="p-2 bg-orange-100 rounded-lg">
                                         <BellIcon class="w-5 h-5 text-orange-600" />
                                     </div>
-                                    <h2 class="text-lg font-semibold text-gray-900">Send Rent Reminders</h2>
+                                    <h2 class="text-lg font-semibold text-gray-900">{{ t('finances_send_reminders.heading') }}</h2>
                                 </div>
                                 <button
                                     @click="close"
@@ -90,9 +92,9 @@ const handleSend = async () => {
                                     <div class="flex items-start gap-3">
                                         <UserGroupIcon class="w-5 h-5 text-orange-500 shrink-0 mt-0.5" />
                                         <div>
-                                            <p class="text-sm font-medium text-orange-800">Bulk Reminder</p>
+                                            <p class="text-sm font-medium text-orange-800">{{ t('finances_send_reminders.bulk_title') }}</p>
                                             <p class="text-sm text-orange-700 mt-1">
-                                                This will send rent reminder notifications to all active tenants with upcoming rent due.
+                                                {{ t('finances_send_reminders.bulk_body') }}
                                             </p>
                                         </div>
                                     </div>
@@ -104,8 +106,8 @@ const handleSend = async () => {
                                             <EnvelopeIcon class="w-4 h-4 text-blue-600" />
                                         </div>
                                         <div>
-                                            <p class="text-sm font-medium text-gray-900">Email Notifications</p>
-                                            <p class="text-xs text-gray-500">Sent to tenant email addresses</p>
+                                            <p class="text-sm font-medium text-gray-900">{{ t('finances_send_reminders.email_title') }}</p>
+                                            <p class="text-xs text-gray-500">{{ t('finances_send_reminders.email_desc') }}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -120,14 +122,14 @@ const handleSend = async () => {
                                         @click="close"
                                         class="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                                     >
-                                        Cancel
+                                        {{ t('finances_send_reminders.cancel') }}
                                     </button>
                                     <button
                                         @click="handleSend"
                                         :disabled="isProcessing"
                                         class="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-orange-600 rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
-                                        {{ isProcessing ? 'Sending...' : 'Send Reminders' }}
+                                        {{ isProcessing ? t('finances_send_reminders.sending') : t('finances_send_reminders.send') }}
                                     </button>
                                 </div>
                             </div>
