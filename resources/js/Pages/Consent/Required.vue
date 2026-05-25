@@ -2,7 +2,10 @@
 import GuestLayout from '@/Layouts/GuestLayout.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
+import { useI18n } from '@/composables/useI18n';
 import type { ConsentRequiredPageProps } from '@/types';
+
+const { t } = useI18n();
 
 const props = withDefaults(defineProps<ConsentRequiredPageProps>(), {
     documents: () => [],
@@ -52,13 +55,13 @@ const submit = () => {
 
 <template>
     <GuestLayout>
-        <Head title="Accept Terms" />
+        <Head :title="t('consent.page_title')" />
 
         <div class="max-w-2xl mx-auto">
             <div class="text-center mb-8">
-                <h1 class="text-2xl font-bold text-gray-900">Legal Agreement Required</h1>
+                <h1 class="text-2xl font-bold text-gray-900">{{ t('consent.heading') }}</h1>
                 <p class="mt-2 text-gray-600">
-                    Please review and accept our updated terms to continue using PropManager.
+                    {{ t('consent.intro') }}
                 </p>
             </div>
 
@@ -75,7 +78,7 @@ const submit = () => {
                                     {{ doc.title }}
                                 </h3>
                                 <p class="text-sm text-gray-500 mt-1">
-                                    Version {{ doc.version }} · Effective {{ doc.effective_date }}
+                                    {{ t('consent.version_effective', { version: doc.version, date: doc.effective_date }) }}
                                 </p>
                                 <p v-if="doc.summary" class="text-sm text-gray-600 mt-2">
                                     {{ doc.summary }}
@@ -85,7 +88,7 @@ const submit = () => {
                                 @click="toggleExpand(doc.type)"
                                 class="ms-4 text-indigo-600 hover:text-indigo-800 text-sm font-medium"
                             >
-                                {{ isExpanded(doc.type) ? 'Hide' : 'Read Full' }}
+                                {{ isExpanded(doc.type) ? t('consent.hide') : t('consent.read_full') }}
                             </button>
                         </div>
 
@@ -98,7 +101,7 @@ const submit = () => {
                                 target="_blank"
                                 class="text-indigo-600 hover:text-indigo-800 text-sm"
                             >
-                                Open in new tab →
+                                {{ t('consent.open_new_tab') }}
                             </a>
                         </div>
 
@@ -111,7 +114,7 @@ const submit = () => {
                                 class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                             >
                             <label :for="`accept-${doc.type}`" class="ms-2 text-sm text-gray-700">
-                                I have read and agree to the {{ doc.type_name }}
+                                {{ t('consent.agree_to', { document: doc.type_name }) }}
                             </label>
                         </div>
                     </div>
@@ -122,18 +125,13 @@ const submit = () => {
                 <button
                     @click="submit"
                     :disabled="!allAccepted() || form.processing"
-                    :class="[
-                        'w-full py-3 px-4 rounded-lg font-medium transition-colors',
-                        allAccepted()
-                            ? 'bg-indigo-600 text-white hover:bg-indigo-700'
-                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    ]"
+                    :class="['w-full py-3 px-4 rounded-lg font-medium transition-colors', allAccepted() ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed']"
                 >
-                    <span v-if="form.processing">Processing...</span>
-                    <span v-else>Continue to PropManager</span>
+                    <span v-if="form.processing">{{ t('consent.processing') }}</span>
+                    <span v-else>{{ t('consent.continue') }}</span>
                 </button>
                 <p class="mt-2 text-xs text-gray-500 text-center">
-                    By clicking Continue, you agree to be bound by these terms.
+                    {{ t('consent.footer_note') }}
                 </p>
             </div>
         </div>

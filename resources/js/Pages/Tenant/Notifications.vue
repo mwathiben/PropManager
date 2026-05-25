@@ -18,8 +18,10 @@ import {
     UserPlusIcon,
 } from '@heroicons/vue/24/outline';
 import { useFormatters, useErrorHandler } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import type { TenantNotificationsPaginated, NotificationFilterType } from '@/types';
 
+const { t } = useI18n();
 const { logError } = useErrorHandler();
 
 const props = withDefaults(defineProps<{
@@ -34,31 +36,32 @@ const props = withDefaults(defineProps<{
 const { formatDate, formatRelativeTime } = useFormatters();
 
 const typeConfig = {
-    rent_reminder: { icon: ClockIcon, color: 'text-orange-500', bg: 'bg-orange-100', label: 'Rent Reminder' },
-    arrears_notice: { icon: ExclamationTriangleIcon, color: 'text-red-500', bg: 'bg-red-100', label: 'Arrears Notice' },
-    invoice: { icon: DocumentTextIcon, color: 'text-blue-500', bg: 'bg-blue-100', label: 'Invoice' },
-    receipt: { icon: CheckCircleIcon, color: 'text-green-500', bg: 'bg-green-100', label: 'Receipt' },
-    rent_hike: { icon: ArrowTrendingUpIcon, color: 'text-purple-500', bg: 'bg-purple-100', label: 'Rent Adjustment' },
-    lease_expiry: { icon: CalendarIcon, color: 'text-yellow-500', bg: 'bg-yellow-100', label: 'Lease Expiry' },
-    lease_renewal: { icon: DocumentTextIcon, color: 'text-teal-500', bg: 'bg-teal-100', label: 'Lease Renewal' },
-    maintenance_notice: { icon: WrenchScrewdriverIcon, color: 'text-gray-500', bg: 'bg-gray-100', label: 'Maintenance' },
-    general: { icon: BellIcon, color: 'text-indigo-500', bg: 'bg-indigo-100', label: 'General' },
-    eviction_notice: { icon: ExclamationCircleIcon, color: 'text-red-500', bg: 'bg-red-100', label: 'Eviction Notice' },
-    caretaker_invitation: { icon: UserPlusIcon, color: 'text-purple-500', bg: 'bg-purple-100', label: 'Caretaker Invitation' },
-    tenant_invitation: { icon: UserPlusIcon, color: 'text-indigo-500', bg: 'bg-indigo-100', label: 'Tenant Invitation' },
+    rent_reminder: { icon: ClockIcon, color: 'text-orange-500', bg: 'bg-orange-100', labelKey: 'rent_reminder' },
+    arrears_notice: { icon: ExclamationTriangleIcon, color: 'text-red-500', bg: 'bg-red-100', labelKey: 'arrears_notice' },
+    invoice: { icon: DocumentTextIcon, color: 'text-blue-500', bg: 'bg-blue-100', labelKey: 'invoice' },
+    receipt: { icon: CheckCircleIcon, color: 'text-green-500', bg: 'bg-green-100', labelKey: 'receipt' },
+    rent_hike: { icon: ArrowTrendingUpIcon, color: 'text-purple-500', bg: 'bg-purple-100', labelKey: 'rent_hike' },
+    lease_expiry: { icon: CalendarIcon, color: 'text-yellow-500', bg: 'bg-yellow-100', labelKey: 'lease_expiry' },
+    lease_renewal: { icon: DocumentTextIcon, color: 'text-teal-500', bg: 'bg-teal-100', labelKey: 'lease_renewal' },
+    maintenance_notice: { icon: WrenchScrewdriverIcon, color: 'text-gray-500', bg: 'bg-gray-100', labelKey: 'maintenance_notice' },
+    general: { icon: BellIcon, color: 'text-indigo-500', bg: 'bg-indigo-100', labelKey: 'general' },
+    eviction_notice: { icon: ExclamationCircleIcon, color: 'text-red-500', bg: 'bg-red-100', labelKey: 'eviction_notice' },
+    caretaker_invitation: { icon: UserPlusIcon, color: 'text-purple-500', bg: 'bg-purple-100', labelKey: 'caretaker_invitation' },
+    tenant_invitation: { icon: UserPlusIcon, color: 'text-indigo-500', bg: 'bg-indigo-100', labelKey: 'tenant_invitation' },
 };
 
 const processingInvitation = ref(null);
 
 const getTypeConfig = (type) => {
-    return typeConfig[type] || typeConfig.general;
+    const config = typeConfig[type] || typeConfig.general;
+    return { ...config, label: t(`tenant_notifications.type.${config.labelKey}`) };
 };
 
-const filters = [
-    { value: 'all', label: 'All' },
-    { value: 'unread', label: 'Unread' },
-    { value: 'read', label: 'Read' },
-];
+const filters = computed(() => [
+    { value: 'all', label: t('tenant_notifications.filters.all') },
+    { value: 'unread', label: t('tenant_notifications.filters.unread') },
+    { value: 'read', label: t('tenant_notifications.filters.read') },
+]);
 
 const currentFilter = ref(props.filter);
 
@@ -149,7 +152,7 @@ const declineInvitation = (notification, event) => {
     event.stopPropagation();
     if (!notification.invitation_id) return;
 
-    if (!confirm('Are you sure you want to decline this invitation?')) {
+    if (!confirm(t('tenant_notifications.confirm_decline'))) {
         return;
     }
 
@@ -181,9 +184,9 @@ const groupedNotifications = computed(() => {
 
         let label;
         if (notifDate.getTime() === today.getTime()) {
-            label = 'Today';
+            label = t('tenant_notifications.group.today');
         } else if (notifDate.getTime() === yesterday.getTime()) {
-            label = 'Yesterday';
+            label = t('tenant_notifications.group.yesterday');
         } else {
             label = formatDate(notification.created_at);
         }
@@ -199,7 +202,7 @@ const groupedNotifications = computed(() => {
 </script>
 
 <template>
-    <Head title="My Notifications" />
+    <Head :title="t('tenant_notifications.title')" />
 
     <AuthenticatedLayout>
         <div class="py-6">
@@ -212,9 +215,9 @@ const groupedNotifications = computed(() => {
                                 <BellIcon class="w-6 h-6 text-indigo-600" />
                             </div>
                             <div>
-                                <h1 class="text-xl font-bold text-gray-900">My Notifications</h1>
+                                <h1 class="text-xl font-bold text-gray-900">{{ t('tenant_notifications.title') }}</h1>
                                 <p class="text-sm text-gray-500">
-                                    {{ unreadCount > 0 ? `${unreadCount} unread` : 'All caught up!' }}
+                                    {{ unreadCount > 0 ? t('tenant_notifications.unread_count', { count: unreadCount }) : t('tenant_notifications.all_caught_up') }}
                                 </p>
                             </div>
                         </div>
@@ -225,7 +228,7 @@ const groupedNotifications = computed(() => {
                             class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
                         >
                             <CheckIcon class="w-4 h-4" />
-                            Mark All as Read
+                            {{ t('tenant_notifications.mark_all_read') }}
                         </button>
                     </div>
                 </div>
@@ -237,12 +240,7 @@ const groupedNotifications = computed(() => {
                             v-for="filter in filters"
                             :key="filter.value"
                             @click="setFilter(filter.value)"
-                            :class="[
-                                'flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all text-center',
-                                currentFilter === filter.value
-                                    ? 'bg-indigo-600 text-white shadow-sm'
-                                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                            ]"
+                            :class="['flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all text-center', currentFilter === filter.value ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50']"
                         >
                             {{ filter.label }}
                             <span
@@ -264,9 +262,9 @@ const groupedNotifications = computed(() => {
                         class="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center"
                     >
                         <BellIcon class="w-16 h-16 text-gray-300 mx-auto" />
-                        <h3 class="mt-4 text-lg font-medium text-gray-900">No notifications</h3>
+                        <h3 class="mt-4 text-lg font-medium text-gray-900">{{ t('tenant_notifications.empty.title') }}</h3>
                         <p class="mt-2 text-gray-500">
-                            {{ currentFilter === 'unread' ? "You've read all your notifications!" : "You don't have any notifications yet." }}
+                            {{ currentFilter === 'unread' ? t('tenant_notifications.empty.unread') : t('tenant_notifications.empty.all') }}
                         </p>
                     </div>
 
@@ -286,17 +284,11 @@ const groupedNotifications = computed(() => {
                                     v-for="notification in items"
                                     :key="notification.id"
                                     @click="markAsRead(notification)"
-                                    :class="[
-                                        'p-4 hover:bg-gray-50 cursor-pointer transition-colors',
-                                        !notification.read_at ? 'bg-indigo-50/30' : ''
-                                    ]"
+                                    :class="['p-4 hover:bg-gray-50 cursor-pointer transition-colors', !notification.read_at ? 'bg-indigo-50/30' : '']"
                                 >
                                     <div class="flex gap-4">
                                         <!-- Type Icon -->
-                                        <div :class="[
-                                            'shrink-0 w-12 h-12 rounded-xl flex items-center justify-center',
-                                            getTypeConfig(notification.type).bg
-                                        ]">
+                                        <div :class="['shrink-0 w-12 h-12 rounded-xl flex items-center justify-center', getTypeConfig(notification.type).bg]">
                                             <component
                                                 :is="getTypeConfig(notification.type).icon"
                                                 :class="['w-6 h-6', getTypeConfig(notification.type).color]"
@@ -308,11 +300,7 @@ const groupedNotifications = computed(() => {
                                             <div class="flex items-start justify-between gap-4">
                                                 <div class="flex-1 min-w-0">
                                                     <div class="flex items-center gap-2">
-                                                        <span :class="[
-                                                            'text-xs font-medium px-2 py-0.5 rounded-full',
-                                                            getTypeConfig(notification.type).bg,
-                                                            getTypeConfig(notification.type).color
-                                                        ]">
+                                                        <span :class="['text-xs font-medium px-2 py-0.5 rounded-full', getTypeConfig(notification.type).bg, getTypeConfig(notification.type).color]">
                                                             {{ getTypeConfig(notification.type).label }}
                                                         </span>
                                                         <span
@@ -320,10 +308,7 @@ const groupedNotifications = computed(() => {
                                                             class="w-2 h-2 bg-indigo-500 rounded-full"
                                                         ></span>
                                                     </div>
-                                                    <h4 :class="[
-                                                        'mt-1 text-base',
-                                                        !notification.read_at ? 'font-semibold text-gray-900' : 'text-gray-700'
-                                                    ]">
+                                                    <h4 :class="['mt-1 text-base', !notification.read_at ? 'font-semibold text-gray-900' : 'text-gray-700']">
                                                         {{ notification.subject }}
                                                     </h4>
                                                     <p class="mt-1 text-sm text-gray-500 line-clamp-2">
@@ -340,14 +325,14 @@ const groupedNotifications = computed(() => {
                                                             :disabled="processingInvitation === notification.id"
                                                             class="px-4 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
                                                         >
-                                                            {{ processingInvitation === notification.id ? 'Processing...' : 'Accept' }}
+                                                            {{ processingInvitation === notification.id ? t('tenant_notifications.processing') : t('tenant_notifications.accept') }}
                                                         </button>
                                                         <button
                                                             @click="declineInvitation(notification, $event)"
                                                             :disabled="processingInvitation === notification.id"
                                                             class="px-4 py-1.5 text-sm bg-red-100 text-red-600 rounded-lg hover:bg-red-200 disabled:opacity-50 transition-colors"
                                                         >
-                                                            Decline
+                                                            {{ t('tenant_notifications.decline') }}
                                                         </button>
                                                     </div>
                                                 </div>

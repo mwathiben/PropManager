@@ -3,6 +3,9 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, Link } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import ArrowLeftIcon from '@heroicons/vue/24/outline/ArrowLeftIcon';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 const props = defineProps({
     qrCode: String,
@@ -27,7 +30,7 @@ const copySecret = () => {
 </script>
 
 <template>
-    <Head title="Setup Two-Factor Authentication" />
+    <Head :title="t('two_factor_setup.page_title')" />
 
     <AuthenticatedLayout>
         <div class="py-6">
@@ -38,11 +41,11 @@ const copySecret = () => {
                     <div class="p-6">
                         <Link :href="route('two-factor.index')" class="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-3">
                             <ArrowLeftIcon class="w-4 h-4" />
-                            Back to Two-Factor Authentication
+                            {{ t('two_factor_setup.back') }}
                         </Link>
-                        <h1 class="text-2xl font-bold text-gray-900 mb-2">Setup Two-Factor Authentication</h1>
+                        <h1 class="text-2xl font-bold text-gray-900 mb-2">{{ t('two_factor_setup.heading') }}</h1>
                         <p class="text-sm text-gray-600 mb-6">
-                            Scan the QR code below with your authenticator app (Google Authenticator, Authy, etc.)
+                            {{ t('two_factor_setup.scan_instruction') }}
                         </p>
 
                         <!-- QR Code -->
@@ -56,11 +59,11 @@ const copySecret = () => {
                                 @click="showSecret = !showSecret"
                                 class="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
                             >
-                                {{ showSecret ? 'Hide' : 'Show' }} setup key for manual entry
+                                {{ t('two_factor_setup.manual_key_label', { action: showSecret ? t('two_factor_setup.hide') : t('two_factor_setup.show') }) }}
                             </button>
 
                             <div v-if="showSecret" class="mt-3 p-4 bg-gray-50 rounded-lg">
-                                <p class="text-xs text-gray-600 mb-2">Enter this key manually in your authenticator app:</p>
+                                <p class="text-xs text-gray-600 mb-2">{{ t('two_factor_setup.manual_key_hint') }}</p>
                                 <div class="flex items-center gap-2">
                                     <code class="flex-1 px-3 py-2 bg-white border border-gray-300 rounded text-sm font-mono break-all">
                                         {{ secret }}
@@ -68,7 +71,7 @@ const copySecret = () => {
                                     <button
                                         @click="copySecret"
                                         class="px-3 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded"
-                                        title="Copy to clipboard"
+                                        :title="t('two_factor_setup.copy')"
                                     >
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -82,7 +85,7 @@ const copySecret = () => {
                         <form @submit.prevent="confirm">
                             <div class="mb-4">
                                 <label class="block text-sm font-medium text-gray-700 mb-2">
-                                    Enter the 6-digit code from your authenticator app
+                                    {{ t('two_factor_setup.code_label') }}
                                 </label>
                                 <input
                                     v-model="form.code"
@@ -101,14 +104,14 @@ const copySecret = () => {
                                     :href="route('two-factor.index')"
                                     class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md font-medium"
                                 >
-                                    Cancel
+                                    {{ t('two_factor_setup.cancel') }}
                                 </a>
                                 <button
                                     type="submit"
                                     :disabled="form.processing || form.code.length !== 6"
                                     class="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 font-medium"
                                 >
-                                    {{ form.processing ? 'Verifying...' : 'Verify and Enable' }}
+                                    {{ form.processing ? t('two_factor_setup.verifying') : t('two_factor_setup.verify_enable') }}
                                 </button>
                             </div>
                         </form>
@@ -122,8 +125,8 @@ const copySecret = () => {
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         <div class="text-sm text-blue-800">
-                            <strong>Important:</strong> After enabling two-factor authentication, you will receive recovery codes.
-                            Store them safely - they can be used to access your account if you lose your authenticator device.
+                            <strong>{{ t('two_factor_setup.important_label') }}</strong> {{ t('two_factor_setup.important_body') }}
+                            {{ t('two_factor_setup.store_safely') }}
                         </div>
                     </div>
                 </div>

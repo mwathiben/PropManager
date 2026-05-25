@@ -6,6 +6,7 @@ import TextInput from '@/Components/TextInput.vue';
 import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import LocaleSelector from '@/Components/LocaleSelector.vue';
+import { useI18n } from '@/composables/useI18n';
 import type { PersonalInfoTabProps } from '@/types';
 import {
     UserCircleIcon,
@@ -15,6 +16,8 @@ import {
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps<PersonalInfoTabProps>();
+
+const { t } = useI18n();
 
 const form = useForm({
     // Laravel method spoofing: this form uploads a photo (multipart) and PHP only
@@ -31,6 +34,8 @@ const form = useForm({
 const photoPreview = ref(props.user.profile_photo_url);
 const photoInput = ref(null);
 
+const transitionClass = 'transition ease-in-out'; /* i18n-ignore: Tailwind transition utility classes */
+
 const selectPhoto = () => {
     photoInput.value.click();
 };
@@ -41,12 +46,12 @@ const updatePhotoPreview = (event) => {
     if (!file) return;
 
     if (file.size > 2 * 1024 * 1024) {
-        form.errors.profile_photo = 'Photo must not exceed 2MB';
+        form.errors.profile_photo = t('profile_personal_info.photo_too_large');
         return;
     }
 
     if (!file.type.startsWith('image/')) {
-        form.errors.profile_photo = 'File must be an image';
+        form.errors.profile_photo = t('profile_personal_info.photo_not_image');
         return;
     }
 
@@ -72,10 +77,10 @@ const submit = () => {
 
 const roleLabel = computed(() => {
     const labels = {
-        landlord: 'Landlord',
-        caretaker: 'Caretaker',
-        tenant: 'Tenant',
-        super_admin: 'Super Admin',
+        landlord: t('profile_personal_info.roles.landlord'),
+        caretaker: t('profile_personal_info.roles.caretaker'),
+        tenant: t('profile_personal_info.roles.tenant'),
+        super_admin: t('profile_personal_info.roles.super_admin'),
     };
     return labels[props.user.role] || props.user.role;
 });
@@ -85,7 +90,7 @@ const roleLabel = computed(() => {
     <div class="space-y-6">
         <!-- Profile Photo Section -->
         <div class="bg-white rounded-xl border border-gray-200 p-6">
-            <h3 class="text-sm font-medium text-gray-900 mb-4">Profile Photo</h3>
+            <h3 class="text-sm font-medium text-gray-900 mb-4">{{ t('profile_personal_info.profile_photo') }}</h3>
             <div class="flex items-center gap-6">
                 <div class="relative">
                     <div
@@ -114,9 +119,9 @@ const roleLabel = computed(() => {
                         class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                     >
                         <CameraIcon class="w-5 h-5 me-2 text-gray-400" />
-                        {{ photoPreview ? 'Change Photo' : 'Upload Photo' }}
+                        {{ photoPreview ? t('profile_personal_info.change_photo') : t('profile_personal_info.upload_photo') }}
                     </button>
-                    <p class="mt-2 text-xs text-gray-500">JPG, PNG or GIF. Max 2MB.</p>
+                    <p class="mt-2 text-xs text-gray-500">{{ t('profile_personal_info.photo_hint') }}</p>
                 </div>
             </div>
             <InputError :message="form.errors.profile_photo" class="mt-2" />
@@ -124,12 +129,12 @@ const roleLabel = computed(() => {
 
         <!-- Personal Information Form -->
         <form @submit.prevent="submit" class="bg-white rounded-xl border border-gray-200 p-6">
-            <h3 class="text-sm font-medium text-gray-900 mb-4">Personal Information</h3>
+            <h3 class="text-sm font-medium text-gray-900 mb-4">{{ t('profile_personal_info.personal_information') }}</h3>
 
             <div class="space-y-4">
                 <!-- Name -->
                 <div>
-                    <InputLabel for="name" value="Full Name" />
+                    <InputLabel for="name" :value="t('profile_personal_info.full_name')" />
                     <div class="mt-1 relative">
                         <div class="absolute inset-y-0 start-0 ps-3 flex items-center pointer-events-none">
                             <UserCircleIcon class="h-5 w-5 text-gray-400" />
@@ -148,7 +153,7 @@ const roleLabel = computed(() => {
 
                 <!-- Email -->
                 <div>
-                    <InputLabel for="email" value="Email Address" />
+                    <InputLabel for="email" :value="t('profile_personal_info.email_address')" />
                     <div class="mt-1 relative">
                         <div class="absolute inset-y-0 start-0 ps-3 flex items-center pointer-events-none">
                             <EnvelopeIcon class="h-5 w-5 text-gray-400" />
@@ -175,18 +180,18 @@ const roleLabel = computed(() => {
                         </div>
                         <div class="ms-3">
                             <p class="text-sm text-yellow-700">
-                                Your email address is unverified.
+                                {{ t('profile_personal_info.email_unverified') }}
                                 <Link
                                     :href="route('verification.send')"
                                     method="post"
                                     as="button"
                                     class="font-medium text-yellow-700 underline hover:text-yellow-600"
                                 >
-                                    Click here to re-send the verification email.
+                                    {{ t('profile_personal_info.resend_verification') }}
                                 </Link>
                             </p>
                             <p v-if="status === 'verification-link-sent'" class="mt-2 text-sm font-medium text-green-600">
-                                A new verification link has been sent to your email address.
+                                {{ t('profile_personal_info.verification_link_sent') }}
                             </p>
                         </div>
                     </div>
@@ -194,7 +199,7 @@ const roleLabel = computed(() => {
 
                 <!-- Phone Number -->
                 <div>
-                    <InputLabel for="mobile_number" value="Phone Number" />
+                    <InputLabel for="mobile_number" :value="t('profile_personal_info.phone_number')" />
                     <div class="mt-1 relative">
                         <div class="absolute inset-y-0 start-0 ps-3 flex items-center pointer-events-none">
                             <PhoneIcon class="h-5 w-5 text-gray-400" />
@@ -204,7 +209,7 @@ const roleLabel = computed(() => {
                             v-model="form.mobile_number"
                             type="tel"
                             class="ps-10 block w-full"
-                            placeholder="+254 712 345 678"
+                            :placeholder="t('profile_personal_info.phone_placeholder')"
                         />
                     </div>
                     <InputError :message="form.errors.mobile_number" class="mt-2" />
@@ -214,22 +219,22 @@ const roleLabel = computed(() => {
             <!-- Submit -->
             <div class="mt-6 flex items-center justify-between border-t border-gray-200 pt-4">
                 <p class="text-xs text-gray-500">
-                    Account type: <span class="font-medium text-gray-700">{{ roleLabel }}</span>
+                    {{ t('profile_personal_info.account_type') }} <span class="font-medium text-gray-700">{{ roleLabel }}</span>
                 </p>
                 <div class="flex items-center gap-4">
                     <Transition
-                        enter-active-class="transition ease-in-out"
+                        :enter-active-class="transitionClass"
                         enter-from-class="opacity-0"
-                        leave-active-class="transition ease-in-out"
+                        :leave-active-class="transitionClass"
                         leave-to-class="opacity-0"
                     >
                         <p v-if="form.recentlySuccessful" class="text-sm text-green-600">
-                            Saved.
+                            {{ t('profile_personal_info.saved') }}
                         </p>
                     </Transition>
                     <PrimaryButton :disabled="form.processing">
-                        <span v-if="form.processing">Saving...</span>
-                        <span v-else>Save Changes</span>
+                        <span v-if="form.processing">{{ t('profile_personal_info.saving') }}</span>
+                        <span v-else>{{ t('profile_personal_info.save_changes') }}</span>
                     </PrimaryButton>
                 </div>
             </div>
