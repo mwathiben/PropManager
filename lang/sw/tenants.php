@@ -285,4 +285,34 @@ return [
             'copied' => 'Kiungo cha mwaliko kimenakiliwa!',
         ],
     ],
+
+    'history' => [
+        'head_title' => 'Historia ya Wapangaji',
+        'heading' => 'Historia ya Wapangaji',
+        'subtitle' => 'Tazama wapangaji wa zamani waliohama',
+        'total_past_tenants' => 'Jumla ya Wapangaji wa Zamani',
+        'search_label' => 'Tafuta',
+        'search_placeholder' => 'Tafuta kwa jina au barua pepe...',
+        'building_label' => 'Jengo',
+        'all_buildings' => 'Majengo Yote',
+        'clear' => 'Futa',
+        'na' => 'Haipo',
+        'duration_months' => 'miezi {count}',
+        'not_specified' => 'Haijabainishwa',
+        'view_profile' => 'Tazama Wasifu',
+
+        'table' => [
+            'tenant' => 'Mpangaji',
+            'last_unit' => 'Kipengele cha Mwisho',
+            'lease_period' => 'Kipindi cha Mkataba',
+            'duration' => 'Muda',
+            'move_out_reason' => 'Sababu ya Kuhama',
+            'actions' => 'Vitendo',
+        ],
+
+        'empty' => [
+            'title' => 'Hakuna wapangaji wa zamani waliopatikana',
+            'description' => 'Rekodi za wapangaji wa zamani zitaonekana hapa baada ya kuhama',
+        ],
+    ],
 ];

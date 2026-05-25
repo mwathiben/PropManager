@@ -7,6 +7,7 @@ import { ref, computed } from 'vue';
 import TicketStatusBadge from '@/Components/TicketStatusBadge.vue';
 import TicketPriorityBadge from '@/Components/TicketPriorityBadge.vue';
 import { useFormatters, useAuth } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import type { TicketsIndexPageProps, TicketStatus, TicketCategory, TicketPriority } from '@/types';
 import {
     FunnelIcon,
@@ -19,6 +20,8 @@ import {
 import EmptyState from '@/Components/EmptyState.vue';
 
 const props = defineProps<TicketsIndexPageProps>();
+
+const { t } = useI18n();
 
 const search = ref(props.filters.search || '');
 const status = ref(props.filters.status || '');
@@ -75,17 +78,17 @@ const getCategoryClass = (cat) => {
         : 'bg-indigo-50 text-indigo-700 border-indigo-200';
 };
 
-const emptyStateTitle = computed(() => isTenant.value ? 'No issues reported' : 'No tickets found');
+const emptyStateTitle = computed(() => isTenant.value ? t('tickets.index.empty_title_tenant') : t('tickets.index.empty_title'));
 const emptyStateDescription = computed(() => {
-    if (hasActiveFilters.value) return 'Try adjusting your filters.';
-    if (isTenant.value) return 'Having a problem? Report it and we\'ll help you.';
-    return 'No open issues or complaints to address.';
+    if (hasActiveFilters.value) return t('tickets.index.empty_desc_filtered');
+    if (isTenant.value) return t('tickets.index.empty_desc_tenant');
+    return t('tickets.index.empty_desc');
 });
-const emptyStateActionLabel = computed(() => isTenant.value ? 'Report an Issue' : 'Report Issue');
+const emptyStateActionLabel = computed(() => isTenant.value ? t('tickets.index.empty_action_tenant') : t('tickets.index.empty_action'));
 </script>
 
 <template>
-    <Head title="Tickets" />
+    <Head :title="t('tickets.index.page_title')" />
 
     <AuthenticatedLayout>
         <div class="py-6">
@@ -93,9 +96,9 @@ const emptyStateActionLabel = computed(() => isTenant.value ? 'Report an Issue' 
                 <!-- Header -->
                 <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
-                        <h1 class="text-3xl font-bold text-gray-900">{{ isTenant ? 'My Issues & Requests' : 'Issues & Complaints' }}</h1>
+                        <h1 class="text-3xl font-bold text-gray-900">{{ isTenant ? t('tickets.index.heading_tenant') : t('tickets.index.heading') }}</h1>
                         <p class="text-gray-600 mt-1">
-                            {{ isTenant ? 'Track your reported issues and requests' : 'Track and manage maintenance issues and complaints' }}
+                            {{ isTenant ? t('tickets.index.subheading_tenant') : t('tickets.index.subheading') }}
                         </p>
                     </div>
                     <Link
@@ -103,7 +106,7 @@ const emptyStateActionLabel = computed(() => isTenant.value ? 'Report an Issue' 
                         class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                     >
                         <PlusIcon class="h-5 w-5 me-2" />
-                        Report Issue
+                        {{ t('tickets.index.report_issue') }}
                     </Link>
                 </div>
 
@@ -111,19 +114,19 @@ const emptyStateActionLabel = computed(() => isTenant.value ? 'Report an Issue' 
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                     <div class="bg-white rounded-lg shadow-sm p-4 border">
                         <div class="text-2xl font-bold text-gray-900">{{ stats.open }}</div>
-                        <div class="text-sm text-gray-500">Open Tickets</div>
+                        <div class="text-sm text-gray-500">{{ t('tickets.index.stats_open') }}</div>
                     </div>
                     <div class="bg-white rounded-lg shadow-sm p-4 border">
                         <div class="text-2xl font-bold text-green-600">{{ stats.resolved }}</div>
-                        <div class="text-sm text-gray-500">Resolved</div>
+                        <div class="text-sm text-gray-500">{{ t('tickets.index.stats_resolved') }}</div>
                     </div>
                     <div class="bg-white rounded-lg shadow-sm p-4 border">
                         <div class="text-2xl font-bold text-red-600">{{ stats.urgent }}</div>
-                        <div class="text-sm text-gray-500">Urgent</div>
+                        <div class="text-sm text-gray-500">{{ t('tickets.index.stats_urgent') }}</div>
                     </div>
                     <div class="bg-white rounded-lg shadow-sm p-4 border">
                         <div class="text-2xl font-bold text-gray-600">{{ stats.total }}</div>
-                        <div class="text-sm text-gray-500">Total</div>
+                        <div class="text-sm text-gray-500">{{ t('tickets.index.stats_total') }}</div>
                     </div>
                 </div>
 
@@ -132,13 +135,13 @@ const emptyStateActionLabel = computed(() => isTenant.value ? 'Report an Issue' 
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
                         <!-- Search -->
                         <div class="md:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Search</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tickets.index.filter_search') }}</label>
                             <div class="relative">
                                 <input
                                     v-model="search"
                                     @keyup.enter="applyFilters"
                                     type="text"
-                                    placeholder="Search by title..."
+                                    :placeholder="t('tickets.index.search_placeholder')"
                                     class="w-full ps-10 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                                 />
                                 <MagnifyingGlassIcon class="w-5 h-5 text-gray-400 absolute start-3 top-2.5" />
@@ -147,14 +150,14 @@ const emptyStateActionLabel = computed(() => isTenant.value ? 'Report an Issue' 
 
                         <!-- Status Filter -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tickets.index.filter_status') }}</label>
                             <select
                                 v-model="status"
                                 @change="applyFilters"
                                 class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                             >
-                                <option value="">All</option>
-                                <option value="active">Active</option>
+                                <option value="">{{ t('tickets.index.filter_all') }}</option>
+                                <option value="active">{{ t('tickets.index.filter_active') }}</option>
                                 <option v-for="(label, value) in statuses" :key="value" :value="value">
                                     {{ label }}
                                 </option>
@@ -163,13 +166,13 @@ const emptyStateActionLabel = computed(() => isTenant.value ? 'Report an Issue' 
 
                         <!-- Category Filter -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tickets.index.filter_category') }}</label>
                             <select
                                 v-model="category"
                                 @change="applyFilters"
                                 class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                             >
-                                <option value="">All</option>
+                                <option value="">{{ t('tickets.index.filter_all') }}</option>
                                 <option v-for="(label, value) in categories" :key="value" :value="value">
                                     {{ label }}
                                 </option>
@@ -178,13 +181,13 @@ const emptyStateActionLabel = computed(() => isTenant.value ? 'Report an Issue' 
 
                         <!-- Priority Filter -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tickets.index.filter_priority') }}</label>
                             <select
                                 v-model="priority"
                                 @change="applyFilters"
                                 class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                             >
-                                <option value="">All</option>
+                                <option value="">{{ t('tickets.index.filter_all') }}</option>
                                 <option v-for="(label, value) in priorities" :key="value" :value="value">
                                     {{ label }}
                                 </option>
@@ -193,7 +196,7 @@ const emptyStateActionLabel = computed(() => isTenant.value ? 'Report an Issue' 
 
                         <!-- Building/Wing Filter (for landlords/caretakers only) -->
                         <div v-if="!isTenant && buildings?.length > 0">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Building / Wing</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tickets.index.filter_building_wing') }}</label>
                             <BuildingWingFilter
                                 :buildings="buildings"
                                 v-model:buildingId="buildingId"
@@ -209,7 +212,7 @@ const emptyStateActionLabel = computed(() => isTenant.value ? 'Report an Issue' 
                             @click="clearFilters"
                             class="text-sm text-gray-500 hover:text-gray-700"
                         >
-                            Clear filters
+                            {{ t('tickets.index.clear_filters') }}
                         </button>
                     </div>
                 </div>
@@ -243,7 +246,7 @@ const emptyStateActionLabel = computed(() => isTenant.value ? 'Report an Issue' 
                                     <div class="sm:flex sm:space-x-4">
                                         <p class="flex items-center text-sm text-gray-500">
                                             <span class="truncate">{{ ticket.building?.name }}</span>
-                                            <span v-if="ticket.unit" class="ms-1">- Unit {{ ticket.unit.unit_number }}</span>
+                                            <span v-if="ticket.unit" class="ms-1">{{ t('tickets.index.unit_label', { number: ticket.unit.unit_number }) }}</span>
                                         </p>
                                         <p class="mt-2 flex items-center text-sm text-gray-500 sm:mt-0">
                                             {{ ticket.subcategory }}
@@ -252,7 +255,7 @@ const emptyStateActionLabel = computed(() => isTenant.value ? 'Report an Issue' 
                                     <div class="mt-2 flex items-center text-sm text-gray-500 sm:mt-0">
                                         <span>{{ formatDate(ticket.created_at) }}</span>
                                         <span v-if="ticket.assignee" class="ms-4">
-                                            Assigned to {{ ticket.assignee.name }}
+                                            {{ t('tickets.index.assigned_to', { name: ticket.assignee.name }) }}
                                         </span>
                                     </div>
                                 </div>
@@ -274,17 +277,14 @@ const emptyStateActionLabel = computed(() => isTenant.value ? 'Report an Issue' 
                     <div v-if="tickets.data.length > 0" class="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
                         <div class="flex items-center justify-between">
                             <div class="text-sm text-gray-700">
-                                Showing {{ tickets.from }} to {{ tickets.to }} of {{ tickets.total }} results
+                                {{ t('tickets.index.pagination_showing', { from: tickets.from, to: tickets.to, total: tickets.total }) }}
                             </div>
                             <div class="flex space-x-2">
                                 <Link
                                     v-for="link in tickets.links"
                                     :key="link.label"
                                     :href="link.url || '#'"
-                                    :class="[
-                                        link.active ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50',
-                                        'px-3 py-1 text-sm border rounded-md'
-                                    ]"
+                                    :class="[link.active ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50', 'px-3 py-1 text-sm border rounded-md']"
                                     :disabled="!link.url"
                                 >
                                     <PaginatorLink :label="link.label" />

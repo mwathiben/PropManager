@@ -285,4 +285,34 @@ return [
             'copied' => 'تم نسخ رابط الدعوة!',
         ],
     ],
+
+    'history' => [
+        'head_title' => 'سجل المستأجرين',
+        'heading' => 'سجل المستأجرين',
+        'subtitle' => 'عرض المستأجرين السابقين الذين غادروا',
+        'total_past_tenants' => 'إجمالي المستأجرين السابقين',
+        'search_label' => 'بحث',
+        'search_placeholder' => 'البحث بالاسم أو البريد الإلكتروني...',
+        'building_label' => 'المبنى',
+        'all_buildings' => 'جميع المباني',
+        'clear' => 'مسح',
+        'na' => 'غير متاح',
+        'duration_months' => '{count} شهر',
+        'not_specified' => 'غير محدد',
+        'view_profile' => 'عرض الملف الشخصي',
+
+        'table' => [
+            'tenant' => 'المستأجر',
+            'last_unit' => 'آخر وحدة',
+            'lease_period' => 'فترة الإيجار',
+            'duration' => 'المدة',
+            'move_out_reason' => 'سبب المغادرة',
+            'actions' => 'الإجراءات',
+        ],
+
+        'empty' => [
+            'title' => 'لم يتم العثور على مستأجرين سابقين',
+            'description' => 'ستظهر سجلات المستأجرين السابقين هنا بعد المغادرة',
+        ],
+    ],
 ];

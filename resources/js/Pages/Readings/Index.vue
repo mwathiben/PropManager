@@ -3,6 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, Link } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { useAuth, useFormatters } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import type { ReadingsIndexPageProps } from '@/types';
 
 const props = defineProps<ReadingsIndexPageProps>();
@@ -10,6 +11,7 @@ const props = defineProps<ReadingsIndexPageProps>();
 // Use auth composable for role-based UI
 const { isLandlord, isCaretaker } = useAuth();
 const { todayAsISODate } = useFormatters();
+const { t } = useI18n();
 
 const form = useForm({
     reading_date: todayAsISODate(),
@@ -37,14 +39,14 @@ const handlePhotoUpload = (event, unitId) => {
 
     // Validate file is an image
     if (!file.type.startsWith('image/')) {
-        alert('Please select a valid image file');
+        alert(t('readings_index.alert.invalid_image'));
         event.target.value = '';
         return;
     }
 
     // Validate file size (5MB max)
     if (file.size > 5 * 1024 * 1024) {
-        alert('Photo size must be less than 5MB');
+        alert(t('readings_index.alert.photo_too_large'));
         event.target.value = '';
         return;
     }
@@ -79,7 +81,7 @@ const submit = () => {
     });
 
     if (filledReadings.length === 0) {
-        alert("Please enter at least one reading with a photo.");
+        alert(t('readings_index.alert.no_readings'));
         return;
     }
 
@@ -91,7 +93,7 @@ const submit = () => {
     });
 
     if (incompleteReadings.length > 0) {
-        alert("Some readings are incomplete. Please provide both meter reading and photo for each entry.");
+        alert(t('readings_index.alert.incomplete'));
         return;
     }
 
@@ -119,7 +121,7 @@ const submit = () => {
                 input.value = '';
             });
 
-            alert("Readings submitted for landlord approval!");
+            alert(t('readings_index.alert.submitted'));
         }
     });
 };
@@ -131,7 +133,7 @@ const getReadingEntry = (unitId) => {
 </script>
 
 <template>
-    <Head title="Water Readings" />
+    <Head :title="t('readings_index.title')" />
 
     <AuthenticatedLayout>
         <div class="py-6">
@@ -142,10 +144,10 @@ const getReadingEntry = (unitId) => {
                         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
                             <div>
                                 <h1 class="text-xl font-bold text-gray-800">
-                                    {{ isCaretaker ? 'Water Meter Input' : 'Record Water Readings' }}
+                                    {{ isCaretaker ? t('readings_index.header.title_caretaker') : t('readings_index.header.title_landlord') }}
                                 </h1>
                                 <p class="text-sm text-gray-600 mt-1">
-                                    {{ isCaretaker ? 'Submit readings for landlord approval' : 'Enter meter readings for billing' }}
+                                    {{ isCaretaker ? t('readings_index.header.subtitle_caretaker') : t('readings_index.header.subtitle_landlord') }}
                                 </p>
                             </div>
                             <div class="flex items-center gap-3">
@@ -155,7 +157,7 @@ const getReadingEntry = (unitId) => {
                                     :href="route('readings.review')"
                                     class="text-sm text-indigo-600 hover:text-indigo-800 whitespace-nowrap"
                                 >
-                                    Review Pending →
+                                    {{ t('readings_index.review_pending') }}
                                 </Link>
                             </div>
                         </div>
@@ -168,15 +170,15 @@ const getReadingEntry = (unitId) => {
                                     <div class="flex items-start justify-between mb-3">
                                         <div>
                                             <div class="font-bold text-gray-900 text-lg">{{ unit.unit_number }}</div>
-                                            <div class="text-xs text-gray-500">Previous: {{ unit.previous_reading }}</div>
-                                            <div class="text-xs text-gray-400">Last reading: {{ unit.last_reading_date }}</div>
+                                            <div class="text-xs text-gray-500">{{ t('readings_index.previous', { value: unit.previous_reading }) }}</div>
+                                            <div class="text-xs text-gray-400">{{ t('readings_index.last_reading', { value: unit.last_reading_date }) }}</div>
                                         </div>
 
                                         <div class="flex flex-col items-end gap-2">
                                             <input
                                                 type="number"
                                                 v-model="getReadingEntry(unit.id).current_reading"
-                                                placeholder="New Reading"
+                                                :placeholder="t('readings_index.new_reading_placeholder')"
                                                 step="0.01"
                                                 class="w-32 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-end font-mono text-lg"
                                             >
@@ -192,7 +194,7 @@ const getReadingEntry = (unitId) => {
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                                                     </svg>
-                                                    <span class="text-sm text-gray-700">Upload Meter Photo</span>
+                                                    <span class="text-sm text-gray-700">{{ t('readings_index.upload_meter_photo') }}</span>
                                                 </div>
                                             </label>
                                             <input
@@ -209,7 +211,7 @@ const getReadingEntry = (unitId) => {
                                         <div v-else class="relative">
                                             <img
                                                 :src="photoPreview[unit.id]"
-                                                alt="Meter photo preview"
+                                                :alt="t('readings_index.meter_photo_alt')"
                                                 class="w-full h-32 object-cover rounded-md border border-gray-300"
                                             >
                                             <button
@@ -225,7 +227,7 @@ const getReadingEntry = (unitId) => {
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                                                 </svg>
-                                                Photo uploaded
+                                                {{ t('readings_index.photo_uploaded') }}
                                             </div>
                                         </div>
                                     </div>
@@ -241,16 +243,16 @@ const getReadingEntry = (unitId) => {
                                     </svg>
                                     <p class="text-sm text-blue-800">
                                         <template v-if="isCaretaker">
-                                            <strong>Photo Required:</strong> Each reading must include a photo of the water meter for landlord verification. Readings will be submitted for approval before being added to invoices.
+                                            <strong>{{ t('readings_index.photo_required.label') }}</strong> {{ t('readings_index.photo_required.caretaker') }}
                                         </template>
                                         <template v-else>
-                                            <strong>Photo Required:</strong> Each reading must include a photo of the water meter. Photos help verify accuracy and prevent billing disputes.
+                                            <strong>{{ t('readings_index.photo_required.label') }}</strong> {{ t('readings_index.photo_required.landlord') }}
                                         </template>
                                     </p>
                                 </div>
                             </div>
                             <button @click="submit" :disabled="form.processing" class="w-full py-3 bg-green-600 text-white font-bold rounded-lg shadow-md hover:bg-green-700 transition-colors text-lg disabled:opacity-50">
-                                {{ form.processing ? 'Submitting...' : (isCaretaker ? 'Submit Readings for Approval' : 'Save Readings') }}
+                                {{ form.processing ? t('readings_index.submit.processing') : (isCaretaker ? t('readings_index.submit.caretaker') : t('readings_index.submit.landlord')) }}
                             </button>
                         </div>
 

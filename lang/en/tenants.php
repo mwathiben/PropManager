@@ -285,4 +285,34 @@ return [
             'copied' => 'Invitation link copied!',
         ],
     ],
+
+    'history' => [
+        'head_title' => 'Tenant History',
+        'heading' => 'Tenant History',
+        'subtitle' => 'View past tenants who have moved out',
+        'total_past_tenants' => 'Total Past Tenants',
+        'search_label' => 'Search',
+        'search_placeholder' => 'Search by name or email...',
+        'building_label' => 'Building',
+        'all_buildings' => 'All Buildings',
+        'clear' => 'Clear',
+        'na' => 'N/A',
+        'duration_months' => '{count} months',
+        'not_specified' => 'Not specified',
+        'view_profile' => 'View Profile',
+
+        'table' => [
+            'tenant' => 'Tenant',
+            'last_unit' => 'Last Unit',
+            'lease_period' => 'Lease Period',
+            'duration' => 'Duration',
+            'move_out_reason' => 'Move-out Reason',
+            'actions' => 'Actions',
+        ],
+
+        'empty' => [
+            'title' => 'No past tenants found',
+            'description' => 'Past tenant records will appear here after move-outs',
+        ],
+    ],
 ];

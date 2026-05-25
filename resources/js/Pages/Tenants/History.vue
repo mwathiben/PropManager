@@ -4,6 +4,7 @@ import Pagination from '@/Components/Pagination.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { useFormatters } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import type { TenantHistoryPageProps } from '@/types/finances';
 import {
     ArchiveBoxIcon,
@@ -16,6 +17,7 @@ import {
 const props = defineProps<TenantHistoryPageProps>();
 
 const { formatDate } = useFormatters();
+const { t } = useI18n();
 
 // Filter state
 const search = ref(props.filters.search || '');
@@ -58,21 +60,21 @@ const getMoveOutReasonBadge = (reason) => {
 
 // Format move-out reason for display
 const formatReason = (reason) => {
-    if (!reason) return 'N/A';
+    if (!reason) return t('tenants.history.na');
     return reason.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 };
 </script>
 
 <template>
-    <Head title="Tenant History" />
+    <Head :title="t('tenants.history.head_title')" />
 
     <AuthenticatedLayout>
         <div class="py-6">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
                 <!-- Header -->
                 <div class="mb-6">
-                    <h1 class="text-3xl font-bold text-gray-900">Tenant History</h1>
-                    <p class="text-gray-600 mt-1">View past tenants who have moved out</p>
+                    <h1 class="text-3xl font-bold text-gray-900">{{ t('tenants.history.heading') }}</h1>
+                    <p class="text-gray-600 mt-1">{{ t('tenants.history.subtitle') }}</p>
                 </div>
 
                 <!-- Stats Card -->
@@ -83,7 +85,7 @@ const formatReason = (reason) => {
                                 <ArchiveBoxIcon class="w-6 h-6 text-gray-600" />
                             </div>
                             <div class="ms-4">
-                                <p class="text-sm font-medium text-gray-500">Total Past Tenants</p>
+                                <p class="text-sm font-medium text-gray-500">{{ t('tenants.history.total_past_tenants') }}</p>
                                 <p class="text-2xl font-bold text-gray-900">{{ stats.total_past_tenants }}</p>
                             </div>
                         </div>
@@ -94,13 +96,13 @@ const formatReason = (reason) => {
                 <div class="mb-6 bg-white shadow-sm rounded-lg p-4">
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div class="md:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Search</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.history.search_label') }}</label>
                             <div class="relative">
                                 <input
                                     v-model="search"
                                     @keyup.enter="applyFilters"
                                     type="text"
-                                    placeholder="Search by name or email..."
+                                    :placeholder="t('tenants.history.search_placeholder')"
                                     class="w-full ps-10 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                                 >
                                 <MagnifyingGlassIcon class="w-5 h-5 text-gray-400 absolute start-3 top-2.5" />
@@ -108,13 +110,13 @@ const formatReason = (reason) => {
                         </div>
 
                         <div v-if="buildings?.length > 0">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Building</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.history.building_label') }}</label>
                             <select
                                 v-model="buildingId"
                                 @change="applyFilters"
                                 class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                             >
-                                <option value="">All Buildings</option>
+                                <option value="">{{ t('tenants.history.all_buildings') }}</option>
                                 <option v-for="building in buildings" :key="building.id" :value="building.id">
                                     {{ building.name }}
                                 </option>
@@ -126,7 +128,7 @@ const formatReason = (reason) => {
                                 @click="clearFilters"
                                 class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
                             >
-                                Clear
+                                {{ t('tenants.history.clear') }}
                             </button>
                         </div>
                     </div>
@@ -137,12 +139,12 @@ const formatReason = (reason) => {
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Tenant</th>
-                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Last Unit</th>
-                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Lease Period</th>
-                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
-                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Move-out Reason</th>
-                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('tenants.history.table.tenant') }}</th>
+                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('tenants.history.table.last_unit') }}</th>
+                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('tenants.history.table.lease_period') }}</th>
+                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('tenants.history.table.duration') }}</th>
+                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('tenants.history.table.move_out_reason') }}</th>
+                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('tenants.history.table.actions') }}</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
@@ -164,7 +166,7 @@ const formatReason = (reason) => {
                                         {{ tenant.last_lease.unit_number }}
                                         <span class="text-gray-500">({{ tenant.last_lease.building_name }})</span>
                                     </template>
-                                    <span v-else class="text-gray-400">N/A</span>
+                                    <span v-else class="text-gray-400">{{ t('tenants.history.na') }}</span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                     <template v-if="tenant.last_lease">
@@ -177,13 +179,13 @@ const formatReason = (reason) => {
                                             {{ formatDate(tenant.last_lease.end_date) }}
                                         </div>
                                     </template>
-                                    <span v-else class="text-gray-400">N/A</span>
+                                    <span v-else class="text-gray-400">{{ t('tenants.history.na') }}</span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                     <template v-if="tenant.last_lease?.duration_months">
-                                        {{ tenant.last_lease.duration_months }} months
+                                        {{ t('tenants.history.duration_months', { count: tenant.last_lease.duration_months }) }}
                                     </template>
-                                    <span v-else class="text-gray-400">N/A</span>
+                                    <span v-else class="text-gray-400">{{ t('tenants.history.na') }}</span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <span
@@ -193,22 +195,22 @@ const formatReason = (reason) => {
                                     >
                                         {{ formatReason(tenant.last_lease.move_out.reason) }}
                                     </span>
-                                    <span v-else class="text-gray-400 text-sm">Not specified</span>
+                                    <span v-else class="text-gray-400 text-sm">{{ t('tenants.history.not_specified') }}</span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm">
                                     <Link
                                         :href="route('tenants.show', tenant.id)"
                                         class="text-indigo-600 hover:text-indigo-900"
                                     >
-                                        View Profile
+                                        {{ t('tenants.history.view_profile') }}
                                     </Link>
                                 </td>
                             </tr>
                             <tr v-if="pastTenants.data.length === 0">
                                 <td colspan="6" class="px-6 py-12 text-center text-gray-500">
                                     <ArchiveBoxIcon class="w-12 h-12 mx-auto text-gray-300 mb-4" />
-                                    <p class="text-lg font-medium">No past tenants found</p>
-                                    <p class="text-sm">Past tenant records will appear here after move-outs</p>
+                                    <p class="text-lg font-medium">{{ t('tenants.history.empty.title') }}</p>
+                                    <p class="text-sm">{{ t('tenants.history.empty.description') }}</p>
                                 </td>
                             </tr>
                         </tbody>
