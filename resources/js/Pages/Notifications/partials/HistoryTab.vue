@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
 import {
     MagnifyingGlassIcon,
@@ -18,6 +18,7 @@ import {
     ChevronRightIcon
 } from '@heroicons/vue/24/outline';
 import { useFormatters } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import type { NotificationEntry, NotificationFilters } from '@/types';
 import type { PaginatedResponse } from '@/types/global';
 
@@ -30,6 +31,7 @@ const props = withDefaults(defineProps<{
 });
 
 const { formatDateTime } = useFormatters();
+const { t } = useI18n();
 
 const search = ref(props.filters.search || '');
 const statusFilter = ref(props.filters.status || '');
@@ -38,33 +40,33 @@ const typeFilter = ref(props.filters.type || '');
 const showDetailModal = ref(false);
 const selectedNotification = ref(null);
 
-const statuses = [
-    { value: '', label: 'All Statuses' },
-    { value: 'pending', label: 'Pending' },
-    { value: 'sent', label: 'Sent' },
-    { value: 'delivered', label: 'Delivered' },
-    { value: 'read', label: 'Read' },
-    { value: 'failed', label: 'Failed' },
-];
+const statuses = computed(() => [
+    { value: '', label: t('notifications_history.status_options.all') },
+    { value: 'pending', label: t('notifications_history.status_options.pending') },
+    { value: 'sent', label: t('notifications_history.status_options.sent') },
+    { value: 'delivered', label: t('notifications_history.status_options.delivered') },
+    { value: 'read', label: t('notifications_history.status_options.read') },
+    { value: 'failed', label: t('notifications_history.status_options.failed') },
+]);
 
-const channels = [
-    { value: '', label: 'All Channels' },
-    { value: 'email', label: 'Email' },
-    { value: 'sms', label: 'SMS' },
-    { value: 'whatsapp', label: 'WhatsApp' },
-    { value: 'push', label: 'Push' },
-];
+const channels = computed(() => [
+    { value: '', label: t('notifications_history.channel_options.all') },
+    { value: 'email', label: t('notifications_history.channel_options.email') },
+    { value: 'sms', label: t('notifications_history.channel_options.sms') },
+    { value: 'whatsapp', label: t('notifications_history.channel_options.whatsapp') },
+    { value: 'push', label: t('notifications_history.channel_options.push') },
+]);
 
-const types = [
-    { value: '', label: 'All Types' },
-    { value: 'rent_reminder', label: 'Rent Reminder' },
-    { value: 'arrears_notice', label: 'Arrears Notice' },
-    { value: 'invoice', label: 'Invoice' },
-    { value: 'receipt', label: 'Receipt' },
-    { value: 'rent_hike', label: 'Rent Hike' },
-    { value: 'lease_expiry', label: 'Lease Expiry' },
-    { value: 'general', label: 'General' },
-];
+const types = computed(() => [
+    { value: '', label: t('notifications_history.type_options.all') },
+    { value: 'rent_reminder', label: t('notifications_history.type_options.rent_reminder') },
+    { value: 'arrears_notice', label: t('notifications_history.type_options.arrears_notice') },
+    { value: 'invoice', label: t('notifications_history.type_options.invoice') },
+    { value: 'receipt', label: t('notifications_history.type_options.receipt') },
+    { value: 'rent_hike', label: t('notifications_history.type_options.rent_hike') },
+    { value: 'lease_expiry', label: t('notifications_history.type_options.lease_expiry') },
+    { value: 'general', label: t('notifications_history.type_options.general') },
+]);
 
 let debounceTimeout = null;
 
@@ -142,8 +144,13 @@ const getStatusClass = (status) => {
 };
 
 const getTypeLabel = (type) => {
-    const found = types.find(t => t.value === type);
+    const found = types.value.find(item => item.value === type);
     return found ? found.label : type;
+};
+
+const getStatusLabel = (status) => {
+    const found = statuses.value.find(item => item.value === status);
+    return found ? found.label : status;
 };
 
 const viewDetails = (notification) => {
@@ -152,7 +159,7 @@ const viewDetails = (notification) => {
 };
 
 const resendNotification = (notification) => {
-    if (confirm('Resend this notification?')) {
+    if (confirm(t('notifications_history.confirm.resend'))) {
         router.post(route('notifications.retry', notification.id));
     }
 };
@@ -179,7 +186,7 @@ const hasActiveFilters = () => {
                     <input
                         v-model="search"
                         type="text"
-                        placeholder="Search by recipient or subject..."
+                        :placeholder="t('notifications_history.search_placeholder')"
                         class="w-full ps-10 pe-4 py-2 border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                     />
                 </div>
@@ -218,7 +225,7 @@ const hasActiveFilters = () => {
                         @click="clearFilters"
                         class="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
                     >
-                        Clear
+                        {{ t('notifications_history.clear') }}
                     </button>
                 </div>
             </div>
@@ -231,25 +238,25 @@ const hasActiveFilters = () => {
                     <thead class="bg-gray-50">
                         <tr>
                             <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Channel
+                                {{ t('notifications_history.table.channel') }}
                             </th>
                             <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Recipient
+                                {{ t('notifications_history.table.recipient') }}
                             </th>
                             <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Subject
+                                {{ t('notifications_history.table.subject') }}
                             </th>
                             <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Type
+                                {{ t('notifications_history.table.type') }}
                             </th>
                             <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Status
+                                {{ t('notifications_history.table.status') }}
                             </th>
                             <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Sent At
+                                {{ t('notifications_history.table.sent_at') }}
                             </th>
                             <th class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Actions
+                                {{ t('notifications_history.table.actions') }}
                             </th>
                         </tr>
                     </thead>
@@ -266,7 +273,7 @@ const hasActiveFilters = () => {
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div>
-                                    <p class="font-medium text-gray-900">{{ notification.recipient?.name || 'Unknown' }}</p>
+                                    <p class="font-medium text-gray-900">{{ notification.recipient?.name || t('notifications_history.unknown') }}</p>
                                     <p class="text-sm text-gray-500">{{ notification.recipient?.email || '-' }}</p>
                                 </div>
                             </td>
@@ -281,7 +288,7 @@ const hasActiveFilters = () => {
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <span :class="['inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full', getStatusClass(notification.status)]">
                                     <component :is="getStatusIcon(notification.status)" class="w-3.5 h-3.5" />
-                                    {{ notification.status }}
+                                    {{ getStatusLabel(notification.status) }}
                                 </span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -292,7 +299,7 @@ const hasActiveFilters = () => {
                                     <button
                                         @click="viewDetails(notification)"
                                         class="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                                        title="View Details"
+                                        :title="t('notifications_history.actions.view_details')"
                                     >
                                         <EyeIcon class="w-4 h-4" />
                                     </button>
@@ -300,7 +307,7 @@ const hasActiveFilters = () => {
                                         v-if="notification.status === 'failed'"
                                         @click="resendNotification(notification)"
                                         class="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                                        title="Resend"
+                                        :title="t('notifications_history.actions.resend')"
                                     >
                                         <ArrowPathIcon class="w-4 h-4" />
                                     </button>
@@ -316,40 +323,33 @@ const hasActiveFilters = () => {
                 <div class="p-4 bg-gray-100 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
                     <EnvelopeIcon class="w-8 h-8 text-gray-400" />
                 </div>
-                <h3 class="text-lg font-semibold text-gray-900 mb-2">No Notifications Found</h3>
+                <h3 class="text-lg font-semibold text-gray-900 mb-2">{{ t('notifications_history.empty.title') }}</h3>
                 <p class="text-gray-500">
-                    {{ hasActiveFilters() ? 'Try adjusting your filters' : 'Notifications will appear here once sent' }}
+                    {{ hasActiveFilters() ? t('notifications_history.empty.filtered') : t('notifications_history.empty.default') }}
                 </p>
             </div>
 
             <!-- Pagination -->
             <div v-if="notifications.data && notifications.data.length > 0" class="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
                 <p class="text-sm text-gray-500">
-                    Showing {{ notifications.meta?.from || 1 }} to {{ notifications.meta?.to || notifications.data.length }}
-                    of {{ notifications.meta?.total || notifications.data.length }} results
+                    {{ t('notifications_history.pagination.showing', {
+                        from: notifications.meta?.from || 1,
+                        to: notifications.meta?.to || notifications.data.length,
+                        total: notifications.meta?.total || notifications.data.length,
+                    }) }}
                 </p>
                 <div class="flex items-center gap-2">
                     <button
                         @click="goToPage(notifications.links?.prev)"
                         :disabled="!notifications.links?.prev"
-                        :class="[
-                            'p-2 rounded-lg transition-colors',
-                            notifications.links?.prev
-                                ? 'text-gray-600 hover:bg-gray-100'
-                                : 'text-gray-300 cursor-not-allowed'
-                        ]"
+                        :class="['p-2 rounded-lg transition-colors', notifications.links?.prev ? 'text-gray-600 hover:bg-gray-100' : 'text-gray-300 cursor-not-allowed']"
                     >
                         <ChevronLeftIcon class="w-5 h-5" />
                     </button>
                     <button
                         @click="goToPage(notifications.links?.next)"
                         :disabled="!notifications.links?.next"
-                        :class="[
-                            'p-2 rounded-lg transition-colors',
-                            notifications.links?.next
-                                ? 'text-gray-600 hover:bg-gray-100'
-                                : 'text-gray-300 cursor-not-allowed'
-                        ]"
+                        :class="['p-2 rounded-lg transition-colors', notifications.links?.next ? 'text-gray-600 hover:bg-gray-100' : 'text-gray-300 cursor-not-allowed']"
                     >
                         <ChevronRightIcon class="w-5 h-5" />
                     </button>
@@ -366,7 +366,7 @@ const hasActiveFilters = () => {
                     <div class="relative z-50 bg-white rounded-2xl shadow-xl max-w-lg w-full">
                         <div class="border-b border-gray-100 px-6 py-4 rounded-t-2xl">
                             <div class="flex items-center justify-between">
-                                <h3 class="text-lg font-semibold text-gray-900">Notification Details</h3>
+                                <h3 class="text-lg font-semibold text-gray-900">{{ t('notifications_history.detail.title') }}</h3>
                                 <button
                                     @click="showDetailModal = false"
                                     class="p-2 text-gray-400 hover:text-gray-600 rounded-lg"
@@ -388,41 +388,41 @@ const hasActiveFilters = () => {
                                     <p class="text-sm text-gray-500">{{ selectedNotification.recipient?.email }}</p>
                                 </div>
                                 <span :class="['ms-auto px-3 py-1 text-sm font-medium rounded-full', getStatusClass(selectedNotification.status)]">
-                                    {{ selectedNotification.status }}
+                                    {{ getStatusLabel(selectedNotification.status) }}
                                 </span>
                             </div>
 
                             <div class="bg-gray-50 rounded-xl p-4">
-                                <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Subject</p>
+                                <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">{{ t('notifications_history.detail.subject') }}</p>
                                 <p class="font-medium text-gray-900">{{ selectedNotification.subject }}</p>
                             </div>
 
                             <div class="bg-gray-50 rounded-xl p-4">
-                                <p class="text-xs text-gray-500 uppercase tracking-wide mb-2">Message</p>
+                                <p class="text-xs text-gray-500 uppercase tracking-wide mb-2">{{ t('notifications_history.detail.message') }}</p>
                                 <p class="text-gray-700 whitespace-pre-wrap text-sm">{{ selectedNotification.message }}</p>
                             </div>
 
                             <div class="grid grid-cols-2 gap-4 text-sm">
                                 <div>
-                                    <p class="text-gray-500">Type</p>
+                                    <p class="text-gray-500">{{ t('notifications_history.detail.type') }}</p>
                                     <p class="font-medium text-gray-900">{{ getTypeLabel(selectedNotification.type) }}</p>
                                 </div>
                                 <div>
-                                    <p class="text-gray-500">Channel</p>
+                                    <p class="text-gray-500">{{ t('notifications_history.detail.channel') }}</p>
                                     <p class="font-medium text-gray-900 capitalize">{{ selectedNotification.channel }}</p>
                                 </div>
                                 <div>
-                                    <p class="text-gray-500">Sent At</p>
+                                    <p class="text-gray-500">{{ t('notifications_history.detail.sent_at') }}</p>
                                     <p class="font-medium text-gray-900">{{ formatDateTime(selectedNotification.created_at) }}</p>
                                 </div>
                                 <div v-if="selectedNotification.delivered_at">
-                                    <p class="text-gray-500">Delivered At</p>
+                                    <p class="text-gray-500">{{ t('notifications_history.detail.delivered_at') }}</p>
                                     <p class="font-medium text-gray-900">{{ formatDateTime(selectedNotification.delivered_at) }}</p>
                                 </div>
                             </div>
 
                             <div v-if="selectedNotification.error_message" class="bg-red-50 border border-red-200 rounded-xl p-4">
-                                <p class="text-xs text-red-600 uppercase tracking-wide mb-1">Error</p>
+                                <p class="text-xs text-red-600 uppercase tracking-wide mb-1">{{ t('notifications_history.detail.error') }}</p>
                                 <p class="text-red-700 text-sm">{{ selectedNotification.error_message }}</p>
                             </div>
                         </div>
@@ -434,13 +434,13 @@ const hasActiveFilters = () => {
                                 class="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                             >
                                 <ArrowPathIcon class="w-4 h-4" />
-                                Resend
+                                {{ t('notifications_history.actions.resend') }}
                             </button>
                             <button
                                 @click="showDetailModal = false"
                                 class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                             >
-                                Close
+                                {{ t('notifications_history.close') }}
                             </button>
                         </div>
                     </div>

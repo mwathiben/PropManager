@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
 import Modal from '@/Components/Modal.vue';
 import { useFormatters } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import { useFinancesStore } from '@/stores/finances';
 import {
     XMarkIcon,
@@ -35,6 +36,7 @@ const emit = defineEmits(['close', 'success']);
 
 const store = useFinancesStore();
 const { formatMoney, formatDate } = useFormatters();
+const { t } = useI18n();
 
 const modalData = computed(() => store.modals.matchPayment);
 
@@ -95,7 +97,7 @@ const handleSubmit = () => {
         },
         onError: (errors) => {
             isProcessing.value = false;
-            error.value = Object.values(errors)[0] || 'Failed to match payment';
+            error.value = Object.values(errors)[0] || t('finances_match_payment.error_failed');
         },
     });
 };
@@ -107,8 +109,8 @@ const handleSubmit = () => {
                             <div class="inline-flex items-center justify-center w-16 h-16 bg-emerald-100 rounded-full mb-4">
                                 <CheckIcon class="w-8 h-8 text-emerald-600" />
                             </div>
-                            <h3 class="text-lg font-semibold text-gray-900">Payment Matched!</h3>
-                            <p class="text-sm text-gray-500 mt-2">The payment has been linked to the invoice.</p>
+                            <h3 class="text-lg font-semibold text-gray-900">{{ t('finances_match_payment.success_title') }}</h3>
+                            <p class="text-sm text-gray-500 mt-2">{{ t('finances_match_payment.success_body') }}</p>
                         </div>
 
                         <template v-else>
@@ -117,7 +119,7 @@ const handleSubmit = () => {
                                     <div class="p-2 bg-emerald-100 rounded-lg">
                                         <LinkIcon class="w-5 h-5 text-emerald-600" />
                                     </div>
-                                    <h2 class="text-lg font-semibold text-gray-900">Match Payment to Invoice</h2>
+                                    <h2 class="text-lg font-semibold text-gray-900">{{ t('finances_match_payment.heading') }}</h2>
                                 </div>
                                 <button
                                     @click="close"
@@ -133,7 +135,7 @@ const handleSubmit = () => {
                                 </div>
 
                                 <div v-if="selectedPayment" class="p-4 bg-gray-50 rounded-lg">
-                                    <p class="text-xs font-medium text-gray-500 mb-1">Payment Details</p>
+                                    <p class="text-xs font-medium text-gray-500 mb-1">{{ t('finances_match_payment.payment_details') }}</p>
                                     <div class="flex justify-between items-center">
                                         <div>
                                             <p class="text-sm font-medium text-gray-900">{{ selectedPayment.tenant_name }}</p>
@@ -144,16 +146,16 @@ const handleSubmit = () => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Select Invoice</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('finances_match_payment.select_invoice') }}</label>
                                     <div v-if="eligibleInvoices.length === 0" class="p-4 text-center text-sm text-gray-500 bg-gray-50 rounded-lg">
-                                        No eligible invoices found for this tenant.
+                                        {{ t('finances_match_payment.no_eligible') }}
                                     </div>
                                     <div v-else class="space-y-2 max-h-64 overflow-y-auto">
                                         <label
                                             v-for="invoice in eligibleInvoices"
                                             :key="invoice.id"
                                             :class="[
-                                                'flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors',
+                                                /* i18n-ignore */ 'flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors',
                                                 selectedInvoiceId === invoice.id
                                                     ? 'border-emerald-500 bg-emerald-50'
                                                     : 'border-gray-200 hover:border-gray-300'
@@ -170,11 +172,11 @@ const handleSubmit = () => {
                                             </div>
                                             <div class="flex-1 min-w-0">
                                                 <p class="text-sm font-medium text-gray-900">{{ invoice.invoice_number }}</p>
-                                                <p class="text-xs text-gray-500">Due: {{ formatDate(invoice.due_date) }}</p>
+                                                <p class="text-xs text-gray-500">{{ t('finances_match_payment.due_prefix') }} {{ formatDate(invoice.due_date) }}</p>
                                             </div>
                                             <div class="text-end">
                                                 <p class="text-sm font-semibold text-gray-900">{{ formatMoney(invoice.balance) }}</p>
-                                                <p class="text-xs text-gray-500">due</p>
+                                                <p class="text-xs text-gray-500">{{ t('finances_match_payment.due') }}</p>
                                             </div>
                                         </label>
                                     </div>
@@ -183,10 +185,10 @@ const handleSubmit = () => {
                                 <div v-if="selectedInvoice && selectedPayment" class="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm">
                                     <p class="text-blue-800">
                                         <span class="font-medium">{{ formatMoney(selectedPayment.amount) }}</span>
-                                        will be applied to invoice
+                                        {{ t('finances_match_payment.will_be_applied') }}
                                         <span class="font-medium">{{ selectedInvoice.invoice_number }}</span>
-                                        <span v-if="selectedPayment.amount >= selectedInvoice.balance" class="text-emerald-600 font-medium"> (Full payment)</span>
-                                        <span v-else class="text-orange-600 font-medium"> (Partial payment)</span>
+                                        <span v-if="selectedPayment.amount >= selectedInvoice.balance" class="text-emerald-600 font-medium"> {{ t('finances_match_payment.full_payment') }}</span>
+                                        <span v-else class="text-orange-600 font-medium"> {{ t('finances_match_payment.partial_payment') }}</span>
                                     </p>
                                 </div>
 
@@ -196,7 +198,7 @@ const handleSubmit = () => {
                                         @click="close"
                                         class="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                                     >
-                                        Cancel
+                                        {{ t('finances_match_payment.cancel') }}
                                     </button>
                                     <button
                                         type="button"
@@ -204,7 +206,7 @@ const handleSubmit = () => {
                                         :disabled="!selectedInvoiceId || isProcessing"
                                         class="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
-                                        {{ isProcessing ? 'Matching...' : 'Match Payment' }}
+                                        {{ isProcessing ? t('finances_match_payment.matching') : t('finances_match_payment.match_payment') }}
                                     </button>
                                 </div>
                             </div>

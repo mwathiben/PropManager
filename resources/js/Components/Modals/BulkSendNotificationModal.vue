@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import Modal from '@/Components/Modal.vue';
+import { useI18n } from '@/composables/useI18n';
 import {
     XMarkIcon,
     UsersIcon,
@@ -20,6 +21,8 @@ const props = withDefaults(defineProps<BulkSendNotificationModalProps>(), {
 });
 
 const emit = defineEmits(['close']);
+
+const { t } = useI18n();
 
 const channelIcons = {
     email: EnvelopeIcon,
@@ -86,7 +89,7 @@ watch(() => props.show, (newVal) => {
                     <div class="p-2 bg-purple-100 rounded-xl">
                         <UsersIcon class="w-5 h-5 text-purple-600" />
                     </div>
-                    <h3 class="text-lg font-semibold text-gray-900">Bulk Send Notification</h3>
+                    <h3 class="text-lg font-semibold text-gray-900">{{ t('bulk_send_notification.title') }}</h3>
                 </div>
                 <button @click="close" class="p-2 text-gray-400 hover:text-gray-600 rounded-lg">
                     <XMarkIcon class="w-5 h-5" />
@@ -99,45 +102,35 @@ watch(() => props.show, (newVal) => {
                         <!-- Recipients -->
                         <div>
                             <div class="flex justify-between items-center mb-2">
-                                <label class="block text-sm font-medium text-gray-700">Recipients</label>
+                                <label class="block text-sm font-medium text-gray-700">{{ t('bulk_send_notification.recipients') }}</label>
                                 <div class="flex gap-3">
                                     <button
                                         type="button"
                                         @click="selectAllTenants"
                                         class="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
                                     >
-                                        Select All
+                                        {{ t('bulk_send_notification.select_all') }}
                                     </button>
                                     <button
                                         type="button"
                                         @click="deselectAllTenants"
                                         class="text-sm text-gray-500 hover:text-gray-700"
                                     >
-                                        Clear
+                                        {{ t('bulk_send_notification.clear') }}
                                     </button>
                                 </div>
                             </div>
                             <div class="border border-gray-200 rounded-xl p-3 max-h-48 overflow-y-auto bg-gray-50">
                                 <div v-if="tenants.length === 0" class="text-center py-4 text-gray-500 text-sm">
-                                    No tenants available
+                                    {{ t('bulk_send_notification.no_tenants') }}
                                 </div>
                                 <div
                                     v-for="tenant in tenants"
                                     :key="tenant.id"
                                     @click="form.recipient_ids.includes(tenant.id) ? form.recipient_ids.splice(form.recipient_ids.indexOf(tenant.id), 1) : form.recipient_ids.push(tenant.id)"
-                                    :class="[
-                                        'flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors mb-1',
-                                        form.recipient_ids.includes(tenant.id)
-                                            ? 'bg-indigo-100 border border-indigo-200'
-                                            : 'hover:bg-gray-100'
-                                    ]"
+                                    :class="['flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors mb-1', form.recipient_ids.includes(tenant.id) ? 'bg-indigo-100 border border-indigo-200' : 'hover:bg-gray-100']"
                                 >
-                                    <div :class="[
-                                        'w-5 h-5 rounded flex items-center justify-center border-2 transition-colors',
-                                        form.recipient_ids.includes(tenant.id)
-                                            ? 'bg-indigo-600 border-indigo-600'
-                                            : 'border-gray-300 bg-white'
-                                    ]">
+                                    <div :class="['w-5 h-5 rounded flex items-center justify-center border-2 transition-colors', form.recipient_ids.includes(tenant.id) ? 'bg-indigo-600 border-indigo-600' : 'border-gray-300 bg-white']">
                                         <CheckIcon v-if="form.recipient_ids.includes(tenant.id)" class="w-3 h-3 text-white" />
                                     </div>
                                     <div class="flex-1 min-w-0">
@@ -147,13 +140,13 @@ watch(() => props.show, (newVal) => {
                                 </div>
                             </div>
                             <p class="mt-2 text-sm font-medium" :class="form.recipient_ids.length > 0 ? 'text-indigo-600' : 'text-gray-500'">
-                                {{ form.recipient_ids.length }} tenant(s) selected
+                                {{ t('bulk_send_notification.selected_count', form.recipient_ids.length, { count: form.recipient_ids.length }) }}
                             </p>
                         </div>
 
                         <!-- Type -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Notification Type</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_send_notification.type_label') }}</label>
                             <select
                                 v-model="form.type"
                                 class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
@@ -166,19 +159,14 @@ watch(() => props.show, (newVal) => {
 
                         <!-- Channels -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Channels</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('bulk_send_notification.channels_label') }}</label>
                             <div class="flex flex-wrap gap-2">
                                 <button
                                     v-for="channel in channels"
                                     :key="channel.value"
                                     type="button"
                                     @click="toggleChannel(channel.value)"
-                                    :class="[
-                                        'inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all',
-                                        form.channels.includes(channel.value)
-                                            ? 'bg-indigo-600 text-white'
-                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                    ]"
+                                    :class="['inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all', form.channels.includes(channel.value) ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200']"
                                 >
                                     <component :is="channelIcons[channel.value]" class="w-4 h-4" />
                                     {{ channel.label }}
@@ -188,12 +176,12 @@ watch(() => props.show, (newVal) => {
 
                         <!-- Subject -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_send_notification.subject_label') }}</label>
                             <input
                                 v-model="form.subject"
                                 type="text"
                                 class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                                placeholder="Notification subject"
+                                :placeholder="t('bulk_send_notification.subject_placeholder')"
                                 required
                             />
                             <p v-if="form.errors.subject" class="text-sm text-red-600 mt-1">{{ form.errors.subject }}</p>
@@ -201,12 +189,12 @@ watch(() => props.show, (newVal) => {
 
                         <!-- Message -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Message</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_send_notification.message_label') }}</label>
                             <textarea
                                 v-model="form.message"
                                 rows="5"
                                 class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                                placeholder="Enter your message here..."
+                                :placeholder="t('bulk_send_notification.message_placeholder')"
                                 required
                             ></textarea>
                             <p v-if="form.errors.message" class="text-sm text-red-600 mt-1">{{ form.errors.message }}</p>
@@ -215,9 +203,9 @@ watch(() => props.show, (newVal) => {
                         <!-- Summary -->
                         <div class="bg-gray-50 rounded-xl p-4">
                             <p class="text-sm text-gray-600">
-                                This notification will be sent to
-                                <span class="font-semibold text-gray-900">{{ form.recipient_ids.length }} tenant(s)</span>
-                                via
+                                {{ t('bulk_send_notification.summary_prefix') }}
+                                <span class="font-semibold text-gray-900">{{ t('bulk_send_notification.summary_recipients', form.recipient_ids.length, { count: form.recipient_ids.length }) }}</span>
+                                {{ t('bulk_send_notification.summary_via') }}
                                 <span class="font-semibold text-gray-900">{{ form.channels.join(', ') }}</span>
                             </p>
                         </div>
@@ -229,7 +217,7 @@ watch(() => props.show, (newVal) => {
                     @click="close"
                     class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                 >
-                    Cancel
+                    {{ t('bulk_send_notification.cancel') }}
                 </button>
                 <button
                     type="submit"
@@ -237,7 +225,7 @@ watch(() => props.show, (newVal) => {
                     class="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
                 >
                     <UsersIcon class="w-4 h-4" />
-                    {{ form.processing ? 'Sending...' : `Send to ${form.recipient_ids.length} Recipient(s)` }}
+                    {{ form.processing ? t('bulk_send_notification.sending') : t('bulk_send_notification.send_action', form.recipient_ids.length, { count: form.recipient_ids.length }) }}
                 </button>
             </div>
         </form>

@@ -3,6 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import PaginatorLink from '@/Components/PaginatorLink.vue';
 import { Head, router, Link } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
+import { useI18n } from '@/composables/useI18n';
 import type { InboxIndexPageProps } from '@/types/operations';
 import {
     InboxIcon,
@@ -17,6 +18,8 @@ import {
 import EmptyState from '@/Components/EmptyState.vue';
 
 const props = defineProps<InboxIndexPageProps>();
+
+const { t } = useI18n();
 
 const search = ref(props.filters.search);
 const statusFilter = ref(props.filters.status);
@@ -45,7 +48,7 @@ const markAsRead = (messageId) => {
 };
 
 const markAllAsRead = () => {
-    if (confirm('Mark all messages as read?')) {
+    if (confirm(t('inbox.confirm_mark_all_read'))) {
         router.put(route('inbox.mark-all-read'), {}, {
             preserveScroll: true,
         });
@@ -70,17 +73,17 @@ const statusBadge = (status) => {
 
 const statusLabel = (status) => {
     const labels = {
-        'received': 'Unread',
-        'processed': 'Read',
-        'action_taken': 'Actioned',
-        'ignored': 'Ignored',
+        'received': t('inbox.status.received'),
+        'processed': t('inbox.status.processed'),
+        'action_taken': t('inbox.status.action_taken'),
+        'ignored': t('inbox.status.ignored'),
     };
     return labels[status] || status;
 };
 </script>
 
 <template>
-    <Head title="Inbox" />
+    <Head :title="t('inbox.title')" />
 
     <AuthenticatedLayout>
         <div class="py-6">
@@ -88,11 +91,11 @@ const statusLabel = (status) => {
                 <!-- Header -->
                 <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
-                        <h1 class="text-3xl font-bold text-gray-900">Inbox</h1>
+                        <h1 class="text-3xl font-bold text-gray-900">{{ t('inbox.title') }}</h1>
                         <p class="mt-1 text-sm text-gray-500">
-                            Tenant messages from WhatsApp and SMS
+                            {{ t('inbox.subtitle') }}
                             <span v-if="unreadCount > 0" class="font-medium text-indigo-600">
-                                ({{ unreadCount }} unread)
+                                {{ t('inbox.unread_count', { count: unreadCount }) }}
                             </span>
                         </p>
                     </div>
@@ -102,7 +105,7 @@ const statusLabel = (status) => {
                         class="px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 flex items-center gap-2"
                     >
                         <CheckCircleIcon class="w-4 h-4" />
-                        Mark All as Read
+                        {{ t('inbox.mark_all_read') }}
                     </button>
                 </div>
 
@@ -114,7 +117,7 @@ const statusLabel = (status) => {
                         <input
                             v-model="search"
                             type="text"
-                            placeholder="Search by tenant name, phone, or message..."
+                            :placeholder="t('inbox.search_placeholder')"
                             class="w-full ps-10 pe-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
                         />
                     </div>
@@ -126,9 +129,9 @@ const statusLabel = (status) => {
                             v-model="statusFilter"
                             class="border border-gray-300 rounded-md px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500"
                         >
-                            <option value="all">All Messages</option>
-                            <option value="unread">Unread</option>
-                            <option value="processed">Read / Processed</option>
+                            <option value="all">{{ t('inbox.filter.all') }}</option>
+                            <option value="unread">{{ t('inbox.filter.unread') }}</option>
+                            <option value="processed">{{ t('inbox.filter.processed') }}</option>
                         </select>
                     </div>
                 </div>
@@ -139,22 +142,22 @@ const statusLabel = (status) => {
                         <thead class="bg-gray-50">
                             <tr>
                                 <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Tenant
+                                    {{ t('inbox.table.tenant') }}
                                 </th>
                                 <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Message
+                                    {{ t('inbox.table.message') }}
                                 </th>
                                 <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Source
+                                    {{ t('inbox.table.source') }}
                                 </th>
                                 <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Status
+                                    {{ t('inbox.table.status') }}
                                 </th>
                                 <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Time
+                                    {{ t('inbox.table.time') }}
                                 </th>
                                 <th class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Actions
+                                    {{ t('inbox.table.actions') }}
                                 </th>
                             </tr>
                         </thead>
@@ -196,11 +199,11 @@ const statusLabel = (status) => {
                                             {{ message.body_preview }}
                                         </p>
                                         <p v-if="message.is_reply && message.original_notification" class="text-xs text-gray-500 mt-1">
-                                            Re: {{ message.original_notification.subject }}
+                                            {{ t('inbox.reply_prefix', { subject: message.original_notification.subject }) }}
                                         </p>
                                         <div v-if="message.has_ticket" class="flex items-center gap-1 mt-1 text-xs text-indigo-600">
                                             <TicketIcon class="w-3 h-3" />
-                                            Ticket #{{ message.ticket_id }}
+                                            {{ t('inbox.ticket_label', { id: message.ticket_id }) }}
                                         </div>
                                     </div>
                                 </td>
@@ -230,17 +233,17 @@ const statusLabel = (status) => {
                                         v-if="message.status === 'received'"
                                         @click.stop="markAsRead(message.id)"
                                         class="text-indigo-600 hover:text-indigo-900 inline-flex items-center gap-1"
-                                        title="Mark as read"
+                                        :title="t('inbox.mark_read_title')"
                                     >
                                         <EnvelopeOpenIcon class="w-4 h-4" />
-                                        Mark Read
+                                        {{ t('inbox.mark_read') }}
                                     </button>
                                     <Link
                                         v-else
                                         :href="route('inbox.show', message.id)"
                                         class="text-gray-600 hover:text-gray-900"
                                     >
-                                        View
+                                        {{ t('inbox.view') }}
                                     </Link>
                                 </td>
                             </tr>
@@ -251,8 +254,8 @@ const statusLabel = (status) => {
                     <EmptyState
                         v-if="messages.data.length === 0"
                         :icon="InboxIcon"
-                        title="No messages"
-                        description="When tenants reply to notifications via WhatsApp or SMS, their messages will appear here."
+                        :title="t('inbox.empty.title')"
+                        :description="t('inbox.empty.description')"
                     />
 
                     <!-- Pagination -->
@@ -263,26 +266,20 @@ const statusLabel = (status) => {
                                 :href="messages.prev_page_url"
                                 class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
                             >
-                                Previous
+                                {{ t('inbox.pagination.previous') }}
                             </Link>
                             <Link
                                 v-if="messages.next_page_url"
                                 :href="messages.next_page_url"
                                 class="ms-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
                             >
-                                Next
+                                {{ t('inbox.pagination.next') }}
                             </Link>
                         </div>
                         <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                             <div>
                                 <p class="text-sm text-gray-700">
-                                    Showing
-                                    <span class="font-medium">{{ messages.from }}</span>
-                                    to
-                                    <span class="font-medium">{{ messages.to }}</span>
-                                    of
-                                    <span class="font-medium">{{ messages.total }}</span>
-                                    messages
+                                    {{ t('inbox.pagination.showing', { from: messages.from, to: messages.to, total: messages.total }) }}
                                 </p>
                             </div>
                             <div>
@@ -292,11 +289,11 @@ const statusLabel = (status) => {
                                         :key="link.label"
                                         :href="link.url"
                                         :class="[
-                                            'relative inline-flex items-center px-4 py-2 border text-sm font-medium',
+                                            'relative inline-flex items-center px-4 py-2 border text-sm font-medium', /* i18n-ignore */
                                             link.active
                                                 ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600'
-                                                : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50',
-                                            !link.url ? 'cursor-not-allowed opacity-50' : '',
+                                                : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50', /* i18n-ignore */
+                                            !link.url ? 'cursor-not-allowed opacity-50' : '', /* i18n-ignore */
                                             link.label.includes('Previous') ? 'rounded-s-md' : '',
                                             link.label.includes('Next') ? 'rounded-e-md' : '',
                                         ]"

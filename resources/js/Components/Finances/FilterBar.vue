@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { useDebouncedSearch } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import {
     MagnifyingGlassIcon,
     FunnelIcon,
@@ -8,6 +9,8 @@ import {
     ChevronDownIcon,
 } from '@heroicons/vue/24/outline';
 import type { Building } from '@/types/finances';
+
+const { t } = useI18n();
 
 interface DateRange {
     from: string | null;
@@ -58,7 +61,7 @@ const props = withDefaults(defineProps<Props>(), {
     statusOptions: () => [],
     paymentMethodOptions: () => [],
     buildings: () => [],
-    searchPlaceholder: 'Search...',
+    searchPlaceholder: '',
     loading: false,
 });
 
@@ -125,7 +128,7 @@ const activeFiltersCount = () => {
                     <input
                         v-model="searchQuery"
                         type="text"
-                        :placeholder="searchPlaceholder"
+                        :placeholder="searchPlaceholder || t('finances_filter_bar.search_placeholder')"
                         class="w-full ps-9 pe-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     />
                 </div>
@@ -133,15 +136,10 @@ const activeFiltersCount = () => {
 
             <button
                 @click="showFilters = !showFilters"
-                :class="[
-                    'inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border transition-colors',
-                    activeFiltersCount() > 0
-                        ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
-                        : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                ]"
+                :class="['inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border transition-colors', activeFiltersCount() > 0 ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50']"
             >
                 <FunnelIcon class="h-4 w-4" />
-                Filters
+                {{ t('finances_filter_bar.filters') }}
                 <span
                     v-if="activeFiltersCount() > 0"
                     class="inline-flex items-center justify-center h-5 w-5 text-xs font-semibold bg-indigo-600 text-white rounded-full"
@@ -157,30 +155,24 @@ const activeFiltersCount = () => {
                 class="inline-flex items-center gap-1 px-2 py-2 text-sm text-gray-500 hover:text-gray-700"
             >
                 <XMarkIcon class="h-4 w-4" />
-                Clear
+                {{ t('finances_filter_bar.clear') }}
             </button>
 
             <slot name="actions" />
         </div>
 
-        <Transition
-            enter-active-class="transition ease-out duration-200"
-            enter-from-class="opacity-0 -translate-y-1"
-            enter-to-class="opacity-100 translate-y-0"
-            leave-active-class="transition ease-in duration-150"
-            leave-from-class="opacity-100 translate-y-0"
-            leave-to-class="opacity-0 -translate-y-1"
-        >
+        <!-- i18n-ignore -->
+        <Transition enter-active-class="transition ease-out duration-200" enter-from-class="opacity-0 -translate-y-1" enter-to-class="opacity-100 translate-y-0" leave-active-class="transition ease-in duration-150" leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity-0 -translate-y-1">
             <div v-if="showFilters" class="p-4 bg-gray-50 rounded-lg border border-gray-200">
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div v-if="showStatus && statusOptions.length > 0">
-                        <label class="block text-xs font-medium text-gray-700 mb-1">Status</label>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_filter_bar.status_label') }}</label>
                         <select
                             :value="modelValue.status"
                             @change="updateFilter('status', $event.target.value)"
                             class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                         >
-                            <option value="">All Statuses</option>
+                            <option value="">{{ t('finances_filter_bar.all_statuses') }}</option>
                             <option v-for="opt in statusOptions" :key="opt.value" :value="opt.value">
                                 {{ opt.label }}
                             </option>
@@ -188,13 +180,13 @@ const activeFiltersCount = () => {
                     </div>
 
                     <div v-if="showPaymentMethod && paymentMethodOptions.length > 0">
-                        <label class="block text-xs font-medium text-gray-700 mb-1">Payment Method</label>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_filter_bar.payment_method_label') }}</label>
                         <select
                             :value="modelValue.paymentMethod"
                             @change="updateFilter('paymentMethod', $event.target.value)"
                             class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                         >
-                            <option value="">All Methods</option>
+                            <option value="">{{ t('finances_filter_bar.all_methods') }}</option>
                             <option v-for="opt in paymentMethodOptions" :key="opt.value" :value="opt.value">
                                 {{ opt.label }}
                             </option>
@@ -202,13 +194,13 @@ const activeFiltersCount = () => {
                     </div>
 
                     <div v-if="showBuilding && buildings.length > 0">
-                        <label class="block text-xs font-medium text-gray-700 mb-1">Building</label>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_filter_bar.building_label') }}</label>
                         <select
                             :value="modelValue.buildingId"
                             @change="updateFilter('buildingId', $event.target.value || null)"
                             class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                         >
-                            <option value="">All Buildings</option>
+                            <option value="">{{ t('finances_filter_bar.all_buildings') }}</option>
                             <option v-for="building in buildings" :key="building.id" :value="building.id">
                                 {{ building.name }}
                             </option>
@@ -216,7 +208,7 @@ const activeFiltersCount = () => {
                     </div>
 
                     <div v-if="showDateRange" class="sm:col-span-2 lg:col-span-1">
-                        <label class="block text-xs font-medium text-gray-700 mb-1">Date Range</label>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_filter_bar.date_range_label') }}</label>
                         <div class="flex gap-2">
                             <input
                                 type="date"
