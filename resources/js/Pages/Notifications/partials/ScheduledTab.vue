@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import { useAuth } from '@/composables/useAuth';
 import {
     PlusIcon,
@@ -18,6 +19,7 @@ import {
 import type { NotificationsScheduledTabProps } from '@/types';
 
 const { formatDateTime } = useFormatters();
+const { t } = useI18n();
 const { can } = useAuth();
 
 const props = withDefaults(defineProps<NotificationsScheduledTabProps>(), {
@@ -28,24 +30,24 @@ const props = withDefaults(defineProps<NotificationsScheduledTabProps>(), {
 const showCreateModal = ref(false);
 const editingSchedule = ref(null);
 
-const triggerTypes = [
-    { value: 'days_before_due', label: 'Days Before Rent Due', description: 'Send X days before the rent due date' },
-    { value: 'days_after_overdue', label: 'Days After Overdue', description: 'Send X days after rent becomes overdue' },
-    { value: 'days_before_expiry', label: 'Days Before Lease Expiry', description: 'Send X days before lease expires' },
-];
+const triggerTypes = computed(() => [
+    { value: 'days_before_due', label: t('notifications_scheduled.trigger_type.days_before_due.label'), description: t('notifications_scheduled.trigger_type.days_before_due.description') },
+    { value: 'days_after_overdue', label: t('notifications_scheduled.trigger_type.days_after_overdue.label'), description: t('notifications_scheduled.trigger_type.days_after_overdue.description') },
+    { value: 'days_before_expiry', label: t('notifications_scheduled.trigger_type.days_before_expiry.label'), description: t('notifications_scheduled.trigger_type.days_before_expiry.description') },
+]);
 
-const notificationTypes = [
-    { value: 'rent_reminder', label: 'Rent Reminder' },
-    { value: 'arrears_notice', label: 'Arrears Notice' },
-    { value: 'lease_expiry', label: 'Lease Expiry' },
-];
+const notificationTypes = computed(() => [
+    { value: 'rent_reminder', label: t('notifications_scheduled.notification_type.rent_reminder') },
+    { value: 'arrears_notice', label: t('notifications_scheduled.notification_type.arrears_notice') },
+    { value: 'lease_expiry', label: t('notifications_scheduled.notification_type.lease_expiry') },
+]);
 
-const channels = [
-    { value: 'email', label: 'Email' },
-    { value: 'sms', label: 'SMS' },
-    { value: 'whatsapp', label: 'WhatsApp' },
-    { value: 'push', label: 'Push' },
-];
+const channels = computed(() => [
+    { value: 'email', label: t('notifications_scheduled.channel.email') },
+    { value: 'sms', label: t('notifications_scheduled.channel.sms') },
+    { value: 'whatsapp', label: t('notifications_scheduled.channel.whatsapp') },
+    { value: 'push', label: t('notifications_scheduled.channel.push') },
+]);
 
 const form = useForm({
     id: null,
@@ -60,7 +62,7 @@ const form = useForm({
 });
 
 const filteredTemplates = computed(() => {
-    return props.templates.filter(t => t.type === form.type && t.is_active);
+    return props.templates.filter(tpl => tpl.type === form.type && tpl.is_active);
 });
 
 const openCreateModal = () => {
@@ -104,7 +106,7 @@ const saveSchedule = () => {
 };
 
 const deleteSchedule = (schedule) => {
-    if (confirm(`Are you sure you want to delete "${schedule.name}"?`)) {
+    if (confirm(t('notifications_scheduled.confirm.delete', { name: schedule.name }))) {
         useForm({}).delete(route('notifications.schedules.destroy', schedule.id));
     }
 };
@@ -116,7 +118,7 @@ const toggleSchedule = (schedule) => {
 };
 
 const runScheduleNow = (schedule) => {
-    if (confirm(`Run "${schedule.name}" now? This will send notifications to all matching tenants.`)) {
+    if (confirm(t('notifications_scheduled.confirm.run', { name: schedule.name }))) {
         useForm({}).post(route('notifications.schedules.run', schedule.id));
     }
 };
@@ -133,31 +135,31 @@ const toggleChannel = (channel) => {
 };
 
 const getTriggerLabel = (trigger) => {
-    const found = triggerTypes.find(t => t.value === trigger);
+    const found = triggerTypes.value.find(tt => tt.value === trigger);
     return found ? found.label : trigger;
 };
 
 const getTypeLabel = (type) => {
-    const found = notificationTypes.find(t => t.value === type);
+    const found = notificationTypes.value.find(nt => nt.value === type);
     return found ? found.label : type;
 };
 
 const formatNextRun = (schedule) => {
-    if (!schedule.is_active) return 'Paused';
+    if (!schedule.is_active) return t('notifications_scheduled.next_run.paused');
     if (schedule.next_run) {
         return formatDateTime(schedule.next_run);
     }
-    return 'Calculating...';
+    return t('notifications_scheduled.next_run.calculating');
 };
 
 const formatLastRun = (schedule) => {
-    if (!schedule.last_run_at) return 'Never';
+    if (!schedule.last_run_at) return t('notifications_scheduled.last_run.never');
     return formatDateTime(schedule.last_run_at);
 };
 
 const getChannelBadges = (channelList) => {
     return channelList.map(c => {
-        const found = channels.find(ch => ch.value === c);
+        const found = channels.value.find(ch => ch.value === c);
         return found ? found.label : c;
     });
 };
@@ -168,15 +170,15 @@ const getChannelBadges = (channelList) => {
         <!-- Header -->
         <div class="flex items-center justify-between">
             <div>
-                <h2 class="text-lg font-semibold text-gray-900">Scheduled Notifications</h2>
-                <p class="text-sm text-gray-500">Automate rent reminders, arrears notices, and lease expiry alerts</p>
+                <h2 class="text-lg font-semibold text-gray-900">{{ t('notifications_scheduled.heading') }}</h2>
+                <p class="text-sm text-gray-500">{{ t('notifications_scheduled.subheading') }}</p>
             </div>
             <button
                 @click="openCreateModal"
                 class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
             >
                 <PlusIcon class="w-5 h-5" />
-                Create Schedule
+                {{ t('notifications_scheduled.create_schedule') }}
             </button>
         </div>
 
@@ -185,7 +187,7 @@ const getChannelBadges = (channelList) => {
             <div
                 v-for="schedule in schedules"
                 :key="schedule.id"
-                :class="[
+                :class="[ /* i18n-ignore */
                     'bg-white rounded-2xl shadow-sm border p-5 transition-all',
                     schedule.is_active ? 'border-gray-100' : 'border-gray-200 bg-gray-50'
                 ]"
@@ -197,32 +199,32 @@ const getChannelBadges = (channelList) => {
                                 {{ schedule.name }}
                             </h3>
                             <span
-                                :class="[
+                                :class="[ /* i18n-ignore */
                                     'px-2 py-0.5 text-xs font-medium rounded-full',
                                     schedule.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'
                                 ]"
                             >
-                                {{ schedule.is_active ? 'Active' : 'Paused' }}
+                                {{ schedule.is_active ? t('notifications_scheduled.status.active') : t('notifications_scheduled.status.paused') }}
                             </span>
                         </div>
 
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                             <div>
-                                <p class="text-gray-500">Type</p>
+                                <p class="text-gray-500">{{ t('notifications_scheduled.field.type') }}</p>
                                 <p class="font-medium text-gray-900">{{ getTypeLabel(schedule.type) }}</p>
                             </div>
                             <div>
-                                <p class="text-gray-500">Trigger</p>
+                                <p class="text-gray-500">{{ t('notifications_scheduled.field.trigger') }}</p>
                                 <p class="font-medium text-gray-900">
                                     {{ schedule.days_offset }} {{ getTriggerLabel(schedule.trigger) }}
                                 </p>
                             </div>
                             <div>
-                                <p class="text-gray-500">Send Time</p>
+                                <p class="text-gray-500">{{ t('notifications_scheduled.field.send_time') }}</p>
                                 <p class="font-medium text-gray-900">{{ schedule.send_time }}</p>
                             </div>
                             <div>
-                                <p class="text-gray-500">Channels</p>
+                                <p class="text-gray-500">{{ t('notifications_scheduled.field.channels') }}</p>
                                 <div class="flex flex-wrap gap-1 mt-0.5">
                                     <span
                                         v-for="channel in getChannelBadges(schedule.channels)"
@@ -238,11 +240,11 @@ const getChannelBadges = (channelList) => {
                         <div class="flex items-center gap-6 mt-3 pt-3 border-t border-gray-100 text-xs text-gray-500">
                             <span class="flex items-center gap-1">
                                 <ClockIcon class="w-4 h-4" />
-                                Next: {{ formatNextRun(schedule) }}
+                                {{ t('notifications_scheduled.next', { value: formatNextRun(schedule) }) }}
                             </span>
                             <span class="flex items-center gap-1">
                                 <CalendarDaysIcon class="w-4 h-4" />
-                                Last: {{ formatLastRun(schedule) }}
+                                {{ t('notifications_scheduled.last', { value: formatLastRun(schedule) }) }}
                             </span>
                         </div>
                     </div>
@@ -251,19 +253,19 @@ const getChannelBadges = (channelList) => {
                         <button
                             @click="runScheduleNow(schedule)"
                             class="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                            title="Run Now"
+                            :title="t('notifications_scheduled.action.run_now')"
                         >
                             <BoltIcon class="w-5 h-5" />
                         </button>
                         <button
                             @click="toggleSchedule(schedule)"
-                            :class="[
+                            :class="[ /* i18n-ignore */
                                 'p-2 rounded-lg transition-colors',
                                 schedule.is_active
                                     ? 'text-gray-400 hover:text-orange-600 hover:bg-orange-50'
                                     : 'text-gray-400 hover:text-green-600 hover:bg-green-50'
                             ]"
-                            :title="schedule.is_active ? 'Pause' : 'Resume'"
+                            :title="schedule.is_active ? t('notifications_scheduled.action.pause') : t('notifications_scheduled.action.resume')"
                         >
                             <PauseIcon v-if="schedule.is_active" class="w-5 h-5" />
                             <PlayIcon v-else class="w-5 h-5" />
@@ -271,7 +273,7 @@ const getChannelBadges = (channelList) => {
                         <button
                             @click="openEditModal(schedule)"
                             class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="Edit"
+                            :title="t('notifications_scheduled.action.edit')"
                         >
                             <PencilSquareIcon class="w-5 h-5" />
                         </button>
@@ -279,7 +281,7 @@ const getChannelBadges = (channelList) => {
                             v-if="can('templates:manage')"
                             @click="deleteSchedule(schedule)"
                             class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Delete"
+                            :title="t('notifications_scheduled.action.delete')"
                         >
                             <TrashIcon class="w-5 h-5" />
                         </button>
@@ -293,14 +295,14 @@ const getChannelBadges = (channelList) => {
             <div class="p-4 bg-indigo-100 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
                 <CalendarDaysIcon class="w-8 h-8 text-indigo-600" />
             </div>
-            <h3 class="text-lg font-semibold text-gray-900 mb-2">No Schedules Yet</h3>
-            <p class="text-gray-500 mb-4">Create automated notification schedules to keep tenants informed</p>
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">{{ t('notifications_scheduled.empty.title') }}</h3>
+            <p class="text-gray-500 mb-4">{{ t('notifications_scheduled.empty.body') }}</p>
             <button
                 @click="openCreateModal"
                 class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
             >
                 <PlusIcon class="w-5 h-5" />
-                Create Schedule
+                {{ t('notifications_scheduled.create_schedule') }}
             </button>
         </div>
 
@@ -314,7 +316,7 @@ const getChannelBadges = (channelList) => {
                         <div class="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 rounded-t-2xl">
                             <div class="flex items-center justify-between">
                                 <h3 class="text-lg font-semibold text-gray-900">
-                                    {{ editingSchedule ? 'Edit Schedule' : 'Create Schedule' }}
+                                    {{ editingSchedule ? t('notifications_scheduled.modal.edit_title') : t('notifications_scheduled.modal.create_title') }}
                                 </h3>
                                 <button @click="closeModal" class="p-2 text-gray-400 hover:text-gray-600 rounded-lg">
                                     <XMarkIcon class="w-5 h-5" />
@@ -324,12 +326,12 @@ const getChannelBadges = (channelList) => {
 
                         <form @submit.prevent="saveSchedule" class="p-6 space-y-5">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Schedule Name</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_scheduled.form.name') }}</label>
                                 <input
                                     v-model="form.name"
                                     type="text"
                                     class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                                    placeholder="e.g., 3-Day Rent Reminder"
+                                    :placeholder="t('notifications_scheduled.form.name_placeholder')"
                                     required
                                 />
                                 <p v-if="form.errors.name" class="text-sm text-red-600 mt-1">{{ form.errors.name }}</p>
@@ -337,7 +339,7 @@ const getChannelBadges = (channelList) => {
 
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Notification Type</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_scheduled.form.notification_type') }}</label>
                                     <select
                                         v-model="form.type"
                                         class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
@@ -349,12 +351,12 @@ const getChannelBadges = (channelList) => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Template (Optional)</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_scheduled.form.template') }}</label>
                                     <select
                                         v-model="form.template_id"
                                         class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                                     >
-                                        <option :value="null">Use default</option>
+                                        <option :value="null">{{ t('notifications_scheduled.form.use_default') }}</option>
                                         <option v-for="template in filteredTemplates" :key="template.id" :value="template.id">
                                             {{ template.name }}
                                         </option>
@@ -363,7 +365,7 @@ const getChannelBadges = (channelList) => {
                             </div>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Trigger</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_scheduled.form.trigger') }}</label>
                                 <select
                                     v-model="form.trigger"
                                     class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
@@ -373,13 +375,13 @@ const getChannelBadges = (channelList) => {
                                     </option>
                                 </select>
                                 <p class="text-xs text-gray-500 mt-1">
-                                    {{ triggerTypes.find(t => t.value === form.trigger)?.description }}
+                                    {{ triggerTypes.find(tt => tt.value === form.trigger)?.description }}
                                 </p>
                             </div>
 
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Days</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_scheduled.form.days') }}</label>
                                     <input
                                         v-model.number="form.days_offset"
                                         type="number"
@@ -391,7 +393,7 @@ const getChannelBadges = (channelList) => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Send Time</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_scheduled.form.send_time') }}</label>
                                     <input
                                         v-model="form.send_time"
                                         type="time"
@@ -401,14 +403,14 @@ const getChannelBadges = (channelList) => {
                             </div>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Channels</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('notifications_scheduled.form.channels') }}</label>
                                 <div class="flex flex-wrap gap-2">
                                     <button
                                         v-for="channel in channels"
                                         :key="channel.value"
                                         type="button"
                                         @click="toggleChannel(channel.value)"
-                                        :class="[
+                                        :class="[ /* i18n-ignore */
                                             'px-4 py-2 rounded-lg text-sm font-medium transition-all',
                                             form.channels.includes(channel.value)
                                                 ? 'bg-indigo-600 text-white'
@@ -426,7 +428,7 @@ const getChannelBadges = (channelList) => {
                                     <input type="checkbox" v-model="form.is_active" class="sr-only peer" />
                                     <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                                 </label>
-                                <span class="text-sm text-gray-700">Schedule is active</span>
+                                <span class="text-sm text-gray-700">{{ t('notifications_scheduled.form.is_active') }}</span>
                             </div>
 
                             <div class="flex justify-end gap-3 pt-4 border-t border-gray-100">
@@ -435,7 +437,7 @@ const getChannelBadges = (channelList) => {
                                     @click="closeModal"
                                     class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                                 >
-                                    Cancel
+                                    {{ t('notifications_scheduled.action.cancel') }}
                                 </button>
                                 <button
                                     type="submit"
@@ -443,7 +445,7 @@ const getChannelBadges = (channelList) => {
                                     class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
                                 >
                                     <CheckIcon class="w-4 h-4" />
-                                    {{ editingSchedule ? 'Update Schedule' : 'Create Schedule' }}
+                                    {{ editingSchedule ? t('notifications_scheduled.modal.update') : t('notifications_scheduled.modal.create') }}
                                 </button>
                             </div>
                         </form>

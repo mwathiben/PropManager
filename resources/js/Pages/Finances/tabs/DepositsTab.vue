@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useFormatters, useTabFilters } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import { useFinancesStore } from '@/stores/finances';
 import { FilterBar, DataTable, AmountDisplay, MetricCard, Pagination, ExportDropdown } from '@/Components/Finances';
 import BanknotesIcon from '@heroicons/vue/24/outline/BanknotesIcon';
@@ -51,6 +52,7 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const store = useFinancesStore();
+const { t } = useI18n();
 const { formatDate, formatMoney } = useFormatters();
 
 const { localFilters, applyFilters, clearFilters, getExportParams } = useTabFilters({
@@ -63,21 +65,21 @@ const { localFilters, applyFilters, clearFilters, getExportParams } = useTabFilt
     },
 });
 
-const statusOptions = [
-    { value: 'held', label: 'Held' },
-    { value: 'refunded', label: 'Refunded' },
-    { value: 'forfeited', label: 'Forfeited' },
-    { value: 'partial_refund', label: 'Partial Refund' },
-];
+const statusOptions = computed(() => [
+    { value: 'held', label: t('finances_deposits.status.held') },
+    { value: 'refunded', label: t('finances_deposits.status.refunded') },
+    { value: 'forfeited', label: t('finances_deposits.status.forfeited') },
+    { value: 'partial_refund', label: t('finances_deposits.status.partial_refund') },
+]);
 
-const columns = [
-    { key: 'tenant', label: 'Tenant', sortable: false },
-    { key: 'unit', label: 'Unit', sortable: false },
-    { key: 'amount', label: 'Amount', align: 'right', sortable: true },
-    { key: 'status', label: 'Status', sortable: true },
-    { key: 'created_at', label: 'Collected', sortable: true },
+const columns = computed(() => [
+    { key: 'tenant', label: t('finances_deposits.column.tenant'), sortable: false },
+    { key: 'unit', label: t('finances_deposits.column.unit'), sortable: false },
+    { key: 'amount', label: t('finances_deposits.column.amount'), align: 'right', sortable: true },
+    { key: 'status', label: t('finances_deposits.column.status'), sortable: true },
+    { key: 'created_at', label: t('finances_deposits.column.collected'), sortable: true },
     { key: 'actions', label: '', align: 'right', sortable: false },
-];
+]);
 
 const tableData = computed(() => {
     if (!props.deposits?.data) return [];
@@ -154,12 +156,12 @@ const statusColors = {
     partial_refund: 'bg-yellow-100 text-yellow-800',
 };
 
-const statusLabels = {
-    held: 'Held',
-    refunded: 'Refunded',
-    forfeited: 'Forfeited',
-    partial_refund: 'Partial',
-};
+const statusLabels = computed<Record<string, string>>(() => ({
+    held: t('finances_deposits.status_label.held'),
+    refunded: t('finances_deposits.status_label.refunded'),
+    forfeited: t('finances_deposits.status_label.forfeited'),
+    partial_refund: t('finances_deposits.status_label.partial'),
+}));
 
 </script>
 
@@ -167,28 +169,28 @@ const statusLabels = {
     <div class="space-y-6">
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <MetricCard
-                title="Total Deposits"
+                :title="t('finances_deposits.metric.total')"
                 :value="stats?.total"
                 format="currency"
                 :icon="BanknotesIcon"
                 color="blue"
             />
             <MetricCard
-                title="Currently Held"
+                :title="t('finances_deposits.metric.held')"
                 :value="stats?.held"
                 format="currency"
                 :icon="ShieldCheckIcon"
                 color="emerald"
             />
             <MetricCard
-                title="Refunded"
+                :title="t('finances_deposits.metric.refunded')"
                 :value="stats?.refunded"
                 format="currency"
                 :icon="ArrowUturnLeftIcon"
                 color="gray"
             />
             <MetricCard
-                title="Forfeited"
+                :title="t('finances_deposits.metric.forfeited')"
                 :value="stats?.forfeited"
                 format="currency"
                 :icon="XCircleIcon"
@@ -203,7 +205,7 @@ const statusLabels = {
                 :buildings="buildings"
                 :show-payment-method="false"
                 :show-date-range="false"
-                search-placeholder="Search deposits..."
+                :search-placeholder="t('finances_deposits.search_placeholder')"
                 @filter="applyFilters"
                 @clear="clearFilters"
                 class="flex-1"
@@ -217,8 +219,8 @@ const statusLabels = {
             :loading="loading"
             row-key="id"
             :empty-icon="BanknotesIcon"
-            empty-title="No deposits found"
-            empty-description="Security deposits will appear here"
+            :empty-title="t('finances_deposits.empty.title')"
+            :empty-description="t('finances_deposits.empty.description')"
         >
             <template #cell-tenant="{ row }">
                 <div class="flex items-center gap-2">
@@ -246,7 +248,7 @@ const statusLabels = {
                 <div>
                     <AmountDisplay :amount="row.amount" size="sm" />
                     <p v-if="row.refund_amount && row.status !== 'held'" class="text-xs text-gray-500 mt-0.5">
-                        Refunded: {{ formatMoney(row.refund_amount) }}
+                        {{ t('finances_deposits.refunded_amount', { amount: formatMoney(row.refund_amount) }) }}
                     </p>
                 </div>
             </template>
@@ -261,7 +263,7 @@ const statusLabels = {
                 <div>
                     <span class="text-sm text-gray-600">{{ formatDate(row.start_date) }}</span>
                     <p v-if="row.processed_at" class="text-xs text-gray-400">
-                        Processed: {{ formatDate(row.processed_at) }}
+                        {{ t('finances_deposits.processed', { date: formatDate(row.processed_at) }) }}
                     </p>
                 </div>
             </template>
@@ -275,14 +277,7 @@ const statusLabels = {
                         <EllipsisVerticalIcon class="w-5 h-5" />
                     </button>
 
-                    <Transition
-                        enter-active-class="transition ease-out duration-100"
-                        enter-from-class="transform opacity-0 scale-95"
-                        enter-to-class="transform opacity-100 scale-100"
-                        leave-active-class="transition ease-in duration-75"
-                        leave-from-class="transform opacity-100 scale-100"
-                        leave-to-class="transform opacity-0 scale-95"
-                    >
+                    <Transition enter-active-class="transition ease-out duration-100" enter-from-class="transform opacity-0 scale-95" enter-to-class="transform opacity-100 scale-100" leave-active-class="transition ease-in duration-75" leave-from-class="transform opacity-100 scale-100" leave-to-class="transform opacity-0 scale-95">
                         <div
                             v-if="activeDropdown === row.id"
                             class="absolute end-0 z-10 mt-1 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1"
@@ -293,14 +288,14 @@ const statusLabels = {
                                 class="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
                             >
                                 <ArrowUturnLeftIcon class="w-4 h-4 text-emerald-500" />
-                                Refund Deposit
+                                {{ t('finances_deposits.action.refund') }}
                             </button>
                             <button
                                 @click="openForfeitModal(row); closeDropdown()"
                                 class="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
                             >
                                 <XCircleIcon class="w-4 h-4 text-red-500" />
-                                Forfeit Deposit
+                                {{ t('finances_deposits.action.forfeit') }}
                             </button>
                         </div>
                     </Transition>
@@ -313,7 +308,7 @@ const statusLabels = {
             <template #row-expansion="{ row }">
                 <tr v-if="expandedRows.has(row.id) && row.transactions.length > 0">
                     <td colspan="6" class="bg-gray-50 px-6 py-3">
-                        <div class="text-xs font-medium text-gray-500 mb-2">Transaction History</div>
+                        <div class="text-xs font-medium text-gray-500 mb-2">{{ t('finances_deposits.transaction_history') }}</div>
                         <div class="space-y-2">
                             <div
                                 v-for="transaction in row.transactions"
@@ -322,7 +317,7 @@ const statusLabels = {
                             >
                                 <div class="flex items-center gap-3">
                                     <span :class="[
-                                        'inline-flex px-2 py-0.5 text-xs font-medium rounded',
+                                        'inline-flex px-2 py-0.5 text-xs font-medium rounded', /* i18n-ignore */
                                         transaction.type === 'received' ? 'bg-blue-100 text-blue-700' :
                                         transaction.type === 'full_refund' ? 'bg-emerald-100 text-emerald-700' :
                                         transaction.type === 'partial_refund' ? 'bg-yellow-100 text-yellow-700' :
@@ -341,7 +336,7 @@ const statusLabels = {
                                         {{ transaction.created_at }}
                                     </span>
                                     <span v-if="transaction.processed_by" class="text-xs text-gray-400">
-                                        by {{ transaction.processed_by }}
+                                        {{ t('finances_deposits.by', { name: transaction.processed_by }) }}
                                     </span>
                                 </div>
                             </div>
@@ -359,7 +354,7 @@ const statusLabels = {
                 >
                     <div class="flex items-center justify-between mb-3">
                         <h4 class="text-sm font-medium text-gray-900">
-                            Transaction History - {{ row.tenant_name }} ({{ row.unit_number }})
+                            {{ t('finances_deposits.transaction_history_for', { tenant: row.tenant_name, unit: row.unit_number }) }}
                         </h4>
                         <button
                             @click="toggleRow(row.id)"
@@ -376,7 +371,7 @@ const statusLabels = {
                         >
                             <div class="flex items-center gap-3">
                                 <span :class="[
-                                    'inline-flex px-2 py-0.5 text-xs font-medium rounded',
+                                    'inline-flex px-2 py-0.5 text-xs font-medium rounded', /* i18n-ignore */
                                     transaction.type === 'received' ? 'bg-blue-100 text-blue-700' :
                                     transaction.type === 'full_refund' ? 'bg-emerald-100 text-emerald-700' :
                                     transaction.type === 'partial_refund' ? 'bg-yellow-100 text-yellow-700' :
@@ -395,7 +390,7 @@ const statusLabels = {
                                     {{ transaction.created_at }}
                                 </span>
                                 <span v-if="transaction.processed_by" class="text-xs text-gray-400">
-                                    by {{ transaction.processed_by }}
+                                    {{ t('finances_deposits.by', { name: transaction.processed_by }) }}
                                 </span>
                             </div>
                         </div>

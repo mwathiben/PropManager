@@ -3,6 +3,7 @@ import { ref, onMounted, computed } from 'vue';
 import { router } from '@inertiajs/vue3';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import { useErrorHandler } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import type { ProfileNotificationsTabProps } from '@/types';
 import {
     BellIcon,
@@ -17,6 +18,7 @@ import {
 const props = defineProps<ProfileNotificationsTabProps>();
 
 const { logError } = useErrorHandler();
+const { t } = useI18n();
 const isSupported = ref(false);
 const permissionState = ref('default');
 const isLoading = ref(false);
@@ -84,12 +86,12 @@ const subscribe = async () => {
         permissionState.value = permission;
 
         if (permission !== 'granted') {
-            error.value = 'Push notification permission was denied. Please enable it in your browser settings.';
+            error.value = t('profile_notifications.script.permission_denied');
             return;
         }
 
         if (!vapidPublicKey.value) {
-            error.value = 'Push notifications are not configured. Please contact your landlord.';
+            error.value = t('profile_notifications.script.not_configured');
             return;
         }
 
@@ -116,13 +118,13 @@ const subscribe = async () => {
 
         if (response.ok) {
             isSubscribed.value = true;
-            success.value = 'Push notifications enabled successfully!';
+            success.value = t('profile_notifications.script.enable_success');
         } else {
             throw new Error('Failed to save subscription');
         }
     } catch (e) {
         logError(e, { component: 'NotificationsTab', action: 'subscribe' });
-        error.value = 'Failed to enable push notifications. Please try again.';
+        error.value = t('profile_notifications.script.enable_failed');
     } finally {
         isLoading.value = false;
     }
@@ -153,10 +155,10 @@ const unsubscribe = async () => {
         }
 
         isSubscribed.value = false;
-        success.value = 'Push notifications disabled.';
+        success.value = t('profile_notifications.script.disable_success');
     } catch (e) {
         logError(e, { component: 'NotificationsTab', action: 'unsubscribe' });
-        error.value = 'Failed to disable push notifications.';
+        error.value = t('profile_notifications.script.disable_failed');
     } finally {
         isLoading.value = false;
     }
@@ -167,8 +169,8 @@ const testNotification = async () => {
 
     try {
         const registration = await navigator.serviceWorker.ready;
-        await registration.showNotification('Test Notification', {
-            body: 'Push notifications are working correctly!',
+        await registration.showNotification(t('profile_notifications.test.title'), {
+            body: t('profile_notifications.test.body'),
             icon: '/images/icon-192.png',
             badge: '/images/badge-72.png',
         });
@@ -187,8 +189,8 @@ const testNotification = async () => {
                     <BellIcon class="w-5 h-5 text-indigo-600" />
                 </div>
                 <div>
-                    <h3 class="text-sm font-medium text-gray-900">Push Notifications</h3>
-                    <p class="text-xs text-gray-500">Receive instant updates on your device</p>
+                    <h3 class="text-sm font-medium text-gray-900">{{ t('profile_notifications.card.title') }}</h3>
+                    <p class="text-xs text-gray-500">{{ t('profile_notifications.card.subtitle') }}</p>
                 </div>
             </div>
 
@@ -197,9 +199,9 @@ const testNotification = async () => {
                 <div class="flex items-start gap-3">
                     <ExclamationTriangleIcon class="w-5 h-5 text-yellow-500 shrink-0 mt-0.5" />
                     <div>
-                        <p class="text-sm font-medium text-yellow-800">Not Supported</p>
+                        <p class="text-sm font-medium text-yellow-800">{{ t('profile_notifications.not_supported.title') }}</p>
                         <p class="text-sm text-yellow-700 mt-1">
-                            Push notifications are not supported in this browser. Please use Chrome, Firefox, Edge, or Safari for push notifications.
+                            {{ t('profile_notifications.not_supported.body') }}
                         </p>
                     </div>
                 </div>
@@ -210,15 +212,15 @@ const testNotification = async () => {
                 <div class="flex items-start gap-3">
                     <BellSlashIcon class="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
                     <div>
-                        <p class="text-sm font-medium text-red-800">Notifications Blocked</p>
+                        <p class="text-sm font-medium text-red-800">{{ t('profile_notifications.blocked.title') }}</p>
                         <p class="text-sm text-red-700 mt-1">
-                            Push notifications are blocked in your browser. To enable them:
+                            {{ t('profile_notifications.blocked.body') }}
                         </p>
                         <ol class="text-sm text-red-700 mt-2 ms-4 list-decimal space-y-1">
-                            <li>Click the lock icon in your browser's address bar</li>
-                            <li>Find "Notifications" in the site settings</li>
-                            <li>Change from "Block" to "Allow"</li>
-                            <li>Refresh this page</li>
+                            <li>{{ t('profile_notifications.blocked.step_lock') }}</li>
+                            <li>{{ t('profile_notifications.blocked.step_find') }}</li>
+                            <li>{{ t('profile_notifications.blocked.step_change') }}</li>
+                            <li>{{ t('profile_notifications.blocked.step_refresh') }}</li>
                         </ol>
                     </div>
                 </div>
@@ -245,40 +247,37 @@ const testNotification = async () => {
                             <div>
                                 <p class="text-sm font-medium text-gray-900">{{ browserInfo.name }}</p>
                                 <p class="text-xs text-gray-500">
-                                    <span v-if="isSubscribed" class="text-green-600">Notifications enabled</span>
-                                    <span v-else class="text-gray-500">Notifications disabled</span>
+                                    <span v-if="isSubscribed" class="text-green-600">{{ t('profile_notifications.status.enabled') }}</span>
+                                    <span v-else class="text-gray-500">{{ t('profile_notifications.status.disabled') }}</span>
                                 </p>
                             </div>
                         </div>
-                        <div :class="[
-                            'px-2 py-1 rounded-full text-xs font-medium',
-                            isSubscribed ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
-                        ]">
-                            {{ isSubscribed ? 'Active' : 'Inactive' }}
+                        <div :class="['px-2 py-1 rounded-full text-xs font-medium', isSubscribed ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600']">
+                            {{ isSubscribed ? t('profile_notifications.status.active') : t('profile_notifications.status.inactive') }}
                         </div>
                     </div>
                 </div>
 
                 <!-- Description -->
                 <p class="text-sm text-gray-600">
-                    Enable push notifications to receive instant alerts for:
+                    {{ t('profile_notifications.alerts.intro') }}
                 </p>
                 <ul class="text-sm text-gray-600 ms-4 space-y-1">
                     <li class="flex items-center gap-2">
                         <span class="w-1.5 h-1.5 bg-indigo-500 rounded-full"></span>
-                        New invoices and payment confirmations
+                        {{ t('profile_notifications.alerts.invoices') }}
                     </li>
                     <li class="flex items-center gap-2">
                         <span class="w-1.5 h-1.5 bg-indigo-500 rounded-full"></span>
-                        Rent reminders and due date alerts
+                        {{ t('profile_notifications.alerts.rent') }}
                     </li>
                     <li class="flex items-center gap-2">
                         <span class="w-1.5 h-1.5 bg-indigo-500 rounded-full"></span>
-                        Important messages from your landlord
+                        {{ t('profile_notifications.alerts.messages') }}
                     </li>
                     <li class="flex items-center gap-2">
                         <span class="w-1.5 h-1.5 bg-indigo-500 rounded-full"></span>
-                        Maintenance updates and announcements
+                        {{ t('profile_notifications.alerts.maintenance') }}
                     </li>
                 </ul>
 
@@ -292,7 +291,7 @@ const testNotification = async () => {
                     >
                         <ArrowPathIcon v-if="isLoading" class="w-4 h-4 animate-spin" />
                         <BellIcon v-else class="w-4 h-4" />
-                        {{ isLoading ? 'Enabling...' : 'Enable Push Notifications' }}
+                        {{ isLoading ? t('profile_notifications.button.enabling') : t('profile_notifications.button.enable') }}
                     </PrimaryButton>
 
                     <template v-else>
@@ -300,7 +299,7 @@ const testNotification = async () => {
                             @click="testNotification"
                             class="px-4 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-md hover:bg-indigo-100 transition-colors"
                         >
-                            Send Test
+                            {{ t('profile_notifications.button.send_test') }}
                         </button>
                         <button
                             @click="unsubscribe"
@@ -309,7 +308,7 @@ const testNotification = async () => {
                         >
                             <ArrowPathIcon v-if="isLoading" class="w-4 h-4 animate-spin" />
                             <BellSlashIcon v-else class="w-4 h-4" />
-                            {{ isLoading ? 'Disabling...' : 'Disable' }}
+                            {{ isLoading ? t('profile_notifications.button.disabling') : t('profile_notifications.button.disable') }}
                         </button>
                     </template>
                 </div>
@@ -317,7 +316,7 @@ const testNotification = async () => {
                 <!-- No VAPID Key Warning -->
                 <div v-if="!vapidPublicKey && isSupported" class="bg-amber-50 border border-amber-200 rounded-lg p-3">
                     <p class="text-sm text-amber-700">
-                        Push notifications have not been configured yet. Please contact your property manager.
+                        {{ t('profile_notifications.no_vapid') }}
                     </p>
                 </div>
             </div>
@@ -328,9 +327,9 @@ const testNotification = async () => {
             <div class="flex items-start gap-3">
                 <DevicePhoneMobileIcon class="w-5 h-5 text-gray-400 shrink-0 mt-0.5" />
                 <div>
-                    <h4 class="text-xs font-medium text-gray-700">Multiple Devices</h4>
+                    <h4 class="text-xs font-medium text-gray-700">{{ t('profile_notifications.devices.title') }}</h4>
                     <p class="text-xs text-gray-600 mt-1">
-                        You can enable push notifications on multiple devices. Each device requires separate setup by logging in and enabling notifications on that device.
+                        {{ t('profile_notifications.devices.body') }}
                     </p>
                 </div>
             </div>

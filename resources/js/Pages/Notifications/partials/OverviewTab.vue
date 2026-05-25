@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { router } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import {
     PaperAirplaneIcon,
     CheckCircleIcon,
@@ -13,6 +13,7 @@ import {
     SparklesIcon
 } from '@heroicons/vue/24/outline';
 import { useFormatters } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import SendNotificationModal from '@/Components/Modals/SendNotificationModal.vue';
 import BulkSendNotificationModal from '@/Components/Modals/BulkSendNotificationModal.vue';
 import type { NotificationStats, NotificationEntry, ChannelStats, TenantReference } from '@/types';
@@ -34,35 +35,36 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits(['open-wizard']);
 
 const { formatDateTime } = useFormatters();
+const { t } = useI18n();
 
 const showSendModal = ref(false);
 const showBulkModal = ref(false);
 
-const notificationTypes = [
-    { value: 'rent_reminder', label: 'Rent Reminder' },
-    { value: 'arrears_notice', label: 'Arrears Notice' },
-    { value: 'invoice', label: 'Invoice' },
-    { value: 'receipt', label: 'Receipt' },
-    { value: 'rent_hike', label: 'Rent Hike' },
-    { value: 'lease_expiry', label: 'Lease Expiry' },
-    { value: 'general', label: 'General' },
-];
+const notificationTypes = computed(() => [
+    { value: 'rent_reminder', label: t('notifications_overview.types.rent_reminder') },
+    { value: 'arrears_notice', label: t('notifications_overview.types.arrears_notice') },
+    { value: 'invoice', label: t('notifications_overview.types.invoice') },
+    { value: 'receipt', label: t('notifications_overview.types.receipt') },
+    { value: 'rent_hike', label: t('notifications_overview.types.rent_hike') },
+    { value: 'lease_expiry', label: t('notifications_overview.types.lease_expiry') },
+    { value: 'general', label: t('notifications_overview.types.general') },
+]);
 
-const channels = [
-    { value: 'email', label: 'Email' },
-    { value: 'sms', label: 'SMS' },
-    { value: 'whatsapp', label: 'WhatsApp' },
-    { value: 'push', label: 'Push' },
-];
+const channels = computed(() => [
+    { value: 'email', label: t('notifications_overview.channels.email') },
+    { value: 'sms', label: t('notifications_overview.channels.sms') },
+    { value: 'whatsapp', label: t('notifications_overview.channels.whatsapp') },
+    { value: 'push', label: t('notifications_overview.channels.push') },
+]);
 
 const sendRentReminders = () => {
-    if (confirm('Send rent reminders to all tenants with active leases?')) {
+    if (confirm(t('notifications_overview.confirm.rent_reminders'))) {
         router.post(route('notifications.sendRentReminders'));
     }
 };
 
 const sendArrearsNotices = () => {
-    if (confirm('Send arrears notices to all tenants with outstanding balances?')) {
+    if (confirm(t('notifications_overview.confirm.arrears_notices'))) {
         router.post(route('notifications.sendArrearsNotices'));
     }
 };
@@ -102,15 +104,15 @@ const getStatusClass = (status) => {
                     <SparklesIcon class="w-6 h-6 text-amber-600" />
                 </div>
                 <div class="flex-1">
-                    <h3 class="font-semibold text-amber-900">Complete Your Setup</h3>
+                    <h3 class="font-semibold text-amber-900">{{ t('notifications_overview.setup.title') }}</h3>
                     <p class="text-sm text-amber-700 mt-1">
-                        Configure SMS, WhatsApp, or Push notifications to reach tenants through multiple channels.
+                        {{ t('notifications_overview.setup.body') }}
                     </p>
                     <button
                         @click="$emit('open-wizard')"
                         class="mt-3 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors text-sm font-medium"
                     >
-                        Run Setup Wizard
+                        {{ t('notifications_overview.setup.run_wizard') }}
                     </button>
                 </div>
             </div>
@@ -125,7 +127,7 @@ const getStatusClass = (status) => {
                     </div>
                     <div>
                         <p class="text-2xl font-bold text-gray-900">{{ stats.total_sent || 0 }}</p>
-                        <p class="text-sm text-gray-500">Total Sent</p>
+                        <p class="text-sm text-gray-500">{{ t('notifications_overview.stats.total_sent') }}</p>
                     </div>
                 </div>
             </div>
@@ -137,7 +139,7 @@ const getStatusClass = (status) => {
                     </div>
                     <div>
                         <p class="text-2xl font-bold text-gray-900">{{ stats.pending || 0 }}</p>
-                        <p class="text-sm text-gray-500">Pending</p>
+                        <p class="text-sm text-gray-500">{{ t('notifications_overview.stats.pending') }}</p>
                     </div>
                 </div>
             </div>
@@ -149,7 +151,7 @@ const getStatusClass = (status) => {
                     </div>
                     <div>
                         <p class="text-2xl font-bold text-gray-900">{{ stats.failed || 0 }}</p>
-                        <p class="text-sm text-gray-500">Failed</p>
+                        <p class="text-sm text-gray-500">{{ t('notifications_overview.stats.failed') }}</p>
                     </div>
                 </div>
             </div>
@@ -161,7 +163,7 @@ const getStatusClass = (status) => {
                     </div>
                     <div>
                         <p class="text-2xl font-bold text-gray-900">{{ stats.this_month || 0 }}</p>
-                        <p class="text-sm text-gray-500">This Month</p>
+                        <p class="text-sm text-gray-500">{{ t('notifications_overview.stats.this_month') }}</p>
                     </div>
                 </div>
             </div>
@@ -171,7 +173,7 @@ const getStatusClass = (status) => {
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <!-- Quick Actions -->
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                <h2 class="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
+                <h2 class="text-lg font-semibold text-gray-900 mb-4">{{ t('notifications_overview.quick_actions.heading') }}</h2>
                 <div class="space-y-3">
                     <button
                         @click="showSendModal = true"
@@ -181,8 +183,8 @@ const getStatusClass = (status) => {
                             <PaperAirplaneIcon class="w-5 h-5 text-indigo-600" />
                         </div>
                         <div>
-                            <h3 class="font-medium text-gray-900">Send Notification</h3>
-                            <p class="text-sm text-gray-500">Send to a specific tenant</p>
+                            <h3 class="font-medium text-gray-900">{{ t('notifications_overview.quick_actions.send.title') }}</h3>
+                            <p class="text-sm text-gray-500">{{ t('notifications_overview.quick_actions.send.description') }}</p>
                         </div>
                     </button>
 
@@ -196,8 +198,8 @@ const getStatusClass = (status) => {
                             </svg>
                         </div>
                         <div>
-                            <h3 class="font-medium text-gray-900">Bulk Send</h3>
-                            <p class="text-sm text-gray-500">Send to multiple tenants</p>
+                            <h3 class="font-medium text-gray-900">{{ t('notifications_overview.quick_actions.bulk.title') }}</h3>
+                            <p class="text-sm text-gray-500">{{ t('notifications_overview.quick_actions.bulk.description') }}</p>
                         </div>
                     </button>
 
@@ -211,8 +213,8 @@ const getStatusClass = (status) => {
                             </svg>
                         </div>
                         <div>
-                            <h3 class="font-medium text-gray-900">Send Rent Reminders</h3>
-                            <p class="text-sm text-gray-500">Notify all tenants about upcoming rent</p>
+                            <h3 class="font-medium text-gray-900">{{ t('notifications_overview.quick_actions.rent_reminders.title') }}</h3>
+                            <p class="text-sm text-gray-500">{{ t('notifications_overview.quick_actions.rent_reminders.description') }}</p>
                         </div>
                     </button>
 
@@ -224,8 +226,8 @@ const getStatusClass = (status) => {
                             <ExclamationTriangleIcon class="w-5 h-5 text-red-600" />
                         </div>
                         <div>
-                            <h3 class="font-medium text-gray-900">Send Arrears Notices</h3>
-                            <p class="text-sm text-gray-500">Notify tenants with outstanding balances</p>
+                            <h3 class="font-medium text-gray-900">{{ t('notifications_overview.quick_actions.arrears_notices.title') }}</h3>
+                            <p class="text-sm text-gray-500">{{ t('notifications_overview.quick_actions.arrears_notices.description') }}</p>
                         </div>
                     </button>
                 </div>
@@ -233,7 +235,7 @@ const getStatusClass = (status) => {
 
             <!-- Channel Distribution -->
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                <h2 class="text-lg font-semibold text-gray-900 mb-4">Channel Distribution</h2>
+                <h2 class="text-lg font-semibold text-gray-900 mb-4">{{ t('notifications_overview.channel_distribution.heading') }}</h2>
                 <div class="space-y-4">
                     <div v-for="(count, channel) in channelStats" :key="channel" class="flex items-center gap-4">
                         <div class="p-2 bg-gray-100 rounded-lg">
@@ -255,7 +257,7 @@ const getStatusClass = (status) => {
 
                     <div v-if="Object.keys(channelStats).length === 0" class="text-center py-8 text-gray-500">
                         <BellIcon class="w-12 h-12 mx-auto text-gray-300 mb-2" />
-                        <p>No notifications sent yet</p>
+                        <p>{{ t('notifications_overview.channel_distribution.empty') }}</p>
                     </div>
                 </div>
             </div>
@@ -263,12 +265,12 @@ const getStatusClass = (status) => {
 
         <!-- Recent Activity -->
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-            <h2 class="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h2>
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">{{ t('notifications_overview.recent_activity.heading') }}</h2>
 
             <div v-if="recentNotifications.length === 0" class="text-center py-12 text-gray-500">
                 <PaperAirplaneIcon class="w-12 h-12 mx-auto text-gray-300 mb-2" />
-                <p class="text-lg">No notifications yet</p>
-                <p class="text-sm mt-1">Send your first notification to get started</p>
+                <p class="text-lg">{{ t('notifications_overview.recent_activity.empty_title') }}</p>
+                <p class="text-sm mt-1">{{ t('notifications_overview.recent_activity.empty_body') }}</p>
             </div>
 
             <div v-else class="divide-y divide-gray-100">
@@ -283,7 +285,7 @@ const getStatusClass = (status) => {
                     <div class="flex-1 min-w-0">
                         <p class="font-medium text-gray-900 truncate">{{ notification.subject }}</p>
                         <p class="text-sm text-gray-500">
-                            To: {{ notification.recipient?.name || 'Unknown' }}
+                            {{ t('notifications_overview.recent_activity.recipient', { name: notification.recipient?.name || t('notifications_overview.recent_activity.unknown_recipient') }) }}
                         </p>
                     </div>
                     <div class="text-end">

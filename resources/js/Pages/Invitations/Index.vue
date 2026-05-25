@@ -4,6 +4,7 @@ import { Head, useForm, router, usePage } from '@inertiajs/vue3';
 import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { useEcho } from '@/composables/useEcho';
 import { useAuth } from '@/composables/useAuth';
+import { useI18n } from '@/composables/useI18n';
 import {
     EnvelopeIcon,
     PlusIcon,
@@ -18,6 +19,7 @@ import type { CaretakerInvitationsIndexPageProps, CaretakerInvitation } from '@/
 
 const props = defineProps<CaretakerInvitationsIndexPageProps>();
 const { can } = useAuth();
+const { t } = useI18n();
 
 const page = usePage();
 const { subscribePrivate, unsubscribe } = useEcho();
@@ -56,7 +58,7 @@ const handleInvitationAccepted = (data) => {
 
     toast.value = {
         show: true,
-        message: `${data.accepted_by} accepted the invitation for ${data.property_name}`,
+        message: t('invitations.toast.message', { name: data.accepted_by, property: data.property_name }),
         acceptedBy: data.accepted_by
     };
 
@@ -81,7 +83,7 @@ const sendInvitation = () => {
 };
 
 const resendInvitation = (invitationId) => {
-    if (confirm('Resend this invitation?')) {
+    if (confirm(t('invitations.confirm.resend'))) {
         router.post(route('invitations.resend', invitationId), {}, {
             preserveScroll: true
         });
@@ -89,7 +91,7 @@ const resendInvitation = (invitationId) => {
 };
 
 const cancelInvitation = (invitationId) => {
-    if (confirm('Are you sure you want to cancel this invitation?')) {
+    if (confirm(t('invitations.confirm.cancel'))) {
         router.delete(route('invitations.destroy', invitationId), {
             preserveScroll: true
         });
@@ -121,13 +123,13 @@ const statusIcon = (status) => {
 const copyInviteLink = (token) => {
     const url = window.location.origin + '/invitations/' + token;
     navigator.clipboard.writeText(url).then(() => {
-        alert('Invitation link copied to clipboard!');
+        alert(t('invitations.alert.copied'));
     });
 };
 </script>
 
 <template>
-    <Head title="Caretaker Invitations" />
+    <Head :title="t('invitations.title')" />
 
     <AuthenticatedLayout>
         <div class="py-6">
@@ -135,15 +137,15 @@ const copyInviteLink = (token) => {
                 <!-- Header -->
                 <div class="mb-6 flex justify-between items-center">
                     <div>
-                        <h1 class="text-3xl font-bold text-gray-900">Caretaker Invitations</h1>
-                        <p class="mt-1 text-sm text-gray-500">Invite and manage caretakers for your properties</p>
+                        <h1 class="text-3xl font-bold text-gray-900">{{ t('invitations.title') }}</h1>
+                        <p class="mt-1 text-sm text-gray-500">{{ t('invitations.subtitle') }}</p>
                     </div>
                     <button
                         @click="showInviteModal = true"
                         class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 flex items-center gap-2"
                     >
                         <PlusIcon class="w-5 h-5" />
-                        Send Invitation
+                        {{ t('invitations.send') }}
                     </button>
                 </div>
 
@@ -153,19 +155,19 @@ const copyInviteLink = (token) => {
                         <thead v-once class="bg-gray-50">
                             <tr>
                                 <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Caretaker Email
+                                    {{ t('invitations.table.email') }}
                                 </th>
                                 <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Property
+                                    {{ t('invitations.table.property') }}
                                 </th>
                                 <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Sent Date
+                                    {{ t('invitations.table.sent_date') }}
                                 </th>
                                 <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Status
+                                    {{ t('invitations.table.status') }}
                                 </th>
                                 <th class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Actions
+                                    {{ t('invitations.table.actions') }}
                                 </th>
                             </tr>
                         </thead>
@@ -179,7 +181,7 @@ const copyInviteLink = (token) => {
                                                 {{ invitation.email }}
                                             </div>
                                             <div v-if="invitation.status === 'accepted'" class="text-xs text-gray-500">
-                                                Accepted {{ invitation.accepted_at }}
+                                                {{ t('invitations.accepted_at', { date: invitation.accepted_at }) }}
                                             </div>
                                         </div>
                                     </div>
@@ -202,9 +204,9 @@ const copyInviteLink = (token) => {
                                         v-if="invitation.status === 'pending'"
                                         @click="copyInviteLink(invitation.token)"
                                         class="text-blue-600 hover:text-blue-900"
-                                        title="Copy invitation link"
+                                        :title="t('invitations.actions.copy_title')"
                                     >
-                                        Copy Link
+                                        {{ t('invitations.actions.copy') }}
                                     </button>
 
                                     <!-- Resend (for pending only) -->
@@ -212,10 +214,10 @@ const copyInviteLink = (token) => {
                                         v-if="invitation.status === 'pending'"
                                         @click="resendInvitation(invitation.id)"
                                         class="text-indigo-600 hover:text-indigo-900 inline-flex items-center gap-1"
-                                        title="Resend invitation"
+                                        :title="t('invitations.actions.resend_title')"
                                     >
                                         <PaperAirplaneIcon class="w-4 h-4" />
-                                        Resend
+                                        {{ t('invitations.actions.resend') }}
                                     </button>
 
                                     <!-- Cancel (for pending only) -->
@@ -223,10 +225,10 @@ const copyInviteLink = (token) => {
                                         v-if="can('team:manage') && invitation.status === 'pending'"
                                         @click="cancelInvitation(invitation.id)"
                                         class="text-red-600 hover:text-red-900 inline-flex items-center gap-1"
-                                        title="Cancel invitation"
+                                        :title="t('invitations.actions.cancel_title')"
                                     >
                                         <TrashIcon class="w-4 h-4" />
-                                        Cancel
+                                        {{ t('invitations.actions.cancel') }}
                                     </button>
 
                                     <!-- No actions for accepted/expired -->
@@ -242,9 +244,9 @@ const copyInviteLink = (token) => {
                     <EmptyState
                         v-if="localInvitations.length === 0"
                         :icon="EnvelopeIcon"
-                        title="No invitations sent"
-                        description="Get started by sending an invitation to a caretaker."
-                        action-label="Send First Invitation"
+                        :title="t('invitations.empty.title')"
+                        :description="t('invitations.empty.description')"
+                        :action-label="t('invitations.empty.action')"
                         @action="showInviteModal = true"
                     />
                 </div>
@@ -257,7 +259,7 @@ const copyInviteLink = (token) => {
                 <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showInviteModal = false"></div>
                 <div class="relative z-50 bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
                 <div class="px-6 py-4 border-b border-gray-200">
-                    <h3 class="text-lg font-medium text-gray-900">Send Caretaker Invitation</h3>
+                    <h3 class="text-lg font-medium text-gray-900">{{ t('invitations.modal.title') }}</h3>
                 </div>
 
                 <form @submit.prevent="sendInvitation">
@@ -265,13 +267,13 @@ const copyInviteLink = (token) => {
                         <!-- Email -->
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">
-                                Email Address
+                                {{ t('invitations.modal.email') }}
                             </label>
                             <input
                                 v-model="inviteForm.email"
                                 type="email"
                                 required
-                                placeholder="caretaker@example.com"
+                                :placeholder="t('invitations.modal.email_placeholder')"
                                 class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                             />
                             <p v-if="inviteForm.errors.email" class="mt-1 text-sm text-red-600">
@@ -282,7 +284,7 @@ const copyInviteLink = (token) => {
                         <!-- Property -->
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">
-                                Property
+                                {{ t('invitations.modal.property') }}
                             </label>
                             <select
                                 v-model="inviteForm.property_id"
@@ -300,8 +302,7 @@ const copyInviteLink = (token) => {
 
                         <div class="bg-blue-50 border border-blue-200 rounded-md p-3">
                             <p class="text-xs text-blue-800">
-                                The caretaker will receive an email with a link to accept the invitation and create their account.
-                                Invitations expire after 30 days.
+                                {{ t('invitations.modal.notice') }}
                             </p>
                         </div>
                     </div>
@@ -312,7 +313,7 @@ const copyInviteLink = (token) => {
                             @click="showInviteModal = false; inviteForm.reset()"
                             class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
                         >
-                            Cancel
+                            {{ t('invitations.modal.cancel') }}
                         </button>
                         <button
                             type="submit"
@@ -320,7 +321,7 @@ const copyInviteLink = (token) => {
                             class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
                         >
                             <PaperAirplaneIcon class="w-4 h-4" />
-                            {{ inviteForm.processing ? 'Sending...' : 'Send Invitation' }}
+                            {{ inviteForm.processing ? t('invitations.modal.sending') : t('invitations.send') }}
                         </button>
                     </div>
                 </form>
@@ -329,21 +330,15 @@ const copyInviteLink = (token) => {
         </div>
 
         <!-- Toast Notification -->
-        <Transition
-            enter-active-class="transition ease-out duration-300"
-            enter-from-class="translate-y-2 opacity-0"
-            enter-to-class="translate-y-0 opacity-100"
-            leave-active-class="transition ease-in duration-200"
-            leave-from-class="translate-y-0 opacity-100"
-            leave-to-class="translate-y-2 opacity-0"
-        >
+        <!-- i18n-ignore -->
+        <Transition enter-active-class="transition ease-out duration-300" enter-from-class="translate-y-2 opacity-0" enter-to-class="translate-y-0 opacity-100" leave-active-class="transition ease-in duration-200" leave-from-class="translate-y-0 opacity-100" leave-to-class="translate-y-2 opacity-0">
             <div
                 v-if="toast.show"
                 class="fixed bottom-4 end-4 bg-green-600 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 z-50"
             >
                 <CheckCircleIcon class="w-6 h-6" />
                 <div>
-                    <p class="font-medium">Invitation Accepted!</p>
+                    <p class="font-medium">{{ t('invitations.toast.title') }}</p>
                     <p class="text-sm text-green-100">{{ toast.message }}</p>
                 </div>
             </div>

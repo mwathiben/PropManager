@@ -2,6 +2,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, Link } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import { useZodForm } from '@/composables/forms/useZodForm';
 import { moveOutSchema } from '@/composables/forms/schemas/moveOutSchema';
 import type { MoveOutCreatePageProps } from '@/types/finances';
@@ -15,6 +16,7 @@ import {
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps<MoveOutCreatePageProps>();
+const { t } = useI18n();
 const { formatMoney: formatCurrency, formatDate, todayAsISODate } = useFormatters();
 
 const tenant = props.lease.tenant;
@@ -37,7 +39,7 @@ const submit = () => {
 </script>
 
 <template>
-    <Head title="Initiate Move-Out" />
+    <Head :title="t('moveouts.create.head_title')" />
 
     <AuthenticatedLayout>
         <div class="py-6">
@@ -48,8 +50,8 @@ const submit = () => {
                         <ArrowLeftIcon class="w-5 h-5" />
                     </Link>
                     <div>
-                        <h1 class="text-2xl font-bold text-gray-900">Initiate Move-Out</h1>
-                        <p class="text-sm text-gray-500">Start the move-out process for {{ tenant.name }}</p>
+                        <h1 class="text-2xl font-bold text-gray-900">{{ t('moveouts.create.title') }}</h1>
+                        <p class="text-sm text-gray-500">{{ t('moveouts.create.subtitle', { name: tenant.name }) }}</p>
                     </div>
                 </div>
 
@@ -62,7 +64,7 @@ const submit = () => {
                                 {{ tenant.name?.charAt(0)?.toUpperCase() || '?' }}
                             </div>
                             <div>
-                                <h3 class="text-sm font-medium text-gray-500">Tenant</h3>
+                                <h3 class="text-sm font-medium text-gray-500">{{ t('moveouts.create.tenant_label') }}</h3>
                                 <p class="text-lg font-semibold text-gray-900">{{ tenant.name }}</p>
                                 <p class="text-sm text-gray-500">{{ tenant.email }}</p>
                             </div>
@@ -74,8 +76,8 @@ const submit = () => {
                                 <HomeIcon class="w-6 h-6 text-gray-600" />
                             </div>
                             <div>
-                                <h3 class="text-sm font-medium text-gray-500">Unit</h3>
-                                <p class="text-lg font-semibold text-gray-900">Unit {{ unit.unit_number }}</p>
+                                <h3 class="text-sm font-medium text-gray-500">{{ t('moveouts.create.unit_label') }}</h3>
+                                <p class="text-lg font-semibold text-gray-900">{{ t('moveouts.create.unit_prefix') }} {{ unit.unit_number }}</p>
                                 <p class="text-sm text-gray-500">{{ unit.building?.name }} - {{ unit.building?.property?.name }}</p>
                             </div>
                         </div>
@@ -83,24 +85,24 @@ const submit = () => {
 
                     <!-- Financial Summary -->
                     <div class="mt-6 pt-6 border-t border-gray-200">
-                        <h4 class="text-sm font-medium text-gray-900 mb-4">Financial Summary</h4>
+                        <h4 class="text-sm font-medium text-gray-900 mb-4">{{ t('moveouts.create.financial_summary') }}</h4>
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <div class="bg-gray-50 rounded-lg p-3">
-                                <p class="text-xs text-gray-500">Deposit Held</p>
+                                <p class="text-xs text-gray-500">{{ t('moveouts.create.deposit_held') }}</p>
                                 <p class="text-lg font-bold text-gray-900">{{ formatCurrency(lease.deposit_amount) }}</p>
                             </div>
                             <div class="bg-gray-50 rounded-lg p-3">
-                                <p class="text-xs text-gray-500">Current Arrears</p>
+                                <p class="text-xs text-gray-500">{{ t('moveouts.create.current_arrears') }}</p>
                                 <p class="text-lg font-bold" :class="lease.arrears > 0 ? 'text-red-600' : 'text-green-600'">
                                     {{ formatCurrency(lease.arrears || 0) }}
                                 </p>
                             </div>
                             <div class="bg-gray-50 rounded-lg p-3">
-                                <p class="text-xs text-gray-500">Monthly Rent</p>
+                                <p class="text-xs text-gray-500">{{ t('moveouts.create.monthly_rent') }}</p>
                                 <p class="text-lg font-bold text-gray-900">{{ formatCurrency(lease.rent_amount) }}</p>
                             </div>
                             <div class="bg-gray-50 rounded-lg p-3">
-                                <p class="text-xs text-gray-500">Lease Started</p>
+                                <p class="text-xs text-gray-500">{{ t('moveouts.create.lease_started') }}</p>
                                 <p class="text-lg font-bold text-gray-900">{{ formatDate(lease.start_date, 'short') }}</p>
                             </div>
                         </div>
@@ -112,7 +114,7 @@ const submit = () => {
                     <div class="px-6 py-4 bg-gray-50 border-b border-gray-200">
                         <h3 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
                             <ArrowRightOnRectangleIcon class="w-5 h-5" />
-                            Move-Out Details
+                            {{ t('moveouts.create.details_heading') }}
                         </h3>
                     </div>
 
@@ -121,7 +123,7 @@ const submit = () => {
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">
                                     <CalendarDaysIcon class="w-4 h-4 inline me-1" />
-                                    Notice Date *
+                                    {{ t('moveouts.create.notice_date_label') }}
                                 </label>
                                 <input
                                     v-model="form.notice_date"
@@ -129,14 +131,14 @@ const submit = () => {
                                     required
                                     class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                                 />
-                                <p class="mt-1 text-xs text-gray-500">Date tenant gave notice to move out</p>
+                                <p class="mt-1 text-xs text-gray-500">{{ t('moveouts.create.notice_date_help') }}</p>
                                 <p v-if="form.errors.notice_date" class="mt-1 text-sm text-red-600">{{ form.errors.notice_date }}</p>
                             </div>
 
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">
                                     <CalendarDaysIcon class="w-4 h-4 inline me-1" />
-                                    Intended Move-Out Date *
+                                    {{ t('moveouts.create.intended_date_label') }}
                                 </label>
                                 <input
                                     v-model="form.intended_move_out_date"
@@ -145,30 +147,30 @@ const submit = () => {
                                     :min="form.notice_date"
                                     class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                                 />
-                                <p class="mt-1 text-xs text-gray-500">Expected date tenant will vacate</p>
+                                <p class="mt-1 text-xs text-gray-500">{{ t('moveouts.create.intended_date_help') }}</p>
                                 <p v-if="form.errors.intended_move_out_date" class="mt-1 text-sm text-red-600">{{ form.errors.intended_move_out_date }}</p>
                             </div>
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Reason for Moving (Optional)</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('moveouts.create.reason_label') }}</label>
                             <textarea
                                 v-model="form.reason"
                                 rows="3"
                                 class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                                placeholder="e.g., Relocation, end of lease term, etc."
+                                :placeholder="t('moveouts.create.reason_placeholder')"
                             ></textarea>
                         </div>
 
                         <!-- What happens next -->
                         <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                            <h4 class="text-sm font-medium text-blue-800 mb-2">What happens next?</h4>
+                            <h4 class="text-sm font-medium text-blue-800 mb-2">{{ t('moveouts.create.next_heading') }}</h4>
                             <ol class="text-sm text-blue-700 space-y-1 list-decimal list-inside">
-                                <li>Move-out notice is recorded</li>
-                                <li>When tenant vacates, you'll conduct a move-out inspection</li>
-                                <li>Record any deductions (damages, unpaid rent, etc.)</li>
-                                <li>Calculate and settle the deposit refund</li>
-                                <li>Unit becomes vacant and available for new tenant</li>
+                                <li>{{ t('moveouts.create.next_step_1') }}</li>
+                                <li>{{ t('moveouts.create.next_step_2') }}</li>
+                                <li>{{ t('moveouts.create.next_step_3') }}</li>
+                                <li>{{ t('moveouts.create.next_step_4') }}</li>
+                                <li>{{ t('moveouts.create.next_step_5') }}</li>
                             </ol>
                         </div>
 
@@ -177,7 +179,7 @@ const submit = () => {
                                 :href="route('tenants.show', tenant.id)"
                                 class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
                             >
-                                Cancel
+                                {{ t('moveouts.create.cancel') }}
                             </Link>
                             <button
                                 type="submit"
@@ -185,7 +187,7 @@ const submit = () => {
                                 class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center gap-2"
                             >
                                 <ArrowRightOnRectangleIcon class="w-5 h-5" />
-                                {{ form.processing ? 'Processing...' : 'Start Move-Out Process' }}
+                                {{ form.processing ? t('moveouts.create.submitting') : t('moveouts.create.submit') }}
                             </button>
                         </div>
                     </form>
