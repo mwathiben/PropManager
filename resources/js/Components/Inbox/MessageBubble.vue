@@ -118,10 +118,10 @@ const initials = computed(() => {
             <div
                 class="px-3 py-2 text-sm shadow-sm"
                 :class="[
-                    isOwn ? 'bg-indigo-600 text-white' : 'bg-white text-gray-900 ring-1 ring-gray-100',
+                    isOwn ? 'bg-indigo-600 text-white' : 'bg-white text-gray-900 ring-1 ring-gray-100', /* i18n-ignore */
                     isOwn
-                        ? (groupEnd ? 'rounded-2xl rounded-ee-md' : 'rounded-2xl')
-                        : (groupEnd ? 'rounded-2xl rounded-es-md' : 'rounded-2xl'),
+                        ? (groupEnd ? 'rounded-2xl rounded-ee-md' : 'rounded-2xl') /* i18n-ignore */
+                        : (groupEnd ? 'rounded-2xl rounded-es-md' : 'rounded-2xl'), /* i18n-ignore */
                 ]"
             >
                 <button
@@ -151,7 +151,7 @@ const initials = computed(() => {
                             data-testid="bubble-attachment"
                         >
                             <ExclamationCircleIcon class="h-4 w-4" />
-                            {{ t('inbox.chat.attachment.unavailable') }}
+                            {{ t('message_bubble.attachment.unavailable') }}
                         </div>
 
                         <!-- Image: inline thumbnail opening the lightbox. -->
@@ -159,7 +159,7 @@ const initials = computed(() => {
                             v-else-if="doc.is_image"
                             type="button"
                             class="block overflow-hidden rounded-lg"
-                            :aria-label="t('inbox.chat.attachment.open_image')"
+                            :aria-label="t('message_bubble.attachment.open_image')"
                             data-testid="bubble-attachment"
                             @click="$emit('openImage', { url: doc.url, title: doc.title })"
                         >
@@ -201,12 +201,12 @@ const initials = computed(() => {
                     @click="$emit('retry', message)"
                 >
                     <ExclamationCircleIcon class="h-3 w-3" />
-                    {{ t('inbox.chat.retry') }}
+                    {{ t('message_bubble.retry') }}
                 </button>
                 <span
                     v-else-if="isOwn && message.pending === 'sending'"
                     class="inline-flex items-center"
-                    :aria-label="t('inbox.chat.sending')"
+                    :aria-label="t('message_bubble.sending')"
                     data-testid="message-sending"
                 >
                     <ClockIcon class="h-3 w-3" />
@@ -215,7 +215,7 @@ const initials = computed(() => {
                     v-else-if="isOwn && seen !== null"
                     class="inline-flex items-center"
                     :class="seen ? 'text-sky-500' : 'text-gray-400'"
-                    :aria-label="seen ? t('inbox.seen.label') : t('inbox.chat.sent')"
+                    :aria-label="seen ? t('message_bubble.seen') : t('message_bubble.sent')"
                     data-testid="message-seen"
                 >
                     <CheckIcon class="h-3 w-3" />
@@ -235,7 +235,7 @@ const initials = computed(() => {
                     type="button"
                     class="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-xs ring-1"
                     :class="r.reacted ? 'bg-indigo-50 text-indigo-700 ring-indigo-300' : 'bg-white text-gray-600 ring-gray-200'"
-                    :aria-label="t('inbox.chat.reactions.pill_label', { emoji: r.emoji, count: r.count })"
+                    :aria-label="t('message_bubble.reactions.pill_label', { emoji: r.emoji, count: r.count })"
                     :aria-pressed="r.reacted"
                     data-testid="reaction-pill"
                     @click="react(r.emoji)"
@@ -250,7 +250,7 @@ const initials = computed(() => {
             <button
                 type="button"
                 class="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-gray-400 opacity-0 transition hover:bg-gray-100 hover:text-gray-600 focus:opacity-100 group-hover:opacity-100"
-                :aria-label="t('inbox.chat.reply')"
+                :aria-label="t('message_bubble.reply')"
                 data-testid="message-reply"
                 @click="$emit('reply', message)"
             >
@@ -262,7 +262,7 @@ const initials = computed(() => {
                 type="button"
                 class="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-gray-400 opacity-0 transition hover:bg-gray-100 hover:text-gray-600 focus:opacity-100 group-hover:opacity-100"
                 :class="{ 'opacity-100': pickerOpen }"
-                :aria-label="t('inbox.chat.reactions.add')"
+                :aria-label="t('message_bubble.reactions.add')"
                 :aria-expanded="pickerOpen"
                 data-testid="reaction-picker-toggle"
                 @click="pickerOpen = !pickerOpen"
@@ -280,7 +280,7 @@ const initials = computed(() => {
                     :key="emoji"
                     type="button"
                     class="flex h-7 w-7 items-center justify-center rounded-full text-base hover:bg-gray-100"
-                    :aria-label="t('inbox.chat.reactions.react_with', { emoji })"
+                    :aria-label="t('message_bubble.reactions.react_with', { emoji })"
                     @click="react(emoji)"
                 >
                     {{ emoji }}

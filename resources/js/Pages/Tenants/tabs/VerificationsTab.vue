@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue';
 import { router, Link } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import PaginatorLink from '@/Components/PaginatorLink.vue';
 import EmptyState from '@/Components/EmptyState.vue';
 import { MagnifyingGlassIcon, ShieldCheckIcon } from '@heroicons/vue/24/outline';
@@ -20,6 +21,7 @@ const props = defineProps<{
 }>();
 
 const { formatDate } = useFormatters();
+const { t } = useI18n();
 
 const search = ref(props.filters?.search || '');
 const status = ref(props.filters?.status || '');
@@ -39,6 +41,8 @@ const statusColor = (s: string): string => ({
     approved: 'bg-green-100 text-green-800',
     rejected: 'bg-red-100 text-red-800',
 }[s] || 'bg-gray-100 text-gray-700');
+
+const statusLabel = (s: string): string => t(`tenants_verifications_tab.status.${s}`, s ?? '');
 </script>
 
 <template>
@@ -47,20 +51,20 @@ const statusColor = (s: string): string => ({
             <div class="flex flex-wrap gap-4">
                 <div class="flex-1 min-w-[200px]">
                     <div class="relative">
-                        <input v-model="search" @keyup.enter="applyFilters" type="text" placeholder="Search verifications..."
+                        <input v-model="search" @keyup.enter="applyFilters" type="text" :placeholder="t('tenants_verifications_tab.filters.search_placeholder')"
                             class="w-full ps-10 border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm" />
                         <MagnifyingGlassIcon class="w-5 h-5 text-gray-400 absolute start-3 top-2.5" />
                     </div>
                 </div>
                 <select v-model="status" @change="applyFilters" class="border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
-                    <option value="">All Status</option>
-                    <option value="pending">Pending</option>
-                    <option value="approved">Approved</option>
-                    <option value="rejected">Rejected</option>
+                    <option value="">{{ t('tenants_verifications_tab.filters.all_status') }}</option>
+                    <option value="pending">{{ t('tenants_verifications_tab.status.pending') }}</option>
+                    <option value="approved">{{ t('tenants_verifications_tab.status.approved') }}</option>
+                    <option value="rejected">{{ t('tenants_verifications_tab.status.rejected') }}</option>
                 </select>
             </div>
             <div v-if="hasActiveFilters" class="mt-3 flex justify-end">
-                <button @click="clearFilters" class="text-sm text-gray-500 hover:text-gray-700">Clear filters</button>
+                <button @click="clearFilters" class="text-sm text-gray-500 hover:text-gray-700">{{ t('tenants_verifications_tab.filters.clear') }}</button>
             </div>
         </div>
 
@@ -68,29 +72,28 @@ const statusColor = (s: string): string => ({
             <table v-if="verifications?.data?.length" class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Tenant</th>
-                        <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Submitted</th>
-                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('tenants_verifications_tab.table.tenant') }}</th>
+                        <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('tenants_verifications_tab.table.submitted') }}</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('tenants_verifications_tab.table.status') }}</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     <tr v-for="v in verifications.data" :key="v.id" class="hover:bg-gray-50">
                         <td class="px-6 py-4">
-                            <div class="text-sm font-medium text-gray-900">{{ v.lease?.tenant?.name || 'Unknown' }}</div>
+                            <div class="text-sm font-medium text-gray-900">{{ v.lease?.tenant?.name || t('tenants_verifications_tab.unknown') }}</div>
                             <div class="text-xs text-gray-500">{{ v.lease?.tenant?.email }}</div>
                         </td>
                         <td class="px-6 py-4 text-sm text-gray-500">{{ formatDate(v.created_at) }}</td>
-                        <td class="px-6 py-4 text-center"><span :class="[statusColor(v.status), 'px-2 py-1 text-xs font-medium rounded-full']">{{ v.status }}</span></td>
+                        <td class="px-6 py-4 text-center"><span :class="[statusColor(v.status), 'px-2 py-1 text-xs font-medium rounded-full']">{{ statusLabel(v.status) }}</span></td>
                     </tr>
                 </tbody>
             </table>
 
-            <EmptyState v-else :icon="ShieldCheckIcon" title="No verifications"
-                :description="hasActiveFilters ? 'Try adjusting your filters.' : 'Tenant verifications will appear here.'" />
+            <EmptyState v-else :icon="ShieldCheckIcon" :title="t('tenants_verifications_tab.empty.title')" :description="hasActiveFilters ? t('tenants_verifications_tab.empty.description_filtered') : t('tenants_verifications_tab.empty.description_default')" />
 
             <div v-if="verifications?.data?.length && verifications.last_page > 1" class="bg-gray-50 px-4 py-3 border-t border-gray-200">
                 <div class="flex items-center justify-between">
-                    <div class="text-sm text-gray-700">Showing {{ verifications.from }} to {{ verifications.to }} of {{ verifications.total }} results</div>
+                    <div class="text-sm text-gray-700">{{ t('tenants_verifications_tab.pagination.showing', { from: verifications.from, to: verifications.to, total: verifications.total }) }}</div>
                     <div class="flex space-x-2">
                         <Link v-for="link in verifications.links" :key="link.label" :href="link.url || '#'"
                             :class="[link.active ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50', 'px-3 py-1 text-sm border rounded-md']">

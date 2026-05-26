@@ -11,7 +11,10 @@ import {
     BellIcon,
     UserIcon
 } from '@heroicons/vue/24/outline';
+import { useI18n } from '@/composables/useI18n';
 import type { SendNotificationModalProps } from '@/types';
+
+const { t } = useI18n();
 
 const props = withDefaults(defineProps<SendNotificationModalProps>(), {
     tenants: () => [],
@@ -20,12 +23,12 @@ const props = withDefaults(defineProps<SendNotificationModalProps>(), {
 
 const emit = defineEmits(['close']);
 
-const channels = [
-    { value: 'email', label: 'Email', icon: EnvelopeIcon },
-    { value: 'sms', label: 'SMS', icon: DevicePhoneMobileIcon },
-    { value: 'whatsapp', label: 'WhatsApp', icon: ChatBubbleLeftRightIcon },
-    { value: 'push', label: 'Push', icon: BellIcon },
-];
+const channels = computed(() => [
+    { value: 'email', label: t('send_notification_modal.channels.email'), icon: EnvelopeIcon },
+    { value: 'sms', label: t('send_notification_modal.channels.sms'), icon: DevicePhoneMobileIcon },
+    { value: 'whatsapp', label: t('send_notification_modal.channels.whatsapp'), icon: ChatBubbleLeftRightIcon },
+    { value: 'push', label: t('send_notification_modal.channels.push'), icon: BellIcon },
+]);
 
 const form = useForm({
     recipient_id: '',
@@ -69,9 +72,9 @@ watch(() => props.show, (newVal) => {
                     <div class="p-2 bg-indigo-100 rounded-xl">
                         <PaperAirplaneIcon class="w-5 h-5 text-indigo-600" />
                     </div>
-                    <h3 class="text-lg font-semibold text-gray-900">Send Notification</h3>
+                    <h3 class="text-lg font-semibold text-gray-900">{{ t('send_notification_modal.title') }}</h3>
                 </div>
-                <button @click="close" aria-label="Close" class="p-2 text-gray-400 hover:text-gray-600 rounded-lg">
+                <button @click="close" :aria-label="t('send_notification_modal.close')" class="p-2 text-gray-400 hover:text-gray-600 rounded-lg">
                     <XMarkIcon class="w-5 h-5" />
                 </button>
             </div>
@@ -81,13 +84,13 @@ watch(() => props.show, (newVal) => {
         <form @submit.prevent="submit" class="p-6 space-y-5">
                         <!-- Recipient -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Recipient</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('send_notification_modal.recipient') }}</label>
                             <select
                                 v-model="form.recipient_id"
                                 class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                                 required
                             >
-                                <option value="">Select a tenant...</option>
+                                <option value="">{{ t('send_notification_modal.select_tenant') }}</option>
                                 <option v-for="tenant in tenants" :key="tenant.id" :value="tenant.id">
                                     {{ tenant.name }} - {{ tenant.email }}
                                 </option>
@@ -102,14 +105,14 @@ watch(() => props.show, (newVal) => {
                             </div>
                             <div class="text-sm">
                                 <p class="font-medium text-gray-900">{{ selectedTenant.name }}</p>
-                                <p class="text-gray-500">{{ selectedTenant.email }} | {{ selectedTenant.phone || 'No phone' }}</p>
+                                <p class="text-gray-500">{{ selectedTenant.email }} | {{ selectedTenant.phone || t('send_notification_modal.no_phone') }}</p>
                             </div>
                         </div>
 
                         <!-- Type & Channel -->
                         <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('send_notification_modal.type') }}</label>
                                 <select
                                     v-model="form.type"
                                     class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
@@ -121,7 +124,7 @@ watch(() => props.show, (newVal) => {
                             </div>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Channel</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('send_notification_modal.channel') }}</label>
                                 <select
                                     v-model="form.channel"
                                     class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
@@ -135,12 +138,12 @@ watch(() => props.show, (newVal) => {
 
                         <!-- Subject -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('send_notification_modal.subject') }}</label>
                             <input
                                 v-model="form.subject"
                                 type="text"
                                 class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                                placeholder="Notification subject"
+                                :placeholder="t('send_notification_modal.subject_placeholder')"
                                 required
                             />
                             <p v-if="form.errors.subject" class="text-sm text-red-600 mt-1">{{ form.errors.subject }}</p>
@@ -148,12 +151,12 @@ watch(() => props.show, (newVal) => {
 
                         <!-- Message -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Message</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('send_notification_modal.message') }}</label>
                             <textarea
                                 v-model="form.message"
                                 rows="5"
                                 class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                                placeholder="Enter your message here..."
+                                :placeholder="t('send_notification_modal.message_placeholder')"
                                 required
                             ></textarea>
                             <p v-if="form.errors.message" class="text-sm text-red-600 mt-1">{{ form.errors.message }}</p>
@@ -162,7 +165,7 @@ watch(() => props.show, (newVal) => {
                         <!-- Channel indicator -->
                         <div class="flex items-center gap-2 text-sm text-gray-500">
                             <component :is="channels.find(c => c.value === form.channel)?.icon" class="w-4 h-4" />
-                            <span>Will be sent via {{ form.channel }}</span>
+                            <span>{{ t('send_notification_modal.will_be_sent_via', { channel: channels.find(c => c.value === form.channel)?.label ?? form.channel }) }}</span>
                         </div>
 
             <!-- Actions -->
@@ -172,7 +175,7 @@ watch(() => props.show, (newVal) => {
                     @click="close"
                     class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                 >
-                    Cancel
+                    {{ t('send_notification_modal.cancel') }}
                 </button>
                 <button
                     type="submit"
@@ -180,7 +183,7 @@ watch(() => props.show, (newVal) => {
                     class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
                 >
                     <PaperAirplaneIcon class="w-4 h-4" />
-                    {{ form.processing ? 'Sending...' : 'Send Notification' }}
+                    {{ form.processing ? t('send_notification_modal.sending') : t('send_notification_modal.send') }}
                 </button>
             </div>
         </form>

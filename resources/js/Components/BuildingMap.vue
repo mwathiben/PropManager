@@ -5,9 +5,11 @@ import 'leaflet/dist/leaflet.css';
 import MapPinIcon from '@heroicons/vue/24/outline/MapPinIcon';
 import ArrowTopRightOnSquareIcon from '@heroicons/vue/24/outline/ArrowTopRightOnSquareIcon';
 import { useErrorHandler } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import type { MapCoordinates } from '@/types';
 
 const { logError } = useErrorHandler();
+const { t } = useI18n();
 
 // Fix Leaflet default marker icon issue
 delete (L.Icon.Default.prototype as Record<string, unknown>)._getIconUrl;
@@ -172,14 +174,14 @@ onUnmounted(() => {
             <div class="text-center">
                 <MapPinIcon class="w-12 h-12 mx-auto text-gray-300" />
                 <p class="mt-2 text-sm text-gray-500">
-                    {{ editable ? 'Click on the map to set location' : 'No location set' }}
+                    {{ editable ? t('building_map.click_to_set_location') : t('building_map.no_location_set') }}
                 </p>
                 <button
                     v-if="editable && address"
                     @click="searchAddress"
                     class="mt-3 px-4 py-2 text-sm text-indigo-600 hover:text-indigo-800 font-medium"
                 >
-                    Search by address
+                    {{ t('building_map.search_by_address') }}
                 </button>
             </div>
         </div>
@@ -189,8 +191,8 @@ onUnmounted(() => {
             <button
                 @click="openInGoogleMaps"
                 class="p-2 bg-white rounded-lg shadow-md hover:bg-gray-50 transition focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                title="Open in Google Maps"
-                aria-label="Open location in Google Maps"
+                :title="t('building_map.open_in_google_maps')"
+                :aria-label="t('building_map.open_location_in_google_maps')"
             >
                 <ArrowTopRightOnSquareIcon class="w-5 h-5 text-gray-600" aria-hidden="true" />
             </button>
@@ -205,7 +207,7 @@ onUnmounted(() => {
 
         <!-- Editable Instructions -->
         <div v-if="editable && coordinates?.lat" class="absolute bottom-3 end-3 bg-indigo-600/90 backdrop-blur-sm text-white text-xs px-3 py-2 rounded-lg">
-            Drag marker to adjust
+            {{ t('building_map.drag_marker_to_adjust') }}
         </div>
     </div>
 </template>
