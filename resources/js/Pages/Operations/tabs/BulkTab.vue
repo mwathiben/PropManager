@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed } from 'vue';
 import { Link } from '@inertiajs/vue3';
+import { useI18n } from '@/composables/useI18n';
 import type { OperationsBulkTabProps } from '@/types/operations';
 import {
     ArrowUpTrayIcon,
@@ -11,12 +12,13 @@ import {
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps<OperationsBulkTabProps>();
+const { t } = useI18n();
 
-const operations = [
+const operations = computed(() => [
     {
         id: 'rent-adjustment',
-        name: 'Rent Adjustment',
-        description: 'Increase or decrease rent for multiple units at once',
+        name: t('operations_bulk_tab.operations.rent_adjustment.name'),
+        description: t('operations_bulk_tab.operations.rent_adjustment.description'),
         icon: CurrencyDollarIcon,
         color: 'bg-green-100 text-green-600',
         route: 'bulk.index',
@@ -24,8 +26,8 @@ const operations = [
     },
     {
         id: 'unit-status',
-        name: 'Unit Status Update',
-        description: 'Update status for multiple units (vacant, maintenance, etc.)',
+        name: t('operations_bulk_tab.operations.unit_status.name'),
+        description: t('operations_bulk_tab.operations.unit_status.description'),
         icon: HomeIcon,
         color: 'bg-blue-100 text-blue-600',
         route: 'bulk.index',
@@ -33,8 +35,8 @@ const operations = [
     },
     {
         id: 'lease-management',
-        name: 'Lease Management',
-        description: 'Extend or terminate multiple leases at once',
+        name: t('operations_bulk_tab.operations.lease_management.name'),
+        description: t('operations_bulk_tab.operations.lease_management.description'),
         icon: DocumentTextIcon,
         color: 'bg-purple-100 text-purple-600',
         route: 'bulk.index',
@@ -42,14 +44,14 @@ const operations = [
     },
     {
         id: 'target-rent',
-        name: 'Target Rent Update',
-        description: 'Update market rent values for multiple units',
+        name: t('operations_bulk_tab.operations.target_rent.name'),
+        description: t('operations_bulk_tab.operations.target_rent.description'),
         icon: ChartBarIcon,
         color: 'bg-orange-100 text-orange-600',
         route: 'bulk.index',
         params: { tab: 'target' },
     },
-];
+]);
 </script>
 
 <template>
@@ -58,19 +60,19 @@ const operations = [
         <div v-if="bulkStats" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
                 <div class="text-2xl font-bold text-gray-900">{{ bulkStats.total_units || 0 }}</div>
-                <div class="text-sm text-gray-500">Total Units</div>
+                <div class="text-sm text-gray-500">{{ t('operations_bulk_tab.stats.total_units') }}</div>
             </div>
             <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
                 <div class="text-2xl font-bold text-green-600">{{ bulkStats.occupied_units || 0 }}</div>
-                <div class="text-sm text-gray-500">Occupied</div>
+                <div class="text-sm text-gray-500">{{ t('operations_bulk_tab.stats.occupied') }}</div>
             </div>
             <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
                 <div class="text-2xl font-bold text-yellow-600">{{ bulkStats.active_leases || 0 }}</div>
-                <div class="text-sm text-gray-500">Active Leases</div>
+                <div class="text-sm text-gray-500">{{ t('operations_bulk_tab.stats.active_leases') }}</div>
             </div>
             <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
                 <div class="text-2xl font-bold text-blue-600">{{ buildings?.length || 0 }}</div>
-                <div class="text-sm text-gray-500">Buildings</div>
+                <div class="text-sm text-gray-500">{{ t('operations_bulk_tab.stats.buildings') }}</div>
             </div>
         </div>
 
@@ -98,7 +100,7 @@ const operations = [
 
         <!-- Quick Actions -->
         <div class="mt-8">
-            <h3 class="font-semibold text-gray-900 mb-4">Quick Select by Building</h3>
+            <h3 class="font-semibold text-gray-900 mb-4">{{ t('operations_bulk_tab.quick_select.heading') }}</h3>
             <div v-if="buildings?.length > 0" class="flex flex-wrap gap-2">
                 <Link
                     v-for="building in buildings"
@@ -110,7 +112,7 @@ const operations = [
                     <span class="text-gray-400 ms-1">({{ building.units_count || 0 }})</span>
                 </Link>
             </div>
-            <p v-else class="text-sm text-gray-500">No buildings available.</p>
+            <p v-else class="text-sm text-gray-500">{{ t('operations_bulk_tab.quick_select.empty') }}</p>
         </div>
     </div>
 </template>

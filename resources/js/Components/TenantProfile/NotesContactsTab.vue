@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { useFormatters } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import type { TenantNotesContactsTabProps } from '@/types';
 
 const props = defineProps<TenantNotesContactsTabProps>();
 const { formatDateTime: formatDate } = useFormatters();
+const { t } = useI18n();
 
 const pinnedNotes = () => (props.tenantNotes || []).filter(n => n.is_pinned);
 const regularNotes = () => (props.tenantNotes || []).filter(n => !n.is_pinned);
@@ -13,11 +15,11 @@ const regularNotes = () => (props.tenantNotes || []).filter(n => !n.is_pinned);
     <div class="space-y-6">
         <div class="bg-white border rounded-lg overflow-hidden">
             <div class="border-b bg-gray-50 px-4 py-3 flex items-center justify-between">
-                <h3 class="text-sm font-medium text-gray-900">Emergency Contacts</h3>
-                <span class="text-xs text-gray-500">{{ emergencyContacts?.length || 0 }} contacts</span>
+                <h3 class="text-sm font-medium text-gray-900">{{ t('tenant_profile_notes_contacts.emergency_contacts') }}</h3>
+                <span class="text-xs text-gray-500">{{ t('tenant_profile_notes_contacts.contacts_count', emergencyContacts?.length || 0, { count: emergencyContacts?.length || 0 }) }}</span>
             </div>
             <div v-if="!emergencyContacts?.length" class="p-8 text-center text-gray-500">
-                <p class="text-sm">No emergency contacts added.</p>
+                <p class="text-sm">{{ t('tenant_profile_notes_contacts.no_emergency_contacts') }}</p>
             </div>
             <ul v-else class="divide-y">
                 <li v-for="contact in emergencyContacts" :key="contact.id" class="p-4">
@@ -31,16 +33,16 @@ const regularNotes = () => (props.tenantNotes || []).filter(n => !n.is_pinned);
                             <div class="flex items-center gap-2">
                                 <p class="text-sm font-medium text-gray-900">{{ contact.name }}</p>
                                 <span v-if="contact.is_primary" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                                    Primary
+                                    {{ t('tenant_profile_notes_contacts.primary') }}
                                 </span>
                             </div>
                             <p class="text-xs text-gray-500">{{ contact.relationship }}</p>
                             <div class="mt-2 space-y-1">
                                 <p class="text-sm text-gray-700">
-                                    <span class="text-gray-500">Phone:</span> {{ contact.phone }}
+                                    <span class="text-gray-500">{{ t('tenant_profile_notes_contacts.phone_label') }}</span> {{ contact.phone }}
                                 </p>
                                 <p v-if="contact.email" class="text-sm text-gray-700">
-                                    <span class="text-gray-500">Email:</span> {{ contact.email }}
+                                    <span class="text-gray-500">{{ t('tenant_profile_notes_contacts.email_label') }}</span> {{ contact.email }}
                                 </p>
                             </div>
                         </div>
@@ -51,11 +53,11 @@ const regularNotes = () => (props.tenantNotes || []).filter(n => !n.is_pinned);
 
         <div class="bg-white border rounded-lg overflow-hidden">
             <div class="border-b bg-gray-50 px-4 py-3 flex items-center justify-between">
-                <h3 class="text-sm font-medium text-gray-900">Private Notes</h3>
-                <span class="text-xs text-gray-500">{{ tenantNotes?.length || 0 }} notes</span>
+                <h3 class="text-sm font-medium text-gray-900">{{ t('tenant_profile_notes_contacts.private_notes') }}</h3>
+                <span class="text-xs text-gray-500">{{ t('tenant_profile_notes_contacts.notes_count', tenantNotes?.length || 0, { count: tenantNotes?.length || 0 }) }}</span>
             </div>
             <div v-if="!tenantNotes?.length" class="p-8 text-center text-gray-500">
-                <p class="text-sm">No notes added.</p>
+                <p class="text-sm">{{ t('tenant_profile_notes_contacts.no_notes') }}</p>
             </div>
             <div v-else class="divide-y max-h-96 overflow-y-auto">
                 <div v-if="pinnedNotes().length" class="bg-yellow-50">
@@ -67,7 +69,7 @@ const regularNotes = () => (props.tenantNotes || []).filter(n => !n.is_pinned);
                             <div class="min-w-0 flex-1">
                                 <p class="text-sm text-gray-900 whitespace-pre-wrap">{{ note.content }}</p>
                                 <p class="text-xs text-gray-500 mt-2">
-                                    {{ note.author?.name || 'Unknown' }} &middot; {{ formatDate(note.created_at) }}
+                                    {{ note.author?.name || t('tenant_profile_notes_contacts.unknown_author') }} &middot; {{ formatDate(note.created_at) }}
                                 </p>
                             </div>
                         </div>
@@ -76,7 +78,7 @@ const regularNotes = () => (props.tenantNotes || []).filter(n => !n.is_pinned);
                 <div v-for="note in regularNotes()" :key="note.id" class="p-4">
                     <p class="text-sm text-gray-900 whitespace-pre-wrap">{{ note.content }}</p>
                     <p class="text-xs text-gray-500 mt-2">
-                        {{ note.author?.name || 'Unknown' }} &middot; {{ formatDate(note.created_at) }}
+                        {{ note.author?.name || t('tenant_profile_notes_contacts.unknown_author') }} &middot; {{ formatDate(note.created_at) }}
                     </p>
                 </div>
             </div>

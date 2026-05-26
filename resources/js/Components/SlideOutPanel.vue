@@ -45,14 +45,8 @@ useBodyScrollLock(showRef);
 <template>
     <Teleport to="body">
         <!-- Backdrop -->
-        <Transition
-            enter-active-class="transition-opacity duration-300"
-            enter-from-class="opacity-0"
-            enter-to-class="opacity-100"
-            leave-active-class="transition-opacity duration-200"
-            leave-from-class="opacity-100"
-            leave-to-class="opacity-0"
-        >
+        <!-- i18n-ignore -->
+        <Transition enter-active-class="transition-opacity duration-300" enter-from-class="opacity-0" enter-to-class="opacity-100" leave-active-class="transition-opacity duration-200" leave-from-class="opacity-100" leave-to-class="opacity-0">
             <div
                 v-if="show"
                 class="fixed inset-0 bg-gray-900/50 z-40"
@@ -61,14 +55,8 @@ useBodyScrollLock(showRef);
         </Transition>
 
         <!-- Panel -->
-        <Transition
-            enter-active-class="transition-transform duration-300 ease-out"
-            enter-from-class="translate-x-full"
-            enter-to-class="translate-x-0"
-            leave-active-class="transition-transform duration-200 ease-in"
-            leave-from-class="translate-x-0"
-            leave-to-class="translate-x-full"
-        >
+        <!-- i18n-ignore -->
+        <Transition enter-active-class="transition-transform duration-300 ease-out" enter-from-class="translate-x-full" enter-to-class="translate-x-0" leave-active-class="transition-transform duration-200 ease-in" leave-from-class="translate-x-0" leave-to-class="translate-x-full">
             <div
                 v-if="show"
                 :class="[widthClasses[width], 'fixed inset-y-0 end-0 w-full bg-white shadow-2xl z-50 flex flex-col border-l border-gray-200']"

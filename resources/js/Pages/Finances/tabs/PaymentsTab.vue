@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue';
 import { router, Link } from '@inertiajs/vue3';
 import { useFormatters, useTabFilters } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import { useFinancesStore } from '@/stores/finances';
 import {
     FilterBar,
@@ -40,6 +41,7 @@ const props = withDefaults(defineProps<Props>(), {
     loading: false,
 });
 
+const { t } = useI18n();
 const { formatDate } = useFormatters();
 const store = useFinancesStore();
 
@@ -54,23 +56,23 @@ const { localFilters, applyFilters, clearFilters, getExportParams } = useTabFilt
     },
 });
 
-const columns = [
-    { key: 'reference', label: 'Reference', sortable: true },
-    { key: 'tenant', label: 'Tenant', sortable: false },
-    { key: 'invoice', label: 'Invoice', sortable: false },
-    { key: 'amount', label: 'Amount', align: 'right', sortable: true },
-    { key: 'payment_method', label: 'Method', sortable: true },
-    { key: 'payment_date', label: 'Date', sortable: true },
+const columns = computed(() => [
+    { key: 'reference', label: t('finances_payments_tab.columns.reference'), sortable: true },
+    { key: 'tenant', label: t('finances_payments_tab.columns.tenant'), sortable: false },
+    { key: 'invoice', label: t('finances_payments_tab.columns.invoice'), sortable: false },
+    { key: 'amount', label: t('finances_payments_tab.columns.amount'), align: 'right', sortable: true },
+    { key: 'payment_method', label: t('finances_payments_tab.columns.method'), sortable: true },
+    { key: 'payment_date', label: t('finances_payments_tab.columns.date'), sortable: true },
     { key: 'actions', label: '', align: 'right' },
-];
+]);
 
 const tableData = computed(() => {
     if (!props.payments?.data) return [];
     return props.payments.data.map(payment => ({
         id: payment.id,
         reference: payment.reference || `PAY-${payment.id}`,
-        tenant: payment.lease?.tenant?.name || 'Unknown',
-        unit: payment.lease?.unit?.unit_number || 'N/A',
+        tenant: payment.lease?.tenant?.name || t('finances_payments_tab.fallbacks.unknown_tenant'),
+        unit: payment.lease?.unit?.unit_number || t('finances_payments_tab.fallbacks.no_unit'),
         building: payment.lease?.unit?.building?.name || '',
         invoice: payment.invoice?.invoice_number || '-',
         invoice_id: payment.invoice?.id,
@@ -109,7 +111,7 @@ const exportData = (format) => {
             :buildings="buildings"
             :show-status="false"
             :show-payment-method="true"
-            search-placeholder="Search payments..."
+            :search-placeholder="t('finances_payments_tab.search_placeholder')"
             @filter="applyFilters"
             @clear="clearFilters"
         >
@@ -119,14 +121,14 @@ const exportData = (format) => {
                     class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors"
                 >
                     <PlusIcon class="h-4 w-4" />
-                    Record Payment
+                    {{ t('finances_payments_tab.actions.record_payment') }}
                 </Link>
                 <Link
                     :href="route('finances.payments.bulk-import')"
                     class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                 >
                     <ArrowUpTrayIcon class="h-4 w-4" />
-                    Bulk Import
+                    {{ t('finances_payments_tab.actions.bulk_import') }}
                 </Link>
                 <ExportDropdown @export="exportData" />
             </template>
@@ -138,8 +140,8 @@ const exportData = (format) => {
             :loading="loading"
             row-key="id"
             :empty-icon="CreditCardIcon"
-            empty-title="No payments found"
-            empty-description="Payments will appear here once recorded"
+            :empty-title="t('finances_payments_tab.empty.title')"
+            :empty-description="t('finances_payments_tab.empty.description')"
             @row-click="viewPayment"
         >
             <template #cell-tenant="{ row }">
@@ -166,14 +168,14 @@ const exportData = (format) => {
                     <button
                         @click.stop="downloadReceipt(row)"
                         class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"
-                        title="Download Receipt"
+                        :title="t('finances_payments_tab.actions.download_receipt')"
                     >
                         <DocumentArrowDownIcon class="h-4 w-4" />
                     </button>
                     <button
                         @click.stop="initiateRefund(row)"
                         class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
-                        title="Refund"
+                        :title="t('finances_payments_tab.actions.refund')"
                     >
                         <ArrowUturnLeftIcon class="h-4 w-4" />
                     </button>

@@ -2,7 +2,10 @@
 import { ref, computed } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import Modal from '@/Components/Modal.vue';
+import { useI18n } from '@/composables/useI18n';
 import type { UploadDocumentModalProps } from '@/types';
+
+const { t } = useI18n();
 
 const props = defineProps<UploadDocumentModalProps>();
 
@@ -27,7 +30,9 @@ const form = useForm({
 
 // Map backend value 'User' to user-friendly label 'Tenant'
 const documentableLabel = computed(() => {
-    return form.documentable_type === 'User' ? 'Tenant' : form.documentable_type;
+    return form.documentable_type === 'User'
+        ? t('upload_document_modal.option_tenant')
+        : t('upload_document_modal.option_lease');
 });
 
 const handleFileSelect = (event: Event) => {
@@ -65,7 +70,7 @@ const close = () => {
 <template>
     <Modal :show="show" max-width="2xl" @close="close">
         <div class="px-6 py-4 border-b border-gray-200">
-            <h3 class="text-lg font-medium text-gray-900">Upload Document</h3>
+            <h3 class="text-lg font-medium text-gray-900">{{ t('upload_document_modal.title') }}</h3>
         </div>
 
         <form @submit.prevent="submit">
@@ -73,7 +78,7 @@ const close = () => {
                 <!-- File Upload -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">
-                        File <span class="text-red-500">*</span>
+                        {{ t('upload_document_modal.file_label') }} <span class="text-red-500">*</span>
                     </label>
                     <input
                         ref="fileInputRef"
@@ -83,9 +88,9 @@ const close = () => {
                         required
                         class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                     />
-                    <p class="mt-1 text-xs text-gray-500">Max file size: 10MB. Accepted: PDF, JPG, PNG, DOC, DOCX</p>
+                    <p class="mt-1 text-xs text-gray-500">{{ t('upload_document_modal.file_hint') }}</p>
                     <p v-if="selectedFile" class="mt-1 text-sm text-green-600">
-                        Selected: {{ selectedFile.name }} ({{ (selectedFile.size / 1024 / 1024).toFixed(2) }} MB)
+                        {{ t('upload_document_modal.selected_file', { name: selectedFile.name, size: (selectedFile.size / 1024 / 1024).toFixed(2) }) }}
                     </p>
                     <p v-if="form.errors.file" class="mt-1 text-sm text-red-600">
                         {{ form.errors.file }}
@@ -95,13 +100,13 @@ const close = () => {
                 <!-- Title -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">
-                        Title <span class="text-red-500">*</span>
+                        {{ t('upload_document_modal.title_label') }} <span class="text-red-500">*</span>
                     </label>
                     <input
                         v-model="form.title"
                         type="text"
                         required
-                        placeholder="e.g., John Doe Lease Agreement 2024"
+                        :placeholder="t('upload_document_modal.title_placeholder')"
                         class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                     />
                     <p v-if="form.errors.title" class="mt-1 text-sm text-red-600">
@@ -112,7 +117,7 @@ const close = () => {
                 <!-- Document Type -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">
-                        Document Type <span class="text-red-500">*</span>
+                        {{ t('upload_document_modal.document_type_label') }} <span class="text-red-500">*</span>
                     </label>
                     <select
                         v-model="form.document_type"
@@ -178,26 +183,26 @@ const close = () => {
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">
-                            Attach To <span class="text-red-500">*</span>
+                            {{ t('upload_document_modal.attach_to_label') }} <span class="text-red-500">*</span>
                         </label>
                         <select
                             v-model="form.documentable_type"
                             required
                             class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                         >
-                            <option value="Lease">Lease</option>
-                            <option value="User">Tenant</option>
+                            <option value="Lease">{{ t('upload_document_modal.option_lease') }}</option>
+                            <option value="User">{{ t('upload_document_modal.option_tenant') }}</option>
                         </select>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">
-                            {{ documentableLabel }} ID <span class="text-red-500">*</span>
+                            {{ t('upload_document_modal.documentable_id_label', { label: documentableLabel }) }} <span class="text-red-500">*</span>
                         </label>
                         <input
                             v-model="form.documentable_id"
                             type="number"
                             required
-                            placeholder="Enter ID"
+                            :placeholder="t('upload_document_modal.documentable_id_placeholder')"
                             class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                         />
                         <p v-if="form.errors.documentable_id" class="mt-1 text-sm text-red-600">
@@ -209,12 +214,12 @@ const close = () => {
                 <!-- Description -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">
-                        Description (Optional)
+                        {{ t('upload_document_modal.description_label') }}
                     </label>
                     <textarea
                         v-model="form.description"
                         rows="3"
-                        placeholder="Add notes about this document..."
+                        :placeholder="t('upload_document_modal.description_placeholder')"
                         class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                     ></textarea>
                 </div>
@@ -226,14 +231,14 @@ const close = () => {
                     @click="close"
                     class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
                 >
-                    Cancel
+                    {{ t('upload_document_modal.cancel') }}
                 </button>
                 <button
                     type="submit"
                     :disabled="form.processing"
                     class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
                 >
-                    {{ form.processing ? 'Uploading...' : 'Upload Document' }}
+                    {{ form.processing ? t('upload_document_modal.uploading') : t('upload_document_modal.submit') }}
                 </button>
             </div>
         </form>
