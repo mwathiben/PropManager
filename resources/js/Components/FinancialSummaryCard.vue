@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useFormatters } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import type { FinancialSummary } from '@/types';
 
 const props = withDefaults(defineProps<{
@@ -16,6 +17,7 @@ const props = withDefaults(defineProps<{
     compact: false,
 });
 
+const { t } = useI18n();
 const { formatMoney: formatCurrency } = useFormatters();
 
 const paymentProgress = () => {
@@ -27,8 +29,8 @@ const paymentProgress = () => {
 <template>
     <div :class="compact ? 'space-y-2' : 'bg-gray-50 rounded-lg p-4 space-y-3'">
         <div v-if="!compact" class="flex items-center justify-between">
-            <h4 class="text-sm font-medium text-gray-900">Financial Summary</h4>
-            <span class="text-xs text-gray-500">{{ paymentProgress() }}% collected</span>
+            <h4 class="text-sm font-medium text-gray-900">{{ t('financial_summary_card.heading') }}</h4>
+            <span class="text-xs text-gray-500">{{ t('financial_summary_card.percent_collected', { percent: paymentProgress() }) }}</span>
         </div>
 
         <div class="w-full bg-gray-200 rounded-full h-2">
@@ -41,21 +43,21 @@ const paymentProgress = () => {
 
         <div :class="compact ? 'grid grid-cols-2 gap-2' : 'grid grid-cols-2 md:grid-cols-4 gap-3'">
             <div class="text-center p-2 bg-white rounded border">
-                <p class="text-xs text-gray-500">Total Paid</p>
+                <p class="text-xs text-gray-500">{{ t('financial_summary_card.total_paid') }}</p>
                 <p class="text-sm font-semibold text-green-600">{{ formatCurrency(summary.total_paid) }}</p>
             </div>
             <div class="text-center p-2 bg-white rounded border">
-                <p class="text-xs text-gray-500">Outstanding</p>
+                <p class="text-xs text-gray-500">{{ t('financial_summary_card.outstanding') }}</p>
                 <p :class="['text-sm font-semibold', summary.outstanding > 0 ? 'text-red-600' : 'text-gray-600']">
                     {{ formatCurrency(summary.outstanding) }}
                 </p>
             </div>
             <div class="text-center p-2 bg-white rounded border">
-                <p class="text-xs text-gray-500">Wallet Balance</p>
+                <p class="text-xs text-gray-500">{{ t('financial_summary_card.wallet_balance') }}</p>
                 <p class="text-sm font-semibold text-blue-600">{{ formatCurrency(summary.wallet_balance) }}</p>
             </div>
             <div class="text-center p-2 bg-white rounded border">
-                <p class="text-xs text-gray-500">Deposit Held</p>
+                <p class="text-xs text-gray-500">{{ t('financial_summary_card.deposit_held') }}</p>
                 <p class="text-sm font-semibold text-gray-700">{{ formatCurrency(summary.deposit_held) }}</p>
             </div>
         </div>

@@ -19,6 +19,9 @@
  *   }
  */
 import { router } from '@inertiajs/vue3';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 interface CursorPaginator {
     next_page_url: string | null;
@@ -63,27 +66,21 @@ function navigate(url: string | null) {
     >
         <button
             type="button"
-            :aria-label="'Previous page'"
+            :aria-label="t('cursor_pagination.previous_aria')"
             :disabled="!paginator.prev_page_url"
-            :class="[
-                'px-4 py-1.5 text-sm rounded-lg transition-colors',
-                paginator.prev_page_url ? colorClasses[color].active : colorClasses[color].disabled,
-            ]"
+            :class="['px-4 py-1.5 text-sm rounded-lg transition-colors', paginator.prev_page_url ? colorClasses[color].active : colorClasses[color].disabled]"
             @click="navigate(paginator.prev_page_url)"
         >
-            &laquo; Previous
+            {{ t('cursor_pagination.previous') }}
         </button>
         <button
             type="button"
-            :aria-label="'Next page'"
+            :aria-label="t('cursor_pagination.next_aria')"
             :disabled="!paginator.next_page_url"
-            :class="[
-                'px-4 py-1.5 text-sm rounded-lg transition-colors',
-                paginator.next_page_url ? colorClasses[color].active : colorClasses[color].disabled,
-            ]"
+            :class="['px-4 py-1.5 text-sm rounded-lg transition-colors', paginator.next_page_url ? colorClasses[color].active : colorClasses[color].disabled]"
             @click="navigate(paginator.next_page_url)"
         >
-            Next &raquo;
+            {{ t('cursor_pagination.next') }}
         </button>
     </div>
 </template>

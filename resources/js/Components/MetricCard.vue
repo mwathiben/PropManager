@@ -2,6 +2,7 @@
 import { computed, type Component } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import {
     ArrowTrendingUpIcon,
     ArrowTrendingDownIcon,
@@ -36,10 +37,11 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const { formatMoney, formatNumber, formatPercent } = useFormatters();
+const { t } = useI18n();
 
 const formattedValue = computed(() => {
-    if (props.loading) return '...';
-    if (props.value === null || props.value === undefined) return '-';
+    if (props.loading) return t('metric_card.loading_placeholder');
+    if (props.value === null || props.value === undefined) return t('metric_card.empty_value');
 
     switch (props.format) {
         case 'currency':
@@ -113,8 +115,8 @@ const trendClasses = computed(() => {
         :is="href ? Link : 'div'"
         :href="href"
         :class="[
-            'block bg-white rounded-xl border border-gray-200 p-5 transition-all duration-200',
-            href ? 'hover:shadow-md hover:border-gray-300 cursor-pointer' : '',
+            'block bg-white rounded-xl border border-gray-200 p-5 transition-all duration-200', /* i18n-ignore */
+            href ? 'hover:shadow-md hover:border-gray-300 cursor-pointer' : '', /* i18n-ignore */
         ]"
     >
         <div class="flex items-start justify-between">
@@ -122,8 +124,8 @@ const trendClasses = computed(() => {
                 <p class="text-sm font-medium text-gray-500 truncate">{{ title }}</p>
                 <p
                     :class="[
-                        'mt-2 text-2xl font-semibold',
-                        loading ? 'animate-pulse text-gray-400' : 'text-gray-900'
+                        'mt-2 text-2xl font-semibold', /* i18n-ignore */
+                        loading ? 'animate-pulse text-gray-400' : 'text-gray-900' /* i18n-ignore */
                     ]"
                 >
                     {{ formattedValue }}
