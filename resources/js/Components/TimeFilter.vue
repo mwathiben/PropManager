@@ -2,6 +2,9 @@
 import { ref, computed, watch } from 'vue';
 import CalendarIcon from '@heroicons/vue/24/outline/CalendarIcon';
 import ChevronDownIcon from '@heroicons/vue/24/outline/ChevronDownIcon';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 const props = defineProps({
     modelValue: {
@@ -18,17 +21,17 @@ const isOpen = ref(false);
 const localStartDate = ref(props.startDate || '');
 const localEndDate = ref(props.endDate || '');
 
-const periods = [
-    { value: 'this_month', label: 'This Month' },
-    { value: 'last_month', label: 'Last Month' },
-    { value: 'this_quarter', label: 'This Quarter' },
-    { value: 'last_quarter', label: 'Last Quarter' },
-    { value: 'this_year', label: 'This Year' },
-    { value: 'custom', label: 'Custom Range' },
-];
+const periods = computed(() => [
+    { value: 'this_month', label: t('time_filter.periods.this_month', 'This Month') },
+    { value: 'last_month', label: t('time_filter.periods.last_month', 'Last Month') },
+    { value: 'this_quarter', label: t('time_filter.periods.this_quarter', 'This Quarter') },
+    { value: 'last_quarter', label: t('time_filter.periods.last_quarter', 'Last Quarter') },
+    { value: 'this_year', label: t('time_filter.periods.this_year', 'This Year') },
+    { value: 'custom', label: t('time_filter.periods.custom', 'Custom Range') },
+]);
 
 const selectedPeriod = computed(() => {
-    return periods.find(p => p.value === props.modelValue) || periods[0];
+    return periods.value.find(p => p.value === props.modelValue) || periods.value[0];
 });
 
 const isCustom = computed(() => props.modelValue === 'custom');
@@ -95,7 +98,7 @@ watch(() => props.endDate, (val) => { localEndDate.value = val || ''; });
             <!-- Custom Date Range -->
             <div v-if="isCustom" class="border-t border-gray-200 p-4 space-y-4">
                 <div>
-                    <label class="block text-xs font-medium text-gray-500 mb-1">Start Date</label>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('time_filter.start_date', 'Start Date') }}</label>
                     <input
                         v-model="localStartDate"
                         type="date"
@@ -103,7 +106,7 @@ watch(() => props.endDate, (val) => { localEndDate.value = val || ''; });
                     />
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-gray-500 mb-1">End Date</label>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('time_filter.end_date', 'End Date') }}</label>
                     <input
                         v-model="localEndDate"
                         type="date"
@@ -114,7 +117,7 @@ watch(() => props.endDate, (val) => { localEndDate.value = val || ''; });
                     @click="applyCustomRange"
                     class="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition"
                 >
-                    Apply Range
+                    {{ t('time_filter.apply_range', 'Apply Range') }}
                 </button>
             </div>
         </div>

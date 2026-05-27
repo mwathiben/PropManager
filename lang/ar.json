@@ -97,21 +97,6 @@
             "instructions": "[TODO-ar] Forgot your password? No problem. Just let us know your email address and we will email you a password reset link that will allow you to choose a new one.",
             "submit": "[TODO-ar] Email Password Reset Link"
         },
-        "register": {
-            "title": "[TODO-ar] Register",
-            "role_label": "[TODO-ar] I am a...",
-            "role_landlord": "[TODO-ar] Property Owner \/ Landlord",
-            "role_caretaker": "[TODO-ar] Property Manager \/ Caretaker",
-            "role_tenant": "[TODO-ar] Tenant",
-            "role_landlord_lead": "[TODO-ar] Owner:",
-            "role_landlord_body": "[TODO-ar] You own properties and want to track rent, manage tenants, and view financial reports.",
-            "role_caretaker_lead": "[TODO-ar] Manager:",
-            "role_caretaker_body": "[TODO-ar] You work for a landlord. You input meter readings and handle maintenance, but have restricted access to financial data.",
-            "role_tenant_lead": "[TODO-ar] Resident:",
-            "role_tenant_body": "[TODO-ar] You live in a unit. You want to view your rent status, pay bills, and report issues.",
-            "already_registered": "[TODO-ar] Already registered?",
-            "submit": "[TODO-ar] Register"
-        },
         "verify": {
             "title": "[TODO-ar] Email Verification",
             "instructions": "[TODO-ar] Thanks for signing up! Before getting started, could you verify your email address by clicking on the link we just emailed to you? If you didn't receive the email, we will gladly send you another.",

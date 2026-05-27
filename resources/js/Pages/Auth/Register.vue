@@ -33,14 +33,14 @@ const submit = () => {
 
 <template>
     <GuestLayout>
-        <Head :title="t('auth.register.title')" />
+        <Head :title="t('auth_register.title')" />
 
         <!-- Phase-23 A11Y-SR-2: sr-only page heading for the document outline. -->
-        <h1 class="sr-only">{{ t('auth.register.title') }}</h1>
+        <h1 class="sr-only">{{ t('auth_register.title') }}</h1>
 
         <form @submit.prevent="submit">
             <div>
-                <InputLabel required for="name" :value="t('common.name')" />
+                <InputLabel required for="name" :value="t('auth_register.name')" />
                 <TextInput
                     id="name"
                     type="text"
@@ -55,7 +55,7 @@ const submit = () => {
             </div>
 
             <div class="mt-4">
-                <InputLabel required for="email" :value="t('common.email')" />
+                <InputLabel required for="email" :value="t('auth_register.email')" />
                 <TextInput
                     id="email"
                     type="email"
@@ -73,7 +73,7 @@ const submit = () => {
                  the rest of the wizard. Native select retained as
                  aria-fallback for screen readers. -->
             <div class="mt-4">
-                <InputLabel required for="role" :value="t('auth.register.role_label')" />
+                <InputLabel required for="role" :value="t('auth_register.role_label')" />
                 <div
                     role="radiogroup"
                     aria-describedby="role-helper"
@@ -86,10 +86,10 @@ const submit = () => {
                         role="radio"
                         :aria-checked="form.role === role"
                         :class="[
-                            'flex flex-col items-center gap-1 rounded-lg px-3 py-3 text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-indigo-400',
+                            'flex flex-col items-center gap-1 rounded-lg px-3 py-3 text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-indigo-400', /* i18n-ignore: tailwind classes */
                             form.role === role
-                                ? 'bg-gradient-to-br from-indigo-100 via-white to-purple-100 ring-2 ring-indigo-500 text-indigo-900'
-                                : 'bg-white border border-gray-200 text-gray-600 hover:border-indigo-300',
+                                ? 'bg-gradient-to-br from-indigo-100 via-white to-purple-100 ring-2 ring-indigo-500 text-indigo-900' /* i18n-ignore: tailwind classes */
+                                : 'bg-white border border-gray-200 text-gray-600 hover:border-indigo-300', /* i18n-ignore: tailwind classes */
                         ]"
                         @click="form.role = role"
                     >
@@ -113,7 +113,7 @@ const submit = () => {
                                 <path d="M9 9 V6 a3 3 0 0 1 6 0 V9" />
                             </template>
                         </svg>
-                        <span>{{ t('auth.register.role_' + role) }}</span>
+                        <span>{{ t(`auth_register.role_${role}`, role ?? '') }}</span>
                     </button>
                 </div>
 
@@ -125,20 +125,20 @@ const submit = () => {
                     class="mt-2 rounded-lg bg-gradient-to-br from-indigo-50 via-white to-purple-50 ring-1 ring-indigo-100/50 p-3 text-xs text-gray-700"
                 >
                     <p v-if="form.role === 'landlord'">
-                        <strong>{{ t('auth.register.role_landlord_lead') }}</strong> {{ t('auth.register.role_landlord_body') }}
+                        <strong>{{ t('auth_register.role_landlord_lead') }}</strong> {{ t('auth_register.role_landlord_body') }}
                     </p>
                     <p v-if="form.role === 'caretaker'">
-                        <strong>{{ t('auth.register.role_caretaker_lead') }}</strong> {{ t('auth.register.role_caretaker_body') }}
+                        <strong>{{ t('auth_register.role_caretaker_lead') }}</strong> {{ t('auth_register.role_caretaker_body') }}
                     </p>
                     <p v-if="form.role === 'tenant'">
-                        <strong>{{ t('auth.register.role_tenant_lead') }}</strong> {{ t('auth.register.role_tenant_body') }}
+                        <strong>{{ t('auth_register.role_tenant_lead') }}</strong> {{ t('auth_register.role_tenant_body') }}
                     </p>
                 </div>
                 <InputError class="mt-2" :message="form.errors.role" />
             </div>
 
             <div class="mt-4">
-                <InputLabel required for="password" :value="t('common.password')" />
+                <InputLabel required for="password" :value="t('auth_register.password')" />
                 <TextInput
                     id="password"
                     type="password"
@@ -152,7 +152,7 @@ const submit = () => {
             </div>
 
             <div class="mt-4">
-                <InputLabel required for="password_confirmation" :value="t('common.confirm_password')" />
+                <InputLabel required for="password_confirmation" :value="t('auth_register.confirm_password')" />
                 <TextInput
                     id="password_confirmation"
                     type="password"
@@ -170,11 +170,11 @@ const submit = () => {
                     :href="route('login')"
                     class="underline text-sm text-gray-600 hover:text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 >
-                    {{ t('auth.register.already_registered') }}
+                    {{ t('auth_register.already_registered') }}
                 </Link>
 
                 <FormSubmitButton class="ms-4" :processing="form.processing">
-                    {{ t('auth.register.submit') }}
+                    {{ t('auth_register.submit') }}
                 </FormSubmitButton>
             </div>
         </form>

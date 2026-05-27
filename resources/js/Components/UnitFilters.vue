@@ -3,6 +3,9 @@ import { computed } from 'vue';
 import FunnelIcon from '@heroicons/vue/24/outline/FunnelIcon';
 import XMarkIcon from '@heroicons/vue/24/outline/XMarkIcon';
 import type { UnitFiltersProps } from '@/types';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 const props = withDefaults(defineProps<UnitFiltersProps>(), {
     floor: '',
@@ -14,17 +17,19 @@ const props = withDefaults(defineProps<UnitFiltersProps>(), {
 
 const emit = defineEmits(['update:floor', 'update:unitType', 'update:status', 'change', 'clear']);
 
-const statusOptions = [
-    { value: '', label: 'All Status' },
-    { value: 'occupied', label: 'Occupied', color: 'bg-green-500' },
-    { value: 'vacant', label: 'Vacant', color: 'bg-gray-400' },
-    { value: 'arrears', label: 'In Arrears', color: 'bg-red-500' },
-    { value: 'maintenance', label: 'Maintenance', color: 'bg-orange-500' },
-];
+const statusOptions = computed(() => [
+    { value: '', label: t('unit_filters.status.all', 'All Status') },
+    { value: 'occupied', label: t('unit_filters.status.occupied', 'Occupied'), color: 'bg-green-500' },
+    { value: 'vacant', label: t('unit_filters.status.vacant', 'Vacant'), color: 'bg-gray-400' },
+    { value: 'arrears', label: t('unit_filters.status.arrears', 'In Arrears'), color: 'bg-red-500' },
+    { value: 'maintenance', label: t('unit_filters.status.maintenance', 'Maintenance'), color: 'bg-orange-500' },
+]);
 
 const hasActiveFilters = computed(() => {
     return props.floor || props.unitType || props.status;
 });
+
+const unitTypeLabel = (type: string) => t(`unit_filters.types.${type}`, type ? type.charAt(0).toUpperCase() + type.slice(1) : '');
 
 const updateFilter = (key, value) => {
     emit(`update:${key}`, value);
@@ -52,9 +57,9 @@ const clearAll = () => {
             @change="updateFilter('floor', $event.target.value)"
             class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500 bg-white min-w-[120px]"
         >
-            <option value="">All Floors</option>
+            <option value="">{{ t('unit_filters.all_floors', 'All Floors') }}</option>
             <option v-for="f in availableFloors" :key="f" :value="f">
-                Floor {{ f }}
+                {{ t('unit_filters.floor_option', 'Floor {floor}', { floor: f }) }}
             </option>
         </select>
 
@@ -64,9 +69,9 @@ const clearAll = () => {
             @change="updateFilter('unitType', $event.target.value)"
             class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500 bg-white min-w-[140px]"
         >
-            <option value="">All Types</option>
+            <option value="">{{ t('unit_filters.all_types', 'All Types') }}</option>
             <option v-for="type in availableUnitTypes" :key="type" :value="type">
-                {{ type.charAt(0).toUpperCase() + type.slice(1) }}
+                {{ unitTypeLabel(type) }}
             </option>
         </select>
 
@@ -78,8 +83,8 @@ const clearAll = () => {
                 @click="updateFilter('status', status === opt.value ? '' : opt.value)"
                 class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-all"
                 :class="status === opt.value
-                    ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                    : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'"
+                    ? 'bg-indigo-50 text-indigo-700 border-indigo-200' /* i18n-ignore */
+                    : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300' /* i18n-ignore */"
             >
                 <span
                     v-if="opt.color"
@@ -97,7 +102,7 @@ const clearAll = () => {
             class="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition"
         >
             <XMarkIcon class="w-4 h-4" />
-            Clear
+            {{ t('unit_filters.clear', 'Clear') }}
         </button>
     </div>
 </template>

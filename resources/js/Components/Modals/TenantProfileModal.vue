@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue';
 import { useErrorHandler } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import Modal from '@/Components/Modal.vue';
 import KycBadge from '@/Components/KycBadge.vue';
 import OverviewTab from '@/Components/TenantProfile/OverviewTab.vue';
@@ -9,6 +10,8 @@ import DocumentsTab from '@/Components/TenantProfile/DocumentsTab.vue';
 import HistoryTab from '@/Components/TenantProfile/HistoryTab.vue';
 import NotesContactsTab from '@/Components/TenantProfile/NotesContactsTab.vue';
 import type { TenantProfileModalData } from '@/types';
+
+const { t } = useI18n();
 
 const props = withDefaults(defineProps<{
     show?: boolean;
@@ -28,13 +31,13 @@ const error = ref(null);
 const activeTab = ref('overview');
 const data = ref(null);
 
-const tabs = [
-    { id: 'overview', label: 'Overview' },
-    { id: 'lease', label: 'Lease & Finances' },
-    { id: 'documents', label: 'Documents' },
-    { id: 'history', label: 'History' },
-    { id: 'notes', label: 'Notes & Contacts' }
-];
+const tabs = computed(() => [
+    { id: 'overview', label: t('tenant_profile_modal.tabs.overview') },
+    { id: 'lease', label: t('tenant_profile_modal.tabs.lease') },
+    { id: 'documents', label: t('tenant_profile_modal.tabs.documents') },
+    { id: 'history', label: t('tenant_profile_modal.tabs.history') },
+    { id: 'notes', label: t('tenant_profile_modal.tabs.notes') },
+]);
 
 const fetchTenantData = async () => {
     if (!props.tenantId) {
@@ -57,7 +60,7 @@ const fetchTenantData = async () => {
         });
 
         if (!response.ok) {
-            throw new Error('Failed to load tenant data');
+            throw new Error(t('tenant_profile_modal.failed_to_load'));
         }
 
         data.value = await response.json();
@@ -144,7 +147,7 @@ const getInitials = () => {
                         <h2 class="text-lg font-semibold text-gray-900">{{ tenant.name }}</h2>
                         <div class="flex items-center gap-2 mt-0.5">
                             <span v-if="activeLease" class="text-sm text-gray-500">
-                                Unit {{ activeLease.unit?.unit_number }}
+                                {{ t('tenant_profile_modal.unit_label', { number: activeLease.unit?.unit_number }) }}
                             </span>
                             <KycBadge
                                 :completed="verificationStatus.kyc_completed"
@@ -155,7 +158,7 @@ const getInitials = () => {
                 </div>
                 <button
                     @click="close"
-                    aria-label="Close"
+                    :aria-label="t('tenant_profile_modal.close_aria')"
                     class="text-gray-400 hover:text-gray-500 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                 >
                     <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -170,12 +173,7 @@ const getInitials = () => {
                         v-for="tab in tabs"
                         :key="tab.id"
                         @click="activeTab = tab.id"
-                        :class="[
-                            activeTab === tab.id
-                                ? 'border-indigo-500 text-indigo-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
-                            'whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm'
-                        ]"
+                        :class="[ activeTab === tab.id ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300', 'whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm' ]"
                     >
                         {{ tab.label }}
                         <span
@@ -204,7 +202,7 @@ const getInitials = () => {
                         @click="fetchTenantData"
                         class="mt-4 text-sm text-indigo-600 hover:text-indigo-500"
                     >
-                        Try again
+                        {{ t('tenant_profile_modal.try_again') }}
                     </button>
                 </div>
 
@@ -252,14 +250,14 @@ const getInitials = () => {
                     :href="`/tenants/${tenant.id}`"
                     class="text-sm text-indigo-600 hover:text-indigo-500"
                 >
-                    View full profile
+                    {{ t('tenant_profile_modal.view_full_profile') }}
                 </a>
                 <div v-else></div>
                 <button
                     @click="close"
                     class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
                 >
-                    Close
+                    {{ t('tenant_profile_modal.close') }}
                 </button>
             </div>
         </div>

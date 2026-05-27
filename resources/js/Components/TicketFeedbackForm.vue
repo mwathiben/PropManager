@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import StarIcon from '@heroicons/vue/24/solid/StarIcon';
 import StarOutlineIcon from '@heroicons/vue/24/outline/StarIcon';
+import { useI18n } from '@/composables/useI18n';
 
 const props = defineProps({
     ticketId: {
@@ -12,6 +13,8 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['submitted']);
+
+const { t } = useI18n();
 
 const form = useForm({
     rating: 0,
@@ -23,6 +26,16 @@ const hoveredRating = ref(0);
 const setRating = (rating) => {
     form.rating = rating;
 };
+
+const ratingLabel = (rating) => {
+    if (!rating) return '';
+    return t(`ticket_feedback_form.rating_labels.${rating}`, '');
+};
+
+const starAriaLabel = (star) =>
+    star === 1
+        ? t('ticket_feedback_form.aria_rate_one_star')
+        : t('ticket_feedback_form.aria_rate_n_stars', { count: star });
 
 const submit = () => {
     form.post(route('tickets.feedback', props.ticketId), {
@@ -36,7 +49,7 @@ const submit = () => {
 
 <template>
     <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-        <h4 class="text-sm font-medium text-yellow-800 mb-3">How satisfied are you with the resolution?</h4>
+        <h4 class="text-sm font-medium text-yellow-800 mb-3">{{ t('ticket_feedback_form.heading') }}</h4>
 
         <form @submit.prevent="submit">
             <!-- Star Rating -->
@@ -48,7 +61,7 @@ const submit = () => {
                     @click="setRating(star)"
                     @mouseenter="hoveredRating = star"
                     @mouseleave="hoveredRating = 0"
-                    :aria-label="`Rate ${star} star${star > 1 ? 's' : ''}`"
+                    :aria-label="starAriaLabel(star)"
                     :aria-pressed="star <= form.rating"
                     class="rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
                 >
@@ -62,7 +75,7 @@ const submit = () => {
                     />
                 </button>
                 <span v-if="form.rating" class="ms-2 text-sm text-gray-600">
-                    {{ ['', 'Very Poor', 'Poor', 'Average', 'Good', 'Excellent'][form.rating] }}
+                    {{ ratingLabel(form.rating) }}
                 </span>
             </div>
 
@@ -73,14 +86,14 @@ const submit = () => {
             <!-- Comments -->
             <div class="mb-4">
                 <label for="feedback-comments" class="block text-sm font-medium text-gray-700 mb-1">
-                    Additional Comments (optional)
+                    {{ t('ticket_feedback_form.comments_label') }}
                 </label>
                 <textarea
                     id="feedback-comments"
                     v-model="form.comments"
                     rows="3"
                     class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                    placeholder="Tell us about your experience..."
+                    :placeholder="t('ticket_feedback_form.comments_placeholder')"
                 />
             </div>
 
@@ -89,8 +102,8 @@ const submit = () => {
                 :disabled="!form.rating || form.processing"
                 class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-                <span v-if="form.processing">Submitting...</span>
-                <span v-else>Submit Feedback</span>
+                <span v-if="form.processing">{{ t('ticket_feedback_form.submitting') }}</span>
+                <span v-else>{{ t('ticket_feedback_form.submit') }}</span>
             </button>
         </form>
     </div>

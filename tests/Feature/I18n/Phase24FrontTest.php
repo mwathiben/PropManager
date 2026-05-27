@@ -95,13 +95,18 @@ class Phase24FrontTest extends TestCase
         // The Register page role-helper block uses role-specific
         // copy that's a frequent contributor footgun: the easiest way
         // to break i18n is to add a new role here and forget the key.
+        //
+        // 2026-05-27: keyspace moved from the legacy `auth.register.*`
+        // JSON catalog to a dedicated `auth_register.*` PHP namespace
+        // (lang/{en,sw,ar}/auth_register.php) — substring updated in
+        // lockstep with Register.vue.
         $contents = file_get_contents(resource_path('js/Pages/Auth/Register.vue'));
 
         foreach (['role_landlord_body', 'role_caretaker_body', 'role_tenant_body'] as $key) {
             $this->assertStringContainsString(
-                "auth.register.{$key}",
+                "auth_register.{$key}",
                 $contents,
-                "I18N-FRONT-3: Register must resolve auth.register.{$key} via t().",
+                "I18N-FRONT-3: Register must resolve auth_register.{$key} via t().",
             );
         }
     }
@@ -163,8 +168,9 @@ class Phase24FrontTest extends TestCase
             'role.tenant',
             'auth.login.title',
             'auth.login.submit',
-            'auth.register.title',
-            'auth.register.role_label',
+            // auth.register.* keyspace lives in the dedicated
+            // lang/{locale}/auth_register.php PHP namespace as of
+            // 2026-05-27 — removed from chrome-bundle required list.
             'auth.forgot.title',
             'auth.reset.title',
             'auth.confirm.title',

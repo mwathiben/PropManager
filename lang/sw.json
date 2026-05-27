@@ -97,21 +97,6 @@
             "instructions": "Umesahau nenosiri lako? Hakuna shida. Tuambie tu anwani yako ya barua pepe na tutakutumia kiungo cha kubadilisha nenosiri ili uchague jipya.",
             "submit": "Tuma Kiungo cha Kubadilisha Nenosiri"
         },
-        "register": {
-            "title": "Jisajili",
-            "role_label": "Mimi ni...",
-            "role_landlord": "Mmiliki wa Mali / Mwenye Nyumba",
-            "role_caretaker": "Meneja wa Mali / Mlinzi",
-            "role_tenant": "Mpangaji",
-            "role_landlord_lead": "Mmiliki:",
-            "role_landlord_body": "Unamiliki mali na unataka kufuatilia kodi, kusimamia wapangaji, na kuona ripoti za fedha.",
-            "role_caretaker_lead": "Meneja:",
-            "role_caretaker_body": "Unafanya kazi kwa ajili ya mwenye nyumba. Unaweka visomo vya mita na kushughulikia matengenezo, lakini una ufikiaji mdogo kwa data ya fedha.",
-            "role_tenant_lead": "Mkazi:",
-            "role_tenant_body": "Unaishi katika nyumba. Unataka kuona hali ya kodi yako, kulipa bili, na kuripoti masuala.",
-            "already_registered": "Tayari umesajiliwa?",
-            "submit": "Jisajili"
-        },
         "verify": {
             "title": "Uthibitisho wa Barua Pepe",
             "instructions": "Asante kwa kujisajili! Kabla ya kuanza, je, unaweza kuthibitisha anwani yako ya barua pepe kwa kubofya kiungo tulichokutumia hivi punde? Kama hukupokea barua pepe, tutakutumia nyingine kwa furaha.",

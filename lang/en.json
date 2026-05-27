@@ -97,21 +97,6 @@
             "instructions": "Forgot your password? No problem. Just let us know your email address and we will email you a password reset link that will allow you to choose a new one.",
             "submit": "Email Password Reset Link"
         },
-        "register": {
-            "title": "Register",
-            "role_label": "I am a...",
-            "role_landlord": "Property Owner / Landlord",
-            "role_caretaker": "Property Manager / Caretaker",
-            "role_tenant": "Tenant",
-            "role_landlord_lead": "Owner:",
-            "role_landlord_body": "You own properties and want to track rent, manage tenants, and view financial reports.",
-            "role_caretaker_lead": "Manager:",
-            "role_caretaker_body": "You work for a landlord. You input meter readings and handle maintenance, but have restricted access to financial data.",
-            "role_tenant_lead": "Resident:",
-            "role_tenant_body": "You live in a unit. You want to view your rent status, pay bills, and report issues.",
-            "already_registered": "Already registered?",
-            "submit": "Register"
-        },
         "verify": {
             "title": "Email Verification",
             "instructions": "Thanks for signing up! Before getting started, could you verify your email address by clicking on the link we just emailed to you? If you didn't receive the email, we will gladly send you another.",
