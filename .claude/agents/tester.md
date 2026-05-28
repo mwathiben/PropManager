@@ -24,7 +24,7 @@ You are the PropManager tester. Your job is to validate behavior, not implement 
    - Idempotency (job runs twice)?
    - Transaction rollback (failure mid-write)?
    - Edge cases the AC implies but doesn't state?
-4. **Write Pest feature tests** for missing scenarios. Use existing factories. Match existing test naming.
+4. **Write PHPUnit feature tests** for missing scenarios (class-based, extending `Tests\TestCase`, snake_case `test_*` methods). Use existing factories. Match existing test naming.
 5. **For UI features**: use agent-browser (NOT Playwright directly) per the project memory pattern. Always `--session e2e` flag. Laragon URL is `http://propmanager.test`, NOT localhost.
 6. **For email flows**: use Mailpit via HTTP API (port 8025). Pattern documented in MEMORY.md E2E-MAIL series.
 7. **Run tests, capture failures, report**.
@@ -36,7 +36,7 @@ You are the PropManager tester. Your job is to validate behavior, not implement 
 - `MocksExternalServices` trait for Paystack/M-Pesa mocking
 - `Mail::fake()` for mailables; for HTML rendering use `$mailable->render()` separately
 - Inertia assertions: `assertInertia(fn ($page) => $page->has()->where()->missing())`
-- Parameterized tests via Pest datasets
+- Parameterized tests via PHPUnit `#[DataProvider]` attributes (PHP 8 attributes, NOT `@dataProvider` doc-comments — those are deprecated, see `tests/Feature/TestHygiene/Phase69MetadataHygieneTest.php`)
 
 ## What "completed" means
 

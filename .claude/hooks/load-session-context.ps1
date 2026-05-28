@@ -1,5 +1,10 @@
-# SessionStart hook — surface recent activity and any failing tests when a session begins.
+# SessionStart hook - surface recent local activity when a session begins.
 # Output to stdout is shown to the model as additional system context.
+#
+# Local-only by design: per .claude/CLAUDE.md ("Hooks should not exfiltrate
+# data or make external network calls"), this hook reads only the local
+# git index. Open PR / GitHub state should be fetched on demand by the
+# agent through the user-authorized github MCP, not auto-pulled here.
 
 $ErrorActionPreference = 'SilentlyContinue'
 
@@ -25,13 +30,7 @@ try {
     }
 
     Write-Output ""
-    Write-Output "Open PRs:"
-    $prs = gh pr list --limit 5 2>$null
-    if ($LASTEXITCODE -eq 0 -and $prs) {
-        $prs | ForEach-Object { Write-Output "  $_" }
-    } else {
-        Write-Output "  (gh not configured or no open PRs)"
-    }
+    Write-Output "Current branch: $(git rev-parse --abbrev-ref HEAD 2>$null)"
 
     Write-Output ""
     Write-Output "=== end session start context ==="

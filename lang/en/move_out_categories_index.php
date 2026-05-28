@@ -84,8 +84,7 @@ return [
 
     'delete_modal' => [
         'title' => 'Delete Category?',
-        'message_before' => 'This will permanently delete',
-        'message_after' => '. Existing deductions using this category will not be affected.',
+        'message' => 'This will permanently delete "{name}". Existing deductions using this category will not be affected.',
         'cancel' => 'Cancel',
         'delete' => 'Delete',
     ],

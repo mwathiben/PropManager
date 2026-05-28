@@ -32,3 +32,20 @@
 - All hooks must be reviewed before activation
 - Hooks should not exfiltrate data or make external network calls
 - PostToolUse hooks should validate output, not modify it silently
+
+  **Permitted exception — deterministic, value-preserving formatters.**
+  PostToolUse hooks MAY run `pint`, `prettier`, `gofmt`, `rustfmt`, or
+  similar formatters on the just-edited file. The exception applies only
+  when ALL of the following hold:
+
+  1. The tool is purely syntactic (whitespace, quoting, ordering) and
+     never changes program behaviour or semantics.
+  2. The tool runs offline (no network, no telemetry).
+  3. The tool is the project's pinned formatter (in `composer.json`,
+     `package.json`, or equivalent) — not an ad-hoc choice by the hook.
+  4. The hook only touches the specific file the upstream tool just
+     edited (no broad sweeps, no recursive rewrites).
+
+  Our `.claude/hooks/auto-format.ps1` qualifies: it pins `vendor/bin/pint`
+  for `.php` and `node_modules/.bin/prettier` for `.vue|.js|.ts`, runs
+  each silently on a single file path, and has no network surface.

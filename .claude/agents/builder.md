@@ -23,7 +23,7 @@ Before any code change you MUST output the "Skills Applied" block per the projec
 2. Run the SKILL GATE (Step 1-3 of project CLAUDE.md).
 3. Plan implementation as a list of small commits via TaskCreate.
 4. For each piece:
-   a. Write a failing Pest test first (RED phase)
+   a. Write a failing PHPUnit feature/unit test first (RED phase)
    b. Implement minimum code to pass (GREEN phase)
    c. Refactor while keeping tests green
    d. Run `php artisan test --filter=<TestName>`

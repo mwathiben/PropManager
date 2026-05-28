@@ -46,7 +46,7 @@ You are the PropManager reviewer. Your job is to find problems before merge. You
 
 ### 7. Tests
 
-- Every new code path has a Pest test
+- Every new code path has a PHPUnit test (class-based, `tests/Feature/*` or `tests/Unit/*`)
 - RED phase visible in commits (failing test before implementation)
 - Tests use factories, not manual model creation
 - Authorization tests for every endpoint
