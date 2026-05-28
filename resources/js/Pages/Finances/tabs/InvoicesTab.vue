@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import { useFormatters, useTabFilters } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import { useFinancesStore } from '@/stores/finances';
 import {
     FilterBar,
@@ -57,6 +58,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const store = useFinancesStore();
 const { formatDate } = useFormatters();
+const { t } = useI18n();
 
 const { localFilters, applyFilters, clearFilters, getExportParams } = useTabFilters({
     routeName: 'finances.invoices',
@@ -69,24 +71,24 @@ const { localFilters, applyFilters, clearFilters, getExportParams } = useTabFilt
     },
 });
 
-const columns = [
-    { key: 'invoice_number', label: 'Invoice #', sortable: true },
-    { key: 'tenant', label: 'Tenant', sortable: false },
-    { key: 'unit', label: 'Unit', sortable: false },
-    { key: 'total_due', label: 'Amount', align: 'right', sortable: true },
-    { key: 'amount_paid', label: 'Paid', align: 'right', sortable: true },
-    { key: 'status', label: 'Status', sortable: true },
-    { key: 'due_date', label: 'Due Date', sortable: true },
+const columns = computed(() => [
+    { key: 'invoice_number', label: t('finances_invoices_tab.columns.invoice_number'), sortable: true },
+    { key: 'tenant', label: t('finances_invoices_tab.columns.tenant'), sortable: false },
+    { key: 'unit', label: t('finances_invoices_tab.columns.unit'), sortable: false },
+    { key: 'total_due', label: t('finances_invoices_tab.columns.amount'), align: 'right', sortable: true },
+    { key: 'amount_paid', label: t('finances_invoices_tab.columns.paid'), align: 'right', sortable: true },
+    { key: 'status', label: t('finances_invoices_tab.columns.status'), sortable: true },
+    { key: 'due_date', label: t('finances_invoices_tab.columns.due_date'), sortable: true },
     { key: 'actions', label: '', align: 'right' },
-];
+]);
 
 const tableData = computed((): InvoiceRow[] => {
     if (!props.invoices?.data) return [];
     return props.invoices.data.map(invoice => ({
         id: invoice.id,
         invoice_number: invoice.invoice_number,
-        tenant: invoice.recipient?.name || invoice.lease?.tenant?.name || 'Unknown',
-        unit: invoice.recipient?.context || invoice.lease?.unit?.unit_number || 'N/A',
+        tenant: invoice.recipient?.name || invoice.lease?.tenant?.name || t('finances_invoices_tab.fallbacks.unknown_tenant'),
+        unit: invoice.recipient?.context || invoice.lease?.unit?.unit_number || t('finances_invoices_tab.fallbacks.no_unit'),
         building: invoice.lease?.unit?.building?.name || '',
         total_due: invoice.total_due,
         amount_paid: invoice.amount_paid,
@@ -113,20 +115,20 @@ const generateForm = useForm({
     year: currentDate.getFullYear(),
 });
 
-const months: MonthOption[] = [
-    { value: 1, label: 'January' },
-    { value: 2, label: 'February' },
-    { value: 3, label: 'March' },
-    { value: 4, label: 'April' },
-    { value: 5, label: 'May' },
-    { value: 6, label: 'June' },
-    { value: 7, label: 'July' },
-    { value: 8, label: 'August' },
-    { value: 9, label: 'September' },
-    { value: 10, label: 'October' },
-    { value: 11, label: 'November' },
-    { value: 12, label: 'December' },
-];
+const months = computed<MonthOption[]>(() => [
+    { value: 1, label: t('finances_invoices_tab.months.january') },
+    { value: 2, label: t('finances_invoices_tab.months.february') },
+    { value: 3, label: t('finances_invoices_tab.months.march') },
+    { value: 4, label: t('finances_invoices_tab.months.april') },
+    { value: 5, label: t('finances_invoices_tab.months.may') },
+    { value: 6, label: t('finances_invoices_tab.months.june') },
+    { value: 7, label: t('finances_invoices_tab.months.july') },
+    { value: 8, label: t('finances_invoices_tab.months.august') },
+    { value: 9, label: t('finances_invoices_tab.months.september') },
+    { value: 10, label: t('finances_invoices_tab.months.october') },
+    { value: 11, label: t('finances_invoices_tab.months.november') },
+    { value: 12, label: t('finances_invoices_tab.months.december') },
+]);
 
 const years = computed(() => {
     const currentYear = new Date().getFullYear();
@@ -154,7 +156,7 @@ const exportData = (format: string): void => {
             :status-options="statusOptions"
             :buildings="buildings"
             :show-payment-method="false"
-            search-placeholder="Search invoices..."
+            :search-placeholder="t('finances_invoices_tab.search_placeholder')"
             @filter="applyFilters"
             @clear="clearFilters"
         >
@@ -166,7 +168,7 @@ const exportData = (format: string): void => {
                         class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors"
                     >
                         <DocumentTextIcon class="h-4 w-4" />
-                        Generate Invoices
+                        {{ t('finances_invoices_tab.actions.generate_invoices') }}
                     </button>
                 </div>
             </template>
@@ -178,8 +180,8 @@ const exportData = (format: string): void => {
             :loading="loading"
             row-key="id"
             :empty-icon="DocumentTextIcon"
-            empty-title="No invoices found"
-            empty-description="Generate invoices to get started"
+            :empty-title="t('finances_invoices_tab.empty.title')"
+            :empty-description="t('finances_invoices_tab.empty.description')"
             @row-click="viewInvoice"
         >
             <template #cell-tenant="{ row }">
@@ -210,7 +212,7 @@ const exportData = (format: string): void => {
                     <button
                         @click.stop="viewInvoice(row)"
                         class="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
-                        title="View"
+                        :title="t('finances_invoices_tab.actions.view')"
                     >
                         <EyeIcon class="h-4 w-4" />
                     </button>
@@ -218,7 +220,7 @@ const exportData = (format: string): void => {
                         v-if="row.status !== 'paid'"
                         @click.stop="recordPayment(row)"
                         class="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded"
-                        title="Record Payment"
+                        :title="t('finances_invoices_tab.actions.record_payment')"
                     >
                         <BanknotesIcon class="h-4 w-4" />
                     </button>
@@ -233,15 +235,15 @@ const exportData = (format: string): void => {
                 <div class="flex items-center justify-center min-h-screen px-4">
                     <div class="fixed inset-0 bg-black opacity-30" @click="showGenerateModal = false"></div>
                     <div class="relative bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Generate Invoices</h3>
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{{ t('finances_invoices_tab.generate_modal.title') }}</h3>
                         <p class="text-sm text-gray-600 mb-4">
-                            Generate invoices for all active leases for the selected billing period.
+                            {{ t('finances_invoices_tab.generate_modal.description') }}
                         </p>
 
                         <form @submit.prevent="submitGenerate">
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700">Month</label>
+                                    <label class="block text-sm font-medium text-gray-700">{{ t('finances_invoices_tab.generate_modal.month_label') }}</label>
                                     <select
                                         v-model="generateForm.month"
                                         class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500"
@@ -256,7 +258,7 @@ const exportData = (format: string): void => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700">Year</label>
+                                    <label class="block text-sm font-medium text-gray-700">{{ t('finances_invoices_tab.generate_modal.year_label') }}</label>
                                     <select
                                         v-model="generateForm.year"
                                         class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500"
@@ -277,14 +279,14 @@ const exportData = (format: string): void => {
                                     @click="showGenerateModal = false"
                                     class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
                                 >
-                                    Cancel
+                                    {{ t('finances_invoices_tab.actions.cancel') }}
                                 </button>
                                 <button
                                     type="submit"
                                     :disabled="generateForm.processing"
                                     class="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 disabled:opacity-50"
                                 >
-                                    Generate Invoices
+                                    {{ t('finances_invoices_tab.actions.generate_invoices') }}
                                 </button>
                             </div>
                         </form>

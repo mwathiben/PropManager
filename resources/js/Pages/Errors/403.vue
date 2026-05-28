@@ -14,31 +14,32 @@ import { computed } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { useAuth } from '@/composables/useAuth';
+import { useI18n } from '@/composables/useI18n';
 import { ShieldExclamationIcon } from '@heroicons/vue/24/outline';
 
+const { t } = useI18n();
 const { user } = useAuth();
 const layout = computed(() => (user.value ? AuthenticatedLayout : 'div'));
 </script>
 
 <template>
-    <Head title="Access denied" />
+    <Head :title="t('errors_403.page_title')" />
 
     <component :is="layout">
         <div class="flex min-h-[60vh] items-center justify-center px-4 py-12">
             <div class="max-w-md text-center">
                 <ShieldExclamationIcon class="mx-auto h-16 w-16 text-red-400" aria-hidden="true" />
-                <p class="mt-4 text-sm font-semibold text-red-600">Error 403</p>
-                <h1 class="mt-2 text-2xl font-bold tracking-tight text-gray-900">Access denied</h1>
+                <p class="mt-4 text-sm font-semibold text-red-600">{{ t('errors_403.error_label') }}</p>
+                <h1 class="mt-2 text-2xl font-bold tracking-tight text-gray-900">{{ t('errors_403.heading') }}</h1>
                 <p class="mt-3 text-sm text-gray-600">
-                    You don't have permission to view this page. If you believe this
-                    is a mistake, contact your account administrator.
+                    {{ t('errors_403.body') }}
                 </p>
                 <div class="mt-6">
                     <Link
                         :href="user ? '/dashboard' : '/'"
                         class="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                     >
-                        {{ user ? 'Back to dashboard' : 'Back to home' }}
+                        {{ user ? t('errors_403.back_to_dashboard') : t('errors_403.back_to_home') }}
                     </Link>
                 </div>
             </div>

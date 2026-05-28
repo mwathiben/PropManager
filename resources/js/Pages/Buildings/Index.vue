@@ -2,6 +2,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, computed, watch } from 'vue';
+import { useI18n } from '@/composables/useI18n';
 import type { BuildingsIndexPageProps } from '@/types/finances';
 import {
     PlusIcon,
@@ -17,6 +18,8 @@ import AddBuildingModal from '@/Components/Modals/AddBuildingModal.vue';
 import EmptyState from '@/Components/EmptyState.vue';
 
 const props = defineProps<BuildingsIndexPageProps>();
+
+const { t } = useI18n();
 
 const search = ref(props.filters?.search || '');
 const selectedType = ref(props.filters?.type || '');
@@ -59,13 +62,13 @@ const totalBuildings = computed(() => {
     return props.buildingGroups.reduce((sum, group) => sum + group.buildings.length, 0);
 });
 
-const sortOptions = [
-    { value: 'name_asc', label: 'Name (A-Z)' },
-    { value: 'name_desc', label: 'Name (Z-A)' },
-    { value: 'occupancy_high', label: 'Occupancy (High-Low)' },
-    { value: 'occupancy_low', label: 'Occupancy (Low-High)' },
-    { value: 'updated', label: 'Recently Updated' },
-];
+const sortOptions = computed(() => [
+    { value: 'name_asc', label: t('buildings_index.sort.name_asc') },
+    { value: 'name_desc', label: t('buildings_index.sort.name_desc') },
+    { value: 'occupancy_high', label: t('buildings_index.sort.occupancy_high') },
+    { value: 'occupancy_low', label: t('buildings_index.sort.occupancy_low') },
+    { value: 'updated', label: t('buildings_index.sort.updated') },
+]);
 
 const getOccupancyColor = (rate: number) => {
     if (rate >= 80) return 'bg-green-500';
@@ -99,21 +102,21 @@ const getBuildingTypeColor = (type: string) => {
 </script>
 
 <template>
-    <Head title="Buildings" />
+    <Head :title="t('buildings_index.head_title')" />
 
     <AuthenticatedLayout>
         <template #header>
             <div class="flex items-center justify-between">
                 <div>
-                    <h1 class="font-semibold text-xl text-gray-800 leading-tight">My Buildings</h1>
-                    <p class="text-sm text-gray-500 mt-1">Manage all your properties in one place</p>
+                    <h1 class="font-semibold text-xl text-gray-800 leading-tight">{{ t('buildings_index.heading') }}</h1>
+                    <p class="text-sm text-gray-500 mt-1">{{ t('buildings_index.subheading') }}</p>
                 </div>
                 <button
                     @click="showAddModal = true"
                     class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold text-sm hover:bg-indigo-700 transition shadow-sm"
                 >
                     <PlusIcon class="w-5 h-5 me-2" />
-                    Add Building
+                    {{ t('buildings_index.add_building') }}
                 </button>
             </div>
         </template>
@@ -129,7 +132,7 @@ const getBuildingTypeColor = (type: string) => {
                             <input
                                 v-model="search"
                                 type="text"
-                                placeholder="Search buildings..."
+                                :placeholder="t('buildings_index.search_placeholder')"
                                 class="w-full ps-10 pe-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                             />
                         </div>
@@ -140,10 +143,10 @@ const getBuildingTypeColor = (type: string) => {
                             <select
                                 v-model="selectedType"
                                 @change="applyFilters"
-                                aria-label="Filter by building type"
+                                :aria-label="t('buildings_index.filter_type_aria')"
                                 class="ps-10 pe-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 appearance-none bg-white min-w-[180px]"
                             >
-                                <option value="">All Types</option>
+                                <option value="">{{ t('buildings_index.all_types') }}</option>
                                 <option v-for="(label, key) in buildingTypes" :key="key" :value="key">
                                     {{ label }}
                                 </option>
@@ -156,7 +159,7 @@ const getBuildingTypeColor = (type: string) => {
                             <select
                                 v-model="selectedSort"
                                 @change="applyFilters"
-                                aria-label="Sort buildings"
+                                :aria-label="t('buildings_index.sort_aria')"
                                 class="ps-10 pe-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 appearance-none bg-white min-w-[160px]"
                             >
                                 <option v-for="option in sortOptions" :key="option.value" :value="option.value">
@@ -172,7 +175,7 @@ const getBuildingTypeColor = (type: string) => {
                             class="inline-flex items-center px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition"
                         >
                             <XMarkIcon class="w-4 h-4 me-1" />
-                            Clear
+                            {{ t('buildings_index.clear') }}
                         </button>
                     </div>
                 </div>
@@ -181,9 +184,9 @@ const getBuildingTypeColor = (type: string) => {
                 <div v-if="totalBuildings === 0" class="bg-white rounded-xl shadow-sm border border-gray-100">
                     <EmptyState
                         :icon="BuildingOffice2Icon"
-                        title="No buildings yet"
-                        description="Get started by adding your first building. You can manage apartments, offices, warehouses, and more."
-                        action-label="Add Your First Building"
+                        :title="t('buildings_index.empty_title')"
+                        :description="t('buildings_index.empty_description')"
+                        :action-label="t('buildings_index.empty_action')"
                         size="lg"
                         @action="showAddModal = true"
                     />
@@ -262,15 +265,15 @@ const getBuildingTypeColor = (type: string) => {
                                         <MapPinIcon class="w-4 h-4 me-1 shrink-0" />
                                         <span class="truncate">{{ building.address }}</span>
                                     </div>
-                                    <div v-else class="mt-1 text-sm text-gray-400 italic">No address set</div>
+                                    <div v-else class="mt-1 text-sm text-gray-400 italic">{{ t('buildings_index.no_address') }}</div>
 
                                     <!-- Stats -->
                                     <div class="mt-3 flex items-center justify-between text-sm">
                                         <div class="text-gray-500">
-                                            <span class="font-medium text-gray-900">{{ building.units_count }}</span> units
+                                            <span class="font-medium text-gray-900">{{ building.units_count }}</span> {{ t('buildings_index.units') }}
                                         </div>
                                         <div class="text-gray-500">
-                                            <span class="font-medium text-green-600">{{ building.occupied_units_count }}</span> occupied
+                                            <span class="font-medium text-green-600">{{ building.occupied_units_count }}</span> {{ t('buildings_index.occupied') }}
                                         </div>
                                     </div>
 
@@ -292,7 +295,7 @@ const getBuildingTypeColor = (type: string) => {
 
                 <!-- Results Count -->
                 <div v-if="totalBuildings > 0" class="mt-6 text-center text-sm text-gray-500">
-                    Showing {{ totalBuildings }} building{{ totalBuildings === 1 ? '' : 's' }}
+                    {{ t('buildings_index.showing_count', totalBuildings, { count: totalBuildings }) }}
                 </div>
             </div>
         </div>

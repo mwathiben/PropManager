@@ -5,6 +5,7 @@ import { ref, computed, onMounted } from 'vue';
 import Modal from '@/Components/Modal.vue';
 import BuildingMap from '@/Components/BuildingMap.vue';
 import type { BuildingsShowPageProps } from '@/types/water';
+import { useI18n } from '@/composables/useI18n';
 import {
     BuildingOfficeIcon,
     MapPinIcon,
@@ -25,6 +26,7 @@ import {
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps<BuildingsShowPageProps>();
+const { t } = useI18n();
 
 // Edit mode state
 const isEditing = ref(false);
@@ -156,11 +158,11 @@ const occupancyColor = computed(() => {
                     </Link>
                     <div>
                         <div class="flex items-center gap-2 text-sm text-gray-500 mb-1">
-                            <Link :href="route('buildings.index')" class="hover:text-indigo-600">Buildings</Link>
+                            <Link :href="route('buildings.index')" class="hover:text-indigo-600">{{ t('buildings_show.breadcrumb_buildings') }}</Link>
                             <span>/</span>
                             <span class="text-gray-900 font-medium">{{ building.name }}</span>
                         </div>
-                        <h1 class="font-semibold text-xl text-gray-800 leading-tight">Building Details</h1>
+                        <h1 class="font-semibold text-xl text-gray-800 leading-tight">{{ t('buildings_show.page_title') }}</h1>
                     </div>
                 </div>
                 <div class="flex items-center gap-3">
@@ -169,7 +171,7 @@ const occupancyColor = computed(() => {
                         class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold text-sm hover:bg-indigo-700 transition shadow-sm"
                     >
                         <ChartBarIcon class="w-4 h-4 me-2" />
-                        View Dashboard
+                        {{ t('buildings_show.view_dashboard') }}
                     </Link>
                     <button
                         v-if="!isEditing"
@@ -177,7 +179,7 @@ const occupancyColor = computed(() => {
                         class="inline-flex items-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium text-sm hover:bg-gray-50 transition"
                     >
                         <PencilIcon class="w-4 h-4 me-2" />
-                        Edit Details
+                        {{ t('buildings_show.edit_details') }}
                     </button>
                 </div>
             </div>
@@ -192,15 +194,15 @@ const occupancyColor = computed(() => {
                         <!-- Building Info Card -->
                         <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                             <div class="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
-                                <h3 class="font-semibold text-gray-900">Building Information</h3>
+                                <h3 class="font-semibold text-gray-900">{{ t('buildings_show.building_information') }}</h3>
                                 <div v-if="isEditing" class="flex items-center gap-2">
-                                    <button @click="cancelEdit" class="text-sm text-gray-500 hover:text-gray-700">Cancel</button>
+                                    <button @click="cancelEdit" class="text-sm text-gray-500 hover:text-gray-700">{{ t('buildings_show.cancel') }}</button>
                                     <button
                                         @click="saveChanges"
                                         :disabled="form.processing"
                                         class="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
                                     >
-                                        Save Changes
+                                        {{ t('buildings_show.save_changes') }}
                                     </button>
                                 </div>
                             </div>
@@ -209,7 +211,7 @@ const occupancyColor = computed(() => {
                                 <!-- Basic Details -->
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-500 mb-1">Building Name</label>
+                                        <label class="block text-sm font-medium text-gray-500 mb-1">{{ t('buildings_show.building_name') }}</label>
                                         <input
                                             v-if="isEditing"
                                             v-model="form.name"
@@ -219,7 +221,7 @@ const occupancyColor = computed(() => {
                                         <p v-else class="text-lg font-semibold text-gray-900">{{ building.name }}</p>
                                     </div>
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-500 mb-1">Building Type</label>
+                                        <label class="block text-sm font-medium text-gray-500 mb-1">{{ t('buildings_show.building_type') }}</label>
                                         <select
                                             v-if="isEditing"
                                             v-model="form.building_type"
@@ -239,33 +241,33 @@ const occupancyColor = computed(() => {
 
                                 <!-- Currency Override -->
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-500 mb-1">Currency</label>
+                                    <label class="block text-sm font-medium text-gray-500 mb-1">{{ t('buildings_show.currency') }}</label>
                                     <select
                                         v-if="isEditing"
                                         v-model="form.currency"
                                         class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                                     >
-                                        <option value="">Inherit from default</option>
-                                        <option value="KES">Kenyan Shilling (KES)</option>
-                                        <option value="USD">US Dollar (USD)</option>
-                                        <option value="EUR">Euro (EUR)</option>
-                                        <option value="GBP">British Pound (GBP)</option>
+                                        <option value="">{{ t('buildings_show.currency_inherit_option') }}</option>
+                                        <option value="KES">{{ t('buildings_show.currency_kes') }}</option>
+                                        <option value="USD">{{ t('buildings_show.currency_usd') }}</option>
+                                        <option value="EUR">{{ t('buildings_show.currency_eur') }}</option>
+                                        <option value="GBP">{{ t('buildings_show.currency_gbp') }}</option>
                                     </select>
                                     <p v-else class="text-gray-900">
                                         <span class="inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium bg-emerald-50 text-emerald-700">
-                                            {{ building.currency || 'Inherited from default' }}
+                                            {{ building.currency || t('buildings_show.currency_inherited_display') }}
                                         </span>
                                     </p>
                                 </div>
 
                                 <!-- Address -->
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-500 mb-1">Address / Location</label>
+                                    <label class="block text-sm font-medium text-gray-500 mb-1">{{ t('buildings_show.address_location') }}</label>
                                     <div v-if="isEditing" class="flex gap-2">
                                         <input
                                             v-model="form.address"
                                             type="text"
-                                            placeholder="Enter address..."
+                                            :placeholder="t('buildings_show.enter_address_placeholder')"
                                             class="flex-1 border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                                         >
                                         <button
@@ -277,26 +279,26 @@ const occupancyColor = computed(() => {
                                     </div>
                                     <p v-else class="text-gray-900 flex items-center gap-2">
                                         <MapPinIcon class="w-4 h-4 text-gray-400" />
-                                        {{ building.address || 'No address set' }}
+                                        {{ building.address || t('buildings_show.no_address_set') }}
                                     </p>
                                 </div>
 
                                 <!-- Description -->
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-500 mb-1">Description</label>
+                                    <label class="block text-sm font-medium text-gray-500 mb-1">{{ t('buildings_show.description') }}</label>
                                     <textarea
                                         v-if="isEditing"
                                         v-model="form.description"
                                         rows="3"
-                                        placeholder="Describe this building..."
+                                        :placeholder="t('buildings_show.describe_building_placeholder')"
                                         class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                                     ></textarea>
-                                    <p v-else class="text-gray-600">{{ building.description || 'No description provided' }}</p>
+                                    <p v-else class="text-gray-600">{{ building.description || t('buildings_show.no_description_provided') }}</p>
                                 </div>
 
                                 <!-- Location Map Preview -->
                                 <div v-if="!isEditing">
-                                    <label class="block text-sm font-medium text-gray-500 mb-2">Location on Map</label>
+                                    <label class="block text-sm font-medium text-gray-500 mb-2">{{ t('buildings_show.location_on_map') }}</label>
                                     <BuildingMap
                                         :coordinates="building.coordinates"
                                         :address="building.address"
@@ -307,7 +309,7 @@ const occupancyColor = computed(() => {
 
                                 <!-- Editable Map -->
                                 <div v-if="isEditing">
-                                    <label class="block text-sm font-medium text-gray-500 mb-2">Set Location</label>
+                                    <label class="block text-sm font-medium text-gray-500 mb-2">{{ t('buildings_show.set_location') }}</label>
                                     <BuildingMap
                                         :coordinates="form.coordinates"
                                         :address="form.address"
@@ -315,7 +317,7 @@ const occupancyColor = computed(() => {
                                         height="250px"
                                         @update:coordinates="updateCoordinates"
                                     />
-                                    <p class="mt-2 text-xs text-gray-500">Click on the map to set the building location, or drag the marker to adjust.</p>
+                                    <p class="mt-2 text-xs text-gray-500">{{ t('buildings_show.map_click_hint') }}</p>
                                 </div>
                             </div>
                         </div>
@@ -323,7 +325,7 @@ const occupancyColor = computed(() => {
                         <!-- Amenities Card -->
                         <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                             <div class="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
-                                <h3 class="font-semibold text-gray-900">Amenities & Features</h3>
+                                <h3 class="font-semibold text-gray-900">{{ t('buildings_show.amenities_and_features') }}</h3>
                             </div>
 
                             <div class="p-6">
@@ -331,7 +333,7 @@ const occupancyColor = computed(() => {
                                 <div v-if="!isEditing">
                                     <div v-if="activeAmenities.length === 0" class="text-center py-8 text-gray-500">
                                         <SparklesIcon class="w-8 h-8 mx-auto text-gray-300" />
-                                        <p class="mt-2">No amenities configured yet</p>
+                                        <p class="mt-2">{{ t('buildings_show.no_amenities_configured') }}</p>
                                     </div>
                                     <div v-else class="flex flex-wrap gap-2">
                                         <span
@@ -377,7 +379,7 @@ const occupancyColor = computed(() => {
 
                                     <!-- Custom Amenities -->
                                     <div class="pt-4 border-t border-gray-200">
-                                        <h4 class="text-sm font-semibold text-gray-700 mb-3">Custom Amenities</h4>
+                                        <h4 class="text-sm font-semibold text-gray-700 mb-3">{{ t('buildings_show.custom_amenities') }}</h4>
                                         <div class="flex flex-wrap gap-2 mb-3">
                                             <span
                                                 v-for="(custom, index) in form.amenities.custom"
@@ -394,7 +396,7 @@ const occupancyColor = computed(() => {
                                             <input
                                                 v-model="newCustomAmenity"
                                                 type="text"
-                                                placeholder="Add custom amenity..."
+                                                :placeholder="t('buildings_show.add_custom_amenity_placeholder')"
                                                 class="flex-1 border-gray-300 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500"
                                                 @keydown.enter.prevent="addCustomAmenity"
                                             >
@@ -416,31 +418,31 @@ const occupancyColor = computed(() => {
                         <!-- Unit Stats Card -->
                         <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                             <div class="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
-                                <h3 class="font-semibold text-gray-900">Unit Statistics</h3>
+                                <h3 class="font-semibold text-gray-900">{{ t('buildings_show.unit_statistics') }}</h3>
                             </div>
                             <div class="p-6">
                                 <div class="text-center mb-6">
                                     <div class="text-4xl font-bold" :class="occupancyColor">
                                         {{ unitStats.occupancy_rate }}%
                                     </div>
-                                    <div class="text-sm text-gray-500 mt-1">Occupancy Rate</div>
+                                    <div class="text-sm text-gray-500 mt-1">{{ t('buildings_show.occupancy_rate') }}</div>
                                 </div>
 
                                 <div class="space-y-3">
                                     <div class="flex justify-between items-center py-2 border-b border-gray-100">
-                                        <span class="text-gray-600">Total Units</span>
+                                        <span class="text-gray-600">{{ t('buildings_show.total_units') }}</span>
                                         <span class="font-semibold text-gray-900">{{ unitStats.total }}</span>
                                     </div>
                                     <div class="flex justify-between items-center py-2 border-b border-gray-100">
-                                        <span class="text-gray-600">Occupied</span>
+                                        <span class="text-gray-600">{{ t('buildings_show.occupied') }}</span>
                                         <span class="font-semibold text-green-600">{{ unitStats.occupied }}</span>
                                     </div>
                                     <div class="flex justify-between items-center py-2 border-b border-gray-100">
-                                        <span class="text-gray-600">Vacant</span>
+                                        <span class="text-gray-600">{{ t('buildings_show.vacant') }}</span>
                                         <span class="font-semibold text-gray-500">{{ unitStats.vacant }}</span>
                                     </div>
                                     <div class="flex justify-between items-center py-2">
-                                        <span class="text-gray-600">Maintenance</span>
+                                        <span class="text-gray-600">{{ t('buildings_show.maintenance') }}</span>
                                         <span class="font-semibold text-orange-500">{{ unitStats.maintenance }}</span>
                                     </div>
                                 </div>
@@ -450,7 +452,7 @@ const occupancyColor = computed(() => {
                                     class="mt-6 block w-full text-center px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium text-sm hover:bg-gray-50 transition"
                                 >
                                     <Cog6ToothIcon class="w-4 h-4 inline me-2" />
-                                    Configure Units
+                                    {{ t('buildings_show.configure_units') }}
                                 </Link>
                             </div>
                         </div>
@@ -458,7 +460,7 @@ const occupancyColor = computed(() => {
                         <!-- Other Buildings in Property -->
                         <div v-if="otherBuildings.length" class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                             <div class="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
-                                <h3 class="font-semibold text-gray-900">Other Buildings</h3>
+                                <h3 class="font-semibold text-gray-900">{{ t('buildings_show.other_buildings') }}</h3>
                             </div>
                             <div class="p-4 space-y-2">
                                 <Link
@@ -469,9 +471,9 @@ const occupancyColor = computed(() => {
                                 >
                                     <div class="flex items-center justify-between">
                                         <span class="font-medium text-gray-900">{{ sibling.name }}</span>
-                                        <span class="text-xs text-gray-500">{{ sibling.occupancy_rate }}% occ.</span>
+                                        <span class="text-xs text-gray-500">{{ t('buildings_show.occupancy_short', { rate: sibling.occupancy_rate }) }}</span>
                                     </div>
-                                    <div class="text-sm text-gray-500 mt-1">{{ sibling.units_count }} units</div>
+                                    <div class="text-sm text-gray-500 mt-1">{{ t('buildings_show.units_count', { count: sibling.units_count }) }}</div>
                                 </Link>
                             </div>
                         </div>
@@ -479,26 +481,26 @@ const occupancyColor = computed(() => {
                         <!-- Quick Actions -->
                         <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                             <div class="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
-                                <h3 class="font-semibold text-gray-900">Quick Actions</h3>
+                                <h3 class="font-semibold text-gray-900">{{ t('buildings_show.quick_actions') }}</h3>
                             </div>
                             <div class="p-4 space-y-2">
                                 <Link
                                     :href="route('buildings.dashboard', building.id)"
                                     class="block w-full px-4 py-2.5 bg-indigo-600 text-white rounded-lg font-medium text-sm text-center hover:bg-indigo-700 transition"
                                 >
-                                    View Dashboard
+                                    {{ t('buildings_show.view_dashboard') }}
                                 </Link>
                                 <Link
                                     :href="route('buildings.edit', building.id)"
                                     class="block w-full px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg font-medium text-sm text-center hover:bg-gray-50 transition"
                                 >
-                                    Configure Units (Architect)
+                                    {{ t('buildings_show.configure_units_architect') }}
                                 </Link>
                                 <Link
                                     :href="route('buildings.water-settings', building.id)"
                                     class="block w-full px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg font-medium text-sm text-center hover:bg-gray-50 transition"
                                 >
-                                    Water Settings
+                                    {{ t('buildings_show.water_settings') }}
                                 </Link>
                             </div>
                         </div>
@@ -510,7 +512,7 @@ const occupancyColor = computed(() => {
         <!-- Map Modal -->
         <Modal :show="showMapModal" @close="showMapModal = false" max-width="2xl">
             <div class="p-6">
-                <h2 class="text-lg font-bold text-gray-900 mb-4">Set Location on Map</h2>
+                <h2 class="text-lg font-bold text-gray-900 mb-4">{{ t('buildings_show.set_location_on_map') }}</h2>
                 <BuildingMap
                     :coordinates="form.coordinates"
                     :address="form.address"
@@ -520,7 +522,7 @@ const occupancyColor = computed(() => {
                 />
                 <div class="mt-4 grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Latitude</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('buildings_show.latitude') }}</label>
                         <input
                             v-model.number="form.coordinates.lat"
                             type="number"
@@ -530,7 +532,7 @@ const occupancyColor = computed(() => {
                         >
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Longitude</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('buildings_show.longitude') }}</label>
                         <input
                             v-model.number="form.coordinates.lng"
                             type="number"
@@ -542,10 +544,10 @@ const occupancyColor = computed(() => {
                 </div>
                 <div class="mt-6 flex justify-end gap-3">
                     <button @click="showMapModal = false" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
-                        Cancel
+                        {{ t('buildings_show.cancel') }}
                     </button>
                     <button @click="showMapModal = false" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
-                        Save Location
+                        {{ t('buildings_show.save_location') }}
                     </button>
                 </div>
             </div>

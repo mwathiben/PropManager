@@ -2,6 +2,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, computed, onMounted } from 'vue';
+import { useI18n } from '@/composables/useI18n';
 import {
     ChartBarIcon,
     DocumentTextIcon,
@@ -76,6 +77,8 @@ const props = withDefaults(defineProps<{
     globalPreferences: () => ({} as GlobalNotificationPreferences),
 });
 
+const { t } = useI18n();
+
 // Tab state - use prop if provided, otherwise default to 'overview'
 const currentTab = ref(props.activeTab || 'overview');
 
@@ -88,13 +91,13 @@ onMounted(() => {
     }
 });
 
-const tabs = [
-    { id: 'overview', name: 'Overview', icon: ChartBarIcon, route: 'notifications.overview' },
-    { id: 'templates', name: 'Templates', icon: DocumentTextIcon, route: 'notifications.templates' },
-    { id: 'scheduled', name: 'Scheduled', icon: ClockIcon, route: 'notifications.schedules' },
-    { id: 'history', name: 'History', icon: ArchiveBoxIcon, route: 'notifications.index' },
-    { id: 'settings', name: 'Settings', icon: Cog6ToothIcon, route: 'notifications.settings' },
-];
+const tabs = computed(() => [
+    { id: 'overview', name: t('notifications_index.tab_overview'), icon: ChartBarIcon, route: 'notifications.overview' },
+    { id: 'templates', name: t('notifications_index.tab_templates'), icon: DocumentTextIcon, route: 'notifications.templates' },
+    { id: 'scheduled', name: t('notifications_index.tab_scheduled'), icon: ClockIcon, route: 'notifications.schedules' },
+    { id: 'history', name: t('notifications_index.tab_history'), icon: ArchiveBoxIcon, route: 'notifications.index' },
+    { id: 'settings', name: t('notifications_index.tab_settings'), icon: Cog6ToothIcon, route: 'notifications.settings' },
+]);
 
 const navigateToTab = (tab) => {
     currentTab.value = tab.id;
@@ -110,7 +113,7 @@ const openSetupWizard = () => {
 </script>
 
 <template>
-    <Head title="Notifications" />
+    <Head :title="t('notifications_index.head_title')" />
 
     <AuthenticatedLayout>
         <div class="py-6">
@@ -118,8 +121,8 @@ const openSetupWizard = () => {
 
                 <!-- Header with Welcome Message -->
                 <CenterHero
-                    title="Notification Center"
-                    subtitle="Manage your tenant communications across all channels"
+                    :title="t('notifications_index.hero_title')"
+                    :subtitle="t('notifications_index.hero_subtitle')"
                     :icon="BellAlertIcon"
                 >
                     <template #action>
@@ -129,7 +132,7 @@ const openSetupWizard = () => {
                             class="hidden sm:flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-xl transition-all"
                         >
                             <SparklesIcon class="w-5 h-5" />
-                            Setup Wizard
+                            {{ t('notifications_index.setup_wizard') }}
                         </button>
                     </template>
                 </CenterHero>

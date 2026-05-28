@@ -21,6 +21,7 @@ import {
 } from '@heroicons/vue/24/outline';
 import { useFormatters } from '@/composables/useFormatters';
 import { useCurrency } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 
 interface Building {
     id: number;
@@ -64,6 +65,7 @@ const props = defineProps<{
 }>();
 
 const { can } = useAuth();
+const { t } = useI18n();
 
 const { formatCurrency } = useFormatters();
 const { currencyCode } = useCurrency();
@@ -135,7 +137,7 @@ const form = useForm({
 });
 
 const isEditing = computed(() => editingCategory.value !== null);
-const modalTitle = computed(() => isEditing.value ? 'Edit Category' : 'New Category');
+const modalTitle = computed(() => isEditing.value ? t('move_out_categories_index.modal.title_edit') : t('move_out_categories_index.modal.title_new'));
 
 const openCreateModal = () => {
     editingCategory.value = null;
@@ -212,23 +214,23 @@ const toggleActive = (category: Category) => {
 };
 
 // --- BREADCRUMBS ---
-const breadcrumbs = [
-    { label: 'Move-Outs', href: route('move-outs.index') },
-    { label: 'Deduction Categories' },
-];
+const breadcrumbs = computed(() => [
+    { label: t('move_out_categories_index.breadcrumbs.move_outs'), href: route('move-outs.index') },
+    { label: t('move_out_categories_index.breadcrumbs.deduction_categories') },
+]);
 </script>
 
 <template>
-    <Head title="Deduction Categories" />
+    <Head :title="t('move_out_categories_index.head_title')" />
 
     <AuthenticatedLayout>
         <template #header>
             <div class="flex items-center justify-between">
                 <div>
                     <Breadcrumb :items="breadcrumbs" />
-                    <h1 class="text-lg font-semibold text-gray-900 mt-1">Deduction Categories</h1>
+                    <h1 class="text-lg font-semibold text-gray-900 mt-1">{{ t('move_out_categories_index.title') }}</h1>
                     <p class="text-sm text-gray-500 mt-0.5">
-                        Configure deduction categories for move-out inspections.
+                        {{ t('move_out_categories_index.subtitle') }}
                     </p>
                 </div>
                 <button
@@ -239,7 +241,7 @@ const breadcrumbs = [
                     @click="openCreateModal"
                 >
                     <PlusIcon class="h-4 w-4" />
-                    Add Category
+                    {{ t('move_out_categories_index.add_category') }}
                 </button>
             </div>
         </template>
@@ -256,7 +258,7 @@ const breadcrumbs = [
                             </div>
                             <div>
                                 <div class="text-2xl font-bold text-gray-900">{{ stats.total }}</div>
-                                <div class="text-xs text-gray-500">Total</div>
+                                <div class="text-xs text-gray-500">{{ t('move_out_categories_index.stats.total') }}</div>
                             </div>
                         </div>
                     </div>
@@ -267,7 +269,7 @@ const breadcrumbs = [
                             </div>
                             <div>
                                 <div class="text-2xl font-bold text-gray-900">{{ stats.active }}</div>
-                                <div class="text-xs text-gray-500">Active</div>
+                                <div class="text-xs text-gray-500">{{ t('move_out_categories_index.stats.active') }}</div>
                             </div>
                         </div>
                     </div>
@@ -278,7 +280,7 @@ const breadcrumbs = [
                             </div>
                             <div>
                                 <div class="text-2xl font-bold text-gray-900">{{ stats.always_apply }}</div>
-                                <div class="text-xs text-gray-500">Auto-Applied</div>
+                                <div class="text-xs text-gray-500">{{ t('move_out_categories_index.stats.auto_applied') }}</div>
                             </div>
                         </div>
                     </div>
@@ -289,7 +291,7 @@ const breadcrumbs = [
                             </div>
                             <div>
                                 <div class="text-2xl font-bold text-gray-900">{{ stats.custom }}</div>
-                                <div class="text-xs text-gray-500">Custom</div>
+                                <div class="text-xs text-gray-500">{{ t('move_out_categories_index.stats.custom') }}</div>
                             </div>
                         </div>
                     </div>
@@ -302,7 +304,7 @@ const breadcrumbs = [
                         <input
                             v-model="search"
                             type="text"
-                            placeholder="Search categories..."
+                            :placeholder="t('move_out_categories_index.search.placeholder')"
                             class="w-full ps-9 pe-8 py-2 text-sm rounded-lg border border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
                         />
                         <button
@@ -317,19 +319,19 @@ const breadcrumbs = [
                         v-model="scopeFilter"
                         class="text-sm rounded-lg border border-gray-300 py-2 pe-8 focus:border-indigo-500 focus:ring-indigo-500"
                     >
-                        <option value="">All Scopes</option>
-                        <option value="platform">Platform Defaults</option>
-                        <option value="custom">Your Categories</option>
-                        <option value="building">Building-Specific</option>
+                        <option value="">{{ t('move_out_categories_index.scope_filter.all') }}</option>
+                        <option value="platform">{{ t('move_out_categories_index.scope_filter.platform') }}</option>
+                        <option value="custom">{{ t('move_out_categories_index.scope_filter.custom') }}</option>
+                        <option value="building">{{ t('move_out_categories_index.scope_filter.building') }}</option>
                     </select>
                 </div>
 
                 <!-- Empty State -->
                 <div v-if="!hasResults" class="bg-white rounded-xl border border-gray-200 p-12 text-center">
                     <TagIcon class="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                    <h3 class="text-sm font-medium text-gray-900">No categories found</h3>
+                    <h3 class="text-sm font-medium text-gray-900">{{ t('move_out_categories_index.empty.title') }}</h3>
                     <p class="text-sm text-gray-500 mt-1">
-                        {{ search ? 'Try a different search term.' : 'Add your first deduction category to get started.' }}
+                        {{ search ? t('move_out_categories_index.empty.try_different_search') : t('move_out_categories_index.empty.add_first') }}
                     </p>
                     <button
                         v-if="canCreate && !search"
@@ -337,7 +339,7 @@ const breadcrumbs = [
                         class="mt-4 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 transition-colors"
                     >
                         <PlusIcon class="w-4 h-4" />
-                        Add Category
+                        {{ t('move_out_categories_index.add_category') }}
                     </button>
                 </div>
 
@@ -345,7 +347,7 @@ const breadcrumbs = [
                 <div v-if="groupedCategories.platform.length > 0">
                     <div class="flex items-center gap-2 mb-3">
                         <GlobeAltIcon class="w-4 h-4 text-purple-600" />
-                        <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wider">Platform Defaults</h2>
+                        <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wider">{{ t('move_out_categories_index.sections.platform_defaults') }}</h2>
                         <span class="text-xs text-gray-400">({{ groupedCategories.platform.length }})</span>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -359,9 +361,9 @@ const breadcrumbs = [
                             <div class="flex items-start justify-between mb-3">
                                 <span class="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
                                     <GlobeAltIcon class="h-3 w-3" />
-                                    Platform
+                                    {{ t('move_out_categories_index.badges.platform') }}
                                 </span>
-                                <span class="text-xs text-gray-400">Read-only</span>
+                                <span class="text-xs text-gray-400">{{ t('move_out_categories_index.badges.read_only') }}</span>
                             </div>
                             <div class="flex items-start justify-between">
                                 <div class="min-w-0 flex-1">
@@ -378,14 +380,14 @@ const breadcrumbs = [
                                         class="inline-block w-2 h-2 rounded-full"
                                         :class="category.always_apply ? 'bg-indigo-500' : 'bg-gray-300'"
                                     />
-                                    <span class="text-xs text-gray-500">Auto-apply</span>
+                                    <span class="text-xs text-gray-500">{{ t('move_out_categories_index.card.auto_apply') }}</span>
                                 </div>
                                 <div class="flex items-center gap-1.5">
                                     <span
                                         class="inline-block w-2 h-2 rounded-full"
                                         :class="category.is_active ? 'bg-green-500' : 'bg-gray-300'"
                                     />
-                                    <span class="text-xs text-gray-500">Active</span>
+                                    <span class="text-xs text-gray-500">{{ t('move_out_categories_index.card.active') }}</span>
                                 </div>
                             </div>
                         </div>
@@ -396,7 +398,7 @@ const breadcrumbs = [
                 <div v-if="groupedCategories.custom.length > 0 || (scopeFilter === '' || scopeFilter === 'custom')">
                     <div class="flex items-center gap-2 mb-3">
                         <UserIcon class="w-4 h-4 text-gray-600" />
-                        <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wider">Your Categories</h2>
+                        <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wider">{{ t('move_out_categories_index.sections.your_categories') }}</h2>
                         <span class="text-xs text-gray-400">({{ groupedCategories.custom.length }})</span>
                     </div>
                     <div v-if="groupedCategories.custom.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -409,7 +411,7 @@ const breadcrumbs = [
                         >
                             <div class="flex items-start justify-between mb-3">
                                 <span class="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
-                                    All Buildings
+                                    {{ t('move_out_categories_index.badges.all_buildings') }}
                                 </span>
                                 <div class="flex items-center gap-1">
                                     <button
@@ -452,7 +454,7 @@ const breadcrumbs = [
                                             :class="category.always_apply ? 'translate-x-4' : 'translate-x-0'"
                                         />
                                     </span>
-                                    <span class="text-xs text-gray-500">Auto-apply</span>
+                                    <span class="text-xs text-gray-500">{{ t('move_out_categories_index.card.auto_apply') }}</span>
                                 </button>
                                 <button
                                     @click="toggleActive(category)"
@@ -468,20 +470,20 @@ const breadcrumbs = [
                                             :class="category.is_active ? 'translate-x-4' : 'translate-x-0'"
                                         />
                                     </span>
-                                    <span class="text-xs text-gray-500">Active</span>
+                                    <span class="text-xs text-gray-500">{{ t('move_out_categories_index.card.active') }}</span>
                                 </button>
                             </div>
                         </div>
                     </div>
                     <div v-else class="bg-gray-50 rounded-xl border border-dashed border-gray-300 p-8 text-center">
-                        <p class="text-sm text-gray-500">No custom categories yet.</p>
+                        <p class="text-sm text-gray-500">{{ t('move_out_categories_index.no_custom.message') }}</p>
                         <button
                             v-if="canCreate"
                             @click="openCreateModal"
                             class="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
                         >
                             <PlusIcon class="w-4 h-4" />
-                            Create your first category
+                            {{ t('move_out_categories_index.no_custom.create_first') }}
                         </button>
                     </div>
                 </div>
@@ -490,7 +492,7 @@ const breadcrumbs = [
                 <div v-if="groupedCategories.building.length > 0">
                     <div class="flex items-center gap-2 mb-3">
                         <BuildingOfficeIcon class="w-4 h-4 text-blue-600" />
-                        <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wider">Building-Specific</h2>
+                        <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wider">{{ t('move_out_categories_index.sections.building_specific') }}</h2>
                         <span class="text-xs text-gray-400">({{ groupedCategories.building.length }})</span>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -547,7 +549,7 @@ const breadcrumbs = [
                                             :class="category.always_apply ? 'translate-x-4' : 'translate-x-0'"
                                         />
                                     </span>
-                                    <span class="text-xs text-gray-500">Auto-apply</span>
+                                    <span class="text-xs text-gray-500">{{ t('move_out_categories_index.card.auto_apply') }}</span>
                                 </button>
                                 <button
                                     @click="toggleActive(category)"
@@ -563,7 +565,7 @@ const breadcrumbs = [
                                             :class="category.is_active ? 'translate-x-4' : 'translate-x-0'"
                                         />
                                     </span>
-                                    <span class="text-xs text-gray-500">Active</span>
+                                    <span class="text-xs text-gray-500">{{ t('move_out_categories_index.card.active') }}</span>
                                 </button>
                             </div>
                         </div>
@@ -598,14 +600,14 @@ const breadcrumbs = [
                                     <div class="space-y-4">
                                         <div>
                                             <label for="name" class="block text-sm font-medium text-gray-700 mb-1">
-                                                Category Name
+                                                {{ t('move_out_categories_index.modal.name_label') }}
                                             </label>
                                             <input
                                                 id="name"
                                                 v-model="form.name"
                                                 type="text"
                                                 class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
-                                                placeholder="e.g., Cleaning Fee"
+                                                :placeholder="t('move_out_categories_index.modal.name_placeholder')"
                                                 required
                                             />
                                             <p v-if="form.errors.name" class="mt-1 text-xs text-red-600">
@@ -615,21 +617,21 @@ const breadcrumbs = [
 
                                         <div>
                                             <label for="description" class="block text-sm font-medium text-gray-700 mb-1">
-                                                Description
+                                                {{ t('move_out_categories_index.modal.description_label') }}
                                             </label>
                                             <textarea
                                                 id="description"
                                                 v-model="form.description"
                                                 rows="2"
                                                 class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
-                                                placeholder="Brief description of this deduction"
+                                                :placeholder="t('move_out_categories_index.modal.description_placeholder')"
                                             />
                                         </div>
 
                                         <div class="grid grid-cols-2 gap-4">
                                             <div>
                                                 <label for="default_amount" class="block text-sm font-medium text-gray-700 mb-1">
-                                                    Default Amount ({{ currencyCode }})
+                                                    {{ t('move_out_categories_index.modal.default_amount_label', { currency: currencyCode }) }}
                                                 </label>
                                                 <input
                                                     id="default_amount"
@@ -646,14 +648,14 @@ const breadcrumbs = [
                                             </div>
                                             <div>
                                                 <label for="building_id" class="block text-sm font-medium text-gray-700 mb-1">
-                                                    Scope
+                                                    {{ t('move_out_categories_index.modal.scope_label') }}
                                                 </label>
                                                 <select
                                                     id="building_id"
                                                     v-model="form.building_id"
                                                     class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
                                                 >
-                                                    <option :value="null">All Buildings</option>
+                                                    <option :value="null">{{ t('move_out_categories_index.modal.all_buildings') }}</option>
                                                     <option v-for="building in buildings" :key="building.id" :value="building.id">
                                                         {{ building.name }}
                                                     </option>
@@ -669,8 +671,8 @@ const breadcrumbs = [
                                                     class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                                 />
                                                 <div>
-                                                    <span class="text-sm font-medium text-gray-700">Always Apply</span>
-                                                    <p class="text-xs text-gray-500">Auto-added when inspection starts</p>
+                                                    <span class="text-sm font-medium text-gray-700">{{ t('move_out_categories_index.modal.always_apply_label') }}</span>
+                                                    <p class="text-xs text-gray-500">{{ t('move_out_categories_index.modal.always_apply_help') }}</p>
                                                 </div>
                                             </label>
                                             <label class="flex items-center gap-2 cursor-pointer">
@@ -680,8 +682,8 @@ const breadcrumbs = [
                                                     class="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
                                                 />
                                                 <div>
-                                                    <span class="text-sm font-medium text-gray-700">Active</span>
-                                                    <p class="text-xs text-gray-500">Available for selection</p>
+                                                    <span class="text-sm font-medium text-gray-700">{{ t('move_out_categories_index.modal.active_label') }}</span>
+                                                    <p class="text-xs text-gray-500">{{ t('move_out_categories_index.modal.active_help') }}</p>
                                                 </div>
                                             </label>
                                         </div>
@@ -694,14 +696,14 @@ const breadcrumbs = [
                                         class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
                                         @click="closeModal"
                                     >
-                                        Cancel
+                                        {{ t('move_out_categories_index.modal.cancel') }}
                                     </button>
                                     <button
                                         type="submit"
                                         :disabled="form.processing"
                                         class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-500 disabled:opacity-50 transition-colors"
                                     >
-                                        {{ form.processing ? 'Saving...' : (isEditing ? 'Update' : 'Create') }}
+                                        {{ form.processing ? t('move_out_categories_index.modal.saving') : (isEditing ? t('move_out_categories_index.modal.update') : t('move_out_categories_index.modal.create')) }}
                                     </button>
                                 </div>
                             </form>
@@ -730,11 +732,10 @@ const breadcrumbs = [
                                 <div class="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
                                     <ExclamationTriangleIcon class="w-7 h-7 text-red-600" />
                                 </div>
-                                <h3 class="text-lg font-semibold text-gray-900 mb-2">Delete Category?</h3>
+                                <h3 class="text-lg font-semibold text-gray-900 mb-2">{{ t('move_out_categories_index.delete_modal.title') }}</h3>
                                 <p class="text-sm text-gray-500">
-                                    This will permanently delete
-                                    <span class="font-semibold">"{{ categoryToDelete?.name }}"</span>.
-                                    Existing deductions using this category will not be affected.
+                                    {{ t('move_out_categories_index.delete_modal.message_before') }}
+                                    <span class="font-semibold">"{{ categoryToDelete?.name }}"</span>{{ t('move_out_categories_index.delete_modal.message_after') }}
                                 </p>
                             </div>
                             <div class="px-6 py-4 bg-gray-50 flex gap-3">
@@ -742,13 +743,13 @@ const breadcrumbs = [
                                     @click="showDeleteModal = false"
                                     class="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
                                 >
-                                    Cancel
+                                    {{ t('move_out_categories_index.delete_modal.cancel') }}
                                 </button>
                                 <button
                                     @click="confirmDelete"
                                     class="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
                                 >
-                                    Delete
+                                    {{ t('move_out_categories_index.delete_modal.delete') }}
                                 </button>
                             </div>
                         </div>
