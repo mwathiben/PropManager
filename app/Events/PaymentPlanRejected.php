@@ -12,7 +12,5 @@ class PaymentPlanRejected
 {
     use Dispatchable, SerializesModels;
 
-    public function __construct(public readonly PaymentPlan $plan)
-    {
-    }
+    public function __construct(public readonly PaymentPlan $plan) {}
 }

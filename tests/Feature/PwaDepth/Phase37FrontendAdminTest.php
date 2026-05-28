@@ -6,7 +6,6 @@ namespace Tests\Feature\PwaDepth;
 
 use App\Models\Experiment;
 use App\Models\ExperimentExposure;
-use App\Models\NotificationPreference;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;

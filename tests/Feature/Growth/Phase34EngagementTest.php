@@ -8,7 +8,6 @@ use App\Models\AlertFiring;
 use App\Models\LandlordEngagementScore;
 use App\Models\LandlordUsageMetric;
 use App\Models\OnboardingMilestone;
-use App\Models\Property;
 use App\Models\SecurityLog;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;

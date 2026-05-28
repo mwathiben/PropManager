@@ -6,7 +6,6 @@ namespace App\Console\Commands;
 
 use App\Enums\SubscriptionStatus;
 use App\Models\Subscription;
-use App\Models\UsageRecord;
 use App\Models\User;
 use App\Services\MetricsService;
 use App\Services\Sre\AlertFiringRecorder;

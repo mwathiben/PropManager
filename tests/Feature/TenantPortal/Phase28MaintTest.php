@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\TenantPortal;
 
-use App\Console\Commands\TicketsAuditSla;
 use App\Events\TicketSlaBreached;
 use App\Models\Ticket;
 use App\Models\TicketActivity;

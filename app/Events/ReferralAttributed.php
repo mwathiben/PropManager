@@ -18,7 +18,5 @@ class ReferralAttributed
 {
     use Dispatchable, SerializesModels;
 
-    public function __construct(public Referral $referral)
-    {
-    }
+    public function __construct(public Referral $referral) {}
 }

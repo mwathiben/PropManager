@@ -31,7 +31,7 @@ class Phase42MethodsTest extends TestCase
 
     public function test_service_unconfigured_by_default(): void
     {
-        $this->assertFalse((new StripeCustomerService())->isConfigured());
+        $this->assertFalse((new StripeCustomerService)->isConfigured());
     }
 
     public function test_ensure_customer_returns_existing_mapping_without_calling_stripe(): void
@@ -42,7 +42,7 @@ class Phase42MethodsTest extends TestCase
             'stripe_customer_id' => 'cus_existing_'.uniqid(),
         ]);
 
-        $service = new StripeCustomerService();
+        $service = new StripeCustomerService;
         $id = $service->ensureCustomer($user);
 
         $this->assertNotNull($id);
@@ -52,7 +52,7 @@ class Phase42MethodsTest extends TestCase
     public function test_ensure_customer_returns_null_when_unconfigured_and_no_mapping(): void
     {
         $user = User::factory()->create(['role' => 'landlord']);
-        $service = new StripeCustomerService();
+        $service = new StripeCustomerService;
         $this->assertNull($service->ensureCustomer($user));
         $this->assertSame(0, StripeCustomer::query()->count());
     }
@@ -60,7 +60,7 @@ class Phase42MethodsTest extends TestCase
     public function test_find_mapping_returns_null_for_unmapped_user(): void
     {
         $user = User::factory()->create(['role' => 'landlord']);
-        $this->assertNull((new StripeCustomerService())->findMapping($user));
+        $this->assertNull((new StripeCustomerService)->findMapping($user));
     }
 
     public function test_user_id_uniqueness_prevents_duplicate_mappings(): void

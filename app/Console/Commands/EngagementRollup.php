@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Models\LandlordEngagementScore;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Services\Growth\EngagementScoreService;

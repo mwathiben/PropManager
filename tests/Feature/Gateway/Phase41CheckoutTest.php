@@ -7,8 +7,6 @@ namespace Tests\Feature\Gateway;
 use App\Models\Invoice;
 use App\Models\Lease;
 use App\Models\PaymentConfiguration;
-use App\Models\Property;
-use App\Models\Unit;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;

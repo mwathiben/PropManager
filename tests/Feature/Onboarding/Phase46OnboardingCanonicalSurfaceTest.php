@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Onboarding;
 
-use App\Models\OnboardingResumeLink;
-use App\Models\OnboardingSession;
 use App\Onboarding\OnboardingFlow;
 use App\Services\Onboarding\MirrorAuditService;
 use App\Services\Onboarding\OnboardingResumeService;
@@ -107,7 +105,7 @@ class Phase46OnboardingCanonicalSurfaceTest extends TestCase
     public function test_registered_user_controller_validates_role_input(): void
     {
         $src = file_get_contents(app_path('Http/Controllers/Auth/RegisteredUserController.php'));
-        $this->assertStringContainsString("in:landlord,caretaker,tenant", $src);
+        $this->assertStringContainsString('in:landlord,caretaker,tenant', $src);
         $this->assertStringNotContainsString("\$user->role = 'tenant';", $src, 'CI-1: must not hardcode role to tenant.');
     }
 

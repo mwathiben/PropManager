@@ -35,7 +35,7 @@ final class I18nKeyExtractor
             return [];
         }
 
-        $finder = (new Finder())
+        $finder = (new Finder)
             ->files()
             ->in($dir)
             ->name(['*.vue', '*.ts', '*.tsx', '*.js', '*.jsx']);

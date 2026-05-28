@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\Water\WaterModuleAccess;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 use Tests\Traits\CreatesTestData;
 
@@ -42,9 +43,7 @@ class Phase83HubOverviewTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider hubRoutes
-     */
+    #[DataProvider('hubRoutes')]
     public function test_hub_opens_on_overview_with_stats(string $routeName): void
     {
         $response = $this->actingAs($this->landlord->fresh())->get(route($routeName));

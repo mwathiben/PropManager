@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import PaginatorLink from '@/Components/PaginatorLink.vue';
 import { ScaleIcon } from '@heroicons/vue/24/outline';
 import { useI18n } from '@/composables/useI18n';
 import { useFormatters } from '@/composables/useFormatters';
@@ -101,8 +102,9 @@ function setStatus(status: string): void {
                     :href="link.url || ''"
                     class="rounded px-3 py-1 text-sm"
                     :class="[link.active ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600', !link.url && 'pointer-events-none opacity-50']"
-                    v-html="link.label"
-                />
+                >
+                    <PaginatorLink :label="link.label" />
+                </Link>
             </nav>
         </div>
     </AuthenticatedLayout>

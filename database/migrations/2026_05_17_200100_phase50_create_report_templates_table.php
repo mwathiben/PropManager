@@ -32,7 +32,7 @@ return new class extends Migration
             $table->index(['category', 'is_active', 'sort_order'], 'report_templates_cat_active_idx');
         });
 
-        (new Phase50ReportTemplateSeeder())->run();
+        (new Phase50ReportTemplateSeeder)->run();
     }
 
     public function down(): void

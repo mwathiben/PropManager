@@ -77,7 +77,11 @@ class Phase55DashboardDepthSurfaceTest extends TestCase
     {
         $body = (string) file_get_contents(base_path('resources/js/Pages/Dashboard.vue'));
         $this->assertStringContainsString('data-testid="dashboard-building-chip"', $body);
-        $this->assertStringContainsString("'All buildings'", $body);
+        // Phase-24+ I18N migration: the "All buildings" label is now
+        // resolved via the i18n key. Asserting the key reference rather
+        // than the hardcoded string keeps the test future-proof against
+        // translation file edits.
+        $this->assertStringContainsString("t('dashboard.building_chip.all_buildings')", $body);
     }
 
     // -- LEASE-STATE-BADGE -------------------------------------------------

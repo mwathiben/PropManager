@@ -54,21 +54,27 @@ class Phase39ExperimentStatsTest extends TestCase
             ExperimentExposure::create([
                 'user_id' => $userId, 'experiment_key' => 'three_arm', 'variant_key' => 'control', 'fired_at' => now(),
             ]);
-            if ($i < 50) $controlIds[$userId] = true;
+            if ($i < 50) {
+                $controlIds[$userId] = true;
+            }
             $userId++;
         }
         for ($i = 0; $i < 1000; $i++) {
             ExperimentExposure::create([
                 'user_id' => $userId, 'experiment_key' => 'three_arm', 'variant_key' => 'green', 'fired_at' => now(),
             ]);
-            if ($i < 90) $greenIds[$userId] = true;
+            if ($i < 90) {
+                $greenIds[$userId] = true;
+            }
             $userId++;
         }
         for ($i = 0; $i < 1000; $i++) {
             ExperimentExposure::create([
                 'user_id' => $userId, 'experiment_key' => 'three_arm', 'variant_key' => 'blue', 'fired_at' => now(),
             ]);
-            if ($i < 100) $blueIds[$userId] = true;
+            if ($i < 100) {
+                $blueIds[$userId] = true;
+            }
             $userId++;
         }
 
@@ -101,7 +107,9 @@ class Phase39ExperimentStatsTest extends TestCase
                 ExperimentExposure::create([
                     'user_id' => $userId, 'experiment_key' => 'tied_arms', 'variant_key' => $v, 'fired_at' => now(),
                 ]);
-                if ($i < 50) $hits[$userId] = true;
+                if ($i < 50) {
+                    $hits[$userId] = true;
+                }
                 $userId++;
             }
         }
@@ -144,14 +152,18 @@ class Phase39ExperimentStatsTest extends TestCase
             ExperimentExposure::create([
                 'user_id' => $userId, 'experiment_key' => 'bayes_classic', 'variant_key' => 'control', 'fired_at' => now(),
             ]);
-            if ($i < 47) $hits[$userId] = true;
+            if ($i < 47) {
+                $hits[$userId] = true;
+            }
             $userId++;
         }
         for ($i = 0; $i < 1000; $i++) {
             ExperimentExposure::create([
                 'user_id' => $userId, 'experiment_key' => 'bayes_classic', 'variant_key' => 'treatment', 'fired_at' => now(),
             ]);
-            if ($i < 71) $hits[$userId] = true;
+            if ($i < 71) {
+                $hits[$userId] = true;
+            }
             $userId++;
         }
 

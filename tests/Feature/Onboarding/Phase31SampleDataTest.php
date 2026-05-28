@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Onboarding;
 
 use App\Models\Building;
-use App\Models\Invoice;
 use App\Models\Lease;
-use App\Models\Payment;
 use App\Models\Property;
 use App\Models\SampleDataRun;
 use App\Models\Unit;

@@ -12,7 +12,9 @@ class SampleDataRun extends Model
     use TenantScope;
 
     public const STATUS_POPULATED = 'populated';
+
     public const STATUS_RESET_PENDING = 'reset_pending';
+
     public const STATUS_RESET_DONE = 'reset_done';
 
     protected $fillable = [

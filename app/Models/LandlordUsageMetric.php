@@ -13,9 +13,13 @@ class LandlordUsageMetric extends Model
     use TenantScope;
 
     public const METRIC_DB_QUERIES = 'db_queries';
+
     public const METRIC_S3_BYTES = 's3_bytes';
+
     public const METRIC_SMS_SENDS = 'sms_sends';
+
     public const METRIC_CRON_MINUTES = 'cron_minutes';
+
     public const METRIC_LOG_BYTES = 'log_bytes';
 
     public const METRICS = [

@@ -25,7 +25,7 @@ return [
         'referrals_label' => 'Referrals attributed (30d)',
         'current_plan_label' => 'Current plan',
         'cta_open_dashboard' => 'Open dashboard',
-        'signature' => "— The :app team",
+        'signature' => '— The :app team',
         'opt_out_link_label' => 'Manage notification preferences',
         'opt_out_link_helper' => 'turn off the weekly digest without losing payment notifications',
     ],

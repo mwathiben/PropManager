@@ -67,9 +67,9 @@ final class LangFileWriter
         if ($header !== '') {
             $php .= "/*\n * {$header}\n */\n\n";
         }
-        $php .= 'return ' . $this->varExport($payload) . ";\n";
+        $php .= 'return '.$this->varExport($payload).";\n";
 
-        $tmp = $absolutePath . '.tmp.' . bin2hex(random_bytes(4));
+        $tmp = $absolutePath.'.tmp.'.bin2hex(random_bytes(4));
         if (File::put($tmp, $php) === false) {
             throw new RuntimeException("Failed to write tmp file: {$tmp}");
         }
@@ -85,7 +85,7 @@ final class LangFileWriter
             return null;
         }
 
-        $backupPath = $absolutePath . '.bak.' . time();
+        $backupPath = $absolutePath.'.bak.'.time();
         try {
             File::copy($absolutePath, $backupPath);
 
@@ -105,7 +105,7 @@ final class LangFileWriter
         if (is_array($value)) {
             $indent = str_repeat('    ', $depth);
             $inner = str_repeat('    ', $depth + 1);
-            $lines = ["["];
+            $lines = ['['];
             $isList = array_keys($value) === range(0, count($value) - 1);
             foreach ($value as $k => $v) {
                 $rendered = $this->varExport($v, $depth + 1);
@@ -122,7 +122,7 @@ final class LangFileWriter
         }
 
         if (is_string($value)) {
-            return "'" . addcslashes($value, "\\'") . "'";
+            return "'".addcslashes($value, "\\'")."'";
         }
         if (is_bool($value)) {
             return $value ? 'true' : 'false';

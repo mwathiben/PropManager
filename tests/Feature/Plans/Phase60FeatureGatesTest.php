@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Plans;
 
 use App\Enums\SubscriptionStatus;
+use App\Models\PaymentConfiguration;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
@@ -122,6 +123,14 @@ class Phase60FeatureGatesTest extends TestCase
             'user_id' => $user->id,
             'plan_id' => $plan->id,
             'status' => SubscriptionStatus::Active,
+        ]);
+
+        // Phase-79 WATER-GATE-2: water_billing requires BOTH plan-enabled
+        // AND the landlord actually charging — so we seed a charging
+        // PaymentConfiguration to make WaterModuleAccess::enabledFor() true.
+        PaymentConfiguration::factory()->create([
+            'landlord_id' => $user->id,
+            'water_billing_type' => 'consumption',
         ]);
 
         // Call the share() method directly rather than hitting a

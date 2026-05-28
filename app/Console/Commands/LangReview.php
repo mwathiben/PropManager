@@ -75,7 +75,7 @@ class LangReview extends Command
         }
 
         $this->table(['locale', 'namespace', 'key', 'value (truncated)'], $rows);
-        $this->info(count($rows) . ' row(s) need human review.');
+        $this->info(count($rows).' row(s) need human review.');
 
         return self::SUCCESS;
     }

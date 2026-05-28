@@ -51,7 +51,7 @@ final class GoogleTranslationDriver implements TranslationDriverInterface
         try {
             $response = Http::asForm()
                 ->timeout(10)
-                ->post(self::ENDPOINT . '?key=' . urlencode($this->apiKey), [
+                ->post(self::ENDPOINT.'?key='.urlencode($this->apiKey), [
                     'q' => $sourceText,
                     'source' => $sourceLocale,
                     'target' => $targetLocale,
@@ -109,6 +109,6 @@ final class GoogleTranslationDriver implements TranslationDriverInterface
             'target_locale' => $targetLocale,
         ]);
 
-        return (new StubTranslationDriver())->translate($sourceText, '', $targetLocale);
+        return (new StubTranslationDriver)->translate($sourceText, '', $targetLocale);
     }
 }

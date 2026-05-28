@@ -48,7 +48,7 @@ class Phase40GatewayContractTest extends TestCase
 
     public function test_stripe_service_throws_when_with_config_called_without_creds(): void
     {
-        $config = new \App\Models\PaymentConfiguration();
+        $config = new \App\Models\PaymentConfiguration;
         $this->expectException(\InvalidArgumentException::class);
         (new StripeService(null))->withConfig($config);
     }

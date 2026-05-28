@@ -10,7 +10,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class SubscriptionChange extends Model
 {
     public const TYPE_UPGRADE = 'upgrade';
+
     public const TYPE_DOWNGRADE = 'downgrade';
+
     public const TYPE_SAME = 'same';
 
     protected $fillable = [

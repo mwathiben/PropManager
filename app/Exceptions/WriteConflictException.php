@@ -50,6 +50,7 @@ class WriteConflictException extends RuntimeException
                 ];
             }
         }
+
         return $diff;
     }
 }

@@ -11,7 +11,6 @@ use App\Services\NotificationService;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Log;
 
 /**
  * Phase-29 WF-RENT-REMIND-1: nightly tiered rent reminder dispatcher.

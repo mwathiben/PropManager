@@ -29,6 +29,7 @@ class SloBudgetAudit extends Command
     protected $description = 'Phase-32 SRE-BUDGET-2/3: per-service SLO budget gauges + multi-window burn-rate alert.';
 
     public const FAST_BURN_1H_THRESHOLD = 14.4;
+
     public const FAST_BURN_6H_THRESHOLD = 6.0;
 
     public function handle(

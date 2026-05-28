@@ -28,26 +28,26 @@ class Phase41ConnectTest extends TestCase
 
     public function test_stripe_connect_service_unconfigured_by_default(): void
     {
-        $service = new StripeConnectService();
+        $service = new StripeConnectService;
         $this->assertFalse($service->isConfigured());
     }
 
     public function test_create_express_account_noops_when_unconfigured(): void
     {
-        $service = new StripeConnectService();
+        $service = new StripeConnectService;
         $landlord = User::factory()->create(['role' => 'landlord']);
         $this->assertNull($service->createExpressAccount($landlord));
     }
 
     public function test_onboarding_link_noops_when_unconfigured(): void
     {
-        $service = new StripeConnectService();
+        $service = new StripeConnectService;
         $this->assertNull($service->onboardingLink('acct_test_123', 'https://example.test/return', 'https://example.test/refresh'));
     }
 
     public function test_sync_account_status_noops_when_unconfigured(): void
     {
-        $service = new StripeConnectService();
+        $service = new StripeConnectService;
         $this->assertNull($service->syncAccountStatus('acct_test_123'));
     }
 

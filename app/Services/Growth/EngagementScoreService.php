@@ -32,9 +32,13 @@ use Illuminate\Support\Carbon;
 class EngagementScoreService
 {
     public const WEIGHT_LOGIN = 0.30;
+
     public const WEIGHT_MILESTONES = 0.25;
+
     public const WEIGHT_USAGE = 0.20;
+
     public const WEIGHT_PROPERTY = 0.15;
+
     public const WEIGHT_TENANT = 0.10;
 
     public function compute(int $landlordId, ?DateTimeInterface $day = null): array

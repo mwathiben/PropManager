@@ -27,6 +27,7 @@ trait RowVersion
         static::saving(function ($model) {
             if (! $model->exists) {
                 $model->version = $model->version ?? 1;
+
                 return;
             }
             $model->version = ($model->version ?? 1) + 1;

@@ -28,7 +28,7 @@ final class TranslationDriverFactory
     public function make(string $driver): TranslationDriverInterface
     {
         return match ($driver) {
-            'stub' => new StubTranslationDriver(),
+            'stub' => new StubTranslationDriver,
             'google' => $this->wrap(new GoogleTranslationDriver(
                 apiKey: (string) (config('i18n.google_api_key') ?? ''),
             )),
@@ -51,7 +51,7 @@ final class TranslationDriverFactory
             return $driver;
         }
 
-        return new CostAwareDriver($driver, $this->costTracker, new StubTranslationDriver());
+        return new CostAwareDriver($driver, $this->costTracker, new StubTranslationDriver);
     }
 
     private function stringOrNull(mixed $value): ?string

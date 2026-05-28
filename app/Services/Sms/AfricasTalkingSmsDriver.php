@@ -24,8 +24,7 @@ class AfricasTalkingSmsDriver implements SmsDriver
         private readonly ?string $apiKey,
         private readonly ?string $senderId,
         private readonly string $endpoint = 'https://api.africastalking.com/version1/messaging',
-    ) {
-    }
+    ) {}
 
     public function send(string $phone, string $message): string
     {

@@ -13,9 +13,13 @@ class MpesaB2cRequest extends Model
     use TenantScope;
 
     public const STATUS_QUEUED = 'queued';
+
     public const STATUS_SENT = 'sent';
+
     public const STATUS_SUCCEEDED = 'succeeded';
+
     public const STATUS_FAILED = 'failed';
+
     public const STATUS_TIMED_OUT = 'timed_out';
 
     public const OPEN_STATUSES = [self::STATUS_QUEUED, self::STATUS_SENT];

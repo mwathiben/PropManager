@@ -138,7 +138,7 @@ class Phase62CacheStrategyTest extends TestCase
             'CACHE-STRATEGY-3: app.js must postMessage CACHE_BUST to the SW after BG_SYNC_DRAINED so list pages auto-revalidate.',
         );
         $this->assertStringContainsString(
-            "routeFamily",
+            'routeFamily',
             $src,
             'CACHE-STRATEGY-3: app.js must include routeFamily in the CACHE_BUST payload.',
         );

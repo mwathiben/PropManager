@@ -13,10 +13,15 @@ class OnboardingMilestone extends Model
     use TenantScope;
 
     public const SIGNED_UP = 'signed_up';
+
     public const FIRST_PROPERTY = 'first_property';
+
     public const FIRST_UNIT = 'first_unit';
+
     public const FIRST_TENANT = 'first_tenant';
+
     public const FIRST_INVOICE = 'first_invoice';
+
     public const FIRST_PAYMENT = 'first_payment';
 
     public const FUNNEL = [

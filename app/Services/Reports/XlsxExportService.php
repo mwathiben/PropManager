@@ -80,6 +80,7 @@ class XlsxExportService
 
             if ($input['columns'] === []) {
                 $sheet->setCellValue('A1', 'No rows.');
+
                 continue;
             }
 

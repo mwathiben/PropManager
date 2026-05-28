@@ -21,12 +21,12 @@ use App\Services\I18n\Drivers\StubTranslationDriver;
 final class TranslationSuggestionService
 {
     public function __construct(
-        private readonly TranslationDriverInterface $driver = new StubTranslationDriver(),
+        private readonly TranslationDriverInterface $driver = new StubTranslationDriver,
     ) {}
 
     public static function fromConfig(?TranslationDriverFactory $factory = null): self
     {
-        $factory ??= new TranslationDriverFactory(new TranslationCostTracker());
+        $factory ??= new TranslationDriverFactory(new TranslationCostTracker);
         $key = (string) config('i18n.suggestion_driver', 'stub');
 
         return new self($factory->make($key));

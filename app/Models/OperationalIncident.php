@@ -10,8 +10,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class OperationalIncident extends Model
 {
     public const STATUS_OPEN = 'open';
+
     public const STATUS_INVESTIGATING = 'investigating';
+
     public const STATUS_MITIGATED = 'mitigated';
+
     public const STATUS_RESOLVED = 'resolved';
 
     public const STATUSES = [
@@ -22,8 +25,11 @@ class OperationalIncident extends Model
     ];
 
     public const SEV1 = 'sev1';
+
     public const SEV2 = 'sev2';
+
     public const SEV3 = 'sev3';
+
     public const SEV4 = 'sev4';
 
     public const SEVERITIES = [self::SEV1, self::SEV2, self::SEV3, self::SEV4];

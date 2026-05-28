@@ -20,8 +20,7 @@ class RecordCaretakerAssignmentOnInvitationAccept
 {
     public function __construct(
         protected CaretakerAssignmentService $service,
-    ) {
-    }
+    ) {}
 
     public function handle(InvitationAccepted $event): void
     {

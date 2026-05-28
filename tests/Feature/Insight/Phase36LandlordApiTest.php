@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Feature\Insight;
 
 use App\Models\LandlordEngagementScore;
-use App\Models\Referral;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use App\Models\User;

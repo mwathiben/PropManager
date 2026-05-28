@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  *
  * @property int $id
  * @property int $ticket_id
- * @property string $category  parts|vendor|labor|other
+ * @property string $category parts|vendor|labor|other
  * @property int $amount_cents
  * @property string $currency
  * @property int|null $recorded_by
@@ -28,8 +28,11 @@ class TicketCost extends Model
     use HasFactory, SoftDeletes;
 
     public const CATEGORY_PARTS = 'parts';
+
     public const CATEGORY_VENDOR = 'vendor';
+
     public const CATEGORY_LABOR = 'labor';
+
     public const CATEGORY_OTHER = 'other';
 
     public const CATEGORIES = [

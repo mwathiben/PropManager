@@ -6,7 +6,6 @@ namespace Tests\Feature\Cost;
 
 use App\Models\AlertFiring;
 use App\Models\QueryCostLog;
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 

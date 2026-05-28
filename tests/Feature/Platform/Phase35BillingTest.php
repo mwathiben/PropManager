@@ -11,7 +11,6 @@ use App\Models\SubscriptionPlan;
 use App\Services\Growth\MrrSnapshotService;
 use App\Services\SubscriptionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class Phase35BillingTest extends TestCase

@@ -9,8 +9,11 @@ use Illuminate\Database\Eloquent\Model;
 class ServiceSlo extends Model
 {
     public const TIER_1 = 'tier1';
+
     public const TIER_2 = 'tier2';
+
     public const TIER_3 = 'tier3';
+
     public const TIER_4 = 'tier4';
 
     protected $fillable = [

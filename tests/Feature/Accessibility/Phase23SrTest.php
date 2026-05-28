@@ -248,10 +248,13 @@ class Phase23SrTest extends TestCase
             $map,
             'A11Y-SR-4: the map container must carry role="presentation".',
         );
+        // Phase-24+ I18N migration: aria-label is now bound to the i18n
+        // key rather than a literal string. The accessible name still
+        // resolves via t('building_map.open_location_in_google_maps').
         $this->assertStringContainsString(
-            'aria-label="Open location in Google Maps"',
+            ":aria-label=\"t('building_map.open_location_in_google_maps')\"",
             $map,
-            'A11Y-SR-4: the Google Maps action button must have an accessible name.',
+            'A11Y-SR-4: the Google Maps action button must have an accessible name (bound to the i18n key).',
         );
     }
 }
