@@ -138,9 +138,14 @@ class Phase43HardcodedStringBaselineTest extends TestCase
      *   block trimmed], Water/tabs/ReviewTab, Dashboard/ChartCard,
      *   Dashboard/KpiCard, DropdownLink [slot-only], Finances/DataTable)
      *   to $t().
+     * - 2026-05-28: lowered to 38 after migrating six more components
+     *   (Finances/PaymentMethodSelector [slot-only], Finances/VirtualDataTable
+     *   [reuses finances_data_table; same DataTable withDefaults fix pattern],
+     *   Growth/FunnelSankey, Insight/UsageRatioCard, Pagination [scanner FP
+     *   only], TenantProfile/DocumentsTab) to $t().
      *   Lowering the constant requires the scanner to confirm the new floor.
      */
-    private const BASELINE = 44;
+    private const BASELINE = 38;
 
     public function test_hardcoded_english_count_does_not_grow_beyond_baseline(): void
     {

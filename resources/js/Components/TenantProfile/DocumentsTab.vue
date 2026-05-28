@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useFormatters } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import type { TenantDocument } from '@/types';
 
 const props = defineProps<{
@@ -7,19 +8,10 @@ const props = defineProps<{
 }>();
 
 const { formatDate } = useFormatters();
+const { t } = useI18n();
 
 const documentTypeLabel = (type) => {
-    const labels = {
-        'lease_agreement': 'Lease Agreement',
-        'tenant_id': 'ID Document',
-        'tenant_passport': 'Passport Photo',
-        'bank_statement': 'Bank Statement',
-        'payslip': 'Payslip',
-        'reference_letter': 'Reference Letter',
-        'utility_bill': 'Utility Bill',
-        'other': 'Other'
-    };
-    return labels[type] || type;
+    return t(`tenant_profile_documents_tab.document_type.${type}`, type ?? '');
 };
 
 const documentTypeClass = (type) => {
@@ -47,9 +39,9 @@ const getFileIcon = (mimeType) => {
 };
 
 const attachmentLabel = (doc) => {
-    if (doc.documentable_type?.includes('Lease')) return 'Lease';
-    if (doc.documentable_type?.includes('User')) return 'Tenant';
-    return 'Other';
+    if (doc.documentable_type?.includes('Lease')) return t('tenant_profile_documents_tab.attachment.lease');
+    if (doc.documentable_type?.includes('User')) return t('tenant_profile_documents_tab.attachment.tenant');
+    return t('tenant_profile_documents_tab.attachment.other');
 };
 </script>
 
@@ -59,7 +51,7 @@ const attachmentLabel = (doc) => {
             <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            <p class="mt-2 text-sm">No documents uploaded yet.</p>
+            <p class="mt-2 text-sm">{{ t('tenant_profile_documents_tab.no_documents') }}</p>
         </div>
 
         <ul v-else class="divide-y border rounded-lg overflow-hidden">
@@ -81,7 +73,7 @@ const attachmentLabel = (doc) => {
                             </span>
                         </div>
                         <p class="text-xs text-gray-500 mt-1">
-                            {{ doc.file_size_formatted || 'Unknown size' }} &middot; {{ formatDate(doc.created_at) }}
+                            {{ doc.file_size_formatted || t('tenant_profile_documents_tab.unknown_size') }} &middot; {{ formatDate(doc.created_at) }}
                         </p>
                         <p v-if="doc.description" class="text-xs text-gray-600 mt-1">{{ doc.description }}</p>
                     </div>
@@ -91,13 +83,13 @@ const attachmentLabel = (doc) => {
                             target="_blank"
                             class="text-sm text-blue-600 hover:text-blue-800"
                         >
-                            View
+                            {{ t('tenant_profile_documents_tab.view') }}
                         </a>
                         <a
                             :href="`/documents/${doc.id}/download`"
                             class="text-sm text-gray-600 hover:text-gray-800"
                         >
-                            Download
+                            {{ t('tenant_profile_documents_tab.download') }}
                         </a>
                     </div>
                 </div>
