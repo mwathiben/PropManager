@@ -42,13 +42,13 @@ function submit() {
 
 <template>
     <AuthenticatedLayout>
-        <Head title="Inbox" />
+        <Head :title="t('inbox.title')" />
 
         <div class="px-4 py-6 sm:px-6 lg:px-8 space-y-6">
             <header class="flex items-start justify-between">
                 <div>
-                    <h1 class="text-2xl font-semibold text-gray-900">Inbox</h1>
-                    <p class="text-sm text-gray-500">Messages with your landlord and the property team.</p>
+                    <h1 class="text-2xl font-semibold text-gray-900">{{ t('inbox.title') }}</h1>
+                    <p class="text-sm text-gray-500">{{ t('tenant_inbox_index.subtitle') }}</p>
                 </div>
                 <Link
                     :href="route('tenant.inbox.search')"
@@ -64,14 +64,14 @@ function submit() {
                     v-model="form.title"
                     type="text"
                     maxlength="200"
-                    placeholder="Subject (optional)"
+                    :placeholder="t('tenant_inbox_index.compose.subject_placeholder')"
                     class="mb-2 w-full rounded-md border-gray-300 shadow-sm text-sm"
                 />
                 <textarea
                     v-model="form.body"
                     rows="3"
                     maxlength="4000"
-                    placeholder="Write your landlord a message…"
+                    :placeholder="t('tenant_inbox_index.compose.body_placeholder')"
                     class="w-full rounded-md border-gray-300 shadow-sm text-sm"
                 ></textarea>
                 <button
@@ -79,7 +79,7 @@ function submit() {
                     :disabled="form.processing || form.body.length === 0"
                     class="mt-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
                 >
-                    Send new message
+                    {{ t('tenant_inbox_index.compose.submit') }}
                 </button>
             </form>
 
@@ -87,7 +87,7 @@ function submit() {
                 <li v-for="thread in threads.data" :key="thread.id" class="hover:bg-gray-50">
                     <Link :href="route('tenant.inbox.show', thread.id)" class="block px-4 py-4">
                         <p class="text-sm font-medium text-gray-900">
-                            {{ thread.title || `Thread #${thread.id}` }}
+                            {{ thread.title || t('tenant_inbox_index.thread_fallback_title', { id: thread.id }) }}
                         </p>
                         <p class="mt-1 text-sm text-gray-500">
                             {{ thread.participants.map(p => p.name).join(', ') }}
@@ -95,7 +95,7 @@ function submit() {
                     </Link>
                 </li>
                 <li v-if="threads.data.length === 0" class="px-4 py-8 text-center text-sm text-gray-500">
-                    No messages yet. Send your first one above.
+                    {{ t('tenant_inbox_index.empty') }}
                 </li>
             </ul>
         </div>

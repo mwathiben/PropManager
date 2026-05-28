@@ -4,6 +4,7 @@ import Pagination from '@/Components/Pagination.vue';
 import { Head, useForm, router, Link } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import { useAuth } from '@/composables/useAuth';
+import { useI18n } from '@/composables/useI18n';
 import {
     PlusIcon,
     PencilSquareIcon,
@@ -51,6 +52,7 @@ const props = defineProps<{
 }>();
 
 const { can } = useAuth();
+const { t } = useI18n();
 
 const showModal = ref(false);
 const editingRequirement = ref<KycRequirement | null>(null);
@@ -66,16 +68,16 @@ const form = useForm({
 });
 
 const isEditing = computed(() => editingRequirement.value !== null);
-const modalTitle = computed(() => isEditing.value ? 'Edit Requirement' : 'Add Requirement');
+const modalTitle = computed(() => isEditing.value ? t('settings_kyc_requirements.edit_requirement') : t('settings_kyc_requirements.add_requirement'));
 
 const isPlatformDefault = (req: KycRequirement) => req.is_platform_default;
 const canEdit = (req: KycRequirement) => !isPlatformDefault(req) && props.canCreate;
 const canDelete = (req: KycRequirement) => !isPlatformDefault(req) && props.canCreate;
 
 const getScopeLabel = (req: KycRequirement): string => {
-    if (isPlatformDefault(req)) return 'Platform Default';
-    if (req.building) return `Building: ${req.building.name}`;
-    return 'All Buildings';
+    if (isPlatformDefault(req)) return t('settings_kyc_requirements.scope.platform_default');
+    if (req.building) return t('settings_kyc_requirements.scope.building_prefix', { name: req.building.name });
+    return t('settings_kyc_requirements.scope.all_buildings');
 };
 
 const getScopeIcon = (req: KycRequirement) => {
@@ -126,7 +128,7 @@ const submitForm = () => {
 };
 
 const deleteRequirement = (req: KycRequirement) => {
-    if (confirm(`Are you sure you want to delete "${req.label}"? This cannot be undone.`)) {
+    if (confirm(t('settings_kyc_requirements.confirm_delete', { label: req.label }))) {
         router.delete(route('kyc-requirements.destroy', req.id), {
             preserveScroll: true,
         });
@@ -155,7 +157,7 @@ const toggleActive = (req: KycRequirement) => {
 </script>
 
 <template>
-    <Head title="KYC Requirements" />
+    <Head :title="t('settings_kyc_requirements.page_title')" />
 
     <AuthenticatedLayout>
         <template #header>
@@ -166,10 +168,10 @@ const toggleActive = (req: KycRequirement) => {
                         class="inline-flex items-center text-sm text-gray-500 hover:text-gray-700"
                     >
                         <ArrowLeftIcon class="w-4 h-4 me-1" />
-                        Back to Settings
+                        {{ t('settings_kyc_requirements.back_to_settings') }}
                     </Link>
                     <h1 class="text-xl font-semibold leading-tight text-gray-800">
-                        KYC Requirements
+                        {{ t('settings_kyc_requirements.page_title') }}
                     </h1>
                 </div>
                 <button
@@ -180,7 +182,7 @@ const toggleActive = (req: KycRequirement) => {
                     class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                 >
                     <PlusIcon class="w-5 h-5 me-2" />
-                    Add Requirement
+                    {{ t('settings_kyc_requirements.add_requirement') }}
                 </button>
             </div>
         </template>
@@ -190,7 +192,7 @@ const toggleActive = (req: KycRequirement) => {
                 <div class="overflow-hidden bg-white shadow-sm sm:rounded-lg">
                     <div class="p-6">
                         <p class="mb-6 text-sm text-gray-600">
-                            Configure KYC document requirements for your tenants. Platform defaults are read-only. You can add custom requirements for all buildings or specific buildings.
+                            {{ t('settings_kyc_requirements.intro') }}
                         </p>
 
                         <div class="overflow-x-auto">
@@ -198,22 +200,22 @@ const toggleActive = (req: KycRequirement) => {
                                 <thead class="bg-gray-50">
                                     <tr>
                                         <th scope="col" class="px-6 py-3 text-xs font-medium tracking-wider text-start text-gray-500 uppercase">
-                                            Label
+                                            {{ t('settings_kyc_requirements.columns.label') }}
                                         </th>
                                         <th scope="col" class="px-6 py-3 text-xs font-medium tracking-wider text-start text-gray-500 uppercase">
-                                            Type
+                                            {{ t('settings_kyc_requirements.columns.type') }}
                                         </th>
                                         <th scope="col" class="px-6 py-3 text-xs font-medium tracking-wider text-start text-gray-500 uppercase">
-                                            Scope
+                                            {{ t('settings_kyc_requirements.columns.scope') }}
                                         </th>
                                         <th scope="col" class="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-500 uppercase">
-                                            Required
+                                            {{ t('settings_kyc_requirements.columns.required') }}
                                         </th>
                                         <th scope="col" class="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-500 uppercase">
-                                            Active
+                                            {{ t('settings_kyc_requirements.columns.active') }}
                                         </th>
                                         <th scope="col" class="px-6 py-3 text-xs font-medium tracking-wider text-end text-gray-500 uppercase">
-                                            Actions
+                                            {{ t('settings_kyc_requirements.columns.actions') }}
                                         </th>
                                     </tr>
                                 </thead>
@@ -256,7 +258,7 @@ const toggleActive = (req: KycRequirement) => {
                                                 :data-testid="`toggle-required-${req.id}`"
                                                 :disabled="!canEdit(req)"
                                                 @click="toggleRequired(req)"
-                                                :aria-label="req.is_required ? 'Mark as not required' : 'Mark as required'"
+                                                :aria-label="req.is_required ? t('settings_kyc_requirements.aria.mark_not_required') : t('settings_kyc_requirements.aria.mark_required')"
                                                 :aria-pressed="req.is_required"
                                                 class="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed"
                                             >
@@ -278,7 +280,7 @@ const toggleActive = (req: KycRequirement) => {
                                                 :data-testid="`toggle-active-${req.id}`"
                                                 :disabled="!canEdit(req)"
                                                 @click="toggleActive(req)"
-                                                :aria-label="req.is_active ? 'Deactivate requirement' : 'Activate requirement'"
+                                                :aria-label="req.is_active ? t('settings_kyc_requirements.aria.deactivate') : t('settings_kyc_requirements.aria.activate')"
                                                 :aria-pressed="req.is_active"
                                                 class="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed"
                                             >
@@ -301,7 +303,7 @@ const toggleActive = (req: KycRequirement) => {
                                                     :data-testid="`edit-requirement-${req.id}`"
                                                     @click="openEditModal(req)"
                                                     class="p-1 text-gray-400 hover:text-blue-600"
-                                                    title="Edit"
+                                                    :title="t('settings_kyc_requirements.actions.edit')"
                                                 >
                                                     <PencilSquareIcon class="w-5 h-5" />
                                                 </button>
@@ -311,13 +313,13 @@ const toggleActive = (req: KycRequirement) => {
                                                     :data-testid="`delete-requirement-${req.id}`"
                                                     @click="deleteRequirement(req)"
                                                     class="p-1 text-gray-400 hover:text-red-600"
-                                                    title="Delete"
+                                                    :title="t('settings_kyc_requirements.actions.delete')"
                                                 >
                                                     <TrashIcon class="w-5 h-5" />
                                                 </button>
                                             </div>
                                             <span v-else class="text-xs text-gray-400">
-                                                Read-only
+                                                {{ t('settings_kyc_requirements.actions.read_only') }}
                                             </span>
                                         </td>
                                     </tr>
@@ -327,8 +329,8 @@ const toggleActive = (req: KycRequirement) => {
 
                         <div v-if="requirements.data.length === 0" class="py-12 text-center">
                             <DocumentCheckIcon class="w-12 h-12 mx-auto text-gray-400" />
-                            <h3 class="mt-2 text-sm font-medium text-gray-900">No requirements</h3>
-                            <p class="mt-1 text-sm text-gray-500">Get started by adding a KYC requirement.</p>
+                            <h3 class="mt-2 text-sm font-medium text-gray-900">{{ t('settings_kyc_requirements.empty.title') }}</h3>
+                            <p class="mt-1 text-sm text-gray-500">{{ t('settings_kyc_requirements.empty.subtitle') }}</p>
                             <div v-if="canCreate" class="mt-6">
                                 <button
                                     type="button"
@@ -336,7 +338,7 @@ const toggleActive = (req: KycRequirement) => {
                                     class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700"
                                 >
                                     <PlusIcon class="w-5 h-5 me-2" />
-                                    Add Requirement
+                                    {{ t('settings_kyc_requirements.add_requirement') }}
                                 </button>
                             </div>
                         </div>
@@ -364,14 +366,14 @@ const toggleActive = (req: KycRequirement) => {
                             <!-- Requirement Type -->
                             <div v-if="!isEditing">
                                 <label for="requirement_type" class="block text-sm font-medium text-gray-700">
-                                    Requirement Type *
+                                    {{ t('settings_kyc_requirements.form.requirement_type') }}
                                 </label>
                                 <input
                                     id="requirement_type"
                                     data-testid="input-requirement-type"
                                     v-model="form.requirement_type"
                                     type="text"
-                                    placeholder="e.g., proof_of_income"
+                                    :placeholder="t('settings_kyc_requirements.form.requirement_type_placeholder')"
                                     class="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                                     :class="{ 'border-red-500': form.errors.requirement_type }"
                                 />
@@ -383,14 +385,14 @@ const toggleActive = (req: KycRequirement) => {
                             <!-- Label -->
                             <div>
                                 <label for="label" class="block text-sm font-medium text-gray-700">
-                                    Label *
+                                    {{ t('settings_kyc_requirements.form.label') }}
                                 </label>
                                 <input
                                     id="label"
                                     data-testid="input-label"
                                     v-model="form.label"
                                     type="text"
-                                    placeholder="e.g., Proof of Income"
+                                    :placeholder="t('settings_kyc_requirements.form.label_placeholder')"
                                     class="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                                     :class="{ 'border-red-500': form.errors.label }"
                                 />
@@ -402,14 +404,14 @@ const toggleActive = (req: KycRequirement) => {
                             <!-- Description -->
                             <div>
                                 <label for="description" class="block text-sm font-medium text-gray-700">
-                                    Description
+                                    {{ t('settings_kyc_requirements.form.description') }}
                                 </label>
                                 <textarea
                                     id="description"
                                     data-testid="input-description"
                                     v-model="form.description"
                                     rows="2"
-                                    placeholder="Instructions for the tenant..."
+                                    :placeholder="t('settings_kyc_requirements.form.description_placeholder')"
                                     class="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                                 ></textarea>
                             </div>
@@ -417,7 +419,7 @@ const toggleActive = (req: KycRequirement) => {
                             <!-- Building -->
                             <div v-if="!isEditing">
                                 <label for="building_id" class="block text-sm font-medium text-gray-700">
-                                    Building (Optional)
+                                    {{ t('settings_kyc_requirements.form.building') }}
                                 </label>
                                 <select
                                     id="building_id"
@@ -425,13 +427,13 @@ const toggleActive = (req: KycRequirement) => {
                                     v-model="form.building_id"
                                     class="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                                 >
-                                    <option :value="null">All Buildings</option>
+                                    <option :value="null">{{ t('settings_kyc_requirements.form.all_buildings') }}</option>
                                     <option v-for="building in buildings" :key="building.id" :value="building.id">
                                         {{ building.name }}
                                     </option>
                                 </select>
                                 <p class="mt-1 text-xs text-gray-500">
-                                    Leave empty to apply to all buildings
+                                    {{ t('settings_kyc_requirements.form.building_help') }}
                                 </p>
                             </div>
 
@@ -444,7 +446,7 @@ const toggleActive = (req: KycRequirement) => {
                                         type="checkbox"
                                         class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                                     />
-                                    <span class="ms-2 text-sm text-gray-700">Required</span>
+                                    <span class="ms-2 text-sm text-gray-700">{{ t('settings_kyc_requirements.form.required') }}</span>
                                 </label>
                                 <label class="flex items-center">
                                     <input
@@ -453,7 +455,7 @@ const toggleActive = (req: KycRequirement) => {
                                         type="checkbox"
                                         class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                                     />
-                                    <span class="ms-2 text-sm text-gray-700">Active</span>
+                                    <span class="ms-2 text-sm text-gray-700">{{ t('settings_kyc_requirements.form.active') }}</span>
                                 </label>
                             </div>
                         </div>
@@ -464,7 +466,7 @@ const toggleActive = (req: KycRequirement) => {
                                 @click="closeModal"
                                 class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50"
                             >
-                                Cancel
+                                {{ t('settings_kyc_requirements.form.cancel') }}
                             </button>
                             <button
                                 type="submit"
@@ -472,7 +474,7 @@ const toggleActive = (req: KycRequirement) => {
                                 :disabled="form.processing"
                                 class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
                             >
-                                {{ form.processing ? 'Saving...' : (isEditing ? 'Update' : 'Create') }}
+                                {{ form.processing ? t('settings_kyc_requirements.form.saving') : (isEditing ? t('settings_kyc_requirements.form.update') : t('settings_kyc_requirements.form.create')) }}
                             </button>
                         </div>
                     </form>

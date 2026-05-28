@@ -5,6 +5,7 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import BuildingWingFilter from '@/Components/BuildingWingFilter.vue';
 import Pagination from '@/Components/Pagination.vue';
 import { useFormatters } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import type { PaymentVerificationsIndexPageProps } from '@/types/tenants';
 import {
     ShieldCheckIcon,
@@ -21,17 +22,18 @@ import {
 const props = defineProps<PaymentVerificationsIndexPageProps>();
 
 const { formatMoney: formatCurrency, formatDate } = useFormatters();
+const { t } = useI18n();
 
 const search = ref(props.filters?.search || '');
 const status = ref(props.filters?.status || '');
 
-const statusOptions = [
-    { value: '', label: 'All Statuses' },
-    { value: 'payment_submitted', label: 'Awaiting Review' },
-    { value: 'pending_payment', label: 'Pending Payment' },
-    { value: 'payment_verified', label: 'Verified' },
-    { value: 'rejected', label: 'Rejected' },
-];
+const statusOptions = computed(() => [
+    { value: '', label: t('payment_verifications_index.status_options.all') },
+    { value: 'payment_submitted', label: t('payment_verifications_index.status_options.awaiting_review') },
+    { value: 'pending_payment', label: t('payment_verifications_index.status_options.pending_payment') },
+    { value: 'payment_verified', label: t('payment_verifications_index.status_options.verified') },
+    { value: 'rejected', label: t('payment_verifications_index.status_options.rejected') },
+]);
 
 const applyFilters = () => {
     router.get(route('payment-verifications.index'), {
@@ -59,10 +61,10 @@ const onBuildingFilterChange = (buildingId, wingId) => {
 
 const getStatusBadge = (statusValue) => {
     const badges = {
-        pending_payment: { class: 'bg-yellow-100 text-yellow-800', label: 'Pending Payment' },
-        payment_submitted: { class: 'bg-blue-100 text-blue-800', label: 'Awaiting Review' },
-        payment_verified: { class: 'bg-green-100 text-green-800', label: 'Verified' },
-        rejected: { class: 'bg-red-100 text-red-800', label: 'Rejected' },
+        pending_payment: { class: 'bg-yellow-100 text-yellow-800', label: t('payment_verifications_index.status_options.pending_payment') },
+        payment_submitted: { class: 'bg-blue-100 text-blue-800', label: t('payment_verifications_index.status_options.awaiting_review') },
+        payment_verified: { class: 'bg-green-100 text-green-800', label: t('payment_verifications_index.status_options.verified') },
+        rejected: { class: 'bg-red-100 text-red-800', label: t('payment_verifications_index.status_options.rejected') },
     };
     return badges[statusValue] || { class: 'bg-gray-100 text-gray-800', label: statusValue };
 };
@@ -73,7 +75,7 @@ const awaitingReviewCount = computed(() => {
 </script>
 
 <template>
-    <Head title="Payment Verifications" />
+    <Head :title="t('payment_verifications_index.head_title')" />
 
     <AuthenticatedLayout>
         <template #header>
@@ -83,12 +85,12 @@ const awaitingReviewCount = computed(() => {
                         <ShieldCheckIcon class="w-6 h-6 text-indigo-600" />
                     </div>
                     <div>
-                        <h1 class="text-lg font-semibold text-gray-900">Payment Verifications</h1>
-                        <p class="text-sm text-gray-500">Review and approve new tenant payments</p>
+                        <h1 class="text-lg font-semibold text-gray-900">{{ t('payment_verifications_index.header.title') }}</h1>
+                        <p class="text-sm text-gray-500">{{ t('payment_verifications_index.header.subtitle') }}</p>
                     </div>
                 </div>
                 <div v-if="awaitingReviewCount > 0" class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
-                    {{ awaitingReviewCount }} awaiting review
+                    {{ t('payment_verifications_index.header.awaiting_review_badge', { count: awaitingReviewCount }) }}
                 </div>
             </div>
         </template>
@@ -104,7 +106,7 @@ const awaitingReviewCount = computed(() => {
                             <input
                                 v-model="search"
                                 type="text"
-                                placeholder="Search by tenant name..."
+                                :placeholder="t('payment_verifications_index.filters.search_placeholder')"
                                 class="w-full ps-10 pe-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                 @keyup.enter="applyFilters"
                             />
@@ -139,25 +141,25 @@ const awaitingReviewCount = computed(() => {
                             <thead class="bg-gray-50">
                                 <tr>
                                     <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Tenant
+                                        {{ t('payment_verifications_index.table.tenant') }}
                                     </th>
                                     <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Unit
+                                        {{ t('payment_verifications_index.table.unit') }}
                                     </th>
                                     <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Total Required
+                                        {{ t('payment_verifications_index.table.total_required') }}
                                     </th>
                                     <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Status
+                                        {{ t('payment_verifications_index.table.status') }}
                                     </th>
                                     <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Submitted
+                                        {{ t('payment_verifications_index.table.submitted') }}
                                     </th>
                                     <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Documents
+                                        {{ t('payment_verifications_index.table.documents') }}
                                     </th>
                                     <th class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Actions
+                                        {{ t('payment_verifications_index.table.actions') }}
                                     </th>
                                 </tr>
                             </thead>
@@ -174,7 +176,7 @@ const awaitingReviewCount = computed(() => {
                                             </div>
                                             <div class="ms-3">
                                                 <p class="text-sm font-medium text-gray-900">
-                                                    {{ verification.lease?.tenant?.name || 'Unknown' }}
+                                                    {{ verification.lease?.tenant?.name || t('payment_verifications_index.unknown_tenant') }}
                                                 </p>
                                                 <p class="text-xs text-gray-500">
                                                     {{ verification.lease?.tenant?.email }}
@@ -221,14 +223,14 @@ const awaitingReviewCount = computed(() => {
                                             class="inline-flex items-center px-3 py-1.5 text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 rounded-lg transition-colors"
                                         >
                                             <EyeIcon class="w-4 h-4 me-1" />
-                                            View
+                                            {{ t('payment_verifications_index.actions.view') }}
                                         </Link>
                                     </td>
                                 </tr>
                                 <tr v-if="verifications.data.length === 0">
                                     <td colspan="7" class="px-6 py-12 text-center">
                                         <ShieldCheckIcon class="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                                        <p class="text-gray-500">No payment verifications found</p>
+                                        <p class="text-gray-500">{{ t('payment_verifications_index.empty') }}</p>
                                     </td>
                                 </tr>
                             </tbody>
