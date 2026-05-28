@@ -9,8 +9,10 @@ import {
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 import { computed } from 'vue';
+import { useI18n } from '@/composables/useI18n';
 
 const props = defineProps<HelpShowPageProps>();
+const { t } = useI18n();
 
 // Phase-15 FRONT-1: sanitize the marked output before v-html. marked
 // permits inline HTML pass-through (per the CommonMark spec) so any
@@ -34,12 +36,12 @@ const renderedContent = computed(() => {
     });
 });
 
-const categoryLabels = {
-    'getting-started': 'Getting Started',
-    'features': 'Features & How-To',
-    'billing': 'Billing & Payments',
-    'troubleshooting': 'Troubleshooting',
-};
+const categoryLabels = computed<Record<string, string>>(() => ({
+    'getting-started': t('help_show.category_getting_started'),
+    'features': t('help_show.category_features'),
+    'billing': t('help_show.category_billing'),
+    'troubleshooting': t('help_show.category_troubleshooting'),
+}));
 </script>
 
 <template>
@@ -54,7 +56,7 @@ const categoryLabels = {
                     class="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-indigo-600 mb-6"
                 >
                     <ArrowLeftIcon class="h-4 w-4" />
-                    Back to Help Center
+                    {{ t('help_show.back_to_help_center') }}
                 </Link>
 
                 <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
@@ -82,7 +84,7 @@ const categoryLabels = {
                     <div class="lg:col-span-1">
                         <div v-if="relatedArticles?.length" class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden sticky top-24">
                             <div class="px-4 py-3 border-b border-gray-100 bg-gray-50">
-                                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Related Articles</h3>
+                                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">{{ t('help_show.related_articles') }}</h3>
                             </div>
                             <div class="divide-y divide-gray-100">
                                 <Link

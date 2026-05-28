@@ -2,6 +2,7 @@
 import { Head } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { FunnelIcon } from '@heroicons/vue/24/outline';
+import { useI18n } from '@/composables/useI18n';
 
 interface StepRow {
     step: number;
@@ -33,6 +34,8 @@ const props = defineProps<{
     inviteFunnel: InviteFunnel;
 }>();
 
+const { t } = useI18n();
+
 function pct(reached: number, total: number): number {
     return total > 0 ? Math.round((reached / total) * 100) : 0;
 }
@@ -40,7 +43,7 @@ function pct(reached: number, total: number): number {
 
 <template>
     <AuthenticatedLayout>
-        <Head title="Onboarding funnel" />
+        <Head :title="t('ops_onboarding_funnel.page_title')" />
 
         <template #header>
             <div class="flex items-center gap-3">
@@ -48,8 +51,8 @@ function pct(reached: number, total: number): number {
                     <FunnelIcon class="w-6 h-6 text-indigo-600" />
                 </div>
                 <div>
-                    <h1 class="text-lg font-semibold text-gray-900">Onboarding funnel</h1>
-                    <p class="text-sm text-gray-500">Per-role step completion + invite conversion (platform-wide)</p>
+                    <h1 class="text-lg font-semibold text-gray-900">{{ t('ops_onboarding_funnel.header_title') }}</h1>
+                    <p class="text-sm text-gray-500">{{ t('ops_onboarding_funnel.header_subtitle') }}</p>
                 </div>
             </div>
         </template>
@@ -61,19 +64,19 @@ function pct(reached: number, total: number): number {
                 class="rounded-lg bg-white p-5 shadow"
             >
                 <div class="mb-3 flex items-center justify-between">
-                    <h2 class="text-sm font-semibold capitalize text-gray-900">{{ role }}</h2>
+                    <h2 class="text-sm font-semibold capitalize text-gray-900">{{ t(`ops_onboarding_funnel.roles.${role}`, role ?? '') }}</h2>
                     <div class="text-xs text-gray-500">
-                        {{ funnels[role].total }} sessions ·
+                        {{ t('ops_onboarding_funnel.sessions_count', { count: funnels[role].total }) }} ·
                         <span class="font-medium" :class="funnels[role].completion_rate < 40 ? 'text-rose-600' : 'text-emerald-700'">
-                            {{ funnels[role].completion_rate }}% complete
+                            {{ t('ops_onboarding_funnel.complete_rate', { rate: funnels[role].completion_rate }) }}
                         </span>
-                        <span v-if="funnels[role].drop_off_step"> · biggest drop at step {{ funnels[role].drop_off_step }}</span>
+                        <span v-if="funnels[role].drop_off_step"> · {{ t('ops_onboarding_funnel.biggest_drop_at_step', { step: funnels[role].drop_off_step }) }}</span>
                     </div>
                 </div>
 
                 <ul class="space-y-1.5">
                     <li v-for="s in funnels[role].steps" :key="s.step" class="flex items-center gap-3">
-                        <span class="w-40 truncate text-xs text-gray-600">{{ s.step }}. {{ s.label }}</span>
+                        <span class="w-40 truncate text-xs text-gray-600">{{ s.step }}. {{ t(`ops_onboarding_funnel.step_labels.${s.label}`, s.label ?? '') }}</span>
                         <div class="h-3 flex-1 overflow-hidden rounded bg-gray-100">
                             <div
                                 class="h-full bg-indigo-500"
@@ -86,15 +89,15 @@ function pct(reached: number, total: number): number {
             </section>
 
             <section class="rounded-lg bg-white p-5 shadow" data-testid="invite-funnel">
-                <h2 class="mb-3 text-sm font-semibold text-gray-900">Invitation funnel</h2>
+                <h2 class="mb-3 text-sm font-semibold text-gray-900">{{ t('ops_onboarding_funnel.invitation_funnel') }}</h2>
                 <div class="grid grid-cols-2 gap-3 sm:grid-cols-5">
-                    <div><p class="text-xs uppercase text-gray-400">Sent</p><p class="text-xl font-semibold text-gray-900">{{ inviteFunnel.sent }}</p></div>
-                    <div><p class="text-xs uppercase text-gray-400">Viewed</p><p class="text-xl font-semibold text-gray-900">{{ inviteFunnel.viewed }}</p></div>
-                    <div><p class="text-xs uppercase text-gray-400">Accepted</p><p class="text-xl font-semibold text-emerald-700">{{ inviteFunnel.accepted }}</p></div>
-                    <div><p class="text-xs uppercase text-gray-400">Pending</p><p class="text-xl font-semibold text-amber-600">{{ inviteFunnel.pending }}</p></div>
-                    <div><p class="text-xs uppercase text-gray-400">Expired</p><p class="text-xl font-semibold text-gray-400">{{ inviteFunnel.expired }}</p></div>
+                    <div><p class="text-xs uppercase text-gray-400">{{ t('ops_onboarding_funnel.invite.sent') }}</p><p class="text-xl font-semibold text-gray-900">{{ inviteFunnel.sent }}</p></div>
+                    <div><p class="text-xs uppercase text-gray-400">{{ t('ops_onboarding_funnel.invite.viewed') }}</p><p class="text-xl font-semibold text-gray-900">{{ inviteFunnel.viewed }}</p></div>
+                    <div><p class="text-xs uppercase text-gray-400">{{ t('ops_onboarding_funnel.invite.accepted') }}</p><p class="text-xl font-semibold text-emerald-700">{{ inviteFunnel.accepted }}</p></div>
+                    <div><p class="text-xs uppercase text-gray-400">{{ t('ops_onboarding_funnel.invite.pending') }}</p><p class="text-xl font-semibold text-amber-600">{{ inviteFunnel.pending }}</p></div>
+                    <div><p class="text-xs uppercase text-gray-400">{{ t('ops_onboarding_funnel.invite.expired') }}</p><p class="text-xl font-semibold text-gray-400">{{ inviteFunnel.expired }}</p></div>
                 </div>
-                <p class="mt-3 text-sm text-gray-600">Acceptance rate: <span class="font-semibold text-gray-900">{{ inviteFunnel.acceptance_rate }}%</span></p>
+                <p class="mt-3 text-sm text-gray-600">{{ t('ops_onboarding_funnel.acceptance_rate_label') }} <span class="font-semibold text-gray-900">{{ inviteFunnel.acceptance_rate }}%</span></p>
             </section>
         </div>
     </AuthenticatedLayout>
