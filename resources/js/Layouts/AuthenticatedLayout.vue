@@ -423,7 +423,7 @@ const navigationItems = computed(() => {
                             <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{{ item.label }}</p>
                         </div>
 
-                        <!-- Nav Link -->
+                        <!-- Nav Link i18n-ignore -->
                         <Link v-else
                               :href="item.href"
                               :data-tour="item.tour"
@@ -573,6 +573,7 @@ const navigationItems = computed(() => {
                             <div v-if="item.type === 'divider'" class="mt-6 mb-2">
                                 <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{{ item.label }}</p>
                             </div>
+                            <!-- i18n-ignore -->
                             <Link v-else
                                   :href="item.href"
                                   :data-tour="item.tour"

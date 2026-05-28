@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import Modal from '@/Components/Modal.vue';
+import { useI18n } from '@/composables/useI18n';
 import type { AddBuildingModalProps } from '@/types';
 import {
     BuildingOffice2Icon,
@@ -22,6 +23,8 @@ const props = defineProps<AddBuildingModalProps>();
 
 const emit = defineEmits(['close']);
 
+const { t } = useI18n();
+
 // Multi-step wizard
 const currentStep = ref(1);
 const totalSteps = 4;
@@ -40,12 +43,12 @@ const form = useForm({
     coordinates: null,
 });
 
-const stepTitles = {
-    1: 'Basic Information',
-    2: 'Building Structure',
-    3: 'Amenities',
-    4: 'Review & Create',
-};
+const stepTitles = computed(() => ({
+    1: t('add_building_modal.step_basic_info'),
+    2: t('add_building_modal.step_structure'),
+    3: t('add_building_modal.step_amenities'),
+    4: t('add_building_modal.step_review'),
+}));
 
 const stepIcons = {
     1: BuildingOffice2Icon,
@@ -141,8 +144,8 @@ const close = () => {
             <!-- Header -->
             <div class="flex items-center justify-between mb-6">
                 <div>
-                    <h2 class="text-xl font-bold text-gray-900">Add New Building</h2>
-                    <p class="text-sm text-gray-500 mt-1">Step {{ currentStep }} of {{ totalSteps }}: {{ stepTitles[currentStep] }}</p>
+                    <h2 class="text-xl font-bold text-gray-900">{{ t('add_building_modal.title') }}</h2>
+                    <p class="text-sm text-gray-500 mt-1">{{ t('add_building_modal.step_progress', { current: currentStep, total: totalSteps, title: stepTitles[currentStep] }) }}</p>
                 </div>
                 <button @click="close" class="p-2 hover:bg-gray-100 rounded-lg transition">
                     <XMarkIcon class="w-5 h-5 text-gray-500" />
@@ -175,11 +178,11 @@ const close = () => {
                 <!-- Step 1: Basic Info -->
                 <div v-if="currentStep === 1" class="space-y-6">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Building Name *</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('add_building_modal.building_name_required') }}</label>
                         <input
                             v-model="form.name"
                             type="text"
-                            placeholder="e.g., Sunset Apartments"
+                            :placeholder="t('add_building_modal.building_name_placeholder')"
                             class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                             :class="{ 'border-red-300': form.errors.name }"
                         />
@@ -187,7 +190,7 @@ const close = () => {
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Building Type *</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('add_building_modal.building_type_required') }}</label>
                         <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
                             <button
                                 v-for="(label, key) in buildingTypes"
@@ -205,13 +208,13 @@ const close = () => {
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Address (Optional)</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('add_building_modal.address_optional') }}</label>
                         <div class="relative">
                             <MapPinIcon class="absolute start-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                             <input
                                 v-model="form.address"
                                 type="text"
-                                placeholder="Street address, city, country"
+                                :placeholder="t('add_building_modal.address_placeholder')"
                                 class="w-full ps-10 border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                             />
                         </div>
@@ -222,7 +225,7 @@ const close = () => {
                 <div v-if="currentStep === 2" class="space-y-6">
                     <div class="grid grid-cols-2 gap-6">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Number of Floors *</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('add_building_modal.floors_required') }}</label>
                             <input
                                 v-model.number="form.total_floors"
                                 type="number"
@@ -230,11 +233,11 @@ const close = () => {
                                 max="100"
                                 class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-center text-lg font-semibold"
                             />
-                            <p class="mt-1 text-xs text-gray-500">Ground floor = 1</p>
+                            <p class="mt-1 text-xs text-gray-500">{{ t('add_building_modal.floors_hint') }}</p>
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Units per Floor *</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('add_building_modal.units_per_floor_required') }}</label>
                             <input
                                 v-model.number="form.units_per_floor"
                                 type="number"
@@ -242,25 +245,25 @@ const close = () => {
                                 max="50"
                                 class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-center text-lg font-semibold"
                             />
-                            <p class="mt-1 text-xs text-gray-500">Average per floor</p>
+                            <p class="mt-1 text-xs text-gray-500">{{ t('add_building_modal.units_per_floor_hint') }}</p>
                         </div>
                     </div>
 
                     <!-- Preview -->
                     <div class="bg-gray-50 rounded-xl p-6 text-center">
                         <div class="text-4xl font-bold text-indigo-600">{{ totalUnits }}</div>
-                        <div class="text-sm text-gray-500 mt-1">Total Units</div>
+                        <div class="text-sm text-gray-500 mt-1">{{ t('add_building_modal.total_units') }}</div>
                         <p class="text-xs text-gray-400 mt-2">
-                            {{ form.total_floors }} floor(s) x {{ form.units_per_floor }} units = {{ totalUnits }} total units
+                            {{ t('add_building_modal.units_breakdown', { floors: form.total_floors, perFloor: form.units_per_floor, total: totalUnits }) }}
                         </p>
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Description (Optional)</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('add_building_modal.description_optional') }}</label>
                         <textarea
                             v-model="form.description"
                             rows="3"
-                            placeholder="Brief description of the building..."
+                            :placeholder="t('add_building_modal.description_placeholder')"
                             class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                         ></textarea>
                     </div>
@@ -268,7 +271,7 @@ const close = () => {
 
                 <!-- Step 3: Amenities -->
                 <div v-if="currentStep === 3" class="space-y-6">
-                    <p class="text-sm text-gray-500">Select the amenities available in this building. You can update these later.</p>
+                    <p class="text-sm text-gray-500">{{ t('add_building_modal.amenities_intro') }}</p>
 
                     <div v-for="(items, category) in amenityOptions" :key="category" class="space-y-3">
                         <h4 class="text-sm font-semibold text-gray-700 capitalize flex items-center gap-2">
@@ -291,7 +294,7 @@ const close = () => {
                     </div>
 
                     <div class="text-center text-sm text-gray-500 pt-4 border-t">
-                        {{ form.amenities.selected.length }} amenities selected
+                        {{ t('add_building_modal.amenities_selected_count', { count: form.amenities.selected.length }) }}
                     </div>
                 </div>
 
@@ -300,30 +303,30 @@ const close = () => {
                     <div class="bg-gray-50 rounded-xl p-6 space-y-4">
                         <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <p class="text-sm text-gray-500">Building Name</p>
+                                <p class="text-sm text-gray-500">{{ t('add_building_modal.review_building_name') }}</p>
                                 <p class="font-semibold text-gray-900">{{ form.name }}</p>
                             </div>
                             <div>
-                                <p class="text-sm text-gray-500">Type</p>
+                                <p class="text-sm text-gray-500">{{ t('add_building_modal.review_type') }}</p>
                                 <p class="font-semibold text-gray-900">{{ buildingTypes[form.building_type] }}</p>
                             </div>
                             <div>
-                                <p class="text-sm text-gray-500">Structure</p>
-                                <p class="font-semibold text-gray-900">{{ form.total_floors }} floors, {{ form.units_per_floor }} units/floor</p>
+                                <p class="text-sm text-gray-500">{{ t('add_building_modal.review_structure') }}</p>
+                                <p class="font-semibold text-gray-900">{{ t('add_building_modal.review_structure_value', { floors: form.total_floors, perFloor: form.units_per_floor }) }}</p>
                             </div>
                             <div>
-                                <p class="text-sm text-gray-500">Total Units</p>
-                                <p class="font-semibold text-indigo-600">{{ totalUnits }} units</p>
+                                <p class="text-sm text-gray-500">{{ t('add_building_modal.total_units') }}</p>
+                                <p class="font-semibold text-indigo-600">{{ t('add_building_modal.review_total_units_value', { total: totalUnits }) }}</p>
                             </div>
                         </div>
 
                         <div v-if="form.address">
-                            <p class="text-sm text-gray-500">Address</p>
+                            <p class="text-sm text-gray-500">{{ t('add_building_modal.review_address') }}</p>
                             <p class="font-semibold text-gray-900">{{ form.address }}</p>
                         </div>
 
                         <div v-if="form.amenities.selected.length > 0">
-                            <p class="text-sm text-gray-500 mb-2">Amenities</p>
+                            <p class="text-sm text-gray-500 mb-2">{{ t('add_building_modal.review_amenities') }}</p>
                             <div class="flex flex-wrap gap-1">
                                 <span
                                     v-for="key in form.amenities.selected"
@@ -338,8 +341,7 @@ const close = () => {
 
                     <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
                         <p class="text-sm text-blue-800">
-                            <strong>Note:</strong> This will create {{ totalUnits }} vacant units automatically.
-                            You can customize individual units, add tenants, and configure rent amounts after creation.
+                            <strong>{{ t('add_building_modal.note_label') }}</strong> {{ t('add_building_modal.note_body', { total: totalUnits }) }}
                         </p>
                     </div>
                 </div>
@@ -353,7 +355,7 @@ const close = () => {
                     class="inline-flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition"
                 >
                     <ArrowLeftIcon class="w-4 h-4 me-2" />
-                    Back
+                    {{ t('add_building_modal.back') }}
                 </button>
                 <div v-else></div>
 
@@ -362,7 +364,7 @@ const close = () => {
                         @click="close"
                         class="px-4 py-2 text-gray-600 hover:text-gray-900 transition"
                     >
-                        Cancel
+                        {{ t('add_building_modal.cancel') }}
                     </button>
 
                     <button
@@ -371,7 +373,7 @@ const close = () => {
                         :disabled="!canProceed"
                         class="inline-flex items-center px-6 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        Next
+                        {{ t('add_building_modal.next') }}
                         <ArrowRightIcon class="w-4 h-4 ms-2" />
                     </button>
 
@@ -382,7 +384,7 @@ const close = () => {
                         class="inline-flex items-center px-6 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition disabled:opacity-50"
                     >
                         <CheckIcon class="w-4 h-4 me-2" />
-                        Create Building
+                        {{ t('add_building_modal.create_building') }}
                     </button>
                 </div>
             </div>

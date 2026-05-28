@@ -5,9 +5,11 @@ import EmptyState from '@/Components/EmptyState.vue';
 import { ClipboardDocumentListIcon } from '@heroicons/vue/24/outline';
 import { Head, router } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
+import { useI18n } from '@/composables/useI18n';
 import type { AdminAuditLogsPageProps } from '@/types';
 
 const props = defineProps<AdminAuditLogsPageProps>();
+const { t } = useI18n();
 
 const filters = ref({
     event_type: props.filters.event_type || '',
@@ -61,19 +63,19 @@ const getEventBadgeClass = (color) => {
 </script>
 
 <template>
-    <Head title="Audit Logs" />
+    <Head :title="t('admin_audit_logs.title')" />
 
     <AuthenticatedLayout>
         <template #header>
             <div class="flex justify-between items-center">
                 <h1 class="font-semibold text-xl text-gray-800 leading-tight">
-                    Audit Logs
+                    {{ t('admin_audit_logs.title') }}
                 </h1>
                 <button
                     @click="exportLogs"
                     class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-sm"
                 >
-                    Export CSV
+                    {{ t('admin_audit_logs.export_csv') }}
                 </button>
             </div>
         </template>
@@ -84,43 +86,43 @@ const getEventBadgeClass = (color) => {
                 <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
                     <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Search</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('admin_audit_logs.filters.search') }}</label>
                             <input
                                 v-model="filters.search"
                                 type="text"
-                                placeholder="Search..."
+                                :placeholder="t('admin_audit_logs.filters.search_placeholder')"
                                 class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
                                 @keyup.enter="applyFilters"
                             >
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Event Type</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('admin_audit_logs.filters.event_type') }}</label>
                             <select
                                 v-model="filters.event_type"
                                 class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
                                 @change="applyFilters"
                             >
-                                <option value="">All Events</option>
+                                <option value="">{{ t('admin_audit_logs.filters.all_events') }}</option>
                                 <option v-for="type in eventTypes" :key="type" :value="type">
                                     {{ type }}
                                 </option>
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Model Type</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('admin_audit_logs.filters.model_type') }}</label>
                             <select
                                 v-model="filters.model_type"
                                 class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
                                 @change="applyFilters"
                             >
-                                <option value="">All Models</option>
+                                <option value="">{{ t('admin_audit_logs.filters.all_models') }}</option>
                                 <option v-for="type in modelTypes" :key="type" :value="type">
                                     {{ type }}
                                 </option>
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">From Date</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('admin_audit_logs.filters.from_date') }}</label>
                             <input
                                 v-model="filters.date_from"
                                 type="date"
@@ -129,7 +131,7 @@ const getEventBadgeClass = (color) => {
                             >
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">To Date</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('admin_audit_logs.filters.to_date') }}</label>
                             <input
                                 v-model="filters.date_to"
                                 type="date"
@@ -143,13 +145,13 @@ const getEventBadgeClass = (color) => {
                             @click="clearFilters"
                             class="px-4 py-2 text-gray-600 hover:text-gray-800 text-sm"
                         >
-                            Clear Filters
+                            {{ t('admin_audit_logs.filters.clear') }}
                         </button>
                         <button
                             @click="applyFilters"
                             class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm"
                         >
-                            Apply Filters
+                            {{ t('admin_audit_logs.filters.apply') }}
                         </button>
                     </div>
                 </div>
@@ -160,25 +162,25 @@ const getEventBadgeClass = (color) => {
                         <thead class="bg-gray-50">
                             <tr>
                                 <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Date/Time
+                                    {{ t('admin_audit_logs.columns.datetime') }}
                                 </th>
                                 <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    User
+                                    {{ t('admin_audit_logs.columns.user') }}
                                 </th>
                                 <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Event
+                                    {{ t('admin_audit_logs.columns.event') }}
                                 </th>
                                 <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Model
+                                    {{ t('admin_audit_logs.columns.model') }}
                                 </th>
                                 <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Changes
+                                    {{ t('admin_audit_logs.columns.changes') }}
                                 </th>
                                 <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    IP
+                                    {{ t('admin_audit_logs.columns.ip') }}
                                 </th>
                                 <th class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Actions
+                                    {{ t('admin_audit_logs.columns.actions') }}
                                 </th>
                             </tr>
                         </thead>
@@ -193,7 +195,7 @@ const getEventBadgeClass = (color) => {
                                         <div class="font-medium text-gray-900">{{ log.user.name }}</div>
                                         <div class="text-gray-500 text-xs">{{ log.user.email }}</div>
                                     </div>
-                                    <span v-else class="text-sm text-gray-400">System</span>
+                                    <span v-else class="text-sm text-gray-400">{{ t('admin_audit_logs.system_user') }}</span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <span
@@ -221,7 +223,7 @@ const getEventBadgeClass = (color) => {
                                         @click="viewDetails(log.id)"
                                         class="text-indigo-600 hover:text-indigo-900"
                                     >
-                                        View Details
+                                        {{ t('admin_audit_logs.view_details') }}
                                     </button>
                                 </td>
                             </tr>
@@ -230,8 +232,8 @@ const getEventBadgeClass = (color) => {
                                 <td colspan="7" class="px-6">
                                     <EmptyState
                                         :icon="ClipboardDocumentListIcon"
-                                        title="No audit logs found"
-                                        description="Adjust your filters above. Audit logs are generated automatically as users act on records."
+                                        :title="t('admin_audit_logs.empty.title')"
+                                        :description="t('admin_audit_logs.empty.body')"
                                     />
                                 </td>
                             </tr>

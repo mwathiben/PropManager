@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue';
 import { router } from '@inertiajs/vue3';
 import { ExclamationTriangleIcon, XMarkIcon } from '@heroicons/vue/24/outline';
+import { useI18n } from '@/composables/useI18n';
 
 interface Props {
     subjectType: string;
@@ -10,6 +11,7 @@ interface Props {
 }
 
 const props = defineProps<Props>();
+const { t } = useI18n();
 
 const open = ref(false);
 const reason = ref('');
@@ -68,13 +70,13 @@ defineExpose({ open: openModal });
                     <button
                         @click="closeModal"
                         class="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
-                        aria-label="Close"
+                        :aria-label="t('hold_create_modal.close')"
                     >
                         <XMarkIcon class="h-5 w-5" />
                     </button>
 
                     <h3 id="hold-create-title" class="text-lg font-semibold text-gray-900 pr-8">
-                        Place under legal hold
+                        {{ t('hold_create_modal.title') }}
                     </h3>
                     <p class="mt-1 text-sm text-gray-500">
                         {{ subjectLabel }}
@@ -83,13 +85,13 @@ defineExpose({ open: openModal });
                     <div class="mt-4 flex items-start gap-3 rounded-lg bg-amber-50 ring-1 ring-amber-200 p-3">
                         <ExclamationTriangleIcon class="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
                         <p class="text-sm text-amber-900">
-                            Held subjects are excluded from retention purges until released.
+                            {{ t('hold_create_modal.warning') }}
                         </p>
                     </div>
 
                     <div class="mt-4">
                         <label for="hold-reason" class="block text-sm font-medium text-gray-700">
-                            Reason
+                            {{ t('hold_create_modal.reason_label') }}
                             <span class="text-rose-500">*</span>
                         </label>
                         <textarea
@@ -98,7 +100,7 @@ defineExpose({ open: openModal });
                             rows="4"
                             maxlength="500"
                             class="mt-1 block w-full rounded-lg border-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                            placeholder="Court order CV/2026/0123 — preservation directive"
+                            :placeholder="t('hold_create_modal.reason_placeholder')"
                             data-testid="hold-reason"
                         ></textarea>
                         <div class="mt-1 flex items-center justify-between">
@@ -114,7 +116,7 @@ defineExpose({ open: openModal });
                             class="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900"
                             :disabled="submitting"
                         >
-                            Cancel
+                            {{ t('hold_create_modal.cancel') }}
                         </button>
                         <button
                             type="button"
@@ -123,7 +125,7 @@ defineExpose({ open: openModal });
                             class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg disabled:opacity-50"
                             data-testid="hold-submit"
                         >
-                            {{ submitting ? 'Placing…' : 'Place hold' }}
+                            {{ submitting ? t('hold_create_modal.submitting') : t('hold_create_modal.submit') }}
                         </button>
                     </div>
                 </div>

@@ -78,7 +78,7 @@ class UpdateWaterSettingsRequest extends FormRequest
                     || ($to === null && $i !== $last);
 
                 if ($invalid) {
-                    $v->errors()->add('tiered_tariffs', __('water.settings.tiers_invalid'));
+                    $v->errors()->add('tiered_tariffs', __('water_settings_form.tiers_invalid'));
 
                     return;
                 }

@@ -114,19 +114,19 @@ onMounted(async () => {
                 <div class="p-2 bg-blue-100 rounded-lg">
                     <Cog6ToothIcon class="w-6 h-6 text-blue-600" />
                 </div>
-                <h2 class="ms-3 text-lg font-semibold text-gray-900">{{ $t('water.settings.global_title') }}</h2>
+                <h2 class="ms-3 text-lg font-semibold text-gray-900">{{ $t('water_settings_form.global_title') }}</h2>
             </div>
-            <p class="text-sm text-gray-500 mb-6">{{ $t('water.settings.global_hint') }}</p>
+            <p class="text-sm text-gray-500 mb-6">{{ $t('water_settings_form.global_hint') }}</p>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="md:col-span-2">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ $t('water.settings.billing_method') }}</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ $t('water_settings_form.billing_method') }}</label>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <label
                             v-for="opt in [
-                                { value: 'consumption', title: $t('water.settings.type_consumption'), desc: $t('water.settings.type_consumption_hint') },
-                                { value: 'flat_rate', title: $t('water.settings.type_flat'), desc: $t('water.settings.type_flat_hint') },
-                                { value: 'none', title: $t('water.settings.type_none'), desc: $t('water.settings.type_none_hint') },
+                                { value: 'consumption', title: $t('water_settings_form.type_consumption'), desc: $t('water_settings_form.type_consumption_hint') },
+                                { value: 'flat_rate', title: $t('water_settings_form.type_flat'), desc: $t('water_settings_form.type_flat_hint') },
+                                { value: 'none', title: $t('water_settings_form.type_none'), desc: $t('water_settings_form.type_none_hint') },
                             ]"
                             :key="opt.value"
                             class="relative flex cursor-pointer rounded-lg border p-4"
@@ -145,18 +145,16 @@ onMounted(async () => {
                 </div>
 
                 <div v-if="form.water_billing_type === 'consumption'">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('water.settings.rate_per_unit') }} ({{ currencyCode }})</label>
-                    <input v-model="form.water_unit_rate" type="number" min="0" step="0.01"
-                        class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="150" />
-                    <p class="mt-1 text-xs text-gray-500">{{ $t('water.settings.rate_per_unit_hint') }}</p>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('water_settings_form.rate_per_unit') }} ({{ currencyCode }})</label>
+                    <input v-model="form.water_unit_rate" type="number" min="0" step="0.01" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="150" />
+                    <p class="mt-1 text-xs text-gray-500">{{ $t('water_settings_form.rate_per_unit_hint') }}</p>
                     <p v-if="form.errors.water_unit_rate" class="mt-1 text-sm text-red-600">{{ form.errors.water_unit_rate }}</p>
                 </div>
 
                 <div v-if="form.water_billing_type === 'flat_rate'">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('water.settings.flat_rate') }} ({{ currencyCode }})</label>
-                    <input v-model="form.flat_water_rate" type="number" min="0" step="0.01"
-                        class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="500" />
-                    <p class="mt-1 text-xs text-gray-500">{{ $t('water.settings.flat_rate_hint') }}</p>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('water_settings_form.flat_rate') }} ({{ currencyCode }})</label>
+                    <input v-model="form.flat_water_rate" type="number" min="0" step="0.01" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="500" />
+                    <p class="mt-1 text-xs text-gray-500">{{ $t('water_settings_form.flat_rate_hint') }}</p>
                     <p v-if="form.errors.flat_water_rate" class="mt-1 text-sm text-red-600">{{ form.errors.flat_water_rate }}</p>
                 </div>
             </div>
@@ -164,23 +162,23 @@ onMounted(async () => {
             <!-- Phase-87: tiered bands (consumption only) -->
             <div v-if="form.water_billing_type === 'consumption'" class="mt-6 border-t border-gray-100 pt-6">
                 <div class="flex items-center justify-between mb-2">
-                    <label class="block text-sm font-medium text-gray-700">{{ $t('water.settings.tiers_title') }}</label>
+                    <label class="block text-sm font-medium text-gray-700">{{ $t('water_settings_form.tiers_title') }}</label>
                     <button type="button" class="inline-flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800" @click="addBand">
-                        <PlusIcon class="w-4 h-4" /> {{ $t('water.settings.tiers_add') }}
+                        <PlusIcon class="w-4 h-4" /> {{ $t('water_settings_form.tiers_add') }}
                     </button>
                 </div>
-                <p class="text-xs text-gray-500 mb-3">{{ $t('water.settings.tiers_hint') }}</p>
+                <p class="text-xs text-gray-500 mb-3">{{ $t('water_settings_form.tiers_hint') }}</p>
                 <div v-for="(band, i) in form.tiered_tariffs" :key="i" class="flex flex-wrap items-end gap-3 mb-2">
                     <label class="block text-xs">
-                        <span class="text-gray-600">{{ $t('water.settings.tier_from') }}</span>
+                        <span class="text-gray-600">{{ $t('water_settings_form.tier_from') }}</span>
                         <input v-model="band.from" type="number" min="0" step="0.01" class="mt-1 w-28 border-gray-300 rounded-md text-sm" />
                     </label>
                     <label class="block text-xs">
-                        <span class="text-gray-600">{{ $t('water.settings.tier_to') }}</span>
-                        <input v-model="band.to" type="number" min="0" step="0.01" class="mt-1 w-28 border-gray-300 rounded-md text-sm" :placeholder="$t('water.settings.tier_open')" />
+                        <span class="text-gray-600">{{ $t('water_settings_form.tier_to') }}</span>
+                        <input v-model="band.to" type="number" min="0" step="0.01" class="mt-1 w-28 border-gray-300 rounded-md text-sm" :placeholder="$t('water_settings_form.tier_open')" />
                     </label>
                     <label class="block text-xs">
-                        <span class="text-gray-600">{{ $t('water.settings.tier_rate') }} ({{ currencyCode }})</span>
+                        <span class="text-gray-600">{{ $t('water_settings_form.tier_rate') }} ({{ currencyCode }})</span>
                         <input v-model="band.rate" type="number" min="0" step="0.01" class="mt-1 w-28 border-gray-300 rounded-md text-sm" />
                     </label>
                     <button type="button" class="p-2 text-red-500 hover:text-red-700" @click="removeBand(i)"><TrashIcon class="w-4 h-4" /></button>
@@ -190,38 +188,38 @@ onMounted(async () => {
             <!-- Phase-87: levies + source (all billing types except none) -->
             <div v-if="form.water_billing_type !== 'none'" class="mt-6 border-t border-gray-100 pt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <label class="block text-sm">
-                    <span class="text-gray-700">{{ $t('water.settings.standing_charge') }} ({{ currencyCode }})</span>
+                    <span class="text-gray-700">{{ $t('water_settings_form.standing_charge') }} ({{ currencyCode }})</span>
                     <input v-model="form.water_standing_charge" type="number" min="0" step="0.01" class="mt-1 w-full border-gray-300 rounded-md" />
                 </label>
                 <label class="block text-sm">
-                    <span class="text-gray-700">{{ $t('water.settings.minimum_charge') }} ({{ currencyCode }})</span>
+                    <span class="text-gray-700">{{ $t('water_settings_form.minimum_charge') }} ({{ currencyCode }})</span>
                     <input v-model="form.water_minimum_charge" type="number" min="0" step="0.01" class="mt-1 w-full border-gray-300 rounded-md" />
                 </label>
                 <label class="block text-sm">
-                    <span class="text-gray-700">{{ $t('water.settings.sewerage_percent') }} (%)</span>
+                    <span class="text-gray-700">{{ $t('water_settings_form.sewerage_percent') }} (%)</span>
                     <input v-model="form.water_sewerage_percent" type="number" min="0" max="100" step="0.01" class="mt-1 w-full border-gray-300 rounded-md" />
                 </label>
                 <label class="block text-sm">
-                    <span class="text-gray-700">{{ $t('water.settings.vat_percent') }} (%)</span>
+                    <span class="text-gray-700">{{ $t('water_settings_form.vat_percent') }} (%)</span>
                     <input v-model="form.water_vat_percent" type="number" min="0" max="100" step="0.01" class="mt-1 w-full border-gray-300 rounded-md" />
                 </label>
                 <label class="block text-sm">
-                    <span class="text-gray-700">{{ $t('water.settings.water_source') }}</span>
+                    <span class="text-gray-700">{{ $t('water_settings_form.water_source') }}</span>
                     <select v-model="form.water_source" class="mt-1 w-full border-gray-300 rounded-md">
-                        <option value="">{{ $t('water.settings.source_unset') }}</option>
-                        <option v-for="s in sourceOptions" :key="s" :value="s">{{ $t(`water.settings.source_${s}`) }}</option>
+                        <option value="">{{ $t('water_settings_form.source_unset') }}</option>
+                        <option v-for="s in sourceOptions" :key="s" :value="s">{{ $t(`water_settings_form.source_${s}`, s ?? '') }}</option>
                     </select>
                 </label>
                 <label class="block text-sm">
-                    <span class="text-gray-700">{{ $t('water.settings.reading_day') }}</span>
-                    <input v-model="form.water_reading_day" type="number" min="1" max="28" step="1" class="mt-1 w-full border-gray-300 rounded-md" :placeholder="$t('water.settings.reading_day_hint')" />
+                    <span class="text-gray-700">{{ $t('water_settings_form.reading_day') }}</span>
+                    <input v-model="form.water_reading_day" type="number" min="1" max="28" step="1" class="mt-1 w-full border-gray-300 rounded-md" :placeholder="$t('water_settings_form.reading_day_hint')" />
                 </label>
                 <label class="block text-sm">
-                    <span class="text-gray-700">{{ $t('water.settings.review_days') }}</span>
-                    <input v-model="form.water_review_days" type="number" min="1" max="31" step="1" class="mt-1 w-full border-gray-300 rounded-md" :placeholder="$t('water.settings.review_days_hint')" />
+                    <span class="text-gray-700">{{ $t('water_settings_form.review_days') }}</span>
+                    <input v-model="form.water_review_days" type="number" min="1" max="31" step="1" class="mt-1 w-full border-gray-300 rounded-md" :placeholder="$t('water_settings_form.review_days_hint')" />
                 </label>
                 <label class="block text-sm">
-                    <span class="text-gray-700">{{ $t('water.settings.reconnection_fee') }} ({{ currencyCode }})</span>
+                    <span class="text-gray-700">{{ $t('water_settings_form.reconnection_fee') }} ({{ currencyCode }})</span>
                     <input v-model="form.water_reconnection_fee" type="number" min="0" step="0.01" class="mt-1 w-full border-gray-300 rounded-md" />
                 </label>
             </div>
@@ -233,9 +231,9 @@ onMounted(async () => {
                 <div class="p-2 bg-green-100 rounded-lg">
                     <HomeModernIcon class="w-6 h-6 text-green-600" />
                 </div>
-                <h2 class="ms-3 text-lg font-semibold text-gray-900">{{ $t('water.settings.building_title') }}</h2>
+                <h2 class="ms-3 text-lg font-semibold text-gray-900">{{ $t('water_settings_form.building_title') }}</h2>
             </div>
-            <p class="text-sm text-gray-500 mb-6">{{ $t('water.settings.building_hint') }}</p>
+            <p class="text-sm text-gray-500 mb-6">{{ $t('water_settings_form.building_hint') }}</p>
 
             <div class="space-y-4">
                 <div
@@ -248,16 +246,16 @@ onMounted(async () => {
                     <div class="flex items-center justify-between mb-4">
                         <div>
                             <h3 class="font-medium text-gray-900">{{ building.name }}</h3>
-                            <p class="text-sm text-gray-500">{{ building.units_count }} {{ $t('water.settings.units') }}</p>
+                            <p class="text-sm text-gray-500">{{ building.units_count }} {{ $t('water_settings_form.units') }}</p>
                         </div>
                         <select
                             v-model="form.building_overrides[getBuildingOverrideIndex(building.id)].water_billing_type"
                             class="border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                         >
-                            <option value="inherit">{{ $t('water.settings.type_inherit') }}</option>
-                            <option value="consumption">{{ $t('water.settings.type_consumption') }}</option>
-                            <option value="flat_rate">{{ $t('water.settings.type_flat') }}</option>
-                            <option value="none">{{ $t('water.settings.type_none') }}</option>
+                            <option value="inherit">{{ $t('water_settings_form.type_inherit') }}</option>
+                            <option value="consumption">{{ $t('water_settings_form.type_consumption') }}</option>
+                            <option value="flat_rate">{{ $t('water_settings_form.type_flat') }}</option>
+                            <option value="none">{{ $t('water_settings_form.type_none') }}</option>
                         </select>
                     </div>
 
@@ -265,7 +263,7 @@ onMounted(async () => {
                         v-if="form.building_overrides[getBuildingOverrideIndex(building.id)].water_billing_type === 'consumption'"
                         class="mt-3 ps-4 border-s-2 border-indigo-200"
                     >
-                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('water.settings.rate_per_unit') }} ({{ currencyCode }})</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('water_settings_form.rate_per_unit') }} ({{ currencyCode }})</label>
                         <input v-model="form.building_overrides[getBuildingOverrideIndex(building.id)].water_unit_rate"
                             type="number" min="0" step="0.01"
                             class="w-48 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm"
@@ -276,7 +274,7 @@ onMounted(async () => {
                         v-if="form.building_overrides[getBuildingOverrideIndex(building.id)].water_billing_type === 'flat_rate'"
                         class="mt-3 ps-4 border-s-2 border-indigo-200"
                     >
-                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('water.settings.flat_rate') }} ({{ currencyCode }})</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('water_settings_form.flat_rate') }} ({{ currencyCode }})</label>
                         <input v-model="form.building_overrides[getBuildingOverrideIndex(building.id)].water_flat_rate"
                             type="number" min="0" step="0.01"
                             class="w-48 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm"
@@ -289,39 +287,39 @@ onMounted(async () => {
                         class="mt-3 ps-4 border-s-2 border-indigo-200 grid grid-cols-2 md:grid-cols-3 gap-3"
                     >
                         <label class="block text-xs">
-                            <span class="text-gray-600">{{ $t('water.settings.standing_charge') }}</span>
-                            <input v-model="form.building_overrides[getBuildingOverrideIndex(building.id)].water_standing_charge" type="number" min="0" step="0.01" class="mt-1 w-full border-gray-300 rounded-md text-sm" :placeholder="$t('water.settings.inherit_placeholder')" />
+                            <span class="text-gray-600">{{ $t('water_settings_form.standing_charge') }}</span>
+                            <input v-model="form.building_overrides[getBuildingOverrideIndex(building.id)].water_standing_charge" type="number" min="0" step="0.01" class="mt-1 w-full border-gray-300 rounded-md text-sm" :placeholder="$t('water_settings_form.inherit_placeholder')" />
                         </label>
                         <label class="block text-xs">
-                            <span class="text-gray-600">{{ $t('water.settings.minimum_charge') }}</span>
-                            <input v-model="form.building_overrides[getBuildingOverrideIndex(building.id)].water_minimum_charge" type="number" min="0" step="0.01" class="mt-1 w-full border-gray-300 rounded-md text-sm" :placeholder="$t('water.settings.inherit_placeholder')" />
+                            <span class="text-gray-600">{{ $t('water_settings_form.minimum_charge') }}</span>
+                            <input v-model="form.building_overrides[getBuildingOverrideIndex(building.id)].water_minimum_charge" type="number" min="0" step="0.01" class="mt-1 w-full border-gray-300 rounded-md text-sm" :placeholder="$t('water_settings_form.inherit_placeholder')" />
                         </label>
                         <label class="block text-xs">
-                            <span class="text-gray-600">{{ $t('water.settings.sewerage_percent') }} (%)</span>
-                            <input v-model="form.building_overrides[getBuildingOverrideIndex(building.id)].water_sewerage_percent" type="number" min="0" max="100" step="0.01" class="mt-1 w-full border-gray-300 rounded-md text-sm" :placeholder="$t('water.settings.inherit_placeholder')" />
+                            <span class="text-gray-600">{{ $t('water_settings_form.sewerage_percent') }} (%)</span>
+                            <input v-model="form.building_overrides[getBuildingOverrideIndex(building.id)].water_sewerage_percent" type="number" min="0" max="100" step="0.01" class="mt-1 w-full border-gray-300 rounded-md text-sm" :placeholder="$t('water_settings_form.inherit_placeholder')" />
                         </label>
                         <label class="block text-xs">
-                            <span class="text-gray-600">{{ $t('water.settings.vat_percent') }} (%)</span>
-                            <input v-model="form.building_overrides[getBuildingOverrideIndex(building.id)].water_vat_percent" type="number" min="0" max="100" step="0.01" class="mt-1 w-full border-gray-300 rounded-md text-sm" :placeholder="$t('water.settings.inherit_placeholder')" />
+                            <span class="text-gray-600">{{ $t('water_settings_form.vat_percent') }} (%)</span>
+                            <input v-model="form.building_overrides[getBuildingOverrideIndex(building.id)].water_vat_percent" type="number" min="0" max="100" step="0.01" class="mt-1 w-full border-gray-300 rounded-md text-sm" :placeholder="$t('water_settings_form.inherit_placeholder')" />
                         </label>
                         <label class="block text-xs">
-                            <span class="text-gray-600">{{ $t('water.settings.water_source') }}</span>
+                            <span class="text-gray-600">{{ $t('water_settings_form.water_source') }}</span>
                             <select v-model="form.building_overrides[getBuildingOverrideIndex(building.id)].water_source" class="mt-1 w-full border-gray-300 rounded-md text-sm">
-                                <option value="">{{ $t('water.settings.source_inherit') }}</option>
-                                <option v-for="s in sourceOptions" :key="s" :value="s">{{ $t(`water.settings.source_${s}`) }}</option>
+                                <option value="">{{ $t('water_settings_form.source_inherit') }}</option>
+                                <option v-for="s in sourceOptions" :key="s" :value="s">{{ $t(`water_settings_form.source_${s}`, s ?? '') }}</option>
                             </select>
                         </label>
                         <label class="block text-xs">
-                            <span class="text-gray-600">{{ $t('water.settings.reading_day') }}</span>
-                            <input v-model="form.building_overrides[getBuildingOverrideIndex(building.id)].water_reading_day" type="number" min="1" max="28" step="1" class="mt-1 w-full border-gray-300 rounded-md text-sm" :placeholder="$t('water.settings.inherit_placeholder')" />
+                            <span class="text-gray-600">{{ $t('water_settings_form.reading_day') }}</span>
+                            <input v-model="form.building_overrides[getBuildingOverrideIndex(building.id)].water_reading_day" type="number" min="1" max="28" step="1" class="mt-1 w-full border-gray-300 rounded-md text-sm" :placeholder="$t('water_settings_form.inherit_placeholder')" />
                         </label>
                         <label class="block text-xs">
-                            <span class="text-gray-600">{{ $t('water.settings.review_days') }}</span>
-                            <input v-model="form.building_overrides[getBuildingOverrideIndex(building.id)].water_review_days" type="number" min="1" max="31" step="1" class="mt-1 w-full border-gray-300 rounded-md text-sm" :placeholder="$t('water.settings.inherit_placeholder')" />
+                            <span class="text-gray-600">{{ $t('water_settings_form.review_days') }}</span>
+                            <input v-model="form.building_overrides[getBuildingOverrideIndex(building.id)].water_review_days" type="number" min="1" max="31" step="1" class="mt-1 w-full border-gray-300 rounded-md text-sm" :placeholder="$t('water_settings_form.inherit_placeholder')" />
                         </label>
                         <label class="block text-xs">
-                            <span class="text-gray-600">{{ $t('water.settings.reconnection_fee') }}</span>
-                            <input v-model="form.building_overrides[getBuildingOverrideIndex(building.id)].water_reconnection_fee" type="number" min="0" step="0.01" class="mt-1 w-full border-gray-300 rounded-md text-sm" :placeholder="$t('water.settings.inherit_placeholder')" />
+                            <span class="text-gray-600">{{ $t('water_settings_form.reconnection_fee') }}</span>
+                            <input v-model="form.building_overrides[getBuildingOverrideIndex(building.id)].water_reconnection_fee" type="number" min="0" step="0.01" class="mt-1 w-full border-gray-300 rounded-md text-sm" :placeholder="$t('water_settings_form.inherit_placeholder')" />
                         </label>
                     </div>
                 </div>
@@ -329,13 +327,13 @@ onMounted(async () => {
         </div>
 
         <div v-else class="bg-white shadow-sm rounded-lg mb-6 border border-gray-200">
-            <EmptyState :icon="BeakerIcon" :title="$t('water.settings.no_buildings_title')" :description="$t('water.settings.no_buildings_hint')" size="sm" />
+            <EmptyState :icon="BeakerIcon" :title="$t('water_settings_form.no_buildings_title')" :description="$t('water_settings_form.no_buildings_hint')" size="sm" />
         </div>
 
         <div class="flex justify-end">
             <button type="submit" :disabled="form.processing"
                 class="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50">
-                {{ form.processing ? $t('water.settings.saving') : $t('water.settings.save') }}
+                {{ form.processing ? $t('water_settings_form.saving') : $t('water_settings_form.save') }}
             </button>
         </div>
     </form>
