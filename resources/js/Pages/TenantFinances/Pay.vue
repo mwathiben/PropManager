@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { useFormatters, usePayments, useEcho, useErrorHandler } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import type { TenantFinancesPayPageProps } from '@/types';
 import { AmountDisplay, InvoiceStatusBadge, PaymentMethodSelector } from '@/Components/Finances';
@@ -15,6 +16,7 @@ import {
 
 const props = defineProps<TenantFinancesPayPageProps>();
 
+const { t } = useI18n();
 const { formatMoney, formatDate } = useFormatters({ currency: props.invoice.currency || 'KES' });
 const { initiatePaystackPayment, initiateMpesaPayment, checkMpesaStatus, initiateIntaSendPayment, isProcessing, error } = usePayments();
 const { subscribePrivate, unsubscribe, isConnected } = useEcho();
@@ -75,7 +77,7 @@ const handleMpesaStatusUpdate = (data) => {
 
     if (data.status === 'success') {
         mpesaState.value = 'success';
-        mpesaMessage.value = data.message || 'Payment received successfully!';
+        mpesaMessage.value = data.message || t('tenant_finances_pay.messages.payment_received_success');
         setTimeout(() => {
             router.visit(route('tenant.finances.index'), {
                 preserveState: false,
@@ -83,7 +85,7 @@ const handleMpesaStatusUpdate = (data) => {
         }, 2000);
     } else if (data.status === 'cancelled' || data.status === 'failed') {
         mpesaState.value = 'failed';
-        mpesaMessage.value = data.message || (data.status === 'cancelled' ? 'Payment was cancelled' : 'Payment failed');
+        mpesaMessage.value = data.message || (data.status === 'cancelled' ? t('tenant_finances_pay.messages.payment_cancelled') : t('tenant_finances_pay.messages.payment_failed'));
     }
 };
 
@@ -148,7 +150,7 @@ const handleIntaSendStatusUpdate = (data) => {
     if (data.status === 'success' || data.state === 'COMPLETE') {
         unsubscribeIntaSendEcho();
         intasendState.value = 'success';
-        intasendMessage.value = data.message || 'Payment received successfully!';
+        intasendMessage.value = data.message || t('tenant_finances_pay.messages.payment_received_success');
         setTimeout(() => {
             router.visit(route('tenant.finances.index'), {
                 preserveState: false,
@@ -157,10 +159,10 @@ const handleIntaSendStatusUpdate = (data) => {
     } else if (data.status === 'failed' || data.state === 'FAILED') {
         unsubscribeIntaSendEcho();
         intasendState.value = 'failed';
-        intasendMessage.value = data.failure_reason || data.message || 'Payment failed';
+        intasendMessage.value = data.failure_reason || data.message || t('tenant_finances_pay.messages.payment_failed');
     } else if (data.state === 'PROCESSING') {
         intasendState.value = 'processing';
-        intasendMessage.value = 'Payment is being processed...';
+        intasendMessage.value = t('tenant_finances_pay.messages.payment_processing');
     }
 };
 
@@ -180,7 +182,7 @@ const startIntaSendTimeout = () => {
     intasendTimeout = setTimeout(() => {
         if (intasendState.value === 'waiting' || intasendState.value === 'processing') {
             intasendState.value = 'failed';
-            intasendMessage.value = 'Payment timed out. Please try again.';
+            intasendMessage.value = t('tenant_finances_pay.messages.payment_timed_out');
         }
     }, INTASEND_TIMEOUT);
 };
@@ -201,42 +203,42 @@ const proceedWithPayment = async () => {
             await initiatePaystackPayment(props.invoice.id, props.invoice.balance);
         } else if (selectedMethod.value === 'mpesa' || selectedMethod.value === 'mobile_money') {
             mpesaState.value = 'sending';
-            mpesaMessage.value = 'Sending STK push to your phone...';
+            mpesaMessage.value = t('tenant_finances_pay.messages.sending_stk_push');
 
             const result = await initiateMpesaPayment(props.invoice.id, props.invoice.balance, phoneNumber.value);
 
             if (result.success && result.checkout_request_id) {
                 checkoutRequestId.value = result.checkout_request_id;
                 mpesaState.value = 'waiting';
-                mpesaMessage.value = 'Please enter your M-Pesa PIN on your phone';
+                mpesaMessage.value = t('tenant_finances_pay.messages.enter_mpesa_pin');
                 startPolling();
             }
         } else if (selectedMethod.value === 'intasend_mpesa') {
             intasendState.value = 'sending';
-            intasendMessage.value = 'Sending STK push to your phone...';
+            intasendMessage.value = t('tenant_finances_pay.messages.sending_stk_push');
 
             const result = await initiateIntaSendPayment(props.invoice.id, props.invoice.balance, phoneNumber.value);
 
             if (result.success && result.intasend_invoice_id) {
                 intasendInvoiceId.value = result.intasend_invoice_id;
                 intasendState.value = 'waiting';
-                intasendMessage.value = 'Please enter your M-Pesa PIN on your phone';
+                intasendMessage.value = t('tenant_finances_pay.messages.enter_mpesa_pin');
                 subscribeToIntaSendUpdates();
                 startIntaSendTimeout();
             } else if (result.success && !result.intasend_invoice_id) {
                 console.warn('IntaSend returned success but no intasend_invoice_id', result);
                 intasendState.value = 'failed';
-                intasendMessage.value = 'Failed to initiate M-Pesa request — please try again';
+                intasendMessage.value = t('tenant_finances_pay.messages.failed_to_initiate_mpesa');
                 intasendInvoiceId.value = null;
             }
         }
     } catch (err) {
         if (selectedMethod.value === 'intasend_mpesa') {
             intasendState.value = 'failed';
-            intasendMessage.value = err.message || 'Payment failed';
+            intasendMessage.value = err.message || t('tenant_finances_pay.messages.payment_failed');
         } else {
             mpesaState.value = 'failed';
-            mpesaMessage.value = err.message || 'Payment failed';
+            mpesaMessage.value = err.message || t('tenant_finances_pay.messages.payment_failed');
         }
         logError(err, { component: 'TenantFinancesPay', action: 'processPayment' });
     }
@@ -259,7 +261,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <Head :title="`Pay Invoice ${invoice.invoice_number}`" />
+    <Head :title="t('tenant_finances_pay.page_title', { invoice_number: invoice.invoice_number })" />
 
     <AuthenticatedLayout>
         <template #header>
@@ -271,7 +273,7 @@ onUnmounted(() => {
                     <ChevronLeftIcon class="w-5 h-5" />
                 </Link>
                 <div>
-                    <h1 class="text-lg font-semibold text-gray-900">Pay Invoice</h1>
+                    <h1 class="text-lg font-semibold text-gray-900">{{ t('tenant_finances_pay.heading') }}</h1>
                     <p class="text-sm text-gray-500">{{ invoice.invoice_number }}</p>
                 </div>
             </div>
@@ -282,7 +284,7 @@ onUnmounted(() => {
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
                     <div class="flex items-start justify-between">
                         <div>
-                            <p class="text-sm text-gray-500">Amount Due</p>
+                            <p class="text-sm text-gray-500">{{ t('tenant_finances_pay.amount_due') }}</p>
                             <p class="text-3xl font-bold text-gray-900 mt-1">
                                 {{ formatMoney(invoice.balance) }}
                             </p>
@@ -293,33 +295,33 @@ onUnmounted(() => {
                     <div class="mt-4 pt-4 border-t border-gray-200">
                         <div class="grid grid-cols-2 gap-4 text-sm">
                             <div>
-                                <p class="text-gray-500">Unit</p>
+                                <p class="text-gray-500">{{ t('tenant_finances_pay.unit') }}</p>
                                 <p class="font-medium text-gray-900">{{ lease.unit }} - {{ lease.building }}</p>
                             </div>
                             <div>
-                                <p class="text-gray-500">Due Date</p>
+                                <p class="text-gray-500">{{ t('tenant_finances_pay.due_date') }}</p>
                                 <p class="font-medium text-gray-900">{{ formatDate(invoice.due_date) }}</p>
                             </div>
                         </div>
                     </div>
 
                     <div v-if="invoice.rent_amount || invoice.water_charges || invoice.arrears_amount" class="mt-4 pt-4 border-t border-gray-200">
-                        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Breakdown</p>
+                        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">{{ t('tenant_finances_pay.breakdown') }}</p>
                         <div class="space-y-1 text-sm">
                             <div v-if="invoice.rent_amount" class="flex justify-between">
-                                <span class="text-gray-600">Rent</span>
+                                <span class="text-gray-600">{{ t('tenant_finances_pay.rent') }}</span>
                                 <span class="text-gray-900">{{ formatMoney(invoice.rent_amount) }}</span>
                             </div>
                             <div v-if="invoice.water_charges" class="flex justify-between">
-                                <span class="text-gray-600">Water</span>
+                                <span class="text-gray-600">{{ t('tenant_finances_pay.water') }}</span>
                                 <span class="text-gray-900">{{ formatMoney(invoice.water_charges) }}</span>
                             </div>
                             <div v-if="invoice.arrears_amount" class="flex justify-between">
-                                <span class="text-gray-600">Arrears</span>
+                                <span class="text-gray-600">{{ t('tenant_finances_pay.arrears') }}</span>
                                 <span class="text-gray-900">{{ formatMoney(invoice.arrears_amount) }}</span>
                             </div>
                             <div v-if="invoice.amount_paid > 0" class="flex justify-between text-emerald-600">
-                                <span>Paid</span>
+                                <span>{{ t('tenant_finances_pay.paid') }}</span>
                                 <span>-{{ formatMoney(invoice.amount_paid) }}</span>
                             </div>
                         </div>
@@ -327,7 +329,7 @@ onUnmounted(() => {
                 </div>
 
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                    <h2 class="text-sm font-semibold text-gray-900 mb-4">Select Payment Method</h2>
+                    <h2 class="text-sm font-semibold text-gray-900 mb-4">{{ t('tenant_finances_pay.select_payment_method') }}</h2>
 
                     <PaymentMethodSelector
                         v-model="selectedMethod"
@@ -339,20 +341,20 @@ onUnmounted(() => {
                         <div class="flex items-start gap-2">
                             <InformationCircleIcon class="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
                             <div class="flex-1">
-                                <p class="text-sm font-medium text-blue-800 mb-2">Payment Details</p>
+                                <p class="text-sm font-medium text-blue-800 mb-2">{{ t('tenant_finances_pay.payment_details') }}</p>
 
                                 <template v-if="selectedMethod === 'bank_transfer'">
                                     <div class="space-y-2 text-sm">
                                         <div class="flex justify-between">
-                                            <span class="text-blue-700">Bank:</span>
+                                            <span class="text-blue-700">{{ t('tenant_finances_pay.bank') }}</span>
                                             <span class="font-medium text-blue-900">{{ selectedMethodData.details.bank_name }}</span>
                                         </div>
                                         <div class="flex justify-between">
-                                            <span class="text-blue-700">Account Name:</span>
+                                            <span class="text-blue-700">{{ t('tenant_finances_pay.account_name') }}</span>
                                             <span class="font-medium text-blue-900">{{ selectedMethodData.details.account_name }}</span>
                                         </div>
                                         <div class="flex justify-between items-center">
-                                            <span class="text-blue-700">Account Number:</span>
+                                            <span class="text-blue-700">{{ t('tenant_finances_pay.account_number') }}</span>
                                             <div class="flex items-center gap-2">
                                                 <span class="font-medium text-blue-900">{{ selectedMethodData.details.account_number }}</span>
                                                 <button
@@ -369,7 +371,7 @@ onUnmounted(() => {
                                 <template v-if="selectedMethod === 'mobile_money' || selectedMethod === 'mpesa'">
                                     <div class="space-y-2 text-sm">
                                         <div class="flex justify-between">
-                                            <span class="text-blue-700">Paybill:</span>
+                                            <span class="text-blue-700">{{ t('tenant_finances_pay.paybill') }}</span>
                                             <div class="flex items-center gap-2">
                                                 <span class="font-medium text-blue-900">{{ selectedMethodData.details.paybill }}</span>
                                                 <button
@@ -381,25 +383,25 @@ onUnmounted(() => {
                                             </div>
                                         </div>
                                         <div class="flex justify-between">
-                                            <span class="text-blue-700">Account:</span>
+                                            <span class="text-blue-700">{{ t('tenant_finances_pay.account') }}</span>
                                             <span class="font-medium text-blue-900">{{ selectedMethodData.details.account_name }}</span>
                                         </div>
                                     </div>
                                 </template>
                             </div>
                         </div>
-                        <p v-if="copied" class="text-xs text-emerald-600 mt-2">Copied to clipboard!</p>
+                        <p v-if="copied" class="text-xs text-emerald-600 mt-2">{{ t('tenant_finances_pay.copied_to_clipboard') }}</p>
                     </div>
 
                     <div v-if="(selectedMethod === 'mpesa' || selectedMethod === 'mobile_money' || selectedMethod === 'intasend_mpesa') && mpesaState === 'idle' && intasendState === 'idle'" class="mt-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">M-Pesa Phone Number</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenant_finances_pay.mpesa_phone_number') }}</label>
                         <input
                             v-model="phoneNumber"
                             type="tel"
-                            placeholder="0712345678"
+                            :placeholder="t('tenant_finances_pay.phone_placeholder')"
                             class="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                         />
-                        <p class="text-xs text-gray-500 mt-1">You'll receive an STK push to this number</p>
+                        <p class="text-xs text-gray-500 mt-1">{{ t('tenant_finances_pay.stk_push_hint') }}</p>
                     </div>
 
                     <!-- M-Pesa Status -->
@@ -410,7 +412,7 @@ onUnmounted(() => {
                                 <div>
                                     <p class="text-sm font-medium text-blue-800">{{ mpesaMessage }}</p>
                                     <p v-if="mpesaState === 'waiting'" class="text-xs text-blue-600 mt-1">
-                                        Check your phone for the M-Pesa prompt
+                                        {{ t('tenant_finances_pay.check_phone_for_prompt') }}
                                     </p>
                                 </div>
                             </div>
@@ -421,7 +423,7 @@ onUnmounted(() => {
                                 <CheckCircleIcon class="h-5 w-5 text-emerald-500" />
                                 <div>
                                     <p class="text-sm font-medium text-emerald-800">{{ mpesaMessage }}</p>
-                                    <p class="text-xs text-emerald-600 mt-1">Redirecting to your finances...</p>
+                                    <p class="text-xs text-emerald-600 mt-1">{{ t('tenant_finances_pay.redirecting_to_finances') }}</p>
                                 </div>
                             </div>
                         </div>
@@ -435,7 +437,7 @@ onUnmounted(() => {
                                         @click="resetMpesaState"
                                         class="mt-2 text-sm text-red-700 underline hover:text-red-900"
                                     >
-                                        Try again
+                                        {{ t('tenant_finances_pay.try_again') }}
                                     </button>
                                 </div>
                             </div>
@@ -450,7 +452,7 @@ onUnmounted(() => {
                                 <div>
                                     <p class="text-sm font-medium text-blue-800">{{ intasendMessage }}</p>
                                     <p v-if="intasendState === 'waiting'" class="text-xs text-blue-600 mt-1">
-                                        Check your phone for the M-Pesa prompt
+                                        {{ t('tenant_finances_pay.check_phone_for_prompt') }}
                                     </p>
                                 </div>
                             </div>
@@ -461,7 +463,7 @@ onUnmounted(() => {
                                 <CheckCircleIcon class="h-5 w-5 text-emerald-500" />
                                 <div>
                                     <p class="text-sm font-medium text-emerald-800">{{ intasendMessage }}</p>
-                                    <p class="text-xs text-emerald-600 mt-1">Redirecting to your finances...</p>
+                                    <p class="text-xs text-emerald-600 mt-1">{{ t('tenant_finances_pay.redirecting_to_finances') }}</p>
                                 </div>
                             </div>
                         </div>
@@ -475,7 +477,7 @@ onUnmounted(() => {
                                         @click="resetIntaSendState"
                                         class="mt-2 text-sm text-red-700 underline hover:text-red-900"
                                     >
-                                        Try again
+                                        {{ t('tenant_finances_pay.try_again') }}
                                     </button>
                                 </div>
                             </div>
@@ -499,22 +501,22 @@ onUnmounted(() => {
                             ]"
                         >
                             <CreditCardIcon v-if="!isProcessing" class="h-5 w-5" />
-                            <span v-if="isProcessing">Processing...</span>
-                            <span v-else>Pay {{ formatMoney(invoice.balance) }}</span>
+                            <span v-if="isProcessing">{{ t('tenant_finances_pay.processing') }}</span>
+                            <span v-else>{{ t('tenant_finances_pay.pay_amount', { amount: formatMoney(invoice.balance) }) }}</span>
                         </button>
 
                         <div v-else-if="selectedMethod === 'cash' || selectedMethod === 'bank_transfer'" class="flex-1 p-4 bg-gray-50 rounded-xl text-center">
                             <p class="text-sm text-gray-600">
-                                {{ selectedMethod === 'cash' ? 'Pay cash to your landlord or caretaker' : 'Transfer the amount to the account above' }}
+                                {{ selectedMethod === 'cash' ? t('tenant_finances_pay.cash_instruction') : t('tenant_finances_pay.bank_transfer_instruction') }}
                             </p>
-                            <p class="text-xs text-gray-500 mt-1">Your payment will be recorded once confirmed</p>
+                            <p class="text-xs text-gray-500 mt-1">{{ t('tenant_finances_pay.recorded_once_confirmed') }}</p>
                         </div>
 
                         <Link
                             :href="route('tenant.finances.index')"
                             class="px-6 py-3 text-sm font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors text-center"
                         >
-                            Cancel
+                            {{ t('tenant_finances_pay.cancel') }}
                         </Link>
                     </div>
                 </div>
