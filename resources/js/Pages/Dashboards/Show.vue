@@ -153,7 +153,7 @@ function formattedAverage(card: MetricCard): string {
                             </tbody>
                         </table>
                     </div>
-                    <p v-else class="mt-3 text-xs text-gray-500">No rows.</p>
+                    <p v-else class="mt-3 text-xs text-gray-500">{{ t('dashboards_show.no_rows') }}</p>
                 </template>
 
                 <KpiCard v-else-if="card.type === 'kpi'" :card="card" />
@@ -163,13 +163,13 @@ function formattedAverage(card: MetricCard): string {
                 <template v-else-if="card.type === 'metric'">
                     <div class="mt-3">
                         <p class="text-3xl font-semibold text-gray-900">{{ formattedAverage(card) }}</p>
-                        <p class="text-xs text-gray-500">Average across {{ card.count }} row(s)</p>
+                        <p class="text-xs text-gray-500">{{ t('dashboards_show.average_across_rows', { count: card.count }) }}</p>
                     </div>
                 </template>
             </article>
 
             <p v-if="cards.length === 0" class="rounded-lg border border-dashed border-gray-300 bg-white p-6 text-center text-sm text-gray-500 lg:col-span-2">
-                No cards configured on this dashboard yet.
+                {{ t('dashboards_show.no_cards_configured') }}
             </p>
         </div>
     </AuthenticatedLayout>
