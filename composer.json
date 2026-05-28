@@ -7,6 +7,7 @@
     "license": "MIT",
     "require": {
         "php": "^8.4",
+        "akaunting/laravel-money": "^6.0",
         "bacon/bacon-qr-code": "^3.0",
         "barryvdh/laravel-dompdf": "^3.1",
         "dedoc/scramble": "^0.13.22",
@@ -21,6 +22,8 @@
         "pragmarx/google2fa-laravel": "^2.3",
         "sentry/sentry-laravel": "^4.25",
         "spatie/laravel-backup": "^10.2",
+        "spatie/laravel-data": "^4.23",
+        "spatie/laravel-model-states": "^2.14",
         "stripe/stripe-php": "15.0",
         "tightenco/ziggy": "^2.0"
     },
@@ -28,6 +31,7 @@
         "barryvdh/laravel-ide-helper": "^3.6",
         "brianium/paratest": "^7.8",
         "fakerphp/faker": "^1.23",
+        "laravel/boost": "^1.8",
         "laravel/breeze": "^2.3",
         "laravel/dusk": "^8.3",
         "laravel/pail": "^1.2.2",
