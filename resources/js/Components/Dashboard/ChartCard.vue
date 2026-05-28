@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useI18n } from '@/composables/useI18n';
 
 interface ChartPoint { label: string; value: number }
 
 const props = defineProps<{ card: { points: ChartPoint[] } }>();
+
+const { t } = useI18n();
 
 const max = computed(() => props.card.points.reduce((m, p) => Math.max(m, p.value), 0) || 1);
 </script>
@@ -22,6 +25,6 @@ const max = computed(() => props.card.points.reduce((m, p) => Math.max(m, p.valu
                 />
             </div>
         </div>
-        <p v-if="card.points.length === 0" class="text-xs text-gray-500">No data points.</p>
+        <p v-if="card.points.length === 0" class="text-xs text-gray-500">{{ t('chart_card.no_data_points') }}</p>
     </div>
 </template>
