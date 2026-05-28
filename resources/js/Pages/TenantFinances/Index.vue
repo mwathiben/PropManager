@@ -2,6 +2,7 @@
 import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
 import { useFormatters, useEcho } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import type { TenantFinancesIndexPageProps } from '@/types';
 import {
@@ -22,6 +23,7 @@ import {
 
 const props = defineProps<TenantFinancesIndexPageProps>();
 
+const { t } = useI18n();
 const { formatMoney, formatDate, todayAsISODate } = useFormatters();
 
 // --- REAL-TIME UPDATES ---
@@ -88,7 +90,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <Head title="My Finances" />
+    <Head :title="t('tenant_finances_index.page_title')" />
 
     <AuthenticatedLayout>
         <template #header>
@@ -97,8 +99,8 @@ onUnmounted(() => {
                     <BanknotesIcon class="w-6 h-6 text-emerald-600" />
                 </div>
                 <div>
-                    <h1 class="text-lg font-semibold text-gray-900">My Finances</h1>
-                    <p class="text-sm text-gray-500">View and pay your rent</p>
+                    <h1 class="text-lg font-semibold text-gray-900">{{ t('tenant_finances_index.header_title') }}</h1>
+                    <p class="text-sm text-gray-500">{{ t('tenant_finances_index.header_subtitle') }}</p>
                 </div>
             </div>
         </template>
@@ -108,8 +110,8 @@ onUnmounted(() => {
                 <div v-if="!hasLease" class="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
                     <EmptyState
                         :icon="HomeIcon"
-                        title="No Active Lease"
-                        description="You don't have an active lease. Please contact your landlord if you believe this is an error."
+                        :title="t('tenant_finances_index.no_active_lease_title')"
+                        :description="t('tenant_finances_index.no_active_lease_description')"
                     />
                 </div>
 
@@ -117,14 +119,14 @@ onUnmounted(() => {
                     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                             <div>
-                                <p class="text-sm text-gray-500">Current Balance</p>
+                                <p class="text-sm text-gray-500">{{ t('tenant_finances_index.current_balance') }}</p>
                                 <p :class="[
                                     'text-3xl font-bold mt-1',
                                     localBalance > 0 ? 'text-red-600' : localBalance < 0 ? 'text-emerald-600' : 'text-gray-900'
                                 ]">
                                     {{ formatMoney(Math.abs(localBalance)) }}
                                     <span v-if="localBalance !== 0" class="text-lg font-normal">
-                                        {{ localBalance > 0 ? 'Due' : 'Credit' }}
+                                        {{ localBalance > 0 ? t('tenant_finances_index.balance_due') : t('tenant_finances_index.balance_credit') }}
                                     </span>
                                 </p>
                                 <p class="text-sm text-gray-500 mt-1">
@@ -138,7 +140,7 @@ onUnmounted(() => {
                                     class="inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-200"
                                 >
                                     <CreditCardIcon class="h-5 w-5" />
-                                    Pay Now
+                                    {{ t('tenant_finances_index.pay_now') }}
                                 </Link>
                             </div>
                         </div>
@@ -147,8 +149,8 @@ onUnmounted(() => {
                             <div class="flex items-start gap-2">
                                 <ExclamationTriangleIcon class="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
                                 <div>
-                                    <p class="text-sm font-medium text-red-800">You have an outstanding balance</p>
-                                    <p class="text-sm text-red-700">Please pay as soon as possible to avoid late fees.</p>
+                                    <p class="text-sm font-medium text-red-800">{{ t('tenant_finances_index.outstanding_balance_title') }}</p>
+                                    <p class="text-sm text-red-700">{{ t('tenant_finances_index.outstanding_balance_description') }}</p>
                                 </div>
                             </div>
                         </div>
@@ -156,8 +158,8 @@ onUnmounted(() => {
 
                     <div v-if="localPendingInvoices?.length" class="bg-white rounded-xl shadow-sm border border-gray-200">
                         <div class="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
-                            <h2 class="text-sm font-semibold text-gray-900">Pending Invoices</h2>
-                            <span class="text-xs text-gray-500">{{ localPendingInvoices.length }} pending</span>
+                            <h2 class="text-sm font-semibold text-gray-900">{{ t('tenant_finances_index.pending_invoices') }}</h2>
+                            <span class="text-xs text-gray-500">{{ t('tenant_finances_index.pending_count', { count: localPendingInvoices.length }) }}</span>
                         </div>
                         <div class="divide-y divide-gray-200">
                             <Link
@@ -178,7 +180,7 @@ onUnmounted(() => {
                                     </div>
                                     <div>
                                         <p class="text-sm font-medium text-gray-900">{{ invoice.invoice_number }}</p>
-                                        <p class="text-xs text-gray-500">Due {{ formatDate(invoice.due_date) }}</p>
+                                        <p class="text-xs text-gray-500">{{ t('tenant_finances_index.due_label', { date: formatDate(invoice.due_date) }) }}</p>
                                     </div>
                                 </div>
                                 <div class="text-end">
@@ -191,12 +193,12 @@ onUnmounted(() => {
 
                     <div class="bg-white rounded-xl shadow-sm border border-gray-200">
                         <div class="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
-                            <h2 class="text-sm font-semibold text-gray-900">Recent Payments</h2>
+                            <h2 class="text-sm font-semibold text-gray-900">{{ t('tenant_finances_index.recent_payments') }}</h2>
                             <Link
                                 :href="route('tenant.finances.history')"
                                 class="text-xs font-medium text-emerald-600 hover:text-emerald-700"
                             >
-                                View all
+                                {{ t('tenant_finances_index.view_all') }}
                             </Link>
                         </div>
                         <div v-if="localRecentPayments?.length" class="divide-y divide-gray-200">
@@ -223,8 +225,8 @@ onUnmounted(() => {
                         <div v-else class="px-5 py-8">
                             <EmptyState
                                 :icon="BanknotesIcon"
-                                title="No payments yet"
-                                description="Your payment history will appear here"
+                                :title="t('tenant_finances_index.no_payments_title')"
+                                :description="t('tenant_finances_index.no_payments_description')"
                                 size="sm"
                             />
                         </div>

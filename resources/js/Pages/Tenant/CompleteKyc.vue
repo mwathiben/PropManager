@@ -5,6 +5,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
+import { useI18n } from '@/composables/useI18n';
 import type { CompleteKycPageProps, KycSubmission } from '@/types';
 import {
     UserCircleIcon,
@@ -18,6 +19,7 @@ import {
 import { CheckBadgeIcon } from '@heroicons/vue/24/solid';
 
 const props = defineProps<CompleteKycPageProps>();
+const { t } = useI18n();
 
 interface SubmissionEntry {
     requirement_id: number;
@@ -80,7 +82,7 @@ const getSubmissionStatus = (requirementId: number): SubmissionStatus => {
     if (!submission) {
         return {
             status: 'not_submitted',
-            label: 'Not submitted',
+            label: t('tenant_complete_kyc.status_not_submitted'),
             color: 'gray',
         };
     }
@@ -161,7 +163,7 @@ const handleFileSelect = (requirementId: number, event: Event) => {
 
     // Validate file size (10MB max)
     if (file.size > 10 * 1024 * 1024) {
-        setFileError(requirementId, 'File must not exceed 10MB');
+        setFileError(requirementId, t('tenant_complete_kyc.errors.file_too_large'));
         input.value = ''; // Reset input so same file can be selected again
         return;
     }
@@ -169,7 +171,7 @@ const handleFileSelect = (requirementId: number, event: Event) => {
     // Validate file type
     const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif'];
     if (!allowedTypes.includes(file.type)) {
-        setFileError(requirementId, 'File must be PDF, JPG, PNG, or GIF');
+        setFileError(requirementId, t('tenant_complete_kyc.errors.file_type_invalid'));
         input.value = ''; // Reset input so same file can be selected again
         return;
     }
@@ -207,14 +209,14 @@ const handleFileDrop = (requirementId: number, event: DragEvent) => {
 
     // Validate file size (10MB max)
     if (file.size > 10 * 1024 * 1024) {
-        setFileError(requirementId, 'File must not exceed 10MB');
+        setFileError(requirementId, t('tenant_complete_kyc.errors.file_too_large'));
         return;
     }
 
     // Validate file type
     const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif'];
     if (!allowedTypes.includes(file.type)) {
-        setFileError(requirementId, 'File must be PDF, JPG, PNG, or GIF');
+        setFileError(requirementId, t('tenant_complete_kyc.errors.file_type_invalid'));
         return;
     }
 
@@ -262,9 +264,9 @@ const clearFile = (requirementId: number) => {
 
 // Format file size
 const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    if (bytes < 1024) return t('tenant_complete_kyc.file_size.bytes', { value: bytes });
+    if (bytes < 1024 * 1024) return t('tenant_complete_kyc.file_size.kilobytes', { value: (bytes / 1024).toFixed(1) });
+    return t('tenant_complete_kyc.file_size.megabytes', { value: (bytes / (1024 * 1024)).toFixed(1) });
 };
 
 // Check if requirement needs action (not submitted or rejected)
@@ -319,7 +321,7 @@ const getStatusBadgeClasses = (color: string): string => {
 </script>
 
 <template>
-    <Head title="Complete Your KYC" />
+    <Head :title="t('tenant_complete_kyc.page_title')" />
 
     <AuthenticatedLayout>
         <template #header>
@@ -329,10 +331,10 @@ const getStatusBadgeClasses = (color: string): string => {
                 </div>
                 <div>
                     <h1 class="text-lg font-semibold text-gray-900">
-                        Complete Your KYC
+                        {{ t('tenant_complete_kyc.heading') }}
                     </h1>
                     <p class="text-sm text-gray-500">
-                        Please upload the required documents to verify your identity
+                        {{ t('tenant_complete_kyc.subtitle') }}
                     </p>
                 </div>
             </div>
@@ -344,7 +346,7 @@ const getStatusBadgeClasses = (color: string): string => {
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
                     <div class="flex items-center justify-between mb-4">
                         <h2 class="text-sm font-medium text-gray-700">
-                            KYC Completion
+                            {{ t('tenant_complete_kyc.progress_heading') }}
                         </h2>
                         <span class="text-sm font-semibold text-indigo-600">
                             {{ completionStatus.percentage }}%
@@ -405,7 +407,7 @@ const getStatusBadgeClasses = (color: string): string => {
                                         v-if="requirement.is_required"
                                         class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full"
                                     >
-                                        Required
+                                        {{ t('tenant_complete_kyc.required_badge') }}
                                     </span>
                                 </div>
                                 <p
@@ -474,7 +476,7 @@ const getStatusBadgeClasses = (color: string): string => {
                                                 .submittedAt
                                         "
                                     >
-                                        &middot; Submitted
+                                        &middot; {{ t('tenant_complete_kyc.submitted_prefix') }}
                                         {{
                                             getSubmissionStatus(requirement.id)
                                                 .submittedAt
@@ -498,7 +500,7 @@ const getStatusBadgeClasses = (color: string): string => {
                             />
                             <div>
                                 <p class="text-sm font-medium text-red-800">
-                                    Document Rejected
+                                    {{ t('tenant_complete_kyc.document_rejected') }}
                                 </p>
                                 <p class="text-sm text-red-700 mt-0.5">
                                     {{
@@ -514,7 +516,7 @@ const getStatusBadgeClasses = (color: string): string => {
                             v-if="needsAction(requirement.id)"
                             class="mt-3"
                         >
-                            <InputLabel :value="getSubmissionStatus(requirement.id).status === 'rejected' ? 'Upload New Document' : 'Upload Document'" />
+                            <InputLabel :value="getSubmissionStatus(requirement.id).status === 'rejected' ? t('tenant_complete_kyc.upload_new_document') : t('tenant_complete_kyc.upload_document')" />
 
                             <!-- File Input Area -->
                             <div class="mt-2">
@@ -537,12 +539,12 @@ const getStatusBadgeClasses = (color: string): string => {
                                         />
                                         <p class="text-sm text-gray-600">
                                             <span class="font-medium text-indigo-600">
-                                                Click to upload
+                                                {{ t('tenant_complete_kyc.click_to_upload') }}
                                             </span>
-                                            or drag and drop
+                                            {{ t('tenant_complete_kyc.or_drag_and_drop') }}
                                         </p>
                                         <p class="text-xs text-gray-500 mt-1">
-                                            PDF, JPG, PNG or GIF (Max 10MB)
+                                            {{ t('tenant_complete_kyc.file_constraints') }}
                                         </p>
                                     </div>
                                     <input
@@ -608,7 +610,7 @@ const getStatusBadgeClasses = (color: string): string => {
                             class="flex items-center gap-2 mt-3 text-sm text-green-600"
                         >
                             <CheckCircleIcon class="w-5 h-5" />
-                            <span>Document verified and approved</span>
+                            <span>{{ t('tenant_complete_kyc.verified_and_approved') }}</span>
                         </div>
 
                         <!-- Pending - Awaiting review -->
@@ -619,7 +621,7 @@ const getStatusBadgeClasses = (color: string): string => {
                             class="flex items-center gap-2 mt-3 text-sm text-yellow-600"
                         >
                             <ClockIcon class="w-5 h-5" />
-                            <span>Awaiting review by landlord</span>
+                            <span>{{ t('tenant_complete_kyc.awaiting_review') }}</span>
                         </div>
                     </div>
 
@@ -630,15 +632,18 @@ const getStatusBadgeClasses = (color: string): string => {
                         <div class="flex items-center justify-between">
                             <div>
                                 <p class="text-sm text-gray-700">
-                                    {{ completionStatus.completed }} of
-                                    {{ completionStatus.total }} required documents
-                                    submitted
+                                    {{
+                                        t('tenant_complete_kyc.progress_count', {
+                                            completed: completionStatus.completed,
+                                            total: completionStatus.total,
+                                        })
+                                    }}
                                 </p>
                                 <p
                                     v-if="!canSubmit"
                                     class="text-xs text-gray-500 mt-1"
                                 >
-                                    Upload all required documents to continue
+                                    {{ t('tenant_complete_kyc.upload_all_to_continue') }}
                                 </p>
                             </div>
                             <PrimaryButton
@@ -647,8 +652,8 @@ const getStatusBadgeClasses = (color: string): string => {
                                     'opacity-50 cursor-not-allowed': !canSubmit,
                                 }"
                             >
-                                <span v-if="form.processing">Uploading...</span>
-                                <span v-else>Submit Documents</span>
+                                <span v-if="form.processing">{{ t('tenant_complete_kyc.uploading') }}</span>
+                                <span v-else>{{ t('tenant_complete_kyc.submit_documents') }}</span>
                             </PrimaryButton>
                         </div>
                     </div>
@@ -672,12 +677,10 @@ const getStatusBadgeClasses = (color: string): string => {
                         </div>
                         <div class="ms-3">
                             <h3 class="text-sm font-medium text-blue-800">
-                                About KYC Verification
+                                {{ t('tenant_complete_kyc.about_heading') }}
                             </h3>
                             <p class="mt-1 text-sm text-blue-700">
-                                Your documents will be reviewed by your landlord. Once
-                                approved, you'll have full access to your tenant portal.
-                                Make sure documents are clear and legible.
+                                {{ t('tenant_complete_kyc.about_body') }}
                             </p>
                         </div>
                     </div>
