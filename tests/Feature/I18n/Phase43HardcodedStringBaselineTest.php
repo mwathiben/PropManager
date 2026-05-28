@@ -113,9 +113,13 @@ class Phase43HardcodedStringBaselineTest extends TestCase
      *   Settings/partials/BusinessProfileTab,
      *   Settings/partials/PaymentMethodsTab — scanner-FP-only,
      *   Tenant/Inbox/Index, TenantFinances/Pay) to $t().
+     * - 2026-05-28: lowered to 100 after migrating six more components
+     *   (ActionItemCard/Dropdown/FormSubmitButton/IconButton — slot-only,
+     *   no lang stubs; InvitationBanner; LeaseCounter/CounterOfferHistory)
+     *   to $t().
      *   Lowering the constant requires the scanner to confirm the new floor.
      */
-    private const BASELINE = 112;
+    private const BASELINE = 100;
 
     public function test_hardcoded_english_count_does_not_grow_beyond_baseline(): void
     {

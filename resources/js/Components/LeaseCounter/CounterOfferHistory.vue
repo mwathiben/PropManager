@@ -11,6 +11,7 @@
  * Layout: vertical timeline with a left rail (rounded marker per item).
  */
 import { computed } from 'vue';
+import { useI18n } from '@/composables/useI18n';
 
 type HistoryEntry = {
     id: number;
@@ -25,6 +26,8 @@ const props = defineProps<{
     history: HistoryEntry[];
 }>();
 
+const { t } = useI18n();
+
 const sorted = computed(() =>
     [...props.history].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)),
 );
@@ -34,6 +37,14 @@ function actorColor(role: string): string {
     if (role === 'tenant') return 'bg-emerald-500';
     if (role === 'caretaker') return 'bg-amber-500';
     return 'bg-gray-400';
+}
+
+function roleLabel(role: string): string {
+    return t(`counter_offer_history.roles.${role}`, role ?? '');
+}
+
+function actionLabel(action: string): string {
+    return t(`counter_offer_history.actions.${action}`, (action ?? '').replace('_', ' '));
 }
 
 function formatRent(amount: number | null): string {
@@ -50,12 +61,12 @@ function relativeTime(iso: string): string {
     if (Number.isNaN(then)) return iso;
     const diffMs = Date.now() - then;
     const minutes = Math.round(diffMs / 60_000);
-    if (minutes < 1) return 'just now';
-    if (minutes < 60) return `${minutes}m ago`;
+    if (minutes < 1) return t('counter_offer_history.time_ago.just_now');
+    if (minutes < 60) return t('counter_offer_history.time_ago.minutes', { count: minutes });
     const hours = Math.round(minutes / 60);
-    if (hours < 24) return `${hours}h ago`;
+    if (hours < 24) return t('counter_offer_history.time_ago.hours', { count: hours });
     const days = Math.round(hours / 24);
-    if (days < 30) return `${days}d ago`;
+    if (days < 30) return t('counter_offer_history.time_ago.days', { count: days });
     return new Date(then).toLocaleDateString();
 }
 </script>
@@ -70,17 +81,17 @@ function relativeTime(iso: string): string {
             <div class="rounded-md bg-gray-50 px-3 py-2 text-sm">
                 <div class="flex flex-wrap items-baseline justify-between gap-2">
                     <p class="font-medium text-gray-900">
-                        <span class="capitalize">{{ entry.actor_role }}</span>
-                        {{ entry.action.replace('_', ' ') }}
+                        <span class="capitalize">{{ roleLabel(entry.actor_role) }}</span>
+                        {{ actionLabel(entry.action) }}
                     </p>
                     <p class="text-xs text-gray-500">{{ relativeTime(entry.created_at) }}</p>
                 </div>
                 <p v-if="entry.proposed_rent !== null" class="mt-1 text-xs text-gray-700">
-                    Proposed rent: <span class="font-medium">{{ formatRent(entry.proposed_rent) }}</span>
+                    {{ t('counter_offer_history.proposed_rent_label') }} <span class="font-medium">{{ formatRent(entry.proposed_rent) }}</span>
                 </p>
                 <p v-if="entry.note" class="mt-1 text-xs text-gray-600">{{ entry.note }}</p>
             </div>
         </li>
-        <li v-if="sorted.length === 0" class="text-xs text-gray-500">No counter-offer history yet.</li>
+        <li v-if="sorted.length === 0" class="text-xs text-gray-500">{{ t('counter_offer_history.empty') }}</li>
     </ol>
 </template>

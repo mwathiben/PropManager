@@ -82,13 +82,7 @@ const dynamicAttrs = computed(() => {
         v-bind="dynamicAttrs"
         :aria-label="ariaLabel"
         :title="ariaLabel"
-        :class="[
-            'inline-flex items-center justify-center rounded-md transition-colors',
-            'focus:outline-none focus:ring-2 focus:ring-offset-1',
-            sizeClasses[size],
-            toneClasses[tone],
-            disabled ? 'opacity-50 cursor-not-allowed' : '',
-        ]"
+        :class="['inline-flex items-center justify-center rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1', sizeClasses[size], toneClasses[tone], disabled ? 'opacity-50 cursor-not-allowed' : '']"
     >
         <component :is="icon" :class="iconSizeClasses[size]" aria-hidden="true" />
     </component>

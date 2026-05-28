@@ -45,11 +45,7 @@ const styles = computed(() => urgencyStyles[props.urgency]);
     <component
         :is="actionHref ? Link : 'div'"
         :href="actionHref || undefined"
-        :class="[
-            styles.card,
-            'rounded-xl border p-4 transition-all duration-200 block',
-            actionHref ? 'cursor-pointer hover:shadow-md' : ''
-        ]"
+        :class="[styles.card, 'rounded-xl border p-4 transition-all duration-200 block', actionHref ? 'cursor-pointer hover:shadow-md' : '']"
     >
         <div class="flex items-start gap-3">
             <!-- Icon -->
