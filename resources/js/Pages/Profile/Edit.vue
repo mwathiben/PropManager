@@ -9,6 +9,7 @@ import VerificationTab from './Partials/VerificationTab.vue';
 import DangerZoneTab from './Partials/DangerZoneTab.vue';
 import NotificationsTab from './Partials/NotificationsTab.vue';
 import type { ProfileEditPageProps } from '@/types';
+import { useI18n } from '@/composables/useI18n';
 import {
     UserCircleIcon,
     ShieldCheckIcon,
@@ -20,36 +21,38 @@ import {
 
 const props = defineProps<ProfileEditPageProps>();
 
+const { t } = useI18n();
+
 const activeTab = ref('personal');
 
 const tabs = computed(() => {
     const baseTabs = [
-        { id: 'personal', name: 'Personal', icon: UserCircleIcon },
-        { id: 'security', name: 'Security', icon: ShieldCheckIcon },
-        { id: 'notifications', name: 'Notifications', icon: BellIcon },
+        { id: 'personal', name: t('profile_edit.tabs.personal'), icon: UserCircleIcon },
+        { id: 'security', name: t('profile_edit.tabs.security'), icon: ShieldCheckIcon },
+        { id: 'notifications', name: t('profile_edit.tabs.notifications'), icon: BellIcon },
     ];
 
     // Add role-specific tabs
     if (props.user.role === 'landlord') {
-        baseTabs.push({ id: 'business', name: 'Business', icon: BuildingOfficeIcon });
+        baseTabs.push({ id: 'business', name: t('profile_edit.tabs.business'), icon: BuildingOfficeIcon });
     }
 
     if (props.user.role === 'tenant') {
-        baseTabs.push({ id: 'verification', name: 'Verification', icon: IdentificationIcon });
+        baseTabs.push({ id: 'verification', name: t('profile_edit.tabs.verification'), icon: IdentificationIcon });
     }
 
     // Always add danger zone last
-    baseTabs.push({ id: 'danger', name: 'Danger Zone', icon: ExclamationTriangleIcon });
+    baseTabs.push({ id: 'danger', name: t('profile_edit.tabs.danger_zone'), icon: ExclamationTriangleIcon });
 
     return baseTabs;
 });
 
 const roleLabel = computed(() => {
-    const labels = {
-        landlord: 'Landlord',
-        caretaker: 'Caretaker',
-        tenant: 'Tenant',
-        super_admin: 'Super Admin',
+    const labels: Record<string, string> = {
+        landlord: t('profile_personal_info.roles.landlord'),
+        caretaker: t('profile_personal_info.roles.caretaker'),
+        tenant: t('profile_personal_info.roles.tenant'),
+        super_admin: t('profile_personal_info.roles.super_admin'),
     };
     return labels[props.user.role] || props.user.role;
 });
@@ -66,7 +69,7 @@ const roleBadgeClass = computed(() => {
 </script>
 
 <template>
-    <Head title="Profile Settings" />
+    <Head :title="t('profile_edit.page_title')" />
 
     <AuthenticatedLayout>
         <template #header>
@@ -75,8 +78,8 @@ const roleBadgeClass = computed(() => {
                     <UserCircleIcon class="w-6 h-6 text-indigo-600" />
                 </div>
                 <div>
-                    <h1 class="text-lg font-semibold text-gray-900">Profile Settings</h1>
-                    <p class="text-sm text-gray-500">Manage your account information and preferences</p>
+                    <h1 class="text-lg font-semibold text-gray-900">{{ t('profile_edit.page_title') }}</h1>
+                    <p class="text-sm text-gray-500">{{ t('profile_edit.page_subtitle') }}</p>
                 </div>
             </div>
         </template>

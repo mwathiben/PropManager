@@ -4,6 +4,7 @@ import { useVirtualList } from '@vueuse/core';
 import ChevronUpIcon from '@heroicons/vue/24/solid/ChevronUpIcon';
 import ChevronDownIcon from '@heroicons/vue/24/solid/ChevronDownIcon';
 import EmptyState from '@/Components/EmptyState.vue';
+import { useI18n } from '@/composables/useI18n';
 import type { ColumnDefinition, SortState } from '@/types/finances';
 
 type SortDirection = 'asc' | 'desc';
@@ -40,7 +41,6 @@ const props = withDefaults(defineProps<Props>(), {
     selectedIds: () => [],
     sortDirection: 'asc',
     rowKey: 'id',
-    emptyTitle: 'No data found',
     stickyHeader: false,
     compact: false,
     itemHeight: 52,
@@ -54,6 +54,8 @@ const emit = defineEmits<{
     selectAll: [ids: (string | number)[]];
     rowClick: [row: RowData];
 }>();
+
+const { t } = useI18n();
 
 const { list, containerProps, wrapperProps } = useVirtualList(
     computed(() => props.data),
@@ -129,7 +131,7 @@ const actualItemHeight = computed(() => props.compact ? 44 : 52);
                                 :checked="allSelected"
                                 :indeterminate="someSelected"
                                 @change="handleSelectAll"
-                                aria-label="Select all rows"
+                                :aria-label="t('finances_data_table.select_all_rows')"
                                 class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
                             />
                         </th>
@@ -138,12 +140,7 @@ const actualItemHeight = computed(() => props.compact ? 44 : 52);
                             :key="column.key"
                             scope="col"
                             :aria-sort="ariaSortFor(column)"
-                            :class="[
-                                cellClasses,
-                                'text-start text-xs font-medium text-gray-500 uppercase tracking-wider',
-                                column.align === 'right' ? 'text-end' : column.align === 'center' ? 'text-center' : '',
-                                column.width ? column.width : '',
-                            ]"
+                            :class="[cellClasses, 'text-start text-xs font-medium text-gray-500 uppercase tracking-wider', column.align === 'right' ? 'text-end' : column.align === 'center' ? 'text-center' : '', column.width ? column.width : '']"
                         >
                             <button
                                 v-if="column.sortable"
@@ -193,7 +190,7 @@ const actualItemHeight = computed(() => props.compact ? 44 : 52);
         <div v-else-if="data.length === 0" class="overflow-x-auto">
             <EmptyState
                 :icon="emptyIcon"
-                :title="emptyTitle"
+                :title="emptyTitle ?? t('finances_data_table.no_data_found')"
                 :description="emptyDescription"
                 size="sm"
             />
@@ -224,7 +221,7 @@ const actualItemHeight = computed(() => props.compact ? 44 : 52);
                                     type="checkbox"
                                     :checked="isSelected(row)"
                                     @change="handleSelect(row)"
-                                    aria-label="Select row"
+                                    :aria-label="t('finances_data_table.select_row')"
                                     class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
                                 />
                             </td>

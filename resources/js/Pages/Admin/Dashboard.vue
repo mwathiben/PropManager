@@ -5,6 +5,7 @@ import ActionItemCard from '@/Components/ActionItemCard.vue';
 import MetricCard from '@/Components/MetricCard.vue';
 import { useFormatters } from '@/composables';
 import { useAuth } from '@/composables/useAuth';
+import { useI18n } from '@/composables/useI18n';
 import {
     UserGroupIcon,
     BuildingOfficeIcon,
@@ -44,7 +45,7 @@ const props = withDefaults(defineProps<{
     topLandlords: () => [],
 });
 
-// Use composables
+const { t } = useI18n();
 const { formatCurrency, formatDate } = useFormatters();
 const { can } = useAuth();
 
@@ -54,27 +55,27 @@ const getOccupancyRate = (occupied, total) => {
 };
 
 const impersonateLandlord = (landlordId) => {
-    if (confirm('You will be logged in as this landlord. Continue?')) {
+    if (confirm(t('admin_dashboard.impersonate_confirm'))) {
         router.post(route('admin.impersonate', landlordId));
     }
 };
 </script>
 
 <template>
-    <Head title="Admin Dashboard" />
+    <Head :title="t('admin_dashboard.head_title')" />
 
     <AuthenticatedLayout>
         <template #header>
             <div class="flex items-center justify-between w-full">
                 <div>
-                    <h1 class="text-lg font-semibold text-gray-900">System Administration</h1>
-                    <p class="text-sm text-gray-500">PropManager Overview</p>
+                    <h1 class="text-lg font-semibold text-gray-900">{{ t('admin_dashboard.header_title') }}</h1>
+                    <p class="text-sm text-gray-500">{{ t('admin_dashboard.header_subtitle') }}</p>
                 </div>
                 <div class="flex items-center gap-2">
                     <Link :href="route('admin.settings')"
                           class="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-medium text-sm">
                         <Cog6ToothIcon class="w-4 h-4 me-2" />
-                        Settings
+                        {{ t('admin_dashboard.settings') }}
                     </Link>
                 </div>
             </div>
@@ -84,57 +85,57 @@ const impersonateLandlord = (landlordId) => {
             <!-- === SYSTEM HEALTH METRICS === -->
             <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                 <MetricCard
-                    title="Active Landlords"
+                    :title="t('admin_dashboard.metric_active_landlords')"
                     :value="systemHealth.active_landlords"
                     format="number"
-                    subtitle="Registered"
+                    :subtitle="t('admin_dashboard.metric_active_landlords_subtitle')"
                     :icon="UserGroupIcon"
                     color="purple"
                     :href="route('admin.landlords')"
                 />
 
                 <MetricCard
-                    title="Properties"
+                    :title="t('admin_dashboard.metric_properties')"
                     :value="systemHealth.total_properties"
                     format="number"
-                    subtitle="Total"
+                    :subtitle="t('admin_dashboard.metric_properties_subtitle')"
                     :icon="BuildingOfficeIcon"
                     color="blue"
                 />
 
                 <MetricCard
-                    title="Units"
+                    :title="t('admin_dashboard.metric_units')"
                     :value="systemHealth.total_units"
                     format="number"
-                    subtitle="Managed"
+                    :subtitle="t('admin_dashboard.metric_units_subtitle')"
                     :icon="HomeModernIcon"
                     color="emerald"
                 />
 
                 <MetricCard
-                    title="Tenants"
+                    :title="t('admin_dashboard.metric_tenants')"
                     :value="systemHealth.total_tenants"
                     format="number"
-                    subtitle="Active"
+                    :subtitle="t('admin_dashboard.metric_tenants_subtitle')"
                     :icon="UsersIcon"
                     color="yellow"
                     :href="route('admin.users')"
                 />
 
                 <MetricCard
-                    title="This Month"
+                    :title="t('admin_dashboard.metric_this_month')"
                     :value="systemHealth.monthly_revenue"
                     format="currency"
-                    subtitle="Revenue"
+                    :subtitle="t('admin_dashboard.metric_this_month_subtitle')"
                     :icon="ArrowTrendingUpIcon"
                     color="emerald"
                 />
 
                 <MetricCard
-                    title="Total Revenue"
+                    :title="t('admin_dashboard.metric_total_revenue')"
                     :value="systemHealth.total_revenue"
                     format="currency"
-                    subtitle="All time"
+                    :subtitle="t('admin_dashboard.metric_total_revenue_subtitle')"
                     :icon="CurrencyDollarIcon"
                     color="indigo"
                 />
@@ -147,9 +148,9 @@ const impersonateLandlord = (landlordId) => {
                     urgency="low"
                     :icon="UserPlusIcon"
                     :count="actionItems.new_signups"
-                    title="New Signups"
-                    description="This week"
-                    actionLabel="View"
+                    :title="t('admin_dashboard.action_new_signups_title')"
+                    :description="t('admin_dashboard.action_new_signups_description')"
+                    :actionLabel="t('admin_dashboard.action_new_signups_label')"
                     :actionHref="route('admin.landlords')"
                 />
 
@@ -158,9 +159,9 @@ const impersonateLandlord = (landlordId) => {
                     urgency="medium"
                     :icon="ExclamationCircleIcon"
                     :count="actionItems.inactive_landlords"
-                    title="Inactive Landlords"
-                    description="No properties created"
-                    actionLabel="Review"
+                    :title="t('admin_dashboard.action_inactive_landlords_title')"
+                    :description="t('admin_dashboard.action_inactive_landlords_description')"
+                    :actionLabel="t('admin_dashboard.action_inactive_landlords_label')"
                     :actionHref="route('admin.landlords')"
                 />
 
@@ -172,8 +173,8 @@ const impersonateLandlord = (landlordId) => {
                             <UserGroupIcon class="w-5 h-5 text-purple-600" />
                         </div>
                         <div>
-                            <p class="font-semibold text-gray-900">Manage Landlords</p>
-                            <p class="text-xs text-gray-500">View all accounts</p>
+                            <p class="font-semibold text-gray-900">{{ t('admin_dashboard.quick_manage_landlords_title') }}</p>
+                            <p class="text-xs text-gray-500">{{ t('admin_dashboard.quick_manage_landlords_subtitle') }}</p>
                         </div>
                     </div>
                 </Link>
@@ -185,8 +186,8 @@ const impersonateLandlord = (landlordId) => {
                             <UsersIcon class="w-5 h-5 text-blue-600" />
                         </div>
                         <div>
-                            <p class="font-semibold text-gray-900">All Users</p>
-                            <p class="text-xs text-gray-500">Search & manage</p>
+                            <p class="font-semibold text-gray-900">{{ t('admin_dashboard.quick_all_users_title') }}</p>
+                            <p class="text-xs text-gray-500">{{ t('admin_dashboard.quick_all_users_subtitle') }}</p>
                         </div>
                     </div>
                 </Link>
@@ -197,26 +198,26 @@ const impersonateLandlord = (landlordId) => {
                 <!-- Recent Landlords (2 columns) -->
                 <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                     <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-                        <h3 class="font-bold text-gray-900">Recent Landlords</h3>
+                        <h3 class="font-bold text-gray-900">{{ t('admin_dashboard.recent_landlords_title') }}</h3>
                         <Link :href="route('admin.landlords')" class="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center">
-                            View All <ChevronRightIcon class="w-4 h-4 ms-1" />
+                            {{ t('admin_dashboard.view_all') }} <ChevronRightIcon class="w-4 h-4 ms-1" />
                         </Link>
                     </div>
 
                     <div v-if="landlords.length === 0" class="p-8 text-center">
                         <UserGroupIcon class="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                        <p class="text-gray-500">No landlords registered yet</p>
+                        <p class="text-gray-500">{{ t('admin_dashboard.recent_landlords_empty') }}</p>
                     </div>
 
                     <div v-else class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
-                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Landlord</th>
-                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Portfolio</th>
-                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Occupancy</th>
-                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
-                                    <th class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('admin_dashboard.table_landlord') }}</th>
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('admin_dashboard.table_portfolio') }}</th>
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('admin_dashboard.table_occupancy') }}</th>
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('admin_dashboard.table_revenue') }}</th>
+                                    <th class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('admin_dashboard.table_actions') }}</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-100 bg-white">
@@ -233,8 +234,8 @@ const impersonateLandlord = (landlordId) => {
                                         </div>
                                     </td>
                                     <td class="px-6 py-4">
-                                        <p class="text-sm text-gray-900">{{ landlord.properties_count }} Properties</p>
-                                        <p class="text-xs text-gray-500">{{ landlord.units_count }} Units</p>
+                                        <p class="text-sm text-gray-900">{{ t('admin_dashboard.portfolio_properties', { count: landlord.properties_count }) }}</p>
+                                        <p class="text-xs text-gray-500">{{ t('admin_dashboard.portfolio_units', { count: landlord.units_count }) }}</p>
                                     </td>
                                     <td class="px-6 py-4">
                                         <div class="flex items-center gap-2">
@@ -250,7 +251,7 @@ const impersonateLandlord = (landlordId) => {
                                     </td>
                                     <td class="px-6 py-4">
                                         <p class="text-sm font-semibold text-gray-900">{{ formatCurrency(landlord.monthly_revenue) }}</p>
-                                        <p class="text-xs text-gray-500">This month</p>
+                                        <p class="text-xs text-gray-500">{{ t('admin_dashboard.revenue_this_month') }}</p>
                                     </td>
                                     <td class="px-6 py-4 text-end">
                                         <div class="flex items-center justify-end gap-2">
@@ -260,7 +261,7 @@ const impersonateLandlord = (landlordId) => {
                                             </Link>
                                             <button v-if="can('access-admin')" @click="impersonateLandlord(landlord.id)"
                                                     class="px-3 py-1.5 text-xs font-medium text-gray-600 hover:text-white hover:bg-indigo-600 border border-gray-200 hover:border-indigo-600 rounded-lg transition">
-                                                Login As
+                                                {{ t('admin_dashboard.login_as') }}
                                             </button>
                                         </div>
                                     </td>
@@ -274,12 +275,12 @@ const impersonateLandlord = (landlordId) => {
                 <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
                     <div class="flex items-center gap-2 mb-4">
                         <TrophyIcon class="w-5 h-5 text-amber-500" />
-                        <h3 class="font-bold text-gray-900">Top Performers</h3>
+                        <h3 class="font-bold text-gray-900">{{ t('admin_dashboard.top_performers_title') }}</h3>
                     </div>
-                    <p class="text-sm text-gray-500 mb-4">By monthly revenue</p>
+                    <p class="text-sm text-gray-500 mb-4">{{ t('admin_dashboard.top_performers_subtitle') }}</p>
 
                     <div v-if="topLandlords.length === 0" class="text-center py-4">
-                        <p class="text-gray-500 text-sm">No data yet</p>
+                        <p class="text-gray-500 text-sm">{{ t('admin_dashboard.top_performers_empty') }}</p>
                     </div>
 
                     <div v-else class="space-y-4">
@@ -297,7 +298,7 @@ const impersonateLandlord = (landlordId) => {
                             <!-- Landlord Info -->
                             <div class="flex-1 min-w-0">
                                 <p class="font-medium text-gray-900 truncate">{{ landlord.name }}</p>
-                                <p class="text-xs text-gray-500">{{ landlord.properties_count || 0 }} properties</p>
+                                <p class="text-xs text-gray-500">{{ t('admin_dashboard.top_performers_properties', { count: landlord.properties_count || 0 }) }}</p>
                             </div>
 
                             <!-- Revenue -->
@@ -310,7 +311,7 @@ const impersonateLandlord = (landlordId) => {
                     <div class="mt-6 pt-4 border-t border-gray-100">
                         <Link :href="route('admin.landlords')"
                               class="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center justify-center">
-                            View All Landlords <ChevronRightIcon class="w-4 h-4 ms-1" />
+                            {{ t('admin_dashboard.view_all_landlords') }} <ChevronRightIcon class="w-4 h-4 ms-1" />
                         </Link>
                     </div>
                 </div>
@@ -324,8 +325,8 @@ const impersonateLandlord = (landlordId) => {
                         <UserGroupIcon class="w-6 h-6 text-purple-600" />
                     </div>
                     <div>
-                        <p class="font-semibold text-gray-900">Manage Landlords</p>
-                        <p class="text-sm text-gray-500">View and manage all landlord accounts</p>
+                        <p class="font-semibold text-gray-900">{{ t('admin_dashboard.cta_landlords_title') }}</p>
+                        <p class="text-sm text-gray-500">{{ t('admin_dashboard.cta_landlords_description') }}</p>
                     </div>
                     <ChevronRightIcon class="w-5 h-5 text-gray-400 ms-auto" />
                 </Link>
@@ -336,8 +337,8 @@ const impersonateLandlord = (landlordId) => {
                         <UsersIcon class="w-6 h-6 text-blue-600" />
                     </div>
                     <div>
-                        <p class="font-semibold text-gray-900">All Users</p>
-                        <p class="text-sm text-gray-500">Search and manage all user accounts</p>
+                        <p class="font-semibold text-gray-900">{{ t('admin_dashboard.cta_users_title') }}</p>
+                        <p class="text-sm text-gray-500">{{ t('admin_dashboard.cta_users_description') }}</p>
                     </div>
                     <ChevronRightIcon class="w-5 h-5 text-gray-400 ms-auto" />
                 </Link>
@@ -348,8 +349,8 @@ const impersonateLandlord = (landlordId) => {
                         <Cog6ToothIcon class="w-6 h-6 text-green-600" />
                     </div>
                     <div>
-                        <p class="font-semibold text-gray-900">System Settings</p>
-                        <p class="text-sm text-gray-500">Configure system-wide settings</p>
+                        <p class="font-semibold text-gray-900">{{ t('admin_dashboard.cta_settings_title') }}</p>
+                        <p class="text-sm text-gray-500">{{ t('admin_dashboard.cta_settings_description') }}</p>
                     </div>
                     <ChevronRightIcon class="w-5 h-5 text-gray-400 ms-auto" />
                 </Link>

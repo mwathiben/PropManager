@@ -30,11 +30,11 @@ const { t } = useI18n();
 
 <template>
     <AuthenticatedLayout>
-        <Head title="Message Threads" />
+        <Head :title="t('message_threads_index.head_title')" />
 
         <div class="px-4 py-6 sm:px-6 lg:px-8">
             <header class="flex items-center justify-between mb-6">
-                <h1 class="text-2xl font-semibold text-gray-900">Message Threads</h1>
+                <h1 class="text-2xl font-semibold text-gray-900">{{ t('message_threads_index.heading') }}</h1>
                 <Link
                     :href="route('message-threads.search')"
                     class="text-sm font-medium text-indigo-600 hover:underline"
@@ -49,7 +49,7 @@ const { t } = useI18n();
                     <Link :href="route('message-threads.show', thread.id)" class="block px-4 py-4">
                         <div class="flex items-center justify-between">
                             <p class="text-sm font-medium text-gray-900">
-                                {{ thread.title || `Thread #${thread.id}` }}
+                                {{ thread.title || t('message_threads_index.thread_fallback_title', { id: thread.id }) }}
                             </p>
                             <span
                                 class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
@@ -68,7 +68,7 @@ const { t } = useI18n();
                     </Link>
                 </li>
                 <li v-if="threads.data.length === 0" class="px-4 py-8 text-center text-sm text-gray-500">
-                    No message threads yet.
+                    {{ t('message_threads_index.empty') }}
                 </li>
             </ul>
         </div>

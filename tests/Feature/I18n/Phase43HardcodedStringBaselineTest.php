@@ -113,9 +113,39 @@ class Phase43HardcodedStringBaselineTest extends TestCase
      *   Settings/partials/BusinessProfileTab,
      *   Settings/partials/PaymentMethodsTab — scanner-FP-only,
      *   Tenant/Inbox/Index, TenantFinances/Pay) to $t().
+     * - 2026-05-28: lowered to 100 after migrating six more components
+     *   (ActionItemCard/Dropdown/FormSubmitButton/IconButton — slot-only,
+     *   no lang stubs; InvitationBanner; LeaseCounter/CounterOfferHistory)
+     *   to $t().
+     * - 2026-05-28: lowered to 88 after migrating six more components
+     *   (LegalHold/HoldCreateModal, Modals/AddBuildingModal,
+     *   Offline/PhotoUploadStatusList, Water/WaterSettingsForm,
+     *   Layouts/AuthenticatedLayout — FPs only, no new keys,
+     *   Admin/AuditLogs) to $t().
+     * - 2026-05-28: lowered to 76 after migrating six more screens
+     *   (Admin/Dashboard, CreditNotes/Create, CreditNotes/Index,
+     *   Dashboards/Show, Errors/404, Finances/Index) to $t().
+     * - 2026-05-28: lowered to 64 after migrating six more screens
+     *   (Finances/RefundsTab, Help/Show, Invoices/Show,
+     *   InvoiceSettings/Edit, MessageThreads/Index, Ops/Onboarding/Funnel)
+     *   to $t().
+     * - 2026-05-28: lowered to 52 after migrating six more screens
+     *   (PaymentLink/Invalid, Profile/Edit, Settings/PayoutAccounts,
+     *   Tenant/CompleteKyc, Tenant/PaymentRequired, TenantFinances/Index)
+     *   to $t().
+     * - 2026-05-28: lowered to 44 after migrating six more components
+     *   (VendorPortal/Sla [namespace rename + orphan vendor_portal.sla
+     *   block trimmed], Water/tabs/ReviewTab, Dashboard/ChartCard,
+     *   Dashboard/KpiCard, DropdownLink [slot-only], Finances/DataTable)
+     *   to $t().
+     * - 2026-05-28: lowered to 38 after migrating six more components
+     *   (Finances/PaymentMethodSelector [slot-only], Finances/VirtualDataTable
+     *   [reuses finances_data_table; same DataTable withDefaults fix pattern],
+     *   Growth/FunnelSankey, Insight/UsageRatioCard, Pagination [scanner FP
+     *   only], TenantProfile/DocumentsTab) to $t().
      *   Lowering the constant requires the scanner to confirm the new floor.
      */
-    private const BASELINE = 112;
+    private const BASELINE = 38;
 
     public function test_hardcoded_english_count_does_not_grow_beyond_baseline(): void
     {

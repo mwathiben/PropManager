@@ -5,6 +5,7 @@ import { useFinancesStore } from '@/stores/finances';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Breadcrumb from '@/Components/Breadcrumb.vue';
 import { ModalLoadingPlaceholder, TabLoadingPlaceholder } from '@/Components/Finances';
+import { useI18n } from '@/composables/useI18n';
 
 const OverviewTab = defineAsyncComponent({
     loader: () => import('./tabs/OverviewTab.vue'),
@@ -242,14 +243,10 @@ const props = withDefaults(defineProps<Props>(), {
     filters: () => ({}),
     templates: () => [],
     receiptTemplates: () => [],
-    designOptions: () => ({
-        classic: 'Classic',
-        modern: 'Modern',
-        minimal: 'Minimal',
-        professional: 'Professional',
-    }),
+    designOptions: undefined,
 });
 
+const { t } = useI18n();
 const store = useFinancesStore();
 
 const groupConfig: Record<string, GroupConfig> = {
@@ -280,29 +277,29 @@ const tabComponents = {
     settings: SettingsTab,
 };
 
-const tabNames = {
-    overview: 'Overview',
-    invoices: 'Invoices',
-    payments: 'Payments',
-    expenses: 'Expenses',
-    refunds: 'Refunds',
-    reconciliation: 'Reconciliation',
-    deposits: 'Deposits',
-    arrears: 'Arrears',
-    'late-fees': 'Late Fees',
-    reports: 'Reports',
-    'template-invoices': 'Invoice Templates',
-    'template-receipts': 'Receipt Templates',
-    'template-credit-notes': 'Credit Note Templates',
-    settings: 'Settings',
-};
+const tabNames = computed<Record<string, string>>(() => ({
+    overview: t('finances_index.tabs.overview'),
+    invoices: t('finances_index.tabs.invoices'),
+    payments: t('finances_index.tabs.payments'),
+    expenses: t('finances_index.tabs.expenses'),
+    refunds: t('finances_index.tabs.refunds'),
+    reconciliation: t('finances_index.tabs.reconciliation'),
+    deposits: t('finances_index.tabs.deposits'),
+    arrears: t('finances_index.tabs.arrears'),
+    'late-fees': t('finances_index.tabs.late_fees'),
+    reports: t('finances_index.tabs.reports'),
+    'template-invoices': t('finances_index.tabs.template_invoices'),
+    'template-receipts': t('finances_index.tabs.template_receipts'),
+    'template-credit-notes': t('finances_index.tabs.template_credit_notes'),
+    settings: t('finances_index.tabs.settings'),
+}));
 
 const currentTabComponent = computed(() => tabComponents[store.activeTab] || OverviewTab);
 
 const effectiveGroup = computed(() => props.activeGroup || props.activeTab);
 
 const activeSubtabs = computed(() => {
-    const group = props.tabs.find(t => t.id === effectiveGroup.value);
+    const group = props.tabs.find(tab => tab.id === effectiveGroup.value);
     return group?.subtabs || null;
 });
 
@@ -353,20 +350,21 @@ const prefetchTab = (tab) => {
 };
 
 const pageTitle = computed(() => {
-    return `Finance Hub - ${tabNames[store.activeTab] || 'Overview'}`;
+    const tabLabel = tabNames.value[store.activeTab] || t('finances_index.tabs.overview');
+    return t('finances_index.page_title', { tab: tabLabel });
 });
 
 const breadcrumbItems = computed(() => {
-    const items = [{ label: 'Finance Hub', href: route('finances.index') }];
+    const items = [{ label: t('finances_index.breadcrumb_root'), href: route('finances.index') }];
 
     if (props.activeGroup) {
-        const group = props.tabs.find(t => t.id === props.activeGroup);
+        const group = props.tabs.find(tab => tab.id === props.activeGroup);
         if (group) {
             items.push({ label: group.name, href: route(group.route) });
         }
-        items.push({ label: tabNames[store.activeTab] || 'Overview' });
+        items.push({ label: tabNames.value[store.activeTab] || t('finances_index.tabs.overview') });
     } else {
-        items.push({ label: tabNames[store.activeTab] || 'Overview' });
+        items.push({ label: tabNames.value[store.activeTab] || t('finances_index.tabs.overview') });
     }
 
     return items;
@@ -379,7 +377,7 @@ const invoicesForModal = computed(() => {
         .map(inv => ({
             id: inv.id,
             invoice_number: inv.invoice_number,
-            tenant_name: inv.lease?.tenant?.name || 'Unknown',
+            tenant_name: inv.lease?.tenant?.name || t('finances_index.unknown_tenant'),
             balance: (inv.total_due || 0) - (inv.amount_paid || 0),
         }));
 });
@@ -389,7 +387,7 @@ const paymentsForModal = computed(() => {
     return props.payments.data.map(pmt => ({
         id: pmt.id,
         payment_date: pmt.payment_date,
-        tenant_name: pmt.lease?.tenant?.name || pmt.tenant_name || 'Unknown',
+        tenant_name: pmt.lease?.tenant?.name || pmt.tenant_name || t('finances_index.unknown_tenant'),
         amount: pmt.amount,
         refund_status: pmt.refund_status || null,
         payment_method: pmt.payment_method,
@@ -401,10 +399,17 @@ const unmatchedPaymentsForModal = computed(() => {
     return props.unmatchedPayments.map(pmt => ({
         id: pmt.id,
         payment_date: pmt.payment_date,
-        tenant_name: pmt.tenant_name || 'Unknown',
+        tenant_name: pmt.tenant_name || t('finances_index.unknown_tenant'),
         amount: pmt.amount,
         payment_method: pmt.payment_method,
     }));
+});
+
+const designOptionsLocalized = computed<Record<string, string>>(() => props.designOptions ?? {
+    classic: t('finances_index.design_options.classic'),
+    modern: t('finances_index.design_options.modern'),
+    minimal: t('finances_index.design_options.minimal'),
+    professional: t('finances_index.design_options.professional'),
 });
 </script>
 
@@ -418,8 +423,8 @@ const unmatchedPaymentsForModal = computed(() => {
                     <BanknotesIcon class="w-6 h-6 text-emerald-600" />
                 </div>
                 <div>
-                    <h1 class="text-lg font-semibold text-gray-900">Finance Hub</h1>
-                    <p class="text-sm text-gray-500">Manage invoices, payments, and financial operations</p>
+                    <h1 class="text-lg font-semibold text-gray-900">{{ t('finances_index.heading') }}</h1>
+                    <p class="text-sm text-gray-500">{{ t('finances_index.subheading') }}</p>
                 </div>
             </div>
         </template>
@@ -514,7 +519,7 @@ const unmatchedPaymentsForModal = computed(() => {
                             :expenses-by-category="expensesByCategory"
                             :templates="templates"
                             :receipt-templates="receiptTemplates"
-                            :design-options="designOptions"
+                            :design-options="designOptionsLocalized"
                             :active-subtab="store.activeTab"
                             :loading="tabLoading"
                         />

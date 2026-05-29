@@ -36,15 +36,19 @@ class Phase87WaterTariffSurfaceTest extends TestCase
 
     public function test_settings_lang_parity_across_locales(): void
     {
+        // 2026-05-28: form-body keyspace moved from water.settings.*
+        // (lang/{locale}/water.php) to a dedicated water_settings_form.*
+        // namespace (lang/{locale}/water_settings_form.php) — readers
+        // updated in lockstep.
         $en = $this->settingsKeys('en');
         $sw = $this->settingsKeys('sw');
         $ar = $this->settingsKeys('ar');
 
-        $this->assertSame($en, $sw, 'sw water.settings keys diverge from en');
-        $this->assertSame($en, $ar, 'ar water.settings keys diverge from en');
+        $this->assertSame($en, $sw, 'sw water_settings_form keys diverge from en');
+        $this->assertSame($en, $ar, 'ar water_settings_form keys diverge from en');
         // The Phase-87 keys are present.
         foreach (['tiers_title', 'standing_charge', 'sewerage_percent', 'vat_percent', 'water_source'] as $key) {
-            $this->assertContains($key, $en, "missing water.settings.{$key}");
+            $this->assertContains($key, $en, "missing water_settings_form.{$key}");
         }
     }
 
@@ -59,8 +63,8 @@ class Phase87WaterTariffSurfaceTest extends TestCase
      */
     private function settingsKeys(string $locale): array
     {
-        $water = require base_path("lang/{$locale}/water.php");
-        $keys = array_keys($water['settings'] ?? []);
+        $form = require base_path("lang/{$locale}/water_settings_form.php");
+        $keys = array_keys($form);
         sort($keys);
 
         return $keys;

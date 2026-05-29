@@ -36,8 +36,8 @@ const variantClasses = {
         :type="type"
         :disabled="processing"
         :class="[
-            'inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md',
-            'focus:outline-none focus:ring-2 focus:ring-offset-2',
+            'inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md', /* i18n-ignore */
+            'focus:outline-none focus:ring-2 focus:ring-offset-2', /* i18n-ignore */
             'transition-opacity',
             variantClasses[variant],
             processing ? 'opacity-50 cursor-not-allowed' : 'opacity-100',

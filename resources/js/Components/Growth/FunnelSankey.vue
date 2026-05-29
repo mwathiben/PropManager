@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useI18n } from '@/composables/useI18n';
 
 interface SankeyNode {
     id: string;
@@ -22,6 +23,8 @@ const props = defineProps<{
     width?: number;
     height?: number;
 }>();
+
+const { t } = useI18n();
 
 const width = computed(() => props.width ?? 720);
 const height = computed(() => props.height ?? 360);
@@ -96,7 +99,7 @@ const linkStroke = (isDropOff: boolean): string =>
         :width="width"
         :height="height"
         role="img"
-        :aria-label="`Funnel sankey over the last ${payload.window_days} days`"
+        :aria-label="t('funnel_sankey.aria_label', { days: payload.window_days })"
         data-testid="funnel-sankey-svg"
     >
         <path

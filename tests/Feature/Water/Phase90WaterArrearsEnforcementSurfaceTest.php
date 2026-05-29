@@ -46,9 +46,12 @@ class Phase90WaterArrearsEnforcementSurfaceTest extends TestCase
         foreach (['en', 'sw', 'ar'] as $locale) {
             $meter = require base_path("lang/{$locale}/meter.php");
             $water = require base_path("lang/{$locale}/water.php");
+            // 2026-05-28: water settings form-body keyspace moved from
+            // water.settings.* to water_settings_form.* — reader rerouted.
+            $form = require base_path("lang/{$locale}/water_settings_form.php");
             $this->assertArrayHasKey('disconnect', $meter, "{$locale} missing meter.disconnect");
             $this->assertArrayHasKey('arrears', $meter, "{$locale} missing meter.arrears");
-            $this->assertArrayHasKey('reconnection_fee', $water['settings'] ?? [], "{$locale} missing water.settings.reconnection_fee");
+            $this->assertArrayHasKey('reconnection_fee', $form, "{$locale} missing water_settings_form.reconnection_fee");
             $this->assertArrayHasKey('arrears_subject', $water['notify'] ?? [], "{$locale} missing water.notify.arrears_subject");
             $this->assertArrayHasKey('disconnected_title', $water['tenant'] ?? [], "{$locale} missing water.tenant.disconnected_title");
         }

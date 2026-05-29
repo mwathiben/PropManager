@@ -4,6 +4,7 @@ import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Breadcrumb from '@/Components/Breadcrumb.vue';
 import { useErrorHandler, useFormatters, useCurrency } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import type { CreditNoteCreatePageProps } from '@/types/templates';
 import {
     DocumentPlusIcon,
@@ -13,16 +14,20 @@ import {
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps<CreditNoteCreatePageProps>();
+const { t } = useI18n();
 
-const breadcrumbItems = [
-    { label: 'Finance Hub', href: route('finances.index') },
-    { label: 'Credit Notes', href: route('credit-notes.index') },
-    { label: 'Issue Credit Note' },
-];
+const breadcrumbItems = computed(() => [
+    { label: t('credit_notes_create.breadcrumb_finance_hub'), href: route('finances.index') },
+    { label: t('credit_notes_create.breadcrumb_credit_notes'), href: route('credit-notes.index') },
+    { label: t('credit_notes_create.breadcrumb_issue') },
+]);
 
 const { logError } = useErrorHandler();
 const { formatMoney } = useFormatters();
 const { currencySymbol } = useCurrency();
+
+const reasonLabel = (value: string, fallback: string): string =>
+    t(`credit_notes_create.reason_${value}`, fallback ?? '');
 const searchQuery = ref('');
 const searchResults = ref([]);
 const isSearching = ref(false);
@@ -85,7 +90,7 @@ const submit = () => {
 </script>
 
 <template>
-    <Head title="Issue Credit Note" />
+    <Head :title="t('credit_notes_create.page_title')" />
 
     <AuthenticatedLayout>
         <template #header>
@@ -94,8 +99,8 @@ const submit = () => {
                     <DocumentPlusIcon class="w-6 h-6 text-purple-600" />
                 </div>
                 <div>
-                    <h1 class="text-lg font-semibold text-gray-900">Issue Credit Note</h1>
-                    <p class="text-sm text-gray-500">Create a credit adjustment for a tenant account</p>
+                    <h1 class="text-lg font-semibold text-gray-900">{{ t('credit_notes_create.header_title') }}</h1>
+                    <p class="text-sm text-gray-500">{{ t('credit_notes_create.header_subtitle') }}</p>
                 </div>
             </div>
         </template>
@@ -109,20 +114,20 @@ const submit = () => {
                 <!-- Success State -->
                 <div v-if="showSuccess" class="bg-white rounded-xl shadow-sm border border-green-200 p-8 text-center">
                     <CheckCircleIcon class="w-16 h-16 mx-auto text-green-500 mb-4" />
-                    <h2 class="text-xl font-semibold text-gray-900 mb-2">Credit Note Created</h2>
-                    <p class="text-gray-600 mb-6">The credit note has been created and is pending approval.</p>
+                    <h2 class="text-xl font-semibold text-gray-900 mb-2">{{ t('credit_notes_create.success_title') }}</h2>
+                    <p class="text-gray-600 mb-6">{{ t('credit_notes_create.success_description') }}</p>
                     <div class="flex gap-4 justify-center">
                         <Link
                             :href="route('credit-notes.index')"
                             class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
                         >
-                            View All Credit Notes
+                            {{ t('credit_notes_create.success_view_all') }}
                         </Link>
                         <button
                             @click="showSuccess = false; form.reset()"
                             class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
                         >
-                            Create Another
+                            {{ t('credit_notes_create.success_create_another') }}
                         </button>
                     </div>
                 </div>
@@ -130,15 +135,15 @@ const submit = () => {
                 <!-- Form -->
                 <form v-else @submit.prevent="submit" class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                     <div class="p-6 border-b border-gray-200">
-                        <h2 class="text-lg font-medium text-gray-900">Credit Note Details</h2>
-                        <p class="text-sm text-gray-500 mt-1">Credit notes reduce the tenant's outstanding balance.</p>
+                        <h2 class="text-lg font-medium text-gray-900">{{ t('credit_notes_create.card_title') }}</h2>
+                        <p class="text-sm text-gray-500 mt-1">{{ t('credit_notes_create.card_subtitle') }}</p>
                     </div>
 
                     <div class="p-6 space-y-6">
                         <!-- Tenant Selection -->
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">
-                                Tenant <span class="text-red-500">*</span>
+                                {{ t('credit_notes_create.label_tenant') }} <span class="text-red-500">*</span>
                             </label>
 
                             <div v-if="selectedTenant" class="flex items-center gap-3 p-3 bg-purple-50 border border-purple-200 rounded-lg">
@@ -156,7 +161,7 @@ const submit = () => {
                                     @click="clearTenant"
                                     class="text-sm text-purple-600 hover:text-purple-800"
                                 >
-                                    Change
+                                    {{ t('credit_notes_create.change_tenant') }}
                                 </button>
                             </div>
 
@@ -165,7 +170,7 @@ const submit = () => {
                                 <input
                                     v-model="searchQuery"
                                     type="text"
-                                    placeholder="Search tenant by name, phone, or unit..."
+                                    :placeholder="t('credit_notes_create.search_placeholder')"
                                     class="w-full ps-10 pe-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
                                 />
 
@@ -184,7 +189,7 @@ const submit = () => {
                                     </button>
                                 </div>
 
-                                <p v-if="isSearching" class="text-sm text-gray-500 mt-1">Searching...</p>
+                                <p v-if="isSearching" class="text-sm text-gray-500 mt-1">{{ t('credit_notes_create.searching') }}</p>
                             </div>
                             <p v-if="form.errors.tenant_id" class="text-sm text-red-600 mt-1">{{ form.errors.tenant_id }}</p>
                         </div>
@@ -192,7 +197,7 @@ const submit = () => {
                         <!-- Amount -->
                         <div>
                             <label for="amount" class="block text-sm font-medium text-gray-700 mb-2">
-                                Credit Amount <span class="text-red-500">*</span>
+                                {{ t('credit_notes_create.label_amount') }} <span class="text-red-500">*</span>
                             </label>
                             <div class="relative">
                                 <span class="absolute start-3 top-1/2 -translate-y-1/2 text-gray-500">{{ currencySymbol }}</span>
@@ -202,7 +207,7 @@ const submit = () => {
                                     type="number"
                                     step="0.01"
                                     min="0.01"
-                                    placeholder="0.00"
+                                    :placeholder="t('credit_notes_create.amount_placeholder')"
                                     class="w-full ps-14 pe-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
                                 />
                             </div>
@@ -212,16 +217,16 @@ const submit = () => {
                         <!-- Reason -->
                         <div>
                             <label for="reason" class="block text-sm font-medium text-gray-700 mb-2">
-                                Reason <span class="text-red-500">*</span>
+                                {{ t('credit_notes_create.label_reason') }} <span class="text-red-500">*</span>
                             </label>
                             <select
                                 id="reason"
                                 v-model="form.reason"
                                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
                             >
-                                <option value="">Select a reason</option>
+                                <option value="">{{ t('credit_notes_create.reason_placeholder') }}</option>
                                 <option v-for="(label, value) in reasonOptions" :key="value" :value="value">
-                                    {{ label }}
+                                    {{ reasonLabel(String(value), String(label)) }}
                                 </option>
                             </select>
                             <p v-if="form.errors.reason" class="text-sm text-red-600 mt-1">{{ form.errors.reason }}</p>
@@ -230,13 +235,13 @@ const submit = () => {
                         <!-- Notes -->
                         <div>
                             <label for="notes" class="block text-sm font-medium text-gray-700 mb-2">
-                                Notes <span class="text-gray-400">(optional)</span>
+                                {{ t('credit_notes_create.label_notes') }} <span class="text-gray-400">{{ t('credit_notes_create.label_optional') }}</span>
                             </label>
                             <textarea
                                 id="notes"
                                 v-model="form.notes"
                                 rows="3"
-                                placeholder="Additional details about this credit..."
+                                :placeholder="t('credit_notes_create.notes_placeholder')"
                                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
                             ></textarea>
                             <p v-if="form.errors.notes" class="text-sm text-red-600 mt-1">{{ form.errors.notes }}</p>
@@ -248,14 +253,14 @@ const submit = () => {
                             :href="route('credit-notes.index')"
                             class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
                         >
-                            Cancel
+                            {{ t('credit_notes_create.cancel') }}
                         </Link>
                         <button
                             type="submit"
                             :disabled="form.processing || !form.tenant_id || !form.amount || !form.reason"
                             class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {{ form.processing ? 'Creating...' : 'Create Credit Note' }}
+                            {{ form.processing ? t('credit_notes_create.submit_creating') : t('credit_notes_create.submit_create') }}
                         </button>
                     </div>
                 </form>

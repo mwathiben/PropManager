@@ -6,6 +6,7 @@ import InputLabel from '@/Components/InputLabel.vue';
 import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import { useFormatters } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import type { PaymentRequiredPageProps } from '@/types';
 import {
     BanknotesIcon,
@@ -22,6 +23,7 @@ import {
 
 const props = defineProps<PaymentRequiredPageProps>();
 
+const { t } = useI18n();
 const { formatMoney: formatCurrency, formatFileSize } = useFormatters();
 
 const form = useForm({
@@ -38,29 +40,29 @@ const statusConfig = computed(() => {
             return {
                 icon: ClockIcon,
                 color: 'yellow',
-                title: 'Payment Required',
-                message: 'Please upload proof of payment or pay online to continue.',
+                title: t('tenant_payment_required.status.pending_payment_title'),
+                message: t('tenant_payment_required.status.pending_payment_message'),
             };
         case 'payment_submitted':
             return {
                 icon: ClockIcon,
                 color: 'blue',
-                title: 'Verification Pending',
-                message: 'Your payment proof has been submitted and is awaiting verification by your landlord.',
+                title: t('tenant_payment_required.status.verification_pending_title'),
+                message: t('tenant_payment_required.status.verification_pending_message'),
             };
         case 'rejected':
             return {
                 icon: XCircleIcon,
                 color: 'red',
-                title: 'Verification Rejected',
-                message: props.verification.rejection_reason || 'Your payment proof was rejected. Please resubmit.',
+                title: t('tenant_payment_required.status.rejected_title'),
+                message: props.verification.rejection_reason || t('tenant_payment_required.status.rejected_default_message'),
             };
         default:
             return {
                 icon: CheckCircleIcon,
                 color: 'green',
-                title: 'Payment Verified',
-                message: 'Your payment has been verified.',
+                title: t('tenant_payment_required.status.verified_title'),
+                message: t('tenant_payment_required.status.verified_message'),
             };
     }
 });
@@ -85,12 +87,12 @@ const addFiles = (files) => {
         const maxSize = 10 * 1024 * 1024; // 10MB
 
         if (!validTypes.includes(file.type)) {
-            form.errors.documents = 'Only PDF, JPG, and PNG files are allowed.';
+            form.errors.documents = t('tenant_payment_required.upload.errors.invalid_type');
             return false;
         }
 
         if (file.size > maxSize) {
-            form.errors.documents = 'Each file must not exceed 10MB.';
+            form.errors.documents = t('tenant_payment_required.upload.errors.too_large');
             return false;
         }
 
@@ -133,7 +135,7 @@ const canPayOnline = computed(() => {
 </script>
 
 <template>
-    <Head title="Payment Required" />
+    <Head :title="t('tenant_payment_required.page_title')" />
 
     <AuthenticatedLayout>
         <template #header>
@@ -142,8 +144,8 @@ const canPayOnline = computed(() => {
                     <BanknotesIcon class="w-6 h-6 text-yellow-600" />
                 </div>
                 <div>
-                    <h1 class="text-lg font-semibold text-gray-900">Initial Payment Required</h1>
-                    <p class="text-sm text-gray-500">Complete your payment to access the tenant portal</p>
+                    <h1 class="text-lg font-semibold text-gray-900">{{ t('tenant_payment_required.header_title') }}</h1>
+                    <p class="text-sm text-gray-500">{{ t('tenant_payment_required.header_subtitle') }}</p>
                 </div>
             </div>
         </template>
@@ -206,15 +208,15 @@ const canPayOnline = computed(() => {
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
                     <div class="flex items-center gap-3 mb-4">
                         <BuildingOffice2Icon class="w-5 h-5 text-gray-400" />
-                        <h2 class="text-sm font-medium text-gray-900">Your Unit</h2>
+                        <h2 class="text-sm font-medium text-gray-900">{{ t('tenant_payment_required.unit_card.heading') }}</h2>
                     </div>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <p class="text-xs text-gray-500">Building</p>
+                            <p class="text-xs text-gray-500">{{ t('tenant_payment_required.unit_card.building_label') }}</p>
                             <p class="text-sm font-medium text-gray-900">{{ lease.unit?.building?.name }}</p>
                         </div>
                         <div>
-                            <p class="text-xs text-gray-500">Unit</p>
+                            <p class="text-xs text-gray-500">{{ t('tenant_payment_required.unit_card.unit_label') }}</p>
                             <p class="text-sm font-medium text-gray-900">{{ lease.unit?.unit_number }}</p>
                         </div>
                     </div>
@@ -224,32 +226,32 @@ const canPayOnline = computed(() => {
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
                     <div class="flex items-center gap-3 mb-4">
                         <BanknotesIcon class="w-5 h-5 text-gray-400" />
-                        <h2 class="text-sm font-medium text-gray-900">Payment Required</h2>
+                        <h2 class="text-sm font-medium text-gray-900">{{ t('tenant_payment_required.breakdown.heading') }}</h2>
                     </div>
 
                     <div class="space-y-3">
                         <div v-if="verification.deposit_required > 0" class="flex justify-between items-center py-2 border-b border-gray-100">
-                            <span class="text-sm text-gray-600">Security Deposit</span>
+                            <span class="text-sm text-gray-600">{{ t('tenant_payment_required.breakdown.security_deposit') }}</span>
                             <span class="text-sm font-medium text-gray-900">{{ formatCurrency(verification.deposit_required) }}</span>
                         </div>
                         <div v-if="verification.first_rent_required > 0" class="flex justify-between items-center py-2 border-b border-gray-100">
-                            <span class="text-sm text-gray-600">First Month Rent</span>
+                            <span class="text-sm text-gray-600">{{ t('tenant_payment_required.breakdown.first_month_rent') }}</span>
                             <span class="text-sm font-medium text-gray-900">{{ formatCurrency(verification.first_rent_required) }}</span>
                         </div>
                         <div v-if="verification.other_charges > 0" class="flex justify-between items-center py-2 border-b border-gray-100">
-                            <span class="text-sm text-gray-600">{{ verification.other_charges_description || 'Other Charges' }}</span>
+                            <span class="text-sm text-gray-600">{{ verification.other_charges_description || t('tenant_payment_required.breakdown.other_charges_default') }}</span>
                             <span class="text-sm font-medium text-gray-900">{{ formatCurrency(verification.other_charges) }}</span>
                         </div>
                         <div class="flex justify-between items-center pt-2 border-t-2 border-gray-200">
-                            <span class="text-sm font-semibold text-gray-900">Total Required</span>
+                            <span class="text-sm font-semibold text-gray-900">{{ t('tenant_payment_required.breakdown.total_required') }}</span>
                             <span class="text-lg font-bold text-indigo-600">{{ formatCurrency(verification.total_required) }}</span>
                         </div>
                         <div v-if="verification.amount_paid > 0" class="flex justify-between items-center py-2">
-                            <span class="text-sm text-green-600">Amount Paid</span>
+                            <span class="text-sm text-green-600">{{ t('tenant_payment_required.breakdown.amount_paid') }}</span>
                             <span class="text-sm font-medium text-green-600">- {{ formatCurrency(verification.amount_paid) }}</span>
                         </div>
                         <div v-if="verification.amount_paid > 0" class="flex justify-between items-center pt-2 border-t border-gray-200">
-                            <span class="text-sm font-semibold text-gray-900">Balance Due</span>
+                            <span class="text-sm font-semibold text-gray-900">{{ t('tenant_payment_required.breakdown.balance_due') }}</span>
                             <span class="text-lg font-bold text-red-600">{{ formatCurrency(verification.total_required - verification.amount_paid) }}</span>
                         </div>
                     </div>
@@ -261,10 +263,10 @@ const canPayOnline = computed(() => {
                     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                         <div class="flex items-center gap-3 mb-4">
                             <CreditCardIcon class="w-5 h-5 text-indigo-500" />
-                            <h2 class="text-sm font-medium text-gray-900">Pay Online</h2>
+                            <h2 class="text-sm font-medium text-gray-900">{{ t('tenant_payment_required.pay_online.heading') }}</h2>
                         </div>
                         <p class="text-sm text-gray-600 mb-4">
-                            Pay securely with your card or mobile money. Your payment will be verified automatically.
+                            {{ t('tenant_payment_required.pay_online.description') }}
                         </p>
                         <PrimaryButton
                             @click="payOnline"
@@ -272,7 +274,7 @@ const canPayOnline = computed(() => {
                             class="w-full justify-center"
                         >
                             <CreditCardIcon class="w-5 h-5 me-2" />
-                            Pay {{ formatCurrency(verification.total_required - verification.amount_paid) }} Now
+                            {{ t('tenant_payment_required.pay_online.cta', { amount: formatCurrency(verification.total_required - verification.amount_paid) }) }}
                         </PrimaryButton>
                     </div>
 
@@ -282,7 +284,7 @@ const canPayOnline = computed(() => {
                             <div class="w-full border-t border-gray-200"></div>
                         </div>
                         <div class="relative flex justify-center text-sm">
-                            <span class="px-4 bg-gray-50 text-gray-500">or upload proof of payment</span>
+                            <span class="px-4 bg-gray-50 text-gray-500">{{ t('tenant_payment_required.divider_or_upload') }}</span>
                         </div>
                     </div>
 
@@ -290,10 +292,10 @@ const canPayOnline = computed(() => {
                     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                         <div class="flex items-center gap-3 mb-4">
                             <DocumentArrowUpIcon class="w-5 h-5 text-gray-400" />
-                            <h2 class="text-sm font-medium text-gray-900">Upload Payment Proof</h2>
+                            <h2 class="text-sm font-medium text-gray-900">{{ t('tenant_payment_required.upload.heading') }}</h2>
                         </div>
                         <p class="text-sm text-gray-600 mb-4">
-                            If you've already made a bank transfer or mobile money payment, upload your proof here.
+                            {{ t('tenant_payment_required.upload.description') }}
                         </p>
 
                         <form @submit.prevent="submitProof">
@@ -318,9 +320,9 @@ const canPayOnline = computed(() => {
                                 />
                                 <DocumentArrowUpIcon class="w-10 h-10 text-gray-400 mx-auto mb-3" />
                                 <p class="text-sm text-gray-600">
-                                    <span class="font-medium text-indigo-600">Click to upload</span> or drag and drop
+                                    <span class="font-medium text-indigo-600">{{ t('tenant_payment_required.upload.click_to_upload') }}</span> {{ t('tenant_payment_required.upload.click_to_upload_suffix') }}
                                 </p>
-                                <p class="text-xs text-gray-500 mt-1">PDF, JPG, PNG up to 10MB each</p>
+                                <p class="text-xs text-gray-500 mt-1">{{ t('tenant_payment_required.upload.file_constraints') }}</p>
                             </div>
 
                             <InputError :message="form.errors.documents" class="mt-2" />
@@ -356,8 +358,8 @@ const canPayOnline = computed(() => {
                                 :disabled="!canSubmit || form.processing"
                                 class="w-full justify-center mt-4"
                             >
-                                <span v-if="form.processing">Uploading...</span>
-                                <span v-else>Submit for Verification</span>
+                                <span v-if="form.processing">{{ t('tenant_payment_required.upload.submit_processing') }}</span>
+                                <span v-else>{{ t('tenant_payment_required.upload.submit_idle') }}</span>
                             </PrimaryButton>
                         </form>
                     </div>
@@ -367,7 +369,7 @@ const canPayOnline = computed(() => {
                 <div v-if="verification.status === 'payment_submitted' && verification.documents?.length > 0" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
                     <div class="flex items-center gap-3 mb-4">
                         <DocumentTextIcon class="w-5 h-5 text-gray-400" />
-                        <h2 class="text-sm font-medium text-gray-900">Submitted Documents</h2>
+                        <h2 class="text-sm font-medium text-gray-900">{{ t('tenant_payment_required.submitted.heading') }}</h2>
                     </div>
                     <div class="space-y-2">
                         <div
@@ -390,9 +392,9 @@ const canPayOnline = computed(() => {
                             </svg>
                         </div>
                         <div class="ms-3">
-                            <h3 class="text-sm font-medium text-blue-800">Need help?</h3>
+                            <h3 class="text-sm font-medium text-blue-800">{{ t('tenant_payment_required.help.heading') }}</h3>
                             <p class="mt-1 text-sm text-blue-700">
-                                If you have questions about your payment or need assistance, please contact your property manager.
+                                {{ t('tenant_payment_required.help.body') }}
                             </p>
                         </div>
                     </div>

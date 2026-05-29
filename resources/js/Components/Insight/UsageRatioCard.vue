@@ -1,7 +1,11 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
+
 defineProps<{
     ratios: Array<{ feature: string; usage: number; limit: number; ratio: number }>;
 }>();
+
+const { t } = useI18n();
 
 function barColor(ratio: number): string {
     if (ratio > 0.9) return 'bg-red-500';
@@ -27,7 +31,7 @@ function clamped(ratio: number): number {
                     <div class="h-full rounded-full transition-all" :class="barColor(r.ratio)" :style="{ width: clamped(r.ratio) + '%' }"></div>
                 </div>
             </li>
-            <li v-if="!ratios.length" class="text-sm text-gray-500">No metered features in your plan.</li>
+            <li v-if="!ratios.length" class="text-sm text-gray-500">{{ t('usage_ratio_card.empty_state') }}</li>
         </ul>
     </div>
 </template>

@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { useCurrency } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import type { InvoiceSettingsEditPageProps } from '@/types/templates';
 import {
     Cog6ToothIcon,
@@ -19,17 +20,18 @@ import {
 
 const props = defineProps<InvoiceSettingsEditPageProps>();
 
+const { t } = useI18n();
 const { currencySymbol } = useCurrency();
 
 const activeSection = ref('business');
 
 const sections = [
-    { id: 'business', name: 'Business Details', icon: BuildingOfficeIcon },
-    { id: 'bank', name: 'Bank Account', icon: BanknotesIcon },
-    { id: 'numbering', name: 'Document Numbering', icon: DocumentDuplicateIcon },
-    { id: 'terms', name: 'Payment Terms', icon: ClockIcon },
-    { id: 'conditions', name: 'Terms & Conditions', icon: DocumentTextIcon },
-    { id: 'first-invoice', name: 'First Invoice', icon: UserPlusIcon },
+    { id: 'business', name: t('invoice_settings_edit.sections.business'), icon: BuildingOfficeIcon },
+    { id: 'bank', name: t('invoice_settings_edit.sections.bank'), icon: BanknotesIcon },
+    { id: 'numbering', name: t('invoice_settings_edit.sections.numbering'), icon: DocumentDuplicateIcon },
+    { id: 'terms', name: t('invoice_settings_edit.sections.terms'), icon: ClockIcon },
+    { id: 'conditions', name: t('invoice_settings_edit.sections.conditions'), icon: DocumentTextIcon },
+    { id: 'first-invoice', name: t('invoice_settings_edit.sections.first_invoice'), icon: UserPlusIcon },
 ];
 
 const form = useForm({
@@ -92,7 +94,7 @@ const uploadLogo = () => {
 };
 
 const removeLogo = () => {
-    if (confirm('Are you sure you want to remove the logo?')) {
+    if (confirm(t('invoice_settings_edit.confirm_remove_logo'))) {
         useForm({}).delete(route('invoice-settings.remove-logo'), {
             preserveScroll: true,
         });
@@ -113,7 +115,7 @@ const getLogoUrl = () => {
 </script>
 
 <template>
-    <Head title="Invoice Settings" />
+    <Head :title="t('invoice_settings_edit.page_title')" />
 
     <AuthenticatedLayout>
         <template #header>
@@ -129,8 +131,8 @@ const getLogoUrl = () => {
                         <Cog6ToothIcon class="w-6 h-6 text-indigo-600" />
                     </div>
                     <div>
-                        <h1 class="text-lg font-semibold text-gray-900">Invoice Settings</h1>
-                        <p class="text-sm text-gray-500">Configure your invoice preferences and business details</p>
+                        <h1 class="text-lg font-semibold text-gray-900">{{ t('invoice_settings_edit.header.title') }}</h1>
+                        <p class="text-sm text-gray-500">{{ t('invoice_settings_edit.header.subtitle') }}</p>
                     </div>
                 </div>
             </div>
@@ -170,15 +172,15 @@ const getLogoUrl = () => {
                                 <div class="flex-1 p-6">
                                     <div v-if="activeSection === 'business'" class="space-y-6">
                                         <div>
-                                            <h2 class="text-lg font-medium text-gray-900">Business Details</h2>
-                                            <p class="mt-1 text-sm text-gray-500">Information displayed on your invoices</p>
+                                            <h2 class="text-lg font-medium text-gray-900">{{ t('invoice_settings_edit.business.heading') }}</h2>
+                                            <p class="mt-1 text-sm text-gray-500">{{ t('invoice_settings_edit.business.subheading') }}</p>
                                         </div>
 
                                         <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">Business Logo</label>
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('invoice_settings_edit.business.logo_label') }}</label>
                                             <div class="flex items-center gap-4">
                                                 <div class="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center overflow-hidden bg-gray-50">
-                                                    <img v-if="getLogoUrl()" :src="getLogoUrl()" alt="Logo" loading="lazy" decoding="async" class="w-full h-full object-contain" />
+                                                    <img v-if="getLogoUrl()" :src="getLogoUrl()" :alt="t('invoice_settings_edit.business.logo_alt')" loading="lazy" decoding="async" class="w-full h-full object-contain" />
                                                     <PhotoIcon v-else class="w-8 h-8 text-gray-400" />
                                                 </div>
                                                 <div class="flex flex-col gap-2">
@@ -190,7 +192,7 @@ const getLogoUrl = () => {
                                                             class="hidden"
                                                             @change="handleLogoChange"
                                                         />
-                                                        Upload Logo
+                                                        {{ t('invoice_settings_edit.business.upload_logo') }}
                                                     </label>
                                                     <button
                                                         v-if="getLogoUrl()"
@@ -199,112 +201,112 @@ const getLogoUrl = () => {
                                                         class="inline-flex items-center text-sm text-red-600 hover:text-red-700"
                                                     >
                                                         <TrashIcon class="w-4 h-4 me-1" />
-                                                        Remove
+                                                        {{ t('invoice_settings_edit.business.remove') }}
                                                     </button>
-                                                    <p class="text-xs text-gray-500">PNG, JPG up to 2MB</p>
+                                                    <p class="text-xs text-gray-500">{{ t('invoice_settings_edit.business.logo_hint') }}</p>
                                                 </div>
                                             </div>
                                         </div>
 
                                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-1">Business Name</label>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.business.business_name') }}</label>
                                                 <input
                                                     v-model="form.business_name"
                                                     type="text"
                                                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                                    placeholder="Your Business Name"
+                                                    :placeholder="t('invoice_settings_edit.business.business_name_placeholder')"
                                                 />
                                             </div>
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-1">Tax/VAT Number</label>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.business.tax_number') }}</label>
                                                 <input
                                                     v-model="form.tax_number"
                                                     type="text"
                                                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                                    placeholder="e.g., P051234567A"
+                                                    :placeholder="t('invoice_settings_edit.business.tax_number_placeholder')"
                                                 />
                                             </div>
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.business.phone') }}</label>
                                                 <input
                                                     v-model="form.business_phone"
                                                     type="text"
                                                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                                    placeholder="+254 7XX XXX XXX"
+                                                    :placeholder="t('invoice_settings_edit.business.phone_placeholder')"
                                                 />
                                             </div>
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.business.email') }}</label>
                                                 <input
                                                     v-model="form.business_email"
                                                     type="email"
                                                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                                    placeholder="billing@example.com"
+                                                    :placeholder="t('invoice_settings_edit.business.email_placeholder')"
                                                 />
                                             </div>
                                         </div>
                                         <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-1">Business Address</label>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.business.address') }}</label>
                                             <textarea
                                                 v-model="form.business_address"
                                                 rows="3"
                                                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                                placeholder="Street address, City, Country"
+                                                :placeholder="t('invoice_settings_edit.business.address_placeholder')"
                                             ></textarea>
                                         </div>
                                     </div>
 
                                     <div v-if="activeSection === 'bank'" class="space-y-6">
                                         <div>
-                                            <h2 class="text-lg font-medium text-gray-900">Bank Account Details</h2>
-                                            <p class="mt-1 text-sm text-gray-500">Payment information shown on invoices</p>
+                                            <h2 class="text-lg font-medium text-gray-900">{{ t('invoice_settings_edit.bank.heading') }}</h2>
+                                            <p class="mt-1 text-sm text-gray-500">{{ t('invoice_settings_edit.bank.subheading') }}</p>
                                         </div>
 
                                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-1">Bank Name</label>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.bank.bank_name') }}</label>
                                                 <input
                                                     v-model="form.bank_name"
                                                     type="text"
                                                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                                    placeholder="e.g., Equity Bank"
+                                                    :placeholder="t('invoice_settings_edit.bank.bank_name_placeholder')"
                                                 />
                                             </div>
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-1">Account Name</label>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.bank.account_name') }}</label>
                                                 <input
                                                     v-model="form.bank_account_name"
                                                     type="text"
                                                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                                    placeholder="Account holder name"
+                                                    :placeholder="t('invoice_settings_edit.bank.account_name_placeholder')"
                                                 />
                                             </div>
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-1">Account Number</label>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.bank.account_number') }}</label>
                                                 <input
                                                     v-model="form.bank_account_number"
                                                     type="text"
                                                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                                    placeholder="XXXX XXXX XXXX"
+                                                    :placeholder="t('invoice_settings_edit.bank.account_number_placeholder')"
                                                 />
                                             </div>
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.bank.branch') }}</label>
                                                 <input
                                                     v-model="form.bank_branch"
                                                     type="text"
                                                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                                    placeholder="Branch name"
+                                                    :placeholder="t('invoice_settings_edit.bank.branch_placeholder')"
                                                 />
                                             </div>
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-1">SWIFT Code</label>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.bank.swift_code') }}</label>
                                                 <input
                                                     v-model="form.bank_swift_code"
                                                     type="text"
                                                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                                    placeholder="e.g., EABORBIAX"
+                                                    :placeholder="t('invoice_settings_edit.bank.swift_code_placeholder')"
                                                 />
                                             </div>
                                         </div>
@@ -312,15 +314,15 @@ const getLogoUrl = () => {
 
                                     <div v-if="activeSection === 'numbering'" class="space-y-6">
                                         <div>
-                                            <h2 class="text-lg font-medium text-gray-900">Document Numbering</h2>
-                                            <p class="mt-1 text-sm text-gray-500">Configure prefixes and starting numbers</p>
+                                            <h2 class="text-lg font-medium text-gray-900">{{ t('invoice_settings_edit.numbering.heading') }}</h2>
+                                            <p class="mt-1 text-sm text-gray-500">{{ t('invoice_settings_edit.numbering.subheading') }}</p>
                                         </div>
 
                                         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                                             <div class="p-4 bg-gray-50 rounded-lg border border-gray-200 space-y-4">
-                                                <h3 class="text-sm font-semibold text-gray-900">Invoices</h3>
+                                                <h3 class="text-sm font-semibold text-gray-900">{{ t('invoice_settings_edit.numbering.invoices') }}</h3>
                                                 <div>
-                                                    <label class="block text-sm text-gray-600 mb-1">Prefix</label>
+                                                    <label class="block text-sm text-gray-600 mb-1">{{ t('invoice_settings_edit.numbering.prefix') }}</label>
                                                     <input
                                                         v-model="form.invoice_prefix"
                                                         type="text"
@@ -329,7 +331,7 @@ const getLogoUrl = () => {
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label class="block text-sm text-gray-600 mb-1">Next Number</label>
+                                                    <label class="block text-sm text-gray-600 mb-1">{{ t('invoice_settings_edit.numbering.next_number') }}</label>
                                                     <input
                                                         v-model="form.invoice_next_number"
                                                         type="number"
@@ -337,13 +339,13 @@ const getLogoUrl = () => {
                                                         class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                                     />
                                                 </div>
-                                                <p class="text-xs text-gray-500">Preview: {{ form.invoice_prefix }}-202601-{{ String(form.invoice_next_number).padStart(4, '0') }}</p>
+                                                <p class="text-xs text-gray-500">{{ t('invoice_settings_edit.numbering.preview', { sample: `${form.invoice_prefix}-202601-${String(form.invoice_next_number).padStart(4, '0')}` }) }}</p>
                                             </div>
 
                                             <div class="p-4 bg-gray-50 rounded-lg border border-gray-200 space-y-4">
-                                                <h3 class="text-sm font-semibold text-gray-900">Receipts</h3>
+                                                <h3 class="text-sm font-semibold text-gray-900">{{ t('invoice_settings_edit.numbering.receipts') }}</h3>
                                                 <div>
-                                                    <label class="block text-sm text-gray-600 mb-1">Prefix</label>
+                                                    <label class="block text-sm text-gray-600 mb-1">{{ t('invoice_settings_edit.numbering.prefix') }}</label>
                                                     <input
                                                         v-model="form.receipt_prefix"
                                                         type="text"
@@ -352,7 +354,7 @@ const getLogoUrl = () => {
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label class="block text-sm text-gray-600 mb-1">Next Number</label>
+                                                    <label class="block text-sm text-gray-600 mb-1">{{ t('invoice_settings_edit.numbering.next_number') }}</label>
                                                     <input
                                                         v-model="form.receipt_next_number"
                                                         type="number"
@@ -360,13 +362,13 @@ const getLogoUrl = () => {
                                                         class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                                     />
                                                 </div>
-                                                <p class="text-xs text-gray-500">Preview: {{ form.receipt_prefix }}-202601-{{ String(form.receipt_next_number).padStart(4, '0') }}</p>
+                                                <p class="text-xs text-gray-500">{{ t('invoice_settings_edit.numbering.preview', { sample: `${form.receipt_prefix}-202601-${String(form.receipt_next_number).padStart(4, '0')}` }) }}</p>
                                             </div>
 
                                             <div class="p-4 bg-gray-50 rounded-lg border border-gray-200 space-y-4">
-                                                <h3 class="text-sm font-semibold text-gray-900">Credit Notes</h3>
+                                                <h3 class="text-sm font-semibold text-gray-900">{{ t('invoice_settings_edit.numbering.credit_notes') }}</h3>
                                                 <div>
-                                                    <label class="block text-sm text-gray-600 mb-1">Prefix</label>
+                                                    <label class="block text-sm text-gray-600 mb-1">{{ t('invoice_settings_edit.numbering.prefix') }}</label>
                                                     <input
                                                         v-model="form.credit_note_prefix"
                                                         type="text"
@@ -375,7 +377,7 @@ const getLogoUrl = () => {
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label class="block text-sm text-gray-600 mb-1">Next Number</label>
+                                                    <label class="block text-sm text-gray-600 mb-1">{{ t('invoice_settings_edit.numbering.next_number') }}</label>
                                                     <input
                                                         v-model="form.credit_note_next_number"
                                                         type="number"
@@ -383,20 +385,20 @@ const getLogoUrl = () => {
                                                         class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                                     />
                                                 </div>
-                                                <p class="text-xs text-gray-500">Preview: {{ form.credit_note_prefix }}-202601-{{ String(form.credit_note_next_number).padStart(4, '0') }}</p>
+                                                <p class="text-xs text-gray-500">{{ t('invoice_settings_edit.numbering.preview', { sample: `${form.credit_note_prefix}-202601-${String(form.credit_note_next_number).padStart(4, '0')}` }) }}</p>
                                             </div>
                                         </div>
                                     </div>
 
                                     <div v-if="activeSection === 'terms'" class="space-y-6">
                                         <div>
-                                            <h2 class="text-lg font-medium text-gray-900">Payment Terms</h2>
-                                            <p class="mt-1 text-sm text-gray-500">Payment terms applied to new invoices</p>
+                                            <h2 class="text-lg font-medium text-gray-900">{{ t('invoice_settings_edit.terms.heading') }}</h2>
+                                            <p class="mt-1 text-sm text-gray-500">{{ t('invoice_settings_edit.terms.subheading') }}</p>
                                         </div>
 
                                         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-1">Due Days</label>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.terms.due_days') }}</label>
                                                 <div class="relative">
                                                     <input
                                                         v-model="form.default_due_days"
@@ -405,12 +407,12 @@ const getLogoUrl = () => {
                                                         max="90"
                                                         class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                                     />
-                                                    <span class="absolute end-4 top-1/2 -translate-y-1/2 text-sm text-gray-500">days</span>
+                                                    <span class="absolute end-4 top-1/2 -translate-y-1/2 text-sm text-gray-500">{{ t('invoice_settings_edit.terms.days_unit') }}</span>
                                                 </div>
-                                                <p class="mt-1 text-xs text-gray-500">Days until payment is due</p>
+                                                <p class="mt-1 text-xs text-gray-500">{{ t('invoice_settings_edit.terms.due_days_hint') }}</p>
                                             </div>
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-1">Late Penalty</label>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.terms.late_penalty') }}</label>
                                                 <div class="relative">
                                                     <input
                                                         v-model="form.late_penalty_percentage"
@@ -422,10 +424,10 @@ const getLogoUrl = () => {
                                                     />
                                                     <span class="absolute end-4 top-1/2 -translate-y-1/2 text-sm text-gray-500">%</span>
                                                 </div>
-                                                <p class="mt-1 text-xs text-gray-500">Applied after due date</p>
+                                                <p class="mt-1 text-xs text-gray-500">{{ t('invoice_settings_edit.terms.late_penalty_hint') }}</p>
                                             </div>
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-1">Grace Period</label>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.terms.grace_period') }}</label>
                                                 <div class="relative">
                                                     <input
                                                         v-model="form.grace_period_days"
@@ -434,43 +436,43 @@ const getLogoUrl = () => {
                                                         max="30"
                                                         class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                                     />
-                                                    <span class="absolute end-4 top-1/2 -translate-y-1/2 text-sm text-gray-500">days</span>
+                                                    <span class="absolute end-4 top-1/2 -translate-y-1/2 text-sm text-gray-500">{{ t('invoice_settings_edit.terms.days_unit') }}</span>
                                                 </div>
-                                                <p class="mt-1 text-xs text-gray-500">Before penalty applies</p>
+                                                <p class="mt-1 text-xs text-gray-500">{{ t('invoice_settings_edit.terms.grace_period_hint') }}</p>
                                             </div>
                                         </div>
                                     </div>
 
                                     <div v-if="activeSection === 'conditions'" class="space-y-6">
                                         <div>
-                                            <h2 class="text-lg font-medium text-gray-900">Terms & Conditions</h2>
-                                            <p class="mt-1 text-sm text-gray-500">Custom text displayed on invoices</p>
+                                            <h2 class="text-lg font-medium text-gray-900">{{ t('invoice_settings_edit.conditions.heading') }}</h2>
+                                            <p class="mt-1 text-sm text-gray-500">{{ t('invoice_settings_edit.conditions.subheading') }}</p>
                                         </div>
 
                                         <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-1">Terms and Conditions</label>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.conditions.terms_label') }}</label>
                                             <textarea
                                                 v-model="form.terms_and_conditions"
                                                 rows="6"
                                                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                                placeholder="Payment is due within the specified period. Late payments may incur additional charges..."
+                                                :placeholder="t('invoice_settings_edit.conditions.terms_placeholder')"
                                             ></textarea>
                                         </div>
                                         <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-1">Footer Note</label>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.conditions.footer_label') }}</label>
                                             <textarea
                                                 v-model="form.footer_note"
                                                 rows="3"
                                                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                                placeholder="Thank you for your business!"
+                                                :placeholder="t('invoice_settings_edit.conditions.footer_placeholder')"
                                             ></textarea>
                                         </div>
                                     </div>
 
                                     <div v-if="activeSection === 'first-invoice'" class="space-y-6">
                                         <div>
-                                            <h2 class="text-lg font-medium text-gray-900">First Invoice Settings</h2>
-                                            <p class="mt-1 text-sm text-gray-500">Configure charges for new tenant onboarding</p>
+                                            <h2 class="text-lg font-medium text-gray-900">{{ t('invoice_settings_edit.first_invoice.heading') }}</h2>
+                                            <p class="mt-1 text-sm text-gray-500">{{ t('invoice_settings_edit.first_invoice.subheading') }}</p>
                                         </div>
 
                                         <div class="space-y-4">
@@ -481,8 +483,8 @@ const getLogoUrl = () => {
                                                     class="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                                 />
                                                 <div>
-                                                    <span class="text-sm font-medium text-gray-900">Prorate first month rent</span>
-                                                    <p class="text-xs text-gray-500">Calculate rent based on move-in date (e.g., 15th = half month)</p>
+                                                    <span class="text-sm font-medium text-gray-900">{{ t('invoice_settings_edit.first_invoice.prorate_label') }}</span>
+                                                    <p class="text-xs text-gray-500">{{ t('invoice_settings_edit.first_invoice.prorate_hint') }}</p>
                                                 </div>
                                             </label>
                                             <label class="flex items-center gap-3 cursor-pointer p-3 rounded-lg hover:bg-gray-50 transition-colors">
@@ -492,8 +494,8 @@ const getLogoUrl = () => {
                                                     class="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                                 />
                                                 <div>
-                                                    <span class="text-sm font-medium text-gray-900">Include last month rent</span>
-                                                    <p class="text-xs text-gray-500">Require advance payment for last month of tenancy</p>
+                                                    <span class="text-sm font-medium text-gray-900">{{ t('invoice_settings_edit.first_invoice.include_last_month_label') }}</span>
+                                                    <p class="text-xs text-gray-500">{{ t('invoice_settings_edit.first_invoice.include_last_month_hint') }}</p>
                                                 </div>
                                             </label>
                                             <label class="flex items-center gap-3 cursor-pointer p-3 rounded-lg hover:bg-gray-50 transition-colors">
@@ -503,15 +505,15 @@ const getLogoUrl = () => {
                                                     class="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                                 />
                                                 <div>
-                                                    <span class="text-sm font-medium text-gray-900">Auto-generate first invoice</span>
-                                                    <p class="text-xs text-gray-500">Automatically create invoice when tenant accepts invitation</p>
+                                                    <span class="text-sm font-medium text-gray-900">{{ t('invoice_settings_edit.first_invoice.auto_generate_label') }}</span>
+                                                    <p class="text-xs text-gray-500">{{ t('invoice_settings_edit.first_invoice.auto_generate_hint') }}</p>
                                                 </div>
                                             </label>
                                         </div>
 
                                         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-gray-200">
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-1">Admin/Processing Fee</label>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.first_invoice.admin_fee') }}</label>
                                                 <div class="relative">
                                                     <span class="absolute start-4 top-1/2 -translate-y-1/2 text-sm text-gray-500">{{ currencySymbol }}</span>
                                                     <input
@@ -523,10 +525,10 @@ const getLogoUrl = () => {
                                                         placeholder="0.00"
                                                     />
                                                 </div>
-                                                <p class="mt-1 text-xs text-gray-500">One-time fee for new tenants</p>
+                                                <p class="mt-1 text-xs text-gray-500">{{ t('invoice_settings_edit.first_invoice.admin_fee_hint') }}</p>
                                             </div>
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-1">Key Deposit</label>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.first_invoice.key_deposit') }}</label>
                                                 <div class="relative">
                                                     <span class="absolute start-4 top-1/2 -translate-y-1/2 text-sm text-gray-500">{{ currencySymbol }}</span>
                                                     <input
@@ -538,10 +540,10 @@ const getLogoUrl = () => {
                                                         placeholder="0.00"
                                                     />
                                                 </div>
-                                                <p class="mt-1 text-xs text-gray-500">Refundable key deposit</p>
+                                                <p class="mt-1 text-xs text-gray-500">{{ t('invoice_settings_edit.first_invoice.key_deposit_hint') }}</p>
                                             </div>
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-1">Due Days After Move-in</label>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.first_invoice.due_days_after_movein') }}</label>
                                                 <div class="relative">
                                                     <input
                                                         v-model="form.first_invoice_due_days"
@@ -550,16 +552,15 @@ const getLogoUrl = () => {
                                                         max="30"
                                                         class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                                     />
-                                                    <span class="absolute end-4 top-1/2 -translate-y-1/2 text-sm text-gray-500">days</span>
+                                                    <span class="absolute end-4 top-1/2 -translate-y-1/2 text-sm text-gray-500">{{ t('invoice_settings_edit.terms.days_unit') }}</span>
                                                 </div>
-                                                <p class="mt-1 text-xs text-gray-500">0 = due immediately</p>
+                                                <p class="mt-1 text-xs text-gray-500">{{ t('invoice_settings_edit.first_invoice.due_days_after_movein_hint') }}</p>
                                             </div>
                                         </div>
 
                                         <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
                                             <p class="text-sm text-blue-800">
-                                                <strong>Note:</strong> Security deposit is configured per unit/lease. First invoice will automatically include:
-                                                first month rent (prorated if enabled), security deposit, and any fees configured above.
+                                                <strong>{{ t('invoice_settings_edit.first_invoice.note_label') }}</strong> {{ t('invoice_settings_edit.first_invoice.note_body') }}
                                             </p>
                                         </div>
                                     </div>
@@ -571,8 +572,8 @@ const getLogoUrl = () => {
                                         :disabled="form.processing"
                                         class="px-6 py-2.5 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 focus:ring-4 focus:ring-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                     >
-                                        <span v-if="form.processing">Saving...</span>
-                                        <span v-else>Save Settings</span>
+                                        <span v-if="form.processing">{{ t('invoice_settings_edit.actions.saving') }}</span>
+                                        <span v-else>{{ t('invoice_settings_edit.actions.save') }}</span>
                                     </button>
                                 </div>
                             </form>

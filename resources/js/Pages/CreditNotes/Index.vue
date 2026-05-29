@@ -5,6 +5,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Breadcrumb from '@/Components/Breadcrumb.vue';
 import Pagination from '@/Components/Pagination.vue';
 import { useFormatters } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import type { CreditNotesIndexPageProps } from '@/types/templates';
 import {
     DocumentTextIcon,
@@ -15,11 +16,12 @@ import {
 
 const props = defineProps<CreditNotesIndexPageProps>();
 const { formatMoney, formatDate } = useFormatters();
+const { t } = useI18n();
 
-const breadcrumbItems = [
-    { label: 'Finance Hub', href: route('finances.index') },
-    { label: 'Credit Notes' },
-];
+const breadcrumbItems = computed(() => [
+    { label: t('credit_notes_index.breadcrumb.finance_hub'), href: route('finances.index') },
+    { label: t('credit_notes_index.breadcrumb.credit_notes') },
+]);
 
 const statusBadgeClass = (status) => {
     const classes = {
@@ -53,7 +55,7 @@ const filterByStatus = (status) => {
 </script>
 
 <template>
-    <Head title="Credit Notes" />
+    <Head :title="t('credit_notes_index.page_title')" />
 
     <AuthenticatedLayout>
         <template #header>
@@ -62,8 +64,8 @@ const filterByStatus = (status) => {
                     <DocumentTextIcon class="w-6 h-6 text-purple-600" />
                 </div>
                 <div>
-                    <h1 class="text-lg font-semibold text-gray-900">Credit Notes</h1>
-                    <p class="text-sm text-gray-500">Issue and manage tenant account credits</p>
+                    <h1 class="text-lg font-semibold text-gray-900">{{ t('credit_notes_index.header_title') }}</h1>
+                    <p class="text-sm text-gray-500">{{ t('credit_notes_index.header_subtitle') }}</p>
                 </div>
             </div>
         </template>
@@ -77,23 +79,23 @@ const filterByStatus = (status) => {
                 <!-- Stats Cards -->
                 <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
                     <div class="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
-                        <p class="text-sm text-gray-500">Total</p>
+                        <p class="text-sm text-gray-500">{{ t('credit_notes_index.stats.total') }}</p>
                         <p class="text-2xl font-semibold text-gray-900">{{ stats.total }}</p>
                     </div>
                     <div class="bg-white rounded-lg shadow-sm p-4 border border-yellow-200">
-                        <p class="text-sm text-yellow-600">Pending</p>
+                        <p class="text-sm text-yellow-600">{{ t('credit_notes_index.stats.pending') }}</p>
                         <p class="text-2xl font-semibold text-yellow-700">{{ stats.pending }}</p>
                     </div>
                     <div class="bg-white rounded-lg shadow-sm p-4 border border-blue-200">
-                        <p class="text-sm text-blue-600">Approved</p>
+                        <p class="text-sm text-blue-600">{{ t('credit_notes_index.stats.approved') }}</p>
                         <p class="text-2xl font-semibold text-blue-700">{{ stats.approved }}</p>
                     </div>
                     <div class="bg-white rounded-lg shadow-sm p-4 border border-green-200">
-                        <p class="text-sm text-green-600">Applied</p>
+                        <p class="text-sm text-green-600">{{ t('credit_notes_index.stats.applied') }}</p>
                         <p class="text-2xl font-semibold text-green-700">{{ stats.applied }}</p>
                     </div>
                     <div class="bg-white rounded-lg shadow-sm p-4 border border-purple-200">
-                        <p class="text-sm text-purple-600">Total Amount</p>
+                        <p class="text-sm text-purple-600">{{ t('credit_notes_index.stats.total_amount') }}</p>
                         <p class="text-lg font-semibold text-purple-700">{{ formatMoney(stats.total_amount) }}</p>
                     </div>
                 </div>
@@ -106,7 +108,7 @@ const filterByStatus = (status) => {
                                 <MagnifyingGlassIcon class="w-5 h-5 absolute start-3 top-1/2 -translate-y-1/2 text-gray-400" />
                                 <input
                                     type="text"
-                                    placeholder="Search credit notes..."
+                                    :placeholder="t('credit_notes_index.filters.search_placeholder')"
                                     :value="filters?.search"
                                     @input="search"
                                     class="ps-10 pe-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-purple-500 focus:border-purple-500 w-full sm:w-64"
@@ -117,11 +119,11 @@ const filterByStatus = (status) => {
                                 @change="filterByStatus($event.target.value)"
                                 class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-purple-500 focus:border-purple-500"
                             >
-                                <option value="">All Statuses</option>
-                                <option value="pending">Pending</option>
-                                <option value="approved">Approved</option>
-                                <option value="applied">Applied</option>
-                                <option value="voided">Voided</option>
+                                <option value="">{{ t('credit_notes_index.filters.all_statuses') }}</option>
+                                <option value="pending">{{ t('credit_notes_index.status.pending') }}</option>
+                                <option value="approved">{{ t('credit_notes_index.status.approved') }}</option>
+                                <option value="applied">{{ t('credit_notes_index.status.applied') }}</option>
+                                <option value="voided">{{ t('credit_notes_index.status.voided') }}</option>
                             </select>
                         </div>
                         <Link
@@ -129,7 +131,7 @@ const filterByStatus = (status) => {
                             class="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition"
                         >
                             <PlusIcon class="w-5 h-5" />
-                            Issue Credit Note
+                            {{ t('credit_notes_index.actions.issue') }}
                         </Link>
                     </div>
                 </div>
@@ -140,14 +142,14 @@ const filterByStatus = (status) => {
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
-                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Credit #</th>
-                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Tenant</th>
-                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Unit</th>
-                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Amount</th>
-                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Reason</th>
-                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Status</th>
-                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Date</th>
-                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">{{ t('credit_notes_index.table.credit_number') }}</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">{{ t('credit_notes_index.table.tenant') }}</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">{{ t('credit_notes_index.table.unit') }}</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">{{ t('credit_notes_index.table.amount') }}</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">{{ t('credit_notes_index.table.reason') }}</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">{{ t('credit_notes_index.table.status') }}</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">{{ t('credit_notes_index.table.date') }}</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">{{ t('credit_notes_index.table.actions') }}</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-200">
@@ -168,7 +170,7 @@ const filterByStatus = (status) => {
                                     <td class="px-4 py-3 text-sm font-medium text-gray-900">
                                         {{ formatMoney(cn.amount) }}
                                         <div v-if="cn.applied_amount > 0" class="text-xs text-gray-500">
-                                            Applied: {{ formatMoney(cn.applied_amount) }}
+                                            {{ t('credit_notes_index.table.applied_amount', { amount: formatMoney(cn.applied_amount) }) }}
                                         </div>
                                     </td>
                                     <td class="px-4 py-3 text-sm text-gray-500">
@@ -176,7 +178,7 @@ const filterByStatus = (status) => {
                                     </td>
                                     <td class="px-4 py-3">
                                         <span :class="['px-2 py-1 text-xs font-medium rounded-full', statusBadgeClass(cn.status)]">
-                                            {{ cn.status }}
+                                            {{ t(`credit_notes_index.status.${cn.status}`, cn.status ?? '') }}
                                         </span>
                                     </td>
                                     <td class="px-4 py-3 text-sm text-gray-500">
@@ -187,15 +189,15 @@ const filterByStatus = (status) => {
                                             :href="route('credit-notes.show', cn.id)"
                                             class="text-purple-600 hover:text-purple-800 text-sm font-medium"
                                         >
-                                            View
+                                            {{ t('credit_notes_index.actions.view') }}
                                         </Link>
                                     </td>
                                 </tr>
                                 <tr v-if="creditNotes.data.length === 0">
                                     <td colspan="8" class="px-4 py-12 text-center">
                                         <DocumentTextIcon class="w-12 h-12 mx-auto text-gray-300 mb-3" />
-                                        <p class="text-gray-500">No credit notes found</p>
-                                        <p class="text-sm text-gray-400 mt-1">Issue a credit note to adjust tenant balances</p>
+                                        <p class="text-gray-500">{{ t('credit_notes_index.empty.title') }}</p>
+                                        <p class="text-sm text-gray-400 mt-1">{{ t('credit_notes_index.empty.subtitle') }}</p>
                                     </td>
                                 </tr>
                             </tbody>

@@ -8,6 +8,7 @@ import {
     CheckIcon,
 } from '@heroicons/vue/24/outline';
 import { useFormatters } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import type { PendingInvitation } from '@/types';
 
 const props = withDefaults(defineProps<{
@@ -17,6 +18,7 @@ const props = withDefaults(defineProps<{
 });
 
 const { formatMoney: formatCurrency } = useFormatters();
+const { t } = useI18n();
 const processing = ref(null);
 
 const acceptInvitation = (invitation) => {
@@ -32,7 +34,7 @@ const acceptInvitation = (invitation) => {
 };
 
 const declineInvitation = (invitation) => {
-    if (!confirm('Are you sure you want to decline this invitation?')) {
+    if (!confirm(t('invitation_banner.confirm_decline'))) {
         return;
     }
 
@@ -63,21 +65,21 @@ const declineInvitation = (invitation) => {
                     </div>
                     <div class="min-w-0">
                         <p class="font-bold text-lg truncate">
-                            {{ invitation.type === 'caretaker' ? 'Caretaker Invitation' : 'Lease Invitation' }}
+                            {{ invitation.type === 'caretaker' ? t('invitation_banner.caretaker_heading') : t('invitation_banner.tenant_heading') }}
                         </p>
                         <p class="text-indigo-100 text-sm truncate">
                             <template v-if="invitation.type === 'caretaker'">
-                                {{ invitation.landlord_name }} invited you to manage {{ invitation.property_name }}
+                                {{ t('invitation_banner.caretaker_body', { landlord: invitation.landlord_name, property: invitation.property_name }) }}
                             </template>
                             <template v-else>
-                                {{ invitation.landlord_name }} invited you to Unit {{ invitation.unit_number }} at {{ invitation.property_name }}
+                                {{ t('invitation_banner.tenant_body', { landlord: invitation.landlord_name, unit: invitation.unit_number, property: invitation.property_name }) }}
                             </template>
                         </p>
                         <div class="flex items-center gap-4 mt-1 text-indigo-200 text-xs">
                             <span v-if="invitation.type === 'tenant'">
-                                Rent: {{ formatCurrency(invitation.rent_amount) }}/month
+                                {{ t('invitation_banner.rent_per_month', { amount: formatCurrency(invitation.rent_amount) }) }}
                             </span>
-                            <span>Expires {{ invitation.expires_at }}</span>
+                            <span>{{ t('invitation_banner.expires', { date: invitation.expires_at }) }}</span>
                         </div>
                     </div>
                 </div>
@@ -88,13 +90,13 @@ const declineInvitation = (invitation) => {
                         class="px-4 py-2 bg-white text-indigo-600 rounded-lg hover:bg-indigo-50 font-medium text-sm disabled:opacity-50 flex items-center gap-1"
                     >
                         <CheckIcon class="w-4 h-4" />
-                        Accept
+                        {{ t('invitation_banner.accept') }}
                     </button>
                     <button
                         @click="declineInvitation(invitation)"
                         :disabled="processing === `${invitation.type}-${invitation.id}`"
                         class="p-2 bg-white/20 rounded-lg hover:bg-white/30 disabled:opacity-50"
-                        title="Decline invitation"
+                        :title="t('invitation_banner.decline_title')"
                     >
                         <XMarkIcon class="w-5 h-5" />
                     </button>

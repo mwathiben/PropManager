@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import GuestLayout from '@/Layouts/GuestLayout.vue';
+import { useI18n } from '@/composables/useI18n';
 import { Head, Link } from '@inertiajs/vue3';
 
 defineProps<{
     reason: 'not_found' | 'revoked' | 'expired' | 'paid' | 'unavailable';
     message: string;
 }>();
+
+const { t } = useI18n();
 
 const reasonIcons: Record<string, string> = {
     not_found: 'M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
@@ -26,7 +29,7 @@ const reasonColors: Record<string, string> = {
 
 <template>
     <GuestLayout>
-        <Head title="Payment Link" />
+        <Head :title="t('payment_link_invalid.page_title')" />
 
         <div class="max-w-md mx-auto text-center py-8">
             <div class="mb-6">
@@ -45,11 +48,11 @@ const reasonColors: Record<string, string> = {
             </div>
 
             <h1 class="text-2xl font-semibold text-gray-900 mb-4">
-                {{ reason === 'paid' ? 'Invoice Already Paid' : 'Link Unavailable' }}
+                {{ reason === 'paid' ? t('payment_link_invalid.heading_paid') : t('payment_link_invalid.heading_unavailable') }}
             </h1>
 
             <p class="text-gray-600 mb-8">
-                {{ message }}
+                {{ t(`payment_link_invalid.messages.${reason}`, message ?? '') }}
             </p>
 
             <div class="space-y-3">
@@ -57,10 +60,10 @@ const reasonColors: Record<string, string> = {
                     :href="route('login')"
                     class="inline-flex items-center justify-center w-full px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
                 >
-                    Sign in to your account
+                    {{ t('payment_link_invalid.sign_in') }}
                 </Link>
                 <p class="text-sm text-gray-500">
-                    Contact your landlord if you believe this is an error.
+                    {{ t('payment_link_invalid.contact_landlord') }}
                 </p>
             </div>
         </div>

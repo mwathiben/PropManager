@@ -44,12 +44,7 @@ function decodeLabel(label: string): string {
                 <button
                     v-if="link.url"
                     @click="router.visit(link.url)"
-                    :class="[
-                        'px-3 py-1.5 text-sm rounded-lg transition-colors',
-                        link.active
-                            ? colorClasses[color].active
-                            : colorClasses[color].inactive
-                    ]"
+                    :class="['px-3 py-1.5 text-sm rounded-lg transition-colors', link.active ? colorClasses[color].active : colorClasses[color].inactive]"
                 >{{ decodeLabel(link.label) }}</button>
                 <span
                     v-else

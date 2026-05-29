@@ -16,9 +16,11 @@ import {
 } from '@heroicons/vue/24/outline';
 import EmptyState from '@/Components/EmptyState.vue';
 import IconButton from '@/Components/IconButton.vue';
+import { useI18n } from '@/composables/useI18n';
 import type { PayoutAccountsPageProps } from '@/types';
 
 const { can } = useAuth();
+const { t } = useI18n();
 
 const props = withDefaults(defineProps<PayoutAccountsPageProps>(), {
     accounts: () => [],
@@ -105,11 +107,11 @@ const verifyAccount = async () => {
             verifiedAccountName.value = data.account_name;
             form.account_name = data.account_name;
         } else {
-            alert(data.message || 'Could not verify account');
+            alert(data.message || t('settings_payout_accounts.errors.verify_failed'));
         }
     } catch (error) {
         logError(error, { component: 'PayoutAccounts', action: 'verifyAccount' });
-        alert('Account verification failed');
+        alert(t('settings_payout_accounts.errors.verify_exception'));
     } finally {
         verifyingAccount.value = false;
     }
@@ -132,7 +134,7 @@ const syncAccount = (accountId) => {
 };
 
 const deleteAccount = (accountId) => {
-    if (confirm('Are you sure you want to deactivate this payout account?')) {
+    if (confirm(t('settings_payout_accounts.confirm.deactivate'))) {
         router.delete(route('settings.payout.destroy', accountId));
     }
 };
@@ -157,20 +159,20 @@ const getStatusColor = (status) => {
 </script>
 
 <template>
-    <Head title="Payout Accounts" />
+    <Head :title="t('settings_payout_accounts.title')" />
 
     <AuthenticatedLayout>
         <template #header>
             <div class="flex items-center justify-between">
                 <h1 class="font-semibold text-xl text-gray-800 leading-tight">
-                    Payout Accounts
+                    {{ t('settings_payout_accounts.header') }}
                 </h1>
                 <button
                     @click="openAddModal"
                     class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                 >
                     <PlusIcon class="w-5 h-5 me-2" />
-                    Add Account
+                    {{ t('settings_payout_accounts.add_account') }}
                 </button>
             </div>
         </template>
@@ -182,15 +184,15 @@ const getStatusColor = (status) => {
                     <div class="flex items-start">
                         <BanknotesIcon class="w-6 h-6 text-blue-600 me-3 mt-0.5" />
                         <div>
-                            <h3 class="font-medium text-blue-900">Platform Fee Information</h3>
+                            <h3 class="font-medium text-blue-900">{{ t('settings_payout_accounts.fee_banner.heading') }}</h3>
                             <p class="text-sm text-blue-700 mt-1">
-                                Current billing model: <strong>{{ billingModel === 'transaction_fee' ? 'Transaction Fee' : billingModel === 'subscription' ? 'Subscription' : 'Hybrid' }}</strong>
+                                {{ t('settings_payout_accounts.fee_banner.billing_model_label') }} <strong>{{ t(`settings_payout_accounts.billing_models.${billingModel}`, billingModel ?? '') }}</strong>
                             </p>
                             <p v-if="billingModel !== 'subscription'" class="text-sm text-blue-700">
-                                Platform fee: <strong>{{ currentFeePercentage }}%</strong> per transaction
+                                {{ t('settings_payout_accounts.fee_banner.fee_label') }} <strong>{{ currentFeePercentage }}%</strong> {{ t('settings_payout_accounts.fee_banner.fee_per_transaction_suffix') }}
                             </p>
                             <p class="text-sm text-blue-600 mt-2">
-                                Connect your bank account to receive payments directly. The platform fee will be automatically deducted.
+                                {{ t('settings_payout_accounts.fee_banner.description') }}
                             </p>
                         </div>
                     </div>
@@ -201,9 +203,9 @@ const getStatusColor = (status) => {
                     <div class="flex items-start">
                         <ExclamationCircleIcon class="w-6 h-6 text-yellow-600 me-3 mt-0.5" />
                         <div>
-                            <h3 class="font-medium text-yellow-900">Payout Account Required</h3>
+                            <h3 class="font-medium text-yellow-900">{{ t('settings_payout_accounts.alert.heading') }}</h3>
                             <p class="text-sm text-yellow-700 mt-1">
-                                You need to connect a verified payout account before tenants can make online payments.
+                                {{ t('settings_payout_accounts.alert.description') }}
                             </p>
                         </div>
                     </div>
@@ -225,7 +227,7 @@ const getStatusColor = (status) => {
                                             <p class="font-medium text-gray-900">{{ account.business_name }}</p>
                                             <span v-if="account.is_primary" class="ms-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
                                                 <StarIcon class="w-3 h-3 me-1" />
-                                                Primary
+                                                {{ t('settings_payout_accounts.badge.primary') }}
                                             </span>
                                         </div>
                                         <p class="text-sm text-gray-600">{{ account.bank_name }}</p>
@@ -242,19 +244,19 @@ const getStatusColor = (status) => {
                                             v-if="!account.is_primary && account.can_receive_payments"
                                             :icon="StarIcon"
                                             tone="primary"
-                                            aria-label="Set as primary payout account"
+                                            :aria-label="t('settings_payout_accounts.actions.set_primary')"
                                             @click="setPrimary(account.id)"
                                         />
                                         <IconButton
                                             :icon="ArrowPathIcon"
-                                            aria-label="Sync account status"
+                                            :aria-label="t('settings_payout_accounts.actions.sync_status')"
                                             @click="syncAccount(account.id)"
                                         />
                                         <IconButton
                                             v-if="can('settings:manage') && !account.is_primary"
                                             :icon="TrashIcon"
                                             tone="danger"
-                                            aria-label="Deactivate payout account"
+                                            :aria-label="t('settings_payout_accounts.actions.deactivate')"
                                             @click="deleteAccount(account.id)"
                                         />
                                     </div>
@@ -268,9 +270,9 @@ const getStatusColor = (status) => {
                 <div v-else class="bg-white shadow rounded-lg">
                     <EmptyState
                         :icon="BanknotesIcon"
-                        title="No payout accounts"
-                        description="Get started by connecting your bank account."
-                        action-label="Add Account"
+                        :title="t('settings_payout_accounts.empty.title')"
+                        :description="t('settings_payout_accounts.empty.description')"
+                        :action-label="t('settings_payout_accounts.empty.action')"
                         @action="openAddModal"
                     />
                 </div>
@@ -283,46 +285,46 @@ const getStatusColor = (status) => {
                 <div class="fixed inset-0 bg-gray-900/50 z-40" @click="closeAddModal"></div>
 
                 <div class="relative z-50 bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">Add Payout Account</h3>
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">{{ t('settings_payout_accounts.modal.title') }}</h3>
 
                     <form @submit.prevent="submitForm" class="space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">Business Name</label>
+                            <label class="block text-sm font-medium text-gray-700">{{ t('settings_payout_accounts.modal.business_name') }}</label>
                             <input
                                 v-model="form.business_name"
                                 type="text"
                                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                placeholder="Your business or property name"
+                                :placeholder="t('settings_payout_accounts.modal.business_name_placeholder')"
                                 required
                             />
                             <p v-if="form.errors.business_name" class="mt-1 text-sm text-red-600">{{ form.errors.business_name }}</p>
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">Bank</label>
+                            <label class="block text-sm font-medium text-gray-700">{{ t('settings_payout_accounts.modal.bank') }}</label>
                             <select
                                 v-model="form.bank_code"
                                 @change="onBankSelected"
                                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                                 required
                             >
-                                <option value="">Select a bank</option>
+                                <option value="">{{ t('settings_payout_accounts.modal.select_bank') }}</option>
                                 <option v-for="bank in banks" :key="bank.code" :value="bank.code">
                                     {{ bank.name }}
                                 </option>
                             </select>
-                            <p v-if="loadingBanks" class="mt-1 text-sm text-gray-500">Loading banks...</p>
+                            <p v-if="loadingBanks" class="mt-1 text-sm text-gray-500">{{ t('settings_payout_accounts.modal.loading_banks') }}</p>
                             <p v-if="form.errors.bank_code" class="mt-1 text-sm text-red-600">{{ form.errors.bank_code }}</p>
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">Account Number</label>
+                            <label class="block text-sm font-medium text-gray-700">{{ t('settings_payout_accounts.modal.account_number') }}</label>
                             <div class="mt-1 flex">
                                 <input
                                     v-model="form.account_number"
                                     type="text"
                                     class="block w-full rounded-s-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                    placeholder="Enter account number"
+                                    :placeholder="t('settings_payout_accounts.modal.account_number_placeholder')"
                                     required
                                 />
                                 <button
@@ -331,7 +333,7 @@ const getStatusColor = (status) => {
                                     :disabled="!form.account_number || !form.bank_code || verifyingAccount"
                                     class="px-4 py-2 bg-gray-100 border border-s-0 border-gray-300 rounded-e-md text-sm font-medium text-gray-700 hover:bg-gray-200 disabled:opacity-50"
                                 >
-                                    {{ verifyingAccount ? 'Verifying...' : 'Verify' }}
+                                    {{ verifyingAccount ? t('settings_payout_accounts.modal.verifying') : t('settings_payout_accounts.modal.verify') }}
                                 </button>
                             </div>
                             <p v-if="form.errors.account_number" class="mt-1 text-sm text-red-600">{{ form.errors.account_number }}</p>
@@ -341,7 +343,7 @@ const getStatusColor = (status) => {
                             <div class="flex items-center">
                                 <CheckCircleIcon class="w-5 h-5 text-green-600 me-2" />
                                 <div>
-                                    <p class="text-sm font-medium text-green-800">Account Verified</p>
+                                    <p class="text-sm font-medium text-green-800">{{ t('settings_payout_accounts.modal.verified_heading') }}</p>
                                     <p class="text-sm text-green-700">{{ verifiedAccountName }}</p>
                                 </div>
                             </div>
@@ -353,14 +355,14 @@ const getStatusColor = (status) => {
                                 @click="closeAddModal"
                                 class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
                             >
-                                Cancel
+                                {{ t('settings_payout_accounts.modal.cancel') }}
                             </button>
                             <button
                                 type="submit"
                                 :disabled="form.processing || !verifiedAccountName"
                                 class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
                             >
-                                {{ form.processing ? 'Adding...' : 'Add Account' }}
+                                {{ form.processing ? t('settings_payout_accounts.modal.adding') : t('settings_payout_accounts.modal.submit') }}
                             </button>
                         </div>
                     </form>
