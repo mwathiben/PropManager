@@ -16,7 +16,7 @@ class SubscriptionPlanFactory extends Factory
 
         return [
             'name' => $name,
-            'slug' => Str::slug($name),
+            'slug' => Str::slug($name).'-'.fake()->unique()->numerify('######'),
             'description' => fake()->sentence(),
             'price_monthly' => fake()->randomElement([0, 1500, 3000, 5000, 10000]),
             'price_yearly' => fake()->randomElement([0, 15000, 30000, 50000, 100000]),
