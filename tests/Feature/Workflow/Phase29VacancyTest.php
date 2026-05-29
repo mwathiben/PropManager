@@ -38,7 +38,7 @@ class Phase29VacancyTest extends TestCase
         $this->landlord = $this->setup['landlord'];
     }
 
-    public function test_byBuilding_returns_zero_occupancy_when_no_active_leases(): void
+    public function test_by_building_returns_zero_occupancy_when_no_active_leases(): void
     {
         $rows = app(OccupancyService::class)->byBuilding($this->landlord);
         $this->assertSame(1, $rows->count());
@@ -47,7 +47,7 @@ class Phase29VacancyTest extends TestCase
         $this->assertSame(8, $rows->first()['vacant_units']);
     }
 
-    public function test_byBuilding_returns_partial_occupancy(): void
+    public function test_by_building_returns_partial_occupancy(): void
     {
         $this->createTenantWithActiveLease($this->landlord, $this->setup['units']->first());
         $this->createTenantWithActiveLease($this->landlord, $this->setup['units']->get(1));

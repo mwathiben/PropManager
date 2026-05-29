@@ -18,7 +18,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int $id
  * @property int $caretaker_id
  * @property int $building_id
- * @property string $status  pending|accepted|declined
+ * @property string $status pending|accepted|declined
  * @property \Carbon\Carbon $assigned_at
  * @property \Carbon\Carbon|null $decided_at
  * @property string|null $decision_reason
@@ -28,7 +28,9 @@ class CaretakerAssignment extends Model
     use HasFactory, SoftDeletes;
 
     public const STATUS_PENDING = 'pending';
+
     public const STATUS_ACCEPTED = 'accepted';
+
     public const STATUS_DECLINED = 'declined';
 
     protected $fillable = [

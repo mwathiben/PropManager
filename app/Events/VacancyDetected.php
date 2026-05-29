@@ -22,6 +22,5 @@ class VacancyDetected
         public readonly Unit $unit,
         public readonly MoveOut $moveOut,
         public readonly CarbonImmutable $vacatedAt,
-    ) {
-    }
+    ) {}
 }

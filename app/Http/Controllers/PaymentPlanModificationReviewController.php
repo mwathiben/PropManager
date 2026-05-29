@@ -18,9 +18,7 @@ use Illuminate\Support\Facades\Redirect;
  */
 class PaymentPlanModificationReviewController extends Controller
 {
-    public function __construct(private readonly PaymentPlanModificationService $service)
-    {
-    }
+    public function __construct(private readonly PaymentPlanModificationService $service) {}
 
     public function approve(Request $request, PaymentPlanModification $modification): RedirectResponse
     {

@@ -6,7 +6,6 @@ namespace App\Services\Insight;
 
 use App\Models\AlertFiring;
 use App\Models\LandlordEngagementScore;
-use App\Models\LandlordUsageMetric;
 use App\Models\MrrSnapshot;
 use App\Models\OperationalIncident;
 use App\Models\Referral;

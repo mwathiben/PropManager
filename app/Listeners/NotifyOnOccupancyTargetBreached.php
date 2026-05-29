@@ -21,9 +21,7 @@ class NotifyOnOccupancyTargetBreached implements ShouldQueue
     /** @var int[] */
     public $backoff = [30, 60, 300, 1800];
 
-    public function __construct(private readonly NotificationService $notifications)
-    {
-    }
+    public function __construct(private readonly NotificationService $notifications) {}
 
     public function handle(OccupancyTargetBreached $event): void
     {

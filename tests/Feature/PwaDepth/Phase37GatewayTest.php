@@ -9,7 +9,6 @@ use App\Models\Subscription;
 use App\Models\SubscriptionChange;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
-use App\Services\PaystackSubscriptionService;
 use App\Services\SubscriptionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;

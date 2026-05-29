@@ -20,7 +20,7 @@ class DashboardControllerTest extends TestCase
 
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
-            ->component('Dashboard')
+            ->component('Portfolio/Home')
         );
     }
 

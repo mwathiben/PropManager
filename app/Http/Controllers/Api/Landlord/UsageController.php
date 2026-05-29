@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\Landlord;
 
 use App\Http\Controllers\Controller;
-use App\Models\Subscription;
 use App\Models\UsageRecord;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;

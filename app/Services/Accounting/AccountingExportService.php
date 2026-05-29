@@ -28,6 +28,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class AccountingExportService
 {
     public const FORMAT_QUICKBOOKS_IIF = 'iif';
+
     public const FORMAT_SAGE_CSV = 'sage_csv';
 
     public const FORMATS = [self::FORMAT_QUICKBOOKS_IIF, self::FORMAT_SAGE_CSV];

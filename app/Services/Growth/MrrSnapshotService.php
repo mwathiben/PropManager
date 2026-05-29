@@ -10,7 +10,6 @@ use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use DateTimeInterface;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Phase-34 GROWTH-MRR-1: compute + upsert one mrr_snapshots row per

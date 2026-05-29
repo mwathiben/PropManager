@@ -35,7 +35,7 @@ class Phase43LangCoverageTest extends TestCase
 
     public function test_i18n_key_extractor_finds_vue_template_calls(): void
     {
-        $extractor = new I18nKeyExtractor();
+        $extractor = new I18nKeyExtractor;
         $keys = $extractor->extractFromString('<template>{{ $t(\'a.b.c\') }}{{ $t("d.e") }}</template>');
         $this->assertContains('a.b.c', $keys);
         $this->assertContains('d.e', $keys);
@@ -43,14 +43,14 @@ class Phase43LangCoverageTest extends TestCase
 
     public function test_i18n_key_extractor_finds_composition_api_t_calls(): void
     {
-        $extractor = new I18nKeyExtractor();
+        $extractor = new I18nKeyExtractor;
         $keys = $extractor->extractFromString('const heading = t(\'cart.heading\');');
         $this->assertContains('cart.heading', $keys);
     }
 
     public function test_i18n_key_extractor_ignores_dynamic_keys(): void
     {
-        $extractor = new I18nKeyExtractor();
+        $extractor = new I18nKeyExtractor;
         $keys = $extractor->extractFromString('$t(`prefix.${suffix}`)');
         $this->assertNotContains('prefix.${suffix}', $keys);
         $this->assertSame([], $keys);
@@ -58,7 +58,7 @@ class Phase43LangCoverageTest extends TestCase
 
     public function test_i18n_key_extractor_deduplicates(): void
     {
-        $extractor = new I18nKeyExtractor();
+        $extractor = new I18nKeyExtractor;
         $keys = $extractor->extractFromString('$t("a.b") + $t("a.b") + $t("a.b")');
         $this->assertSame(['a.b'], $keys);
     }

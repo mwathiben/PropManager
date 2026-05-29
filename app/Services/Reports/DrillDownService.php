@@ -24,8 +24,7 @@ class DrillDownService
 {
     public function __construct(
         protected ReportBuilderService $builder,
-    ) {
-    }
+    ) {}
 
     public function resolveChild(SavedReport $parent, string $segmentValue): array
     {

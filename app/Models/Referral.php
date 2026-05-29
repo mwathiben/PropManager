@@ -10,8 +10,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Referral extends Model
 {
     public const STATUS_PENDING = 'pending';
+
     public const STATUS_ATTRIBUTED = 'attributed';
+
     public const STATUS_REWARDED = 'rewarded';
+
     public const STATUS_EXPIRED = 'expired';
 
     public const STATUSES = [

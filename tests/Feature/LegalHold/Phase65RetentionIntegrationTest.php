@@ -12,7 +12,6 @@ use App\Services\Storage\FileRetentionService;
 use App\Support\LegalHoldRegistry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -122,8 +121,7 @@ class Phase65RetentionIntegrationTest extends TestCase
 
         $this->artisan('legal-hold:audit-exclusions')->assertSuccessful();
 
-        $invoiceGauge = collect($emitted)->first(fn ($e) =>
-            $e['name'] === 'retention_legal_hold_exclusions_count'
+        $invoiceGauge = collect($emitted)->first(fn ($e) => $e['name'] === 'retention_legal_hold_exclusions_count'
             && ($e['labels']['subject_type'] ?? null) === 'Invoice'
         );
 

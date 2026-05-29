@@ -21,9 +21,7 @@ class EmergencyContactVerificationController extends Controller
 {
     public const MAX_SENDS_PER_24H = 3;
 
-    public function __construct(private readonly SmsOtpService $otp)
-    {
-    }
+    public function __construct(private readonly SmsOtpService $otp) {}
 
     public function sendOtp(Request $request, EmergencyContact $contact): RedirectResponse
     {

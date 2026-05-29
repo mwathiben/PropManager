@@ -26,8 +26,8 @@ log on a production deploy.
 
 **Status**: closed 2026-05-18.
 
-Pre-Phase-58 the codebase had 28 hardcoded local-disk call sites across
-`app/`. These hardcoded the local driver instead of the configurable
+Pre-Phase-58 the codebase had 28 hardcoded `Storage::disk('local')` call
+sites across `app/`. These hardcoded the local driver instead of the configurable
 default disk, so even with `FILESYSTEM_DISK=s3` set, those paths still
 wrote to one host. KYC documents, lease documents, water-reading photos,
 invoice PDFs, GDPR exports, OCR temp files were all bound to a single

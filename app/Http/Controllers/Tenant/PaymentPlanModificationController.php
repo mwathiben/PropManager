@@ -19,9 +19,7 @@ use Illuminate\Support\Facades\Redirect;
  */
 class PaymentPlanModificationController extends Controller
 {
-    public function __construct(private readonly PaymentPlanModificationService $service)
-    {
-    }
+    public function __construct(private readonly PaymentPlanModificationService $service) {}
 
     public function store(Request $request, PaymentPlan $plan): RedirectResponse
     {

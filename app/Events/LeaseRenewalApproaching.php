@@ -21,6 +21,5 @@ class LeaseRenewalApproaching
         public readonly Lease $lease,
         public readonly int $bucketDays,
         public readonly CarbonImmutable $detectedAt,
-    ) {
-    }
+    ) {}
 }

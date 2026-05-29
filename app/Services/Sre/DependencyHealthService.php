@@ -29,12 +29,15 @@ use Illuminate\Support\Facades\Redis;
 class DependencyHealthService
 {
     public const STATUS_UP = 'up';
+
     public const STATUS_DEGRADED = 'degraded';
+
     public const STATUS_DOWN = 'down';
 
     public const SUPPORTED = ['daraja', 'paystack', 'intasend', 'smtp', 'sms', 'redis'];
 
     private const TIMEOUT_SECONDS = 5;
+
     private const DEGRADED_LATENCY_MS = 2_000;
 
     /**

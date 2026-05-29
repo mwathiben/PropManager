@@ -117,8 +117,7 @@ class Phase65LegalHoldExpandSurfaceTest extends TestCase
     public function test_audit_legal_hold_exclusions_command_registered(): void
     {
         $events = app(\Illuminate\Console\Scheduling\Schedule::class)->events();
-        $matched = collect($events)->first(fn ($e) =>
-            is_string($e->command) && str_contains($e->command, 'legal-hold:audit-exclusions'),
+        $matched = collect($events)->first(fn ($e) => is_string($e->command) && str_contains($e->command, 'legal-hold:audit-exclusions'),
         );
         $this->assertNotNull($matched, 'legal-hold:audit-exclusions cron must be scheduled');
     }

@@ -84,8 +84,7 @@ return [
 
     'delete_modal' => [
         'title' => 'Futa Aina?',
-        'message_before' => 'Hii itafuta kabisa',
-        'message_after' => '. Makato yaliyopo yanayotumia aina hii hayataathiriwa.',
+        'message' => 'Hii itafuta kabisa "{name}". Makato yaliyopo yanayotumia aina hii hayataathiriwa.',
         'cancel' => 'Ghairi',
         'delete' => 'Futa',
     ],

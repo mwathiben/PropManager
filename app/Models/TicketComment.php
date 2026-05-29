@@ -8,8 +8,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class TicketComment extends Model
 {
-    use TenantScope;
     use RowVersion;
+    use TenantScope;
 
     protected $fillable = [
         'version',

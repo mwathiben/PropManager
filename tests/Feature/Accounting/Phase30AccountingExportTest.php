@@ -5,10 +5,8 @@ declare(strict_types=1);
 namespace Tests\Feature\Accounting;
 
 use App\Models\ChartOfAccount;
-use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\Invoice;
-use App\Models\Payment;
 use App\Models\User;
 use App\Services\Accounting\AccountingExportService;
 use App\Services\Accounting\AccountMappingService;
@@ -129,7 +127,7 @@ class Phase30AccountingExportTest extends TestCase
         $this->assertStringContainsString("!TRNS\tTRNSTYPE", $body);
         $this->assertStringContainsString("TRNS\tINVOICE", $body);
         $this->assertStringContainsString("SPL\tINVOICE", $body);
-        $this->assertStringContainsString("ENDTRNS", $body);
+        $this->assertStringContainsString('ENDTRNS', $body);
     }
 
     public function test_sage_csv_export_emits_csv_header_and_invoice_row(): void

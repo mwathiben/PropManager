@@ -8,7 +8,6 @@ use App\Models\User;
 use App\Support\LocaleHelper;
 use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
 /**
@@ -36,14 +35,14 @@ class Phase43LocaleSwitcherTest extends TestCase
 
     public function test_locale_helper_dir_is_ltr_for_default_locales(): void
     {
-        $helper = new LocaleHelper();
+        $helper = new LocaleHelper;
         $this->assertSame('ltr', $helper->dir('en'));
         $this->assertSame('ltr', $helper->dir('sw'));
     }
 
     public function test_locale_helper_dir_is_rtl_for_configured_rtl_locales(): void
     {
-        $helper = new LocaleHelper();
+        $helper = new LocaleHelper;
         $this->assertSame('rtl', $helper->dir('ar'));
         $this->assertSame('rtl', $helper->dir('he'));
         $this->assertSame('rtl', $helper->dir('ar-KE'));
@@ -51,7 +50,7 @@ class Phase43LocaleSwitcherTest extends TestCase
 
     public function test_locale_helper_is_rtl_handles_compound_locale(): void
     {
-        $helper = new LocaleHelper();
+        $helper = new LocaleHelper;
         $this->assertTrue($helper->isRtl('ar_KE'));
         $this->assertTrue($helper->isRtl('ar-EG'));
         $this->assertFalse($helper->isRtl('en-KE'));
@@ -60,7 +59,7 @@ class Phase43LocaleSwitcherTest extends TestCase
     public function test_locale_helper_alternates_emit_one_row_per_locale(): void
     {
         config(['app.available_locales' => ['en' => 'English', 'sw' => 'Kiswahili']]);
-        $helper = new LocaleHelper();
+        $helper = new LocaleHelper;
         $rows = $helper->alternates('https://example.test/dashboard');
 
         $this->assertCount(2, $rows);
@@ -75,7 +74,7 @@ class Phase43LocaleSwitcherTest extends TestCase
     public function test_locale_helper_alternates_append_to_existing_query(): void
     {
         config(['app.available_locales' => ['en' => 'English', 'sw' => 'Kiswahili']]);
-        $helper = new LocaleHelper();
+        $helper = new LocaleHelper;
         $rows = $helper->alternates('https://example.test/dashboard?ref=banner');
 
         foreach ($rows as $row) {

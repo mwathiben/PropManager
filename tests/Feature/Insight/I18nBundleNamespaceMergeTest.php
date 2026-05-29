@@ -62,7 +62,7 @@ class I18nBundleNamespaceMergeTest extends TestCase
 
     private function callBundle(): array
     {
-        $mw = new HandleInertiaRequests();
+        $mw = new HandleInertiaRequests;
         $method = new \ReflectionMethod($mw, 'getI18nBundle');
         $method->setAccessible(true);
 

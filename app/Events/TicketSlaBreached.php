@@ -21,12 +21,12 @@ class TicketSlaBreached
     use Dispatchable, SerializesModels;
 
     public const TYPE_RESPONSE = 'response';
+
     public const TYPE_RESOLUTION = 'resolution';
 
     public function __construct(
         public readonly Ticket $ticket,
         public readonly CarbonImmutable $breachedAt,
         public readonly string $type = self::TYPE_RESPONSE,
-    ) {
-    }
+    ) {}
 }

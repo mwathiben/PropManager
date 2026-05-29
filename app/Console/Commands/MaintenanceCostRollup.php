@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Models\Ticket;
 use App\Models\TicketCost;
 use App\Services\MetricsService;
 use Illuminate\Console\Command;

@@ -8,7 +8,6 @@ use App\Models\DepositRefundRequest;
 use App\Models\Invoice;
 use App\Models\Lease;
 use App\Models\PaymentPlan;
-use App\Models\PaymentPlanInstallment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;

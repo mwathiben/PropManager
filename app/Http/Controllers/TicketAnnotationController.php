@@ -20,9 +20,7 @@ use Illuminate\Support\Facades\Redirect;
  */
 class TicketAnnotationController extends Controller
 {
-    public function __construct(private readonly TicketAnnotationService $annotations)
-    {
-    }
+    public function __construct(private readonly TicketAnnotationService $annotations) {}
 
     public function store(Request $request, Ticket $ticket, Document $document): RedirectResponse
     {

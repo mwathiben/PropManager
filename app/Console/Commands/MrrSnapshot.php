@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Models\MrrSnapshot as MrrSnapshotModel;
 use App\Models\SubscriptionPlan;
 use App\Services\Growth\MrrSnapshotService;
 use App\Services\MetricsService;

@@ -26,6 +26,7 @@ use Illuminate\Support\Facades\Cache;
 class AnalyticsReplayBatch extends Command
 {
     private const CURSOR_KEY = 'vendors:analytics:last-replayed-at';
+
     private const FLAP_THRESHOLD = 0.10;
 
     protected $signature = 'analytics:replay-batch {--chunk=100} {--max-runtime-seconds=180}';

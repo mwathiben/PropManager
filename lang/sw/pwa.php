@@ -25,7 +25,7 @@ return [
         'referrals_label' => 'Rufaa zilizothibitishwa (siku 30)',
         'current_plan_label' => 'Mpango wa sasa',
         'cta_open_dashboard' => 'Fungua dashibodi',
-        'signature' => "— Timu ya :app",
+        'signature' => '— Timu ya :app',
         'opt_out_link_label' => 'Dhibiti mapendeleo ya arifa',
         'opt_out_link_helper' => 'zima muhtasari wa wiki bila kupoteza arifa za malipo',
     ],

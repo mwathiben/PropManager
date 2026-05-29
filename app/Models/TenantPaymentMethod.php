@@ -18,7 +18,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  *
  * @property int $id
  * @property int $user_id
- * @property string $type  mpesa|bank|card
+ * @property string $type mpesa|bank|card
  * @property array<string, mixed> $details_encrypted
  * @property bool $is_default
  * @property \Carbon\Carbon|null $verified_at

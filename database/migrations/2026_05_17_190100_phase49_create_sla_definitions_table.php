@@ -42,7 +42,7 @@ return new class extends Migration
 
         // Phase-49 SLA-PER-CATEGORY-3: seed platform defaults so the
         // cascade has a working baseline immediately after migrate.
-        (new Phase49SlaSeeder())->run();
+        (new Phase49SlaSeeder)->run();
     }
 
     public function down(): void

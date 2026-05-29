@@ -31,9 +31,7 @@ use Illuminate\Validation\ValidationException;
  */
 class OnboardingResumeRedirectController extends Controller
 {
-    public function __construct(private readonly OnboardingResumeService $service)
-    {
-    }
+    public function __construct(private readonly OnboardingResumeService $service) {}
 
     public function __invoke(Request $request, OnboardingSession $session): RedirectResponse
     {

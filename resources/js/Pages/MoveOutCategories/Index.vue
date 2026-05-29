@@ -734,8 +734,7 @@ const breadcrumbs = computed(() => [
                                 </div>
                                 <h3 class="text-lg font-semibold text-gray-900 mb-2">{{ t('move_out_categories_index.delete_modal.title') }}</h3>
                                 <p class="text-sm text-gray-500">
-                                    {{ t('move_out_categories_index.delete_modal.message_before') }}
-                                    <span class="font-semibold">"{{ categoryToDelete?.name }}"</span>{{ t('move_out_categories_index.delete_modal.message_after') }}
+                                    {{ t('move_out_categories_index.delete_modal.message', { name: categoryToDelete?.name ?? '' }) }}
                                 </p>
                             </div>
                             <div class="px-6 py-4 bg-gray-50 flex gap-3">

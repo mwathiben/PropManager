@@ -22,8 +22,11 @@ class StorageTierPolicy extends Model
     use HasFactory;
 
     public const TIER_STANDARD = 'standard';
+
     public const TIER_IA = 'ia';
+
     public const TIER_GLACIER = 'glacier';
+
     public const TIER_DEEP_ARCHIVE = 'deep_archive';
 
     public const TIERS = [

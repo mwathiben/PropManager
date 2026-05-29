@@ -22,9 +22,7 @@ class SmsOtpService
 {
     public const OTP_TTL_MINUTES = 10;
 
-    public function __construct(private readonly SmsDriver $driver)
-    {
-    }
+    public function __construct(private readonly SmsDriver $driver) {}
 
     /**
      * Generate a 6-digit code, cache it keyed by $cacheKey, and dispatch

@@ -47,7 +47,7 @@ class Phase62OfflineWritesTest extends TestCase
             'OFFLINE-WRITES-2: sw.ts must match POST /tickets exactly so /tickets/{id}/comment routes to its own queue.',
         );
         $this->assertStringContainsString(
-            "/^\\/tickets\\/\\d+\\/comment$/",
+            '/^\\/tickets\\/\\d+\\/comment$/',
             $src,
             'OFFLINE-WRITES-2: sw.ts must match POST /tickets/{id}/comment via regex on the comments queue.',
         );

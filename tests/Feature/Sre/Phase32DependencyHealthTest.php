@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Feature\Sre;
 
 use App\Events\DegradationDetected;
-use App\Models\AlertFiring;
 use App\Services\Sre\DependencyHealthService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;

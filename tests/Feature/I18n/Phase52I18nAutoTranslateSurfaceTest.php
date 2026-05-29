@@ -47,7 +47,7 @@ class Phase52I18nAutoTranslateSurfaceTest extends TestCase
 
     public function test_stub_driver_implements_interface_with_marker(): void
     {
-        $stub = new StubTranslationDriver();
+        $stub = new StubTranslationDriver;
         $this->assertInstanceOf(TranslationDriverInterface::class, $stub);
         $this->assertSame('[TODO:ar] Hello', $stub->translate('Hello', 'en', 'ar'));
         $this->assertSame(0.0, $stub->costEstimateUsd(100));
@@ -56,7 +56,7 @@ class Phase52I18nAutoTranslateSurfaceTest extends TestCase
 
     public function test_factory_make_returns_correct_driver_per_key(): void
     {
-        $factory = new TranslationDriverFactory();
+        $factory = new TranslationDriverFactory;
         $this->assertInstanceOf(StubTranslationDriver::class, $factory->make('stub'));
 
         config(['i18n.google_api_key' => 'fake-google-key']);
@@ -71,27 +71,39 @@ class Phase52I18nAutoTranslateSurfaceTest extends TestCase
     public function test_factory_make_throws_on_unknown_driver(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        (new TranslationDriverFactory())->make('quaerendo');
+        (new TranslationDriverFactory)->make('quaerendo');
     }
 
     public function test_factory_wraps_non_stub_drivers_with_cost_aware_decorator(): void
     {
         config(['i18n.google_api_key' => 'fake-key']);
-        $factory = new TranslationDriverFactory(new TranslationCostTracker());
+        $factory = new TranslationDriverFactory(new TranslationCostTracker);
         $driver = $factory->make('google');
         $this->assertInstanceOf(CostAwareDriver::class, $driver);
     }
 
     public function test_service_delegates_to_injected_driver(): void
     {
-        $fake = new class implements TranslationDriverInterface {
+        $fake = new class implements TranslationDriverInterface
+        {
             public int $calls = 0;
-            public function translate(string $text, string $from, string $to): string {
+
+            public function translate(string $text, string $from, string $to): string
+            {
                 $this->calls++;
+
                 return "fake({$to}):{$text}";
             }
-            public function costEstimateUsd(int $c): float { return 0.0; }
-            public function name(): string { return 'fake'; }
+
+            public function costEstimateUsd(int $c): float
+            {
+                return 0.0;
+            }
+
+            public function name(): string
+            {
+                return 'fake';
+            }
         };
         $svc = new TranslationSuggestionService($fake);
         $this->assertSame('fake(sw):Hello', $svc->suggest('Hello', 'en', 'sw'));
@@ -179,7 +191,7 @@ class Phase52I18nAutoTranslateSurfaceTest extends TestCase
 
     public function test_lang_file_writer_deep_merges_without_overwriting(): void
     {
-        $writer = new LangFileWriter();
+        $writer = new LangFileWriter;
         $existing = ['a' => 'keep me', 'nested' => ['x' => 'also keep']];
         $suggest = ['a' => 'NEW', 'b' => 'add me', 'nested' => ['x' => 'CHANGE', 'y' => 'add me too']];
         $merged = $writer->merge($existing, $suggest);
@@ -191,14 +203,14 @@ class Phase52I18nAutoTranslateSurfaceTest extends TestCase
 
     public function test_lang_file_writer_creates_backup_before_overwrite(): void
     {
-        $writer = new LangFileWriter();
+        $writer = new LangFileWriter;
         $path = storage_path('framework/testing/phase52-langwriter-test.php');
         File::ensureDirectoryExists(dirname($path));
         File::put($path, "<?php\nreturn ['original' => 'value'];\n");
 
         $writer->write($path, ['original' => 'value', 'new' => 'fresh']);
 
-        $backups = glob($path . '.bak.*') ?: [];
+        $backups = glob($path.'.bak.*') ?: [];
         $this->assertNotEmpty($backups, 'Backup file should be created');
         foreach ($backups as $backup) {
             File::delete($backup);
@@ -227,7 +239,7 @@ class Phase52I18nAutoTranslateSurfaceTest extends TestCase
 
     public function test_cost_tracker_record_increments_daily_total(): void
     {
-        $tracker = new TranslationCostTracker();
+        $tracker = new TranslationCostTracker;
         $this->assertSame(0.0, $tracker->currentDailySpend());
 
         $tracker->record('google', 'sw', 100, 0.002);
@@ -238,7 +250,7 @@ class Phase52I18nAutoTranslateSurfaceTest extends TestCase
     public function test_cost_tracker_can_spend_returns_false_past_budget(): void
     {
         config(['i18n.daily_budget_usd' => 1.0]);
-        $tracker = new TranslationCostTracker();
+        $tracker = new TranslationCostTracker;
         $tracker->record('google', 'sw', 100, 0.95);
         $this->assertTrue($tracker->canSpend(0.04));
         $this->assertFalse($tracker->canSpend(0.10));
@@ -247,9 +259,9 @@ class Phase52I18nAutoTranslateSurfaceTest extends TestCase
     public function test_cost_aware_driver_routes_to_fallback_past_budget(): void
     {
         config(['i18n.daily_budget_usd' => 0.0]);
-        $tracker = new TranslationCostTracker();
+        $tracker = new TranslationCostTracker;
         $inner = new GoogleTranslationDriver('fake-key');
-        $driver = new CostAwareDriver($inner, $tracker, new StubTranslationDriver());
+        $driver = new CostAwareDriver($inner, $tracker, new StubTranslationDriver);
         $result = $driver->translate('Hello', 'en', 'sw');
         $this->assertStringStartsWith('[TODO:sw]', $result);
     }

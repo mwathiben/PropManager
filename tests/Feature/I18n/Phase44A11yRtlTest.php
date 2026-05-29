@@ -50,7 +50,7 @@ class Phase44A11yRtlTest extends TestCase
             'A11Y-RTL-2: useRtlAware must pipe direction changes through useAnnouncer (aria-live).',
         );
         $this->assertStringContainsString(
-            "announce(",
+            'announce(',
             $src,
             'A11Y-RTL-2: useRtlAware must call announce() on direction change.',
         );
@@ -66,7 +66,7 @@ class Phase44A11yRtlTest extends TestCase
         $barrel = file_get_contents(resource_path('js/composables/index.ts'));
 
         $this->assertStringContainsString(
-            "export { useRtlAware }",
+            'export { useRtlAware }',
             $barrel,
             'A11Y-RTL-3: useRtlAware must be re-exported from @/composables barrel.',
         );

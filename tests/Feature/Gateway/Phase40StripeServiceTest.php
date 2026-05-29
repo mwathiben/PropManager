@@ -74,13 +74,13 @@ class Phase40StripeServiceTest extends TestCase
 
     public function test_stripe_subscription_service_unconfigured_by_default(): void
     {
-        $service = new StripeSubscriptionService();
+        $service = new StripeSubscriptionService;
         $this->assertFalse($service->isConfigured());
     }
 
     public function test_stripe_subscription_service_create_or_update_plan_noops_when_unconfigured(): void
     {
-        $service = new StripeSubscriptionService();
+        $service = new StripeSubscriptionService;
         $plan = \App\Models\SubscriptionPlan::factory()->create();
         $this->assertNull($service->createOrUpdatePlan($plan));
     }

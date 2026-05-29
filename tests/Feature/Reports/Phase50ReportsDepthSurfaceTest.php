@@ -152,7 +152,7 @@ class Phase50ReportsDepthSurfaceTest extends TestCase
             'system("rm")',
             '${jndi:ldap://x}',
             '`whoami`',
-            "1; DROP TABLE users",
+            '1; DROP TABLE users',
             '{users.password}',
             '{invoice.status} + 1',
             'eval("phpinfo()")',

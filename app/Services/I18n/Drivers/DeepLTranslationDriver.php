@@ -59,11 +59,11 @@ final class DeepLTranslationDriver implements TranslationDriverInterface
 
         try {
             $response = Http::withHeaders([
-                'Authorization' => 'DeepL-Auth-Key ' . $this->apiKey,
+                'Authorization' => 'DeepL-Auth-Key '.$this->apiKey,
                 'Content-Type' => 'application/json',
             ])
                 ->timeout(10)
-                ->post($this->endpointBase() . '/v2/translate', $payload);
+                ->post($this->endpointBase().'/v2/translate', $payload);
         } catch (\Throwable $e) {
             return $this->stubFallback($sourceText, $targetLocale, "http exception: {$e->getMessage()}");
         }
@@ -104,6 +104,6 @@ final class DeepLTranslationDriver implements TranslationDriverInterface
             'target_locale' => $targetLocale,
         ]);
 
-        return (new StubTranslationDriver())->translate($sourceText, '', $targetLocale);
+        return (new StubTranslationDriver)->translate($sourceText, '', $targetLocale);
     }
 }

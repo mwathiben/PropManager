@@ -24,6 +24,5 @@ class OccupancyTargetBreached
         public readonly float $currentRate,
         public readonly float $targetRate,
         public readonly CarbonImmutable $detectedAt,
-    ) {
-    }
+    ) {}
 }

@@ -88,7 +88,7 @@ class Phase44I18nRtlSurfaceTest extends TestCase
 
     public function test_locale_helper_provides_rtl_metadata(): void
     {
-        $helper = new \App\Support\LocaleHelper();
+        $helper = new \App\Support\LocaleHelper;
 
         $this->assertTrue($helper->isRtl('ar'), 'CI-1: LocaleHelper::isRtl(ar) must return true.');
         $this->assertSame('rtl', $helper->dir('ar'), 'CI-1: LocaleHelper::dir(ar) must return rtl.');

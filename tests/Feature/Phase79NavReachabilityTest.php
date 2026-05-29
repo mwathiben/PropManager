@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use FilesystemIterator;
+use PHPUnit\Framework\Attributes\DataProvider;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use Tests\TestCase;
@@ -40,9 +41,7 @@ class Phase79NavReachabilityTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider linkedRoutes
-     */
+    #[DataProvider('linkedRoutes')]
     public function test_route_is_linked_in_the_frontend(string $name): void
     {
         $this->assertTrue(

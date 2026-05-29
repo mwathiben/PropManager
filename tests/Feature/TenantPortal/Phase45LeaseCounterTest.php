@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\TenantPortal;
 
-use App\Console\Commands\ExpireStaleLeaseRenewalCounters;
 use App\Models\LeaseRenewal;
 use App\Models\LeaseRenewalCounterHistory;
 use App\Models\User;

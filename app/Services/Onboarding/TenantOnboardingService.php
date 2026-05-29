@@ -26,8 +26,7 @@ class TenantOnboardingService implements OnboardingStepProcessor
 {
     public function __construct(
         protected TenantPaymentMethodService $paymentMethodService,
-    ) {
-    }
+    ) {}
 
     public function processStep(int $step, array $data, User $user, OnboardingProgress $progress): bool
     {

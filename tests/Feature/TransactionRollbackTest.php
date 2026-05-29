@@ -8,7 +8,6 @@ use App\Models\Invoice;
 use App\Models\LateFee;
 use App\Models\LateFeePolicy;
 use App\Models\Payment;
-use App\Models\User;
 use App\Services\LateFeeService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;

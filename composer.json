@@ -7,6 +7,7 @@
     "license": "MIT",
     "require": {
         "php": "^8.4",
+        "akaunting/laravel-money": "^6.0",
         "bacon/bacon-qr-code": "^3.0",
         "barryvdh/laravel-dompdf": "^3.1",
         "dedoc/scramble": "^0.13.22",
@@ -17,10 +18,18 @@
         "laravel/tinker": "^2.10.1",
         "maatwebsite/excel": "^3.1",
         "minishlink/web-push": "^10.0",
+        "openspout/openspout": "^5.7",
         "phpoffice/phpspreadsheet": "^1.30",
         "pragmarx/google2fa-laravel": "^2.3",
         "sentry/sentry-laravel": "^4.25",
         "spatie/laravel-backup": "^10.2",
+        "spatie/laravel-data": "^4.23",
+        "spatie/laravel-medialibrary": "^11.23",
+        "spatie/laravel-model-states": "^2.14",
+        "spatie/laravel-query-builder": "^7.3",
+        "spatie/laravel-schemaless-attributes": "^2.6",
+        "spatie/laravel-settings": "^3.9",
+        "staudenmeir/laravel-adjacency-list": "^1.25",
         "stripe/stripe-php": "15.0",
         "tightenco/ziggy": "^2.0"
     },
@@ -28,11 +37,13 @@
         "barryvdh/laravel-ide-helper": "^3.6",
         "brianium/paratest": "^7.8",
         "fakerphp/faker": "^1.23",
+        "laravel/boost": "^1.8",
         "laravel/breeze": "^2.3",
         "laravel/dusk": "^8.3",
         "laravel/pail": "^1.2.2",
         "laravel/pint": "^1.24",
         "laravel/sail": "^1.41",
+        "laravel/telescope": "^5.20",
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.6",
         "phpmd/phpmd": "^2.15",
@@ -105,7 +116,9 @@
     },
     "extra": {
         "laravel": {
-            "dont-discover": []
+            "dont-discover": [
+                "laravel/telescope"
+            ]
         }
     },
     "config": {

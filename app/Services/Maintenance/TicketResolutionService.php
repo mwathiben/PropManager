@@ -30,8 +30,7 @@ class TicketResolutionService
 {
     public function __construct(
         protected TicketCostService $costService,
-    ) {
-    }
+    ) {}
 
     /**
      * @param  array<int|string, int>  $partUsage  map of part_id => qty_used

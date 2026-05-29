@@ -32,7 +32,7 @@ class Phase30PeriodLockTest extends TestCase
         );
     }
 
-    public function test_isDateLocked_true_for_closed_window_match(): void
+    public function test_is_date_locked_true_for_closed_window_match(): void
     {
         AccountingPeriod::create([
             'landlord_id' => $this->landlord->id,
@@ -46,7 +46,7 @@ class Phase30PeriodLockTest extends TestCase
         $this->assertFalse(AccountingPeriod::isDateLocked($this->landlord->id, '2026-05-15'));
     }
 
-    public function test_isDateLocked_false_for_open_period(): void
+    public function test_is_date_locked_false_for_open_period(): void
     {
         AccountingPeriod::create([
             'landlord_id' => $this->landlord->id,

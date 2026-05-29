@@ -113,9 +113,9 @@ class Phase51VueTailSurfaceTest extends TestCase
     public function test_register_vue_uses_card_grid_role_picker(): void
     {
         $source = $this->read('resources/js/Pages/Auth/Register.vue');
-        $this->assertStringContainsString("role=\"radiogroup\"", $source);
+        $this->assertStringContainsString('role="radiogroup"', $source);
         $this->assertStringContainsString('from-indigo-100', $source);
-        $this->assertStringContainsString("ring-2 ring-indigo-500", $source);
+        $this->assertStringContainsString('ring-2 ring-indigo-500', $source);
     }
 
     public function test_register_vue_role_help_card_is_branded(): void

@@ -23,6 +23,5 @@ class TicketAssignedToVendor
         public readonly Ticket $ticket,
         public readonly Vendor $vendor,
         public readonly ?string $note = null,
-    ) {
-    }
+    ) {}
 }

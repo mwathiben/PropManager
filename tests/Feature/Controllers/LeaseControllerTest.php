@@ -283,8 +283,11 @@ class LeaseControllerTest extends TestCase
         $this->assertTrue(in_array($response->status(), [302, 403, 404]));
     }
 
-    public function test_wallet_history_shows_transactions(): void
+    public function test_wallet_history_redirects_to_lease_show(): void
     {
+        // The dedicated wallet-history page was consolidated into leases.show
+        // (routes/web.php). The named route is preserved as a redirect so
+        // existing bookmarks and email links keep working.
         $unit = $this->setupData['units']->first();
         ['lease' => $lease] = $this->createTenantWithActiveLease($this->landlord, $unit);
 
@@ -294,9 +297,6 @@ class LeaseControllerTest extends TestCase
         $response = $this->actingAs($this->landlord)
             ->get(route('leases.wallet-history', $lease));
 
-        $response->assertOk();
-        $response->assertInertia(fn ($page) => $page
-            ->has('transactions')
-        );
+        $response->assertRedirect(route('leases.show', $lease));
     }
 }

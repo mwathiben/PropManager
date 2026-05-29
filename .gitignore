@@ -39,3 +39,6 @@ tools/mailpit/mailpit*
 # Phase-25 API-DOC-1: dedoc/scramble exports the spec on demand
 # (php artisan scramble:export) — it's a build artifact, not source.
 /api.json
+
+# Session journal written by .claude/hooks/end-of-session.ps1
+/docs/journal/

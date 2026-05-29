@@ -38,7 +38,7 @@ class Phase42TaxTest extends TestCase
 
     public function test_stripe_tax_service_computes_kenya_vat_at_16_percent(): void
     {
-        $service = new StripeTaxService();
+        $service = new StripeTaxService;
         $subtotal = Money::fromString('1000.00');
 
         $vat = $service->computeKenyanVat($subtotal);
@@ -54,7 +54,7 @@ class Phase42TaxTest extends TestCase
             'vat_rate_bps_override' => 800, // 8% reduced rate
         ]);
 
-        $service = new StripeTaxService();
+        $service = new StripeTaxService;
         $subtotal = Money::fromString('1000.00');
 
         $vat = $service->computeKenyanVat($subtotal, $config);
@@ -64,13 +64,13 @@ class Phase42TaxTest extends TestCase
 
     public function test_vat_line_item_returns_null_for_non_kes(): void
     {
-        $service = new StripeTaxService();
+        $service = new StripeTaxService;
         $this->assertNull($service->vatLineItem(Money::fromString('100.00'), Currency::USD));
     }
 
     public function test_vat_line_item_for_kes_returns_canonical_shape(): void
     {
-        $service = new StripeTaxService();
+        $service = new StripeTaxService;
         $line = $service->vatLineItem(Money::fromString('500.00'), Currency::KES);
 
         $this->assertIsArray($line);
@@ -106,7 +106,7 @@ class Phase42TaxTest extends TestCase
 
     public function test_invoice_item_tax_amount_returns_zero_when_untaxed(): void
     {
-        $item = new \App\Models\InvoiceItem();
+        $item = new \App\Models\InvoiceItem;
         $item->total = '1000.00';
         $item->tax_amount_cents = null;
 
@@ -116,7 +116,7 @@ class Phase42TaxTest extends TestCase
 
     public function test_invoice_item_tax_amount_returns_money_when_stamped(): void
     {
-        $item = new \App\Models\InvoiceItem();
+        $item = new \App\Models\InvoiceItem;
         $item->total = '1160.00';
         $item->tax_amount_cents = 16000;
         $item->tax_rate_bps = 1600;

@@ -109,7 +109,7 @@ class Phase35ExperimentTest extends TestCase
     public function test_variant_for_returns_null_on_db_failure(): void
     {
         // Simulate failure by passing a closed user (no id).
-        $u = new User();
+        $u = new User;
         $variant = app(ExperimentService::class)->variantFor($u, 'plan-upgrade-flow-test');
         $this->assertNull($variant);
     }
