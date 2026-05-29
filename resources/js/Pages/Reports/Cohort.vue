@@ -15,6 +15,7 @@
 import { computed, ref } from 'vue';
 import { Head, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import { useI18n } from '@/composables/useI18n';
 
 type RetentionMatrix = Record<string, Array<number | null>>;
 type AcquisitionRow = {
@@ -39,6 +40,7 @@ const props = defineProps<{
     cohortMonth: string;
 }>();
 
+const { t } = useI18n();
 const activeTab = ref<'retention' | 'acquisition' | 'ltv'>('retention');
 
 const cohortMonths = computed(() => Object.keys(props.retentionMatrix).sort());
@@ -78,7 +80,7 @@ function pickCohort(month: string): void {
 
     <AuthenticatedLayout>
         <template #header>
-            <h1 class="text-xl font-semibold text-gray-900">Cohort analytics</h1>
+            <h1 class="text-xl font-semibold text-gray-900">{{ t('reports_cohort.title') }}</h1>
         </template>
 
         <div class="px-4 py-6 lg:px-8">

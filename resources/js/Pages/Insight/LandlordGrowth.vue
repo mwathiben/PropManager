@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head } from '@inertiajs/vue3';
+import { useI18n } from '@/composables/useI18n';
 
 defineProps<{
     engagement_history: Array<{ day: string; score: number; components: Record<string, number> | null }>;
@@ -12,13 +13,15 @@ defineProps<{
         usage_ratios: Array<{ feature: string; usage: number; limit: number; ratio: number }>;
     };
 }>();
+
+const { t } = useI18n();
 </script>
 
 <template>
     <Head title="Growth dashboard" />
     <AuthenticatedLayout>
         <template #header>
-            <h1 class="text-xl font-semibold text-gray-900">Growth dashboard</h1>
+            <h1 class="text-xl font-semibold text-gray-900">{{ t('insight_landlord_growth.title') }}</h1>
         </template>
 
         <div class="py-6 space-y-6">

@@ -11,6 +11,7 @@
 import { computed, ref } from 'vue';
 import { Head, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import { useI18n } from '@/composables/useI18n';
 
 type PropertyNoi = {
     property_id: number;
@@ -43,6 +44,7 @@ const props = defineProps<{
     window: string;
 }>();
 
+const { t } = useI18n();
 const activeTab = ref<'noi' | 'cap'>('noi');
 
 const windowOptions = [
@@ -96,7 +98,7 @@ function changeWindow(value: string): void {
 
     <AuthenticatedLayout>
         <template #header>
-            <h1 class="text-xl font-semibold text-gray-900">Net operating income</h1>
+            <h1 class="text-xl font-semibold text-gray-900">{{ t('reports_noi.title') }}</h1>
         </template>
 
         <div class="px-4 py-6 lg:px-8">

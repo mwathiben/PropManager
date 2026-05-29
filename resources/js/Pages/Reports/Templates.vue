@@ -1,14 +1,17 @@
 <script setup>
 import { Head, router } from '@inertiajs/vue3'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
+import { useI18n } from '@/composables/useI18n'
 
 const props = defineProps({
     templates: { type: Array, required: true },
     categories: { type: Array, required: true },
 })
 
+const { t } = useI18n()
+
 function templatesIn(category) {
-    return props.templates.filter((t) => t.category === category)
+    return props.templates.filter((tpl) => tpl.category === category)
 }
 
 function cloneTemplate(template) {
@@ -21,7 +24,7 @@ function cloneTemplate(template) {
 
     <AuthenticatedLayout>
         <template #header>
-            <h1 class="text-xl font-semibold text-gray-900">Report template marketplace</h1>
+            <h1 class="text-xl font-semibold text-gray-900">{{ t('reports_templates.title') }}</h1>
         </template>
 
         <div class="mx-auto max-w-6xl space-y-8 p-6">

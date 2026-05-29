@@ -21,6 +21,7 @@ import { computed, onMounted, ref } from 'vue';
 import { Head, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import axios from 'axios';
+import { useI18n } from '@/composables/useI18n';
 
 type FieldMeta = {
     table: string;
@@ -58,6 +59,7 @@ const props = defineProps<{
     drillContext?: DrillContext | null;
 }>();
 
+const { t } = useI18n();
 const table = ref<string>(props.allowedTables[0] ?? 'payments');
 const fields = ref<string[]>([]);
 const filters = ref<Filter[]>([]);
@@ -219,7 +221,7 @@ onMounted(() => {
 
     <AuthenticatedLayout>
         <template #header>
-            <h1 class="text-xl font-semibold text-gray-900">Report builder</h1>
+            <h1 class="text-xl font-semibold text-gray-900">{{ t('reports_builder.title') }}</h1>
         </template>
 
         <div class="px-4 py-6 lg:px-8">
@@ -280,7 +282,7 @@ onMounted(() => {
                             >Source table</label
                         >
                         <select v-model="table" class="mt-1 w-full rounded-md border-gray-300 text-sm">
-                            <option v-for="t in props.allowedTables" :key="t" :value="t">{{ t }}</option>
+                            <option v-for="tbl in props.allowedTables" :key="tbl" :value="tbl">{{ tbl }}</option>
                         </select>
                     </div>
 
