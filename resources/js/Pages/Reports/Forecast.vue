@@ -13,6 +13,7 @@
 import { computed, ref } from 'vue';
 import { Head, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import { useI18n } from '@/composables/useI18n';
 
 type MonthRow = {
     month: string;
@@ -43,6 +44,7 @@ const props = defineProps<{
     months: number;
 }>();
 
+const { t } = useI18n();
 const activeTab = ref<'rent_roll' | 'vacancy'>('rent_roll');
 
 const horizonOptions = [
@@ -83,7 +85,7 @@ function barWidth(amount: number): string {
 
     <AuthenticatedLayout>
         <template #header>
-            <h1 class="text-xl font-semibold text-gray-900">Rent-roll forecast</h1>
+            <h1 class="text-xl font-semibold text-gray-900">{{ t('reports_forecast.title') }}</h1>
         </template>
 
         <div class="px-4 py-6 lg:px-8">

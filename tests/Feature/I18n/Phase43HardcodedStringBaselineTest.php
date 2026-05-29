@@ -150,9 +150,13 @@ class Phase43HardcodedStringBaselineTest extends TestCase
      *   lang/ar.json auth.reset.* TODO placeholders also fixed],
      *   Caretaker/Dashboard) to $t(). Archive/Hub + Caretaker/Dashboard
      *   t-shadow renames bundled in same change.
+     * - 2026-05-29: lowered to 26 after migrating six more screens — each
+     *   had a single hardcoded <h1> page title (Reports/Builder,
+     *   Reports/Cohort, Reports/Forecast, Reports/Noi, Reports/Templates
+     *   [t-shadow rename bundled], Insight/LandlordGrowth) to $t().
      *   Lowering the constant requires the scanner to confirm the new floor.
      */
-    private const BASELINE = 32;
+    private const BASELINE = 26;
 
     public function test_hardcoded_english_count_does_not_grow_beyond_baseline(): void
     {
