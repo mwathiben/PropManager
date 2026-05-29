@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
+import { useI18n } from '@/composables/useI18n';
 import type { AdminAuditLogDetailPageProps } from '@/types';
 
 const props = defineProps<AdminAuditLogDetailPageProps>();
+const { t } = useI18n();
 
 const getEventBadgeClass = (color) => {
     const classes = {
@@ -40,7 +42,7 @@ const formatJson = (data) => {
                     </svg>
                 </Link>
                 <h1 class="font-semibold text-xl text-gray-800 leading-tight">
-                    Audit Log #{{ log.id }}
+                    {{ t('admin_audit_logs.detail.heading', { id: log.id }) }}
                 </h1>
             </div>
         </template>

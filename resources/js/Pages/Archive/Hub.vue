@@ -4,6 +4,7 @@ import HubShell from '@/Components/Hub/HubShell.vue';
 import HubOverview from '@/Components/Hub/HubOverview.vue';
 import { TabLoadingPlaceholder } from '@/Components/Finances';
 import { ArchiveBoxIcon, DocumentTextIcon, DocumentDuplicateIcon, ClockIcon, Squares2X2Icon } from '@heroicons/vue/24/outline';
+import { useI18n } from '@/composables/useI18n';
 
 interface Props {
     activeTab?: string;
@@ -20,6 +21,7 @@ interface Props {
 }
 
 const props = defineProps<Props>();
+const { t } = useI18n();
 
 const DocumentsTab = defineAsyncComponent({ loader: () => import('./tabs/DocumentsTab.vue'), loadingComponent: TabLoadingPlaceholder, delay: 100 });
 const LeasesTab = defineAsyncComponent({ loader: () => import('./tabs/LeasesTab.vue'), loadingComponent: TabLoadingPlaceholder, delay: 100 });
@@ -42,14 +44,14 @@ const currentTab = computed(() => props.activeTab || 'overview');
 const currentTabComponent = computed(() => tabComponents[currentTab.value] || DocumentsTab);
 
 const quickLinks = computed(() => tabs
-    .filter((t) => t.id !== 'overview')
-    .map((t) => ({ label: t.name, href: route('archive.hub', { tab: t.id }), icon: t.icon })));
+    .filter((tab) => tab.id !== 'overview')
+    .map((tab) => ({ label: tab.name, href: route('archive.hub', { tab: tab.id }), icon: tab.icon })));
 </script>
 
 <template>
     <HubShell
         title="Archive"
-        subtitle="Documents, leases, and tenant activity"
+        :subtitle="t('archive_hub.subtitle')"
         :icon="ArchiveBoxIcon"
         accent="gray"
         route-name="archive.hub"

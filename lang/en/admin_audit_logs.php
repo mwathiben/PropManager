@@ -37,4 +37,7 @@ return [
         'title' => 'No audit logs found',
         'body' => 'Adjust your filters above. Audit logs are generated automatically as users act on records.',
     ],
+    'detail' => [
+        'heading' => 'Audit Log #{id}',
+    ],
 ];

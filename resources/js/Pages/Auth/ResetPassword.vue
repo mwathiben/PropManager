@@ -76,10 +76,7 @@ const submit = () => {
             </div>
 
             <div class="mt-4">
-                <InputLabel required
-                    for="password_confirmation"
-                    :value="t('common.confirm_password')"
-                />
+                <InputLabel required for="password_confirmation" :value="t('common.confirm_password')" />
 
                 <TextInput
                     id="password_confirmation"

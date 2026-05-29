@@ -5,6 +5,7 @@ import { Head, Link } from '@inertiajs/vue3';
 import ActionItemCard from '@/Components/ActionItemCard.vue';
 import MetricCard from '@/Components/MetricCard.vue';
 import { useFormatters, useStatusColors, useEcho } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import {
     WrenchScrewdriverIcon,
     ExclamationTriangleIcon,
@@ -65,6 +66,7 @@ const props = withDefaults(defineProps<{
 });
 
 // Use composables
+const { t } = useI18n();
 const { formatDate } = useFormatters();
 const { ticketPriorityColor: getPriorityBadgeClass } = useStatusColors();
 
@@ -105,7 +107,7 @@ onMounted(() => {
             if (data.assigned_to !== caretakerId) return;
 
             // Update ticket in localTodaysTasks list
-            const taskIndex = localTodaysTasks.value.findIndex(t => t.id === data.ticket_id);
+            const taskIndex = localTodaysTasks.value.findIndex(task => task.id === data.ticket_id);
             if (taskIndex !== -1) {
                 localTodaysTasks.value[taskIndex].status = data.new_status;
                 // Remove from list if resolved/closed/cancelled
@@ -131,20 +133,20 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <Head title="Caretaker Dashboard" />
+    <Head :title="t('caretaker_dashboard.page_title')" />
 
     <AuthenticatedLayout>
         <template #header>
             <div class="flex items-center justify-between w-full">
                 <div>
-                    <h1 class="text-lg font-semibold text-gray-900">{{ property?.name || 'Property' }} Operations</h1>
-                    <p class="text-sm text-gray-500">{{ buildings?.length || 0 }} Building(s) Assigned</p>
+                    <h1 class="text-lg font-semibold text-gray-900">{{ t('caretaker_dashboard.header.property_operations', { name: property?.name || t('caretaker_dashboard.header.property_fallback') }) }}</h1>
+                    <p class="text-sm text-gray-500">{{ t('caretaker_dashboard.header.buildings_assigned', { count: buildings?.length || 0 }) }}</p>
                 </div>
                 <div class="flex items-center gap-2">
                     <Link v-if="hasWaterEnabled" :href="route('readings.index')"
                           class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium text-sm">
                         <ClipboardDocumentListIcon class="w-4 h-4 me-2" />
-                        Record Readings
+                        {{ t('caretaker_dashboard.header.record_readings') }}
                     </Link>
                 </div>
             </div>
@@ -158,9 +160,9 @@ onUnmounted(() => {
                     urgency="critical"
                     :icon="ExclamationTriangleIcon"
                     :count="localActionItems.urgent_tickets"
-                    title="Urgent Tickets"
-                    description="Require immediate attention"
-                    actionLabel="View"
+                    :title="t('caretaker_dashboard.action_items.urgent_tickets_title')"
+                    :description="t('caretaker_dashboard.action_items.urgent_tickets_description')"
+                    :actionLabel="t('caretaker_dashboard.action_items.action_view')"
                     :actionHref="route('tickets.index', { priority: 'urgent' })"
                 />
                 <ActionItemCard
@@ -168,8 +170,8 @@ onUnmounted(() => {
                     urgency="low"
                     :icon="CheckCircleIcon"
                     :count="0"
-                    title="No Urgent Issues"
-                    description="All urgent tickets resolved"
+                    :title="t('caretaker_dashboard.action_items.no_urgent_title')"
+                    :description="t('caretaker_dashboard.action_items.no_urgent_description')"
                 />
 
                 <ActionItemCard
@@ -177,9 +179,9 @@ onUnmounted(() => {
                     urgency="medium"
                     :icon="TicketIcon"
                     :count="localActionItems.open_tickets"
-                    title="Open Tickets"
-                    description="Awaiting resolution"
-                    actionLabel="View All"
+                    :title="t('caretaker_dashboard.action_items.open_tickets_title')"
+                    :description="t('caretaker_dashboard.action_items.open_tickets_description')"
+                    :actionLabel="t('caretaker_dashboard.action_items.action_view_all')"
                     :actionHref="route('tickets.index')"
                 />
                 <ActionItemCard
@@ -187,8 +189,8 @@ onUnmounted(() => {
                     urgency="low"
                     :icon="TicketIcon"
                     :count="0"
-                    title="No Open Tickets"
-                    description="All tickets resolved"
+                    :title="t('caretaker_dashboard.action_items.no_open_title')"
+                    :description="t('caretaker_dashboard.action_items.no_open_description')"
                 />
 
                 <ActionItemCard
@@ -196,17 +198,17 @@ onUnmounted(() => {
                     urgency="medium"
                     :icon="ClipboardDocumentListIcon"
                     :count="localActionItems.pending_readings"
-                    title="Pending Readings"
-                    description="Awaiting input"
-                    actionLabel="Input"
+                    :title="t('caretaker_dashboard.action_items.pending_readings_title')"
+                    :description="t('caretaker_dashboard.action_items.pending_readings_description')"
+                    :actionLabel="t('caretaker_dashboard.action_items.action_input')"
                     :actionHref="route('readings.index')"
                 />
                 <MetricCard
                     v-else
-                    title="Total Units"
+                    :title="t('caretaker_dashboard.action_items.total_units_title')"
                     :value="unitStats.total"
                     format="number"
-                    :subtitle="unitStats.occupied + ' occupied'"
+                    :subtitle="t('caretaker_dashboard.action_items.total_units_subtitle', { count: unitStats.occupied })"
                     :icon="HomeModernIcon"
                     color="indigo"
                 />
@@ -216,18 +218,18 @@ onUnmounted(() => {
             <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                 <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
                     <div>
-                        <h3 class="font-bold text-gray-900">Today's Tasks</h3>
-                        <p class="text-sm text-gray-500">Priority sorted tickets assigned to you</p>
+                        <h3 class="font-bold text-gray-900">{{ t('caretaker_dashboard.tasks.heading') }}</h3>
+                        <p class="text-sm text-gray-500">{{ t('caretaker_dashboard.tasks.subtitle') }}</p>
                     </div>
                     <Link :href="route('tickets.index')" class="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center">
-                        View All <ChevronRightIcon class="w-4 h-4 ms-1" />
+                        {{ t('caretaker_dashboard.tasks.view_all') }} <ChevronRightIcon class="w-4 h-4 ms-1" />
                     </Link>
                 </div>
 
                 <div v-if="localTodaysTasks.length === 0" class="p-8 text-center">
                     <CheckCircleIcon class="h-12 w-12 text-green-400 mx-auto mb-3" />
-                    <p class="text-gray-600 font-medium">All caught up!</p>
-                    <p class="text-sm text-gray-400">No tasks assigned to you</p>
+                    <p class="text-gray-600 font-medium">{{ t('caretaker_dashboard.tasks.empty_title') }}</p>
+                    <p class="text-sm text-gray-400">{{ t('caretaker_dashboard.tasks.empty_subtitle') }}</p>
                 </div>
 
                 <div v-else class="divide-y divide-gray-100">
@@ -249,7 +251,7 @@ onUnmounted(() => {
                                     <div>
                                         <p class="font-medium text-gray-900">{{ task.title }}</p>
                                         <p class="text-sm text-gray-500 mt-0.5">
-                                            <span v-if="task.unit">Unit {{ task.unit.unit_number }} •</span>
+                                            <span v-if="task.unit">{{ t('caretaker_dashboard.tasks.unit_label', { number: task.unit.unit_number }) }}</span>
                                             <span v-if="task.building">{{ task.building.name }}</span>
                                         </p>
                                     </div>
@@ -274,7 +276,7 @@ onUnmounted(() => {
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <!-- Quick Actions -->
                 <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-                    <h3 class="font-bold text-gray-900 mb-4">Quick Actions</h3>
+                    <h3 class="font-bold text-gray-900 mb-4">{{ t('caretaker_dashboard.quick_actions.heading') }}</h3>
                     <div class="space-y-3">
                         <Link v-if="hasWaterEnabled" :href="route('readings.index')"
                               class="flex items-center justify-between p-4 bg-blue-50 border border-blue-200 rounded-xl hover:bg-blue-100 transition">
@@ -283,8 +285,8 @@ onUnmounted(() => {
                                     <ClipboardDocumentListIcon class="w-5 h-5 text-blue-600" />
                                 </div>
                                 <div>
-                                    <p class="font-medium text-gray-900">Input Water Readings</p>
-                                    <p class="text-sm text-gray-500">Record monthly meter readings</p>
+                                    <p class="font-medium text-gray-900">{{ t('caretaker_dashboard.quick_actions.input_readings_title') }}</p>
+                                    <p class="text-sm text-gray-500">{{ t('caretaker_dashboard.quick_actions.input_readings_subtitle') }}</p>
                                 </div>
                             </div>
                             <ChevronRightIcon class="w-5 h-5 text-gray-400" />
@@ -297,9 +299,9 @@ onUnmounted(() => {
                                     <TicketIcon class="w-5 h-5 text-yellow-600" />
                                 </div>
                                 <div>
-                                    <p class="font-medium text-gray-900">View My Tickets</p>
+                                    <p class="font-medium text-gray-900">{{ t('caretaker_dashboard.quick_actions.view_tickets_title') }}</p>
                                     <p class="text-sm text-gray-500">
-                                        {{ localTicketStats.open }} open tickets
+                                        {{ t('caretaker_dashboard.quick_actions.view_tickets_subtitle', { count: localTicketStats.open }) }}
                                     </p>
                                 </div>
                             </div>
@@ -313,8 +315,8 @@ onUnmounted(() => {
                                     <WrenchScrewdriverIcon class="w-5 h-5 text-green-600" />
                                 </div>
                                 <div>
-                                    <p class="font-medium text-gray-900">Report New Issue</p>
-                                    <p class="text-sm text-gray-500">Create a maintenance ticket</p>
+                                    <p class="font-medium text-gray-900">{{ t('caretaker_dashboard.quick_actions.report_issue_title') }}</p>
+                                    <p class="text-sm text-gray-500">{{ t('caretaker_dashboard.quick_actions.report_issue_subtitle') }}</p>
                                 </div>
                             </div>
                             <ChevronRightIcon class="w-5 h-5 text-gray-400" />
@@ -324,7 +326,7 @@ onUnmounted(() => {
 
                 <!-- Unit Status Overview -->
                 <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-                    <h3 class="font-bold text-gray-900 mb-4">Unit Status Overview</h3>
+                    <h3 class="font-bold text-gray-900 mb-4">{{ t('caretaker_dashboard.unit_status.heading') }}</h3>
                     <div class="grid grid-cols-2 gap-4">
                         <div class="p-4 bg-green-50 border border-green-200 rounded-xl">
                             <div class="flex items-center gap-3">
@@ -333,7 +335,7 @@ onUnmounted(() => {
                                 </div>
                                 <div>
                                     <p class="text-2xl font-bold text-green-700">{{ unitStats.occupied }}</p>
-                                    <p class="text-sm text-green-600">Occupied</p>
+                                    <p class="text-sm text-green-600">{{ t('caretaker_dashboard.unit_status.occupied') }}</p>
                                 </div>
                             </div>
                         </div>
@@ -345,7 +347,7 @@ onUnmounted(() => {
                                 </div>
                                 <div>
                                     <p class="text-2xl font-bold text-gray-700">{{ unitStats.vacant }}</p>
-                                    <p class="text-sm text-gray-500">Vacant</p>
+                                    <p class="text-sm text-gray-500">{{ t('caretaker_dashboard.unit_status.vacant') }}</p>
                                 </div>
                             </div>
                         </div>
@@ -357,7 +359,7 @@ onUnmounted(() => {
                                 </div>
                                 <div>
                                     <p class="text-2xl font-bold text-orange-700">{{ unitStats.maintenance }}</p>
-                                    <p class="text-sm text-orange-600">Maintenance</p>
+                                    <p class="text-sm text-orange-600">{{ t('caretaker_dashboard.unit_status.maintenance') }}</p>
                                 </div>
                             </div>
                         </div>
@@ -369,7 +371,7 @@ onUnmounted(() => {
                                 </div>
                                 <div>
                                     <p class="text-2xl font-bold text-indigo-700">{{ unitStats.total }}</p>
-                                    <p class="text-sm text-indigo-600">Total Units</p>
+                                    <p class="text-sm text-indigo-600">{{ t('caretaker_dashboard.unit_status.total_units') }}</p>
                                 </div>
                             </div>
                         </div>
@@ -377,17 +379,17 @@ onUnmounted(() => {
 
                     <!-- Ticket Stats -->
                     <div class="mt-6 pt-6 border-t border-gray-200">
-                        <h4 class="text-sm font-semibold text-gray-700 mb-3">My Ticket Summary</h4>
+                        <h4 class="text-sm font-semibold text-gray-700 mb-3">{{ t('caretaker_dashboard.ticket_summary.heading') }}</h4>
                         <div class="flex items-center justify-between text-sm">
-                            <span class="text-gray-500">Resolved</span>
+                            <span class="text-gray-500">{{ t('caretaker_dashboard.ticket_summary.resolved') }}</span>
                             <span class="font-semibold text-green-600">{{ localTicketStats.resolved }}</span>
                         </div>
                         <div class="flex items-center justify-between text-sm mt-2">
-                            <span class="text-gray-500">Open</span>
+                            <span class="text-gray-500">{{ t('caretaker_dashboard.ticket_summary.open') }}</span>
                             <span class="font-semibold text-yellow-600">{{ localTicketStats.open }}</span>
                         </div>
                         <div class="flex items-center justify-between text-sm mt-2">
-                            <span class="text-gray-500">Total Assigned</span>
+                            <span class="text-gray-500">{{ t('caretaker_dashboard.ticket_summary.total_assigned') }}</span>
                             <span class="font-semibold text-gray-900">{{ localTicketStats.total }}</span>
                         </div>
                     </div>
@@ -396,7 +398,7 @@ onUnmounted(() => {
 
             <!-- === LANDLORD CONTACT === -->
             <div v-if="landlord" class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-                <h3 class="font-bold text-gray-900 mb-4">Landlord Contact</h3>
+                <h3 class="font-bold text-gray-900 mb-4">{{ t('caretaker_dashboard.landlord_contact.heading') }}</h3>
                 <div class="flex items-start gap-4">
                     <div class="h-14 w-14 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 font-bold text-xl">
                         {{ landlord.name?.charAt(0) || '?' }}

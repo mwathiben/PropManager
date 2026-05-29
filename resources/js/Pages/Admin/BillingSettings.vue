@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { useErrorHandler, useFormatters, useCurrency } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import type { AdminBillingSettingsPageProps } from '@/types';
 import {
     CurrencyDollarIcon,
@@ -18,6 +19,7 @@ const props = defineProps<AdminBillingSettingsPageProps>();
 const { logError } = useErrorHandler();
 const { formatMoney: formatCurrency } = useFormatters();
 const { currencyCode } = useCurrency();
+const { t } = useI18n();
 const activeTab = ref('settings');
 
 const modelForm = useForm({
@@ -79,12 +81,12 @@ const calculatePreview = async () => {
 </script>
 
 <template>
-    <Head title="Platform Billing Settings" />
+    <Head :title="t('admin_billing_settings.title')" />
 
     <AuthenticatedLayout>
         <template #header>
             <h1 class="font-semibold text-xl text-gray-800 leading-tight">
-                Platform Billing Settings
+                {{ t('admin_billing_settings.title') }}
             </h1>
         </template>
 
@@ -96,7 +98,7 @@ const calculatePreview = async () => {
                         <div class="flex items-center">
                             <CurrencyDollarIcon class="w-8 h-8 text-green-600" />
                             <div class="ms-4">
-                                <p class="text-sm text-gray-500">This Month Revenue</p>
+                                <p class="text-sm text-gray-500">{{ t('admin_billing_settings.stats.monthly_revenue') }}</p>
                                 <p class="text-xl font-bold text-gray-900">{{ formatCurrency(monthlyAnalytics.totals.platform_fees) }}</p>
                             </div>
                         </div>
@@ -105,7 +107,7 @@ const calculatePreview = async () => {
                         <div class="flex items-center">
                             <ChartBarIcon class="w-8 h-8 text-blue-600" />
                             <div class="ms-4">
-                                <p class="text-sm text-gray-500">Transactions</p>
+                                <p class="text-sm text-gray-500">{{ t('admin_billing_settings.stats.transactions') }}</p>
                                 <p class="text-xl font-bold text-gray-900">{{ monthlyAnalytics.totals.transaction_count }}</p>
                             </div>
                         </div>
@@ -114,7 +116,7 @@ const calculatePreview = async () => {
                         <div class="flex items-center">
                             <CalculatorIcon class="w-8 h-8 text-purple-600" />
                             <div class="ms-4">
-                                <p class="text-sm text-gray-500">Avg Fee %</p>
+                                <p class="text-sm text-gray-500">{{ t('admin_billing_settings.stats.avg_fee_percent') }}</p>
                                 <p class="text-xl font-bold text-gray-900">{{ monthlyAnalytics.totals.average_fee_percentage }}%</p>
                             </div>
                         </div>
@@ -123,7 +125,7 @@ const calculatePreview = async () => {
                         <div class="flex items-center">
                             <CurrencyDollarIcon class="w-8 h-8 text-gray-600" />
                             <div class="ms-4">
-                                <p class="text-sm text-gray-500">Total Processed</p>
+                                <p class="text-sm text-gray-500">{{ t('admin_billing_settings.stats.total_processed') }}</p>
                                 <p class="text-xl font-bold text-gray-900">{{ formatCurrency(monthlyAnalytics.totals.gross_amount) }}</p>
                             </div>
                         </div>
@@ -144,7 +146,7 @@ const calculatePreview = async () => {
                                 ]"
                             >
                                 <Cog6ToothIcon class="w-5 h-5 inline me-2" />
-                                Settings
+                                {{ t('admin_billing_settings.tabs.settings') }}
                             </button>
                             <button
                                 @click="activeTab = 'history'"
@@ -156,7 +158,7 @@ const calculatePreview = async () => {
                                 ]"
                             >
                                 <ClockIcon class="w-5 h-5 inline me-2" />
-                                Change History
+                                {{ t('admin_billing_settings.tabs.history') }}
                             </button>
                         </nav>
                     </div>
@@ -167,15 +169,15 @@ const calculatePreview = async () => {
                             <!-- Billing Model Section -->
                             <div class="space-y-6">
                                 <div>
-                                    <h3 class="text-lg font-medium text-gray-900 mb-4">Billing Model</h3>
+                                    <h3 class="text-lg font-medium text-gray-900 mb-4">{{ t('admin_billing_settings.billing_model.heading') }}</h3>
                                     <div class="bg-gray-50 rounded-lg p-4">
                                         <p class="text-sm text-gray-600 mb-4">
-                                            Current: <span class="font-semibold">{{ settings.billing_model_label }}</span>
+                                            {{ t('admin_billing_settings.billing_model.current_label') }} <span class="font-semibold">{{ settings.billing_model_label }}</span>
                                         </p>
 
                                         <form @submit.prevent="submitModelChange" class="space-y-4">
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700">Select Model</label>
+                                                <label class="block text-sm font-medium text-gray-700">{{ t('admin_billing_settings.billing_model.select_label') }}</label>
                                                 <select
                                                     v-model="modelForm.billing_model"
                                                     class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
@@ -187,12 +189,12 @@ const calculatePreview = async () => {
                                             </div>
 
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700">Reason (optional)</label>
+                                                <label class="block text-sm font-medium text-gray-700">{{ t('admin_billing_settings.billing_model.reason_label') }}</label>
                                                 <textarea
                                                     v-model="modelForm.reason"
                                                     rows="2"
                                                     class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                                    placeholder="Why are you changing the billing model?"
+                                                    :placeholder="t('admin_billing_settings.billing_model.reason_placeholder')"
                                                 ></textarea>
                                             </div>
 
@@ -201,7 +203,7 @@ const calculatePreview = async () => {
                                                 :disabled="modelForm.processing || modelForm.billing_model === settings.active_billing_model"
                                                 class="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
                                             >
-                                                {{ modelForm.processing ? 'Updating...' : 'Update Billing Model' }}
+                                                {{ modelForm.processing ? t('admin_billing_settings.billing_model.submitting') : t('admin_billing_settings.billing_model.submit') }}
                                             </button>
                                         </form>
                                     </div>
@@ -209,7 +211,7 @@ const calculatePreview = async () => {
 
                                 <!-- Fee Preview Calculator -->
                                 <div>
-                                    <h3 class="text-lg font-medium text-gray-900 mb-4">Fee Calculator</h3>
+                                    <h3 class="text-lg font-medium text-gray-900 mb-4">{{ t('admin_billing_settings.calculator.heading') }}</h3>
                                     <div class="bg-gray-50 rounded-lg p-4">
                                         <div class="flex space-x-2">
                                             <input
@@ -217,28 +219,28 @@ const calculatePreview = async () => {
                                                 type="number"
                                                 min="100"
                                                 class="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                                placeholder="Enter amount"
+                                                :placeholder="t('admin_billing_settings.calculator.amount_placeholder')"
                                             />
                                             <button
                                                 @click="calculatePreview"
                                                 :disabled="calculatingPreview"
                                                 class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 disabled:opacity-50"
                                             >
-                                                Calculate
+                                                {{ t('admin_billing_settings.calculator.calculate') }}
                                             </button>
                                         </div>
 
                                         <div v-if="feePreview" class="mt-4 space-y-2">
                                             <div class="flex justify-between text-sm">
-                                                <span class="text-gray-600">Gross Amount:</span>
+                                                <span class="text-gray-600">{{ t('admin_billing_settings.calculator.gross_amount') }}</span>
                                                 <span class="font-medium">{{ formatCurrency(feePreview.gross_amount) }}</span>
                                             </div>
                                             <div class="flex justify-between text-sm">
-                                                <span class="text-gray-600">Platform Fee ({{ feePreview.fee_percentage }}%):</span>
+                                                <span class="text-gray-600">{{ t('admin_billing_settings.calculator.platform_fee', { percent: feePreview.fee_percentage }) }}</span>
                                                 <span class="font-medium text-red-600">-{{ formatCurrency(feePreview.fee_amount) }}</span>
                                             </div>
                                             <div class="flex justify-between text-sm border-t pt-2">
-                                                <span class="text-gray-900 font-medium">Landlord Receives:</span>
+                                                <span class="text-gray-900 font-medium">{{ t('admin_billing_settings.calculator.landlord_receives') }}</span>
                                                 <span class="font-bold text-green-600">{{ formatCurrency(feePreview.net_amount) }}</span>
                                             </div>
                                         </div>
@@ -248,10 +250,10 @@ const calculatePreview = async () => {
 
                             <!-- Fee Settings Section -->
                             <div>
-                                <h3 class="text-lg font-medium text-gray-900 mb-4">Fee Configuration</h3>
+                                <h3 class="text-lg font-medium text-gray-900 mb-4">{{ t('admin_billing_settings.fees.heading') }}</h3>
                                 <form @submit.prevent="submitFeeChange" class="bg-gray-50 rounded-lg p-4 space-y-4">
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700">Transaction Fee %</label>
+                                        <label class="block text-sm font-medium text-gray-700">{{ t('admin_billing_settings.fees.transaction_fee_percent') }}</label>
                                         <input
                                             v-model="feeForm.transaction_fee_percentage"
                                             type="number"
@@ -260,12 +262,12 @@ const calculatePreview = async () => {
                                             max="100"
                                             class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                                         />
-                                        <p class="mt-1 text-xs text-gray-500">Percentage charged per transaction</p>
+                                        <p class="mt-1 text-xs text-gray-500">{{ t('admin_billing_settings.fees.transaction_fee_hint') }}</p>
                                     </div>
 
                                     <div class="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label class="block text-sm font-medium text-gray-700">Minimum Fee ({{ currencyCode }})</label>
+                                            <label class="block text-sm font-medium text-gray-700">{{ t('admin_billing_settings.fees.minimum_fee', { currency: currencyCode }) }}</label>
                                             <input
                                                 v-model="feeForm.minimum_fee"
                                                 type="number"
@@ -275,20 +277,20 @@ const calculatePreview = async () => {
                                             />
                                         </div>
                                         <div>
-                                            <label class="block text-sm font-medium text-gray-700">Maximum Fee ({{ currencyCode }})</label>
+                                            <label class="block text-sm font-medium text-gray-700">{{ t('admin_billing_settings.fees.maximum_fee', { currency: currencyCode }) }}</label>
                                             <input
                                                 v-model="feeForm.maximum_fee"
                                                 type="number"
                                                 step="1"
                                                 min="0"
-                                                placeholder="No cap"
+                                                :placeholder="t('admin_billing_settings.fees.maximum_fee_placeholder')"
                                                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                                             />
                                         </div>
                                     </div>
 
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700">Fee Bearer</label>
+                                        <label class="block text-sm font-medium text-gray-700">{{ t('admin_billing_settings.fees.fee_bearer') }}</label>
                                         <select
                                             v-model="feeForm.fee_bearer"
                                             class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
@@ -300,7 +302,7 @@ const calculatePreview = async () => {
                                     </div>
 
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700">Hybrid Subscriber Discount %</label>
+                                        <label class="block text-sm font-medium text-gray-700">{{ t('admin_billing_settings.fees.hybrid_discount') }}</label>
                                         <input
                                             v-model="feeForm.hybrid_subscription_discount"
                                             type="number"
@@ -309,16 +311,16 @@ const calculatePreview = async () => {
                                             max="100"
                                             class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                                         />
-                                        <p class="mt-1 text-xs text-gray-500">Fee reduction for subscribers (100 = no fees)</p>
+                                        <p class="mt-1 text-xs text-gray-500">{{ t('admin_billing_settings.fees.hybrid_discount_hint') }}</p>
                                     </div>
 
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700">Reason (optional)</label>
+                                        <label class="block text-sm font-medium text-gray-700">{{ t('admin_billing_settings.fees.reason_label') }}</label>
                                         <textarea
                                             v-model="feeForm.reason"
                                             rows="2"
                                             class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                            placeholder="Why are you changing the fees?"
+                                            :placeholder="t('admin_billing_settings.fees.reason_placeholder')"
                                         ></textarea>
                                     </div>
 
@@ -327,7 +329,7 @@ const calculatePreview = async () => {
                                         :disabled="feeForm.processing"
                                         class="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
                                     >
-                                        {{ feeForm.processing ? 'Saving...' : 'Save Fee Settings' }}
+                                        {{ feeForm.processing ? t('admin_billing_settings.fees.submitting') : t('admin_billing_settings.fees.submit') }}
                                     </button>
                                 </form>
                             </div>
@@ -336,7 +338,7 @@ const calculatePreview = async () => {
 
                     <!-- History Tab -->
                     <div v-show="activeTab === 'history'" class="p-6">
-                        <h3 class="text-lg font-medium text-gray-900 mb-4">Recent Changes</h3>
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">{{ t('admin_billing_settings.history.heading') }}</h3>
 
                         <div v-if="recentChanges.length > 0" class="space-y-4">
                             <div
@@ -348,7 +350,7 @@ const calculatePreview = async () => {
                                     <div>
                                         <p class="font-medium text-gray-900">{{ change.description }}</p>
                                         <p v-if="change.reason" class="text-sm text-gray-600 mt-1">
-                                            Reason: {{ change.reason }}
+                                            {{ t('admin_billing_settings.history.reason_prefix', { reason: change.reason }) }}
                                         </p>
                                     </div>
                                     <div class="text-end">
@@ -361,7 +363,7 @@ const calculatePreview = async () => {
 
                         <div v-else class="text-center py-8 text-gray-500">
                             <ClockIcon class="mx-auto h-12 w-12 text-gray-400" />
-                            <p class="mt-2">No changes recorded yet</p>
+                            <p class="mt-2">{{ t('admin_billing_settings.history.empty') }}</p>
                         </div>
                     </div>
                 </div>

@@ -105,8 +105,8 @@
             "log_out": "[TODO-ar] Log Out"
         },
         "reset": {
-            "title": "[TODO-ar] Reset Password",
-            "submit": "[TODO-ar] Reset Password"
+            "title": "إعادة تعيين كلمة المرور",
+            "submit": "إعادة تعيين كلمة المرور"
         },
         "confirm": {
             "title": "[TODO-ar] Confirm Password",

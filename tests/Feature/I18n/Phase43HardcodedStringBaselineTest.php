@@ -143,9 +143,16 @@ class Phase43HardcodedStringBaselineTest extends TestCase
      *   [reuses finances_data_table; same DataTable withDefaults fix pattern],
      *   Growth/FunnelSankey, Insight/UsageRatioCard, Pagination [scanner FP
      *   only], TenantProfile/DocumentsTab) to $t().
+     * - 2026-05-29: lowered to 32 after migrating six more screens
+     *   (Admin/AuditLogDetail [merged into admin_audit_logs],
+     *   Admin/BillingSettings, Admin/Gateways/Index, Archive/Hub,
+     *   Auth/ResetPassword [scanner FP only — file already i18n'd;
+     *   lang/ar.json auth.reset.* TODO placeholders also fixed],
+     *   Caretaker/Dashboard) to $t(). Archive/Hub + Caretaker/Dashboard
+     *   t-shadow renames bundled in same change.
      *   Lowering the constant requires the scanner to confirm the new floor.
      */
-    private const BASELINE = 38;
+    private const BASELINE = 32;
 
     public function test_hardcoded_english_count_does_not_grow_beyond_baseline(): void
     {

@@ -37,4 +37,7 @@ return [
         'title' => 'Hakuna kumbukumbu za ukaguzi zilizopatikana',
         'body' => 'Rekebisha vichujio vyako hapo juu. Kumbukumbu za ukaguzi huzalishwa kiotomatiki wakati watumiaji wanapotenda kwenye rekodi.',
     ],
+    'detail' => [
+        'heading' => 'Kumbukumbu ya Ukaguzi #{id}',
+    ],
 ];
