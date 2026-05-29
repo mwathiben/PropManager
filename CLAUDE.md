@@ -27,7 +27,7 @@ Using the task context, find ALL matching skills from the table below.
 | Eloquent queries | `laraveleloquent-relationships`, `laravelperformance-eager-loading` |
 | API endpoints | `laravelapi-resources-and-pagination` |
 | Form validation | `laravelform-requests` |
-| Testing | `laraveltdd-with-pest`, `verification-first` |
+| Testing | `propmanager-tdd-phpunit`, `verification-first` (**NOT** `laraveltdd-with-pest` — this project is PHPUnit, not Pest) |
 | Feature implementation | `feature-development`, `verification-first` |
 | PRD/autonomous | `ralph-wiggum` |
 | Frontend Vue | `web-design-guidelines` |
@@ -40,7 +40,8 @@ Using the task context, find ALL matching skills from the table below.
 | File uploads | `laravelfilesystem-uploads` |
 | Bulk data processing | `laraveldata-chunking-large-datasets` |
 | Exception handling | `laravelexception-handling-and-logging` |
-| Queue jobs | `laravelqueues-and-horizon` |
+| Queue jobs | `propmanager-queue-database` (**NOT** `laravelqueues-and-horizon` — this project uses the `database` queue driver, no Horizon, no Redis) |
+| Running any shell command | `propmanager-runner-laragon` (**NOT** `laravelbootstrap-check` / `laravelrunner-selection` / `laraveldaily-workflow` — this project is on Laragon/Windows, no Sail) |
 | Complexity refactoring | `laravelcomplexity-guardrails` |
 
 ### Step 3: Read & Cite (REQUIRED OUTPUT)
