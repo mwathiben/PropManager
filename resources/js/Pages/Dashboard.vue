@@ -1094,7 +1094,7 @@ onUnmounted(() => {
                         v-if="!allBuildingsMode"
                         :href="route('dashboard', { property_id: property.id, building_id: 'all' })"
                         preserve-state
-                        class="-mr-1 ml-1 rounded-full text-emerald-800 hover:bg-emerald-200"
+                        class="-me-1 ms-1 rounded-full text-emerald-800 hover:bg-emerald-200"
                     >
                         <span class="sr-only">{{ $t('dashboard.clear_building_filter') }}</span>
                         <XMarkIcon class="h-3.5 w-3.5" />
@@ -1157,7 +1157,7 @@ onUnmounted(() => {
                                         {{ payment.invoice?.lease?.tenant?.name || t('dashboard.payments.unknown') }}
                                         <span
                                             v-if="payment.lease_state && payment.lease_state !== 'active'"
-                                            class="ml-1 inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium"
+                                            class="ms-1 inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium"
                                             :class="leaseStateBadgeClass(payment.lease_state)"
                                             :aria-label="leaseStateBadgeLabel(payment.lease_state)"
                                             data-testid="lease-state-badge"

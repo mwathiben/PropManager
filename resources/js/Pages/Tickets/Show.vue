@@ -228,7 +228,7 @@ const canEdit = computed(() => {
                                     <button
                                         type="button"
                                         @click="ticketLegalHoldModal?.open()"
-                                        class="ml-2 inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded"
+                                        class="ms-2 inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded"
                                         data-testid="open-legal-hold"
                                     >
                                         <ScaleIcon class="h-3.5 w-3.5" />
@@ -236,7 +236,7 @@ const canEdit = computed(() => {
                                     </button>
                                     <Link
                                         :href="route('legal-holds.history', { subject_type: 'App\\Models\\Ticket', subject_id: ticket.id })"
-                                        class="ml-1 inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-600 hover:text-gray-900"
+                                        class="ms-1 inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-600 hover:text-gray-900"
                                         data-testid="hold-history-link"
                                     >
                                         {{ t('tickets.show.hold_history') }}

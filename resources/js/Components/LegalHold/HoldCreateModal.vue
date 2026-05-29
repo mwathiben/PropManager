@@ -69,13 +69,13 @@ defineExpose({ open: openModal });
                 <div class="relative bg-white rounded-2xl shadow-xl ring-1 ring-gray-100 w-full max-w-lg p-6">
                     <button
                         @click="closeModal"
-                        class="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+                        class="absolute top-4 end-4 text-gray-400 hover:text-gray-600"
                         :aria-label="t('hold_create_modal.close')"
                     >
                         <XMarkIcon class="h-5 w-5" />
                     </button>
 
-                    <h3 id="hold-create-title" class="text-lg font-semibold text-gray-900 pr-8">
+                    <h3 id="hold-create-title" class="text-lg font-semibold text-gray-900 pe-8">
                         {{ t('hold_create_modal.title') }}
                     </h3>
                     <p class="mt-1 text-sm text-gray-500">
@@ -105,7 +105,7 @@ defineExpose({ open: openModal });
                         ></textarea>
                         <div class="mt-1 flex items-center justify-between">
                             <p v-if="errors.reason" class="text-xs text-rose-600">{{ errors.reason }}</p>
-                            <p class="text-xs text-gray-400 ml-auto">{{ reason.length }} / 500</p>
+                            <p class="text-xs text-gray-400 ms-auto">{{ reason.length }} / 500</p>
                         </div>
                     </div>
 

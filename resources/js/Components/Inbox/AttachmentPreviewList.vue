@@ -78,7 +78,7 @@ onBeforeUnmount(() => {
             <li
                 v-for="(entry, index) in entries"
                 :key="`${entry.file.name}-${entry.file.size}-${index}`"
-                class="relative inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white p-2 pr-3 shadow-sm"
+                class="relative inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white p-2 pe-3 shadow-sm"
             >
                 <img
                     v-if="entry.isImage && entry.objectUrl"
@@ -103,7 +103,7 @@ onBeforeUnmount(() => {
                 <button
                     type="button"
                     @click="remove(index, entry)"
-                    class="absolute top-1 right-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/90 text-gray-500 hover:text-rose-600 hover:bg-rose-50"
+                    class="absolute top-1 end-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/90 text-gray-500 hover:text-rose-600 hover:bg-rose-50"
                     :aria-label="`Remove ${entry.file.name}`"
                 >
                     <XMarkIcon class="h-4 w-4" />

@@ -87,7 +87,7 @@ const leaseBadge = computed(() => {
                         :href="route('dashboard')"
                         class="inline-flex items-center text-sm text-gray-500 hover:text-gray-700"
                     >
-                        <ArrowLeftIcon class="mr-1 h-4 w-4" />
+                        <ArrowLeftIcon class="me-1 h-4 w-4" />
                         Back to dashboard
                     </Link>
                 </div>
@@ -105,9 +105,9 @@ const leaseBadge = computed(() => {
                         <h3 class="text-base font-semibold text-gray-900">Transaction</h3>
                         <span
                             v-if="payment.is_voided"
-                            class="ml-auto inline-flex items-center rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-800"
+                            class="ms-auto inline-flex items-center rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-800"
                         >
-                            <XCircleIcon class="mr-1 h-3.5 w-3.5" />
+                            <XCircleIcon class="me-1 h-3.5 w-3.5" />
                             Voided
                         </span>
                     </header>
@@ -187,7 +187,7 @@ const leaseBadge = computed(() => {
                         <HomeModernIcon class="h-6 w-6 text-amber-600" />
                         <h3 class="text-base font-semibold text-gray-900">Lease &amp; tenant</h3>
                         <span
-                            class="ml-auto inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+                            class="ms-auto inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
                             :class="leaseBadge.cls"
                             :aria-label="leaseBadge.label"
                         >

@@ -141,7 +141,7 @@ const reissueInvoice = () => {
                     v-if="invoice?.id"
                     type="button"
                     @click="legalHoldModal?.open()"
-                    class="ml-auto inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg"
+                    class="ms-auto inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg"
                     data-testid="open-legal-hold"
                 >
                     <ScaleIcon class="h-4 w-4" />

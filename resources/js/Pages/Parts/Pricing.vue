@@ -195,10 +195,10 @@ const hasParts = computed(() => props.parts.length > 0);
                                 <tr v-for="s in part.suppliers" :key="s.id">
                                     <td class="py-1.5 text-gray-900">
                                         {{ s.vendor_name }}
-                                        <span v-if="s.is_cheapest" class="ml-1 inline-flex items-center gap-0.5 rounded bg-emerald-50 px-1 text-xs text-emerald-700">
+                                        <span v-if="s.is_cheapest" class="ms-1 inline-flex items-center gap-0.5 rounded bg-emerald-50 px-1 text-xs text-emerald-700">
                                             <BanknotesIcon class="h-3 w-3" />{{ t('parts.pricing.cheapest') }}
                                         </span>
-                                        <span v-if="s.is_fastest" class="ml-1 inline-flex items-center gap-0.5 rounded bg-sky-50 px-1 text-xs text-sky-700">
+                                        <span v-if="s.is_fastest" class="ms-1 inline-flex items-center gap-0.5 rounded bg-sky-50 px-1 text-xs text-sky-700">
                                             <BoltIcon class="h-3 w-3" />{{ t('parts.pricing.fastest') }}
                                         </span>
                                     </td>
