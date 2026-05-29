@@ -58,6 +58,16 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        // Telescope is a local-only dev tool (require-dev). Register its
+        // providers only in local AND only when the package is actually
+        // installed, so `composer install --no-dev` (production + the
+        // PERF-9 config:cache gate) never tries to autoload a missing
+        // Laravel\Telescope\* class. See laravel.com/docs/telescope#local-only-installation
+        if ($this->app->environment('local') && class_exists(\Laravel\Telescope\TelescopeServiceProvider::class)) {
+            $this->app->register(\Laravel\Telescope\TelescopeServiceProvider::class);
+            $this->app->register(\App\Providers\TelescopeServiceProvider::class);
+        }
+
         // Register SecurityLogger as a singleton
         $this->app->singleton(SecurityLogger::class, function ($app) {
             return new SecurityLogger($app['request']);
