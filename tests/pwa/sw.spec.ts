@@ -19,19 +19,24 @@ async function login(page: import('@playwright/test').Page): Promise<void> {
     await page.fill('#email', EMAIL);
     await page.fill('#password', PASSWORD);
     await page.getByRole('button', { name: 'Log in' }).click();
-    await page.waitForURL('**/dashboard', { timeout: 15_000 });
+    // The authenticated dashboard pulls ~50 code-split chunks; under the
+    // CI's `php artisan serve` (no opcache, no HTTP/2) that first load is
+    // slow even with PHP_CLI_SERVER_WORKERS, so the login redirect needs
+    // generous headroom. Production (HTTP/2 + opcache + CDN) loads in <1s.
+    await page.waitForURL('**/dashboard', { timeout: 60_000 });
 }
 
 test.describe('PWA service worker integration', () => {
     test('SW registers and takes control on /dashboard', async ({ page }) => {
         await login(page);
 
-        // Give Workbox the activation grace period. precacheAndRoute +
-        // skipWaiting + clientsClaim is async — wait for controller.
+        // Wait for the SW to become the controller. The install precaches
+        // ~469 build assets then skipWaiting + clientsClaim, which is async
+        // and slow under the CI's `php artisan serve`, so allow headroom.
         const controller = await page.waitForFunction(
             () => navigator.serviceWorker.controller !== null,
             null,
-            { timeout: 20_000 },
+            { timeout: 60_000 },
         );
 
         expect(controller).toBeTruthy();
@@ -52,7 +57,7 @@ test.describe('PWA service worker integration', () => {
         await page.waitForFunction(
             () => navigator.serviceWorker.controller !== null,
             null,
-            { timeout: 20_000 },
+            { timeout: 60_000 },
         );
 
         await context.setOffline(true);
@@ -63,9 +68,11 @@ test.describe('PWA service worker integration', () => {
         // /offline.
         await page.goto('/tenants', { waitUntil: 'domcontentloaded' });
 
-        // The /offline page renders the WifiIcon + "You're offline"
-        // headline (resources/js/Pages/Offline.vue).
-        await expect(page.getByText("You're offline")).toBeVisible({ timeout: 10_000 });
+        // The /offline shell (resources/js/Pages/Offline.vue) renders a
+        // [data-testid="offline-page"] root — assert that rather than copy
+        // text, which is i18n'd (t('offline.heading')) and would couple this
+        // test to the active translation migration.
+        await expect(page.getByTestId('offline-page')).toBeVisible({ timeout: 10_000 });
 
         await context.setOffline(false);
     });
