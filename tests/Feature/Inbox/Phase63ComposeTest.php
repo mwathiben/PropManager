@@ -204,10 +204,13 @@ class Phase63ComposeTest extends TestCase
     public function test_vue_scaffolds_exist_with_expected_tokens(): void
     {
         $base = base_path('resources/js/Pages');
+        // Heading tokens are the t() KEYS, not English copy — the i18n
+        // migration wrapped the literals ('Message Threads', 'Inbox') in
+        // t(), so asserting copy would couple this test to one locale.
         $files = [
-            "{$base}/MessageThreads/Index.vue" => ['Message Threads', 'message-threads.show'],
+            "{$base}/MessageThreads/Index.vue" => ['message_threads_index.heading', 'message-threads.show'],
             "{$base}/MessageThreads/Show.vue" => ['message-threads.messages.store', 'message-compose'],
-            "{$base}/Tenant/Inbox/Index.vue" => ['Inbox', 'tenant.inbox.store'],
+            "{$base}/Tenant/Inbox/Index.vue" => ['inbox.title', 'tenant.inbox.store'],
             "{$base}/Tenant/Inbox/Show.vue" => ['tenant.inbox.messages.store', 'tenant-message-compose'],
         ];
 
