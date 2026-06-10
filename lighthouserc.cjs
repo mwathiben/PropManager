@@ -1,15 +1,18 @@
 /**
  * Phase-26 PWA-CI-1: Lighthouse CI configuration.
  *
- * Gate: the PWA category must score >= 0.9 on /dashboard (the seeded
- * load-test landlord's authenticated entry point). 1.0 is achievable
- * for our single-page Inertia app post-Phase-26, but we set the gate
- * at 0.9 to leave room for category penalties we don't fully control
- * (HTTP/2 push, response-time blips on the CI's php artisan serve,
- * etc.).
+ * Gate: best-practices must score >= 0.9 on /dashboard (the seeded
+ * load-test landlord's authenticated entry point).
  *
- * Other categories are reported but NOT gated — this is the PWA
- * audit cycle, not the perf/a11y/seo cycle. Performance has its own
+ * History: this gate originally asserted categories:pwa >= 0.9, but
+ * Lighthouse 12 (bundled by @lhci/cli >= 0.13) REMOVED the PWA
+ * category entirely, so that assertion failed structurally with
+ * "auditRan expected >= 1" — it could never pass. The PWA-specific
+ * guarantees (SW registers + takes control, offline fallback,
+ * manifest installability) are enforced by the pwa-smoke Playwright
+ * job (tests/pwa/sw.spec.ts + install.spec.ts).
+ *
+ * Other categories are NOT gated here — performance has its own
  * gates (Phase-22 PERF-CI), a11y has axe-core (Phase-23 A11Y-CI-2).
  *
  * Auth: the CI workflow ships a cookie-jar from a logged-in puppeteer
@@ -32,25 +35,29 @@ module.exports = {
             },
             settings: {
                 preset: 'desktop',
-                // PWA audits depend on a real registered SW + manifest;
-                // we boot via php artisan serve which is single-threaded
-                // and slow — give the audit longer wall-clock to avoid
-                // false-failing waitForLoadState in the SW handshake.
+                // The CI boots via php artisan serve, which is slow — give
+                // the audit longer wall-clock to avoid false-failing
+                // waitForLoadState on the authenticated dashboard.
                 maxWaitForLoad: 45_000,
                 emulatedFormFactor: 'mobile',
-                // Phase-23 a11y job exercises a11y comprehensively; here
-                // we only need pwa + best-practices on the authenticated
-                // dashboard.
-                onlyCategories: ['pwa', 'best-practices'],
+                // Lighthouse 12 REMOVED the PWA category (and all its
+                // audits: service-worker, installable-manifest, ...), so a
+                // categories:pwa assertion can never run under @lhci/cli
+                // >= 0.13 — it fails with "auditRan expected >= 1". The
+                // PWA-specific guarantees live in the pwa-smoke Playwright
+                // job instead (sw.spec.ts: SW activates + offline fallback;
+                // install.spec.ts: manifest installability). This job keeps
+                // a Lighthouse gate on the authenticated dashboard via
+                // best-practices.
+                onlyCategories: ['best-practices'],
             },
         },
         assert: {
             assertions: {
-                'categories:pwa': ['error', { minScore: 0.9 }],
-                // best-practices is reported (non-gating) so any easy
-                // wins (HTTPS, image aspect ratio, no console errors)
-                // surface in the LHCI report artifact.
-                'categories:best-practices': 'off',
+                // Gating: scored 0.93 on CI at re-scope time (LH 12.6.1),
+                // so 0.9 holds the line without false-failing. Raise it if
+                // the score climbs.
+                'categories:best-practices': ['error', { minScore: 0.9 }],
             },
         },
         upload: {
