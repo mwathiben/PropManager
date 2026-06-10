@@ -61,20 +61,35 @@ registerRoute(
     }),
 );
 
-// Phase-62 CACHE-STRATEGY-2: warm the shell cache at install time with
-// a /dashboard fetch so the very first offline navigation can hit cache
-// even before the user has visited the page online. Fail-soft: if the
-// fetch errors (e.g., the user isn't authenticated yet, /dashboard 302s
-// to /login), the install proceeds anyway — the cache just stays empty
-// for now.
+// Phase-62 CACHE-STRATEGY-2 (revised): warm the shell cache at install
+// time with the PUBLIC /offline page only — fetched with
+// credentials:'omit' so the request carries no session cookie and the
+// response's Set-Cookie is ignored.
+//
+// WHY NOT a credentialed warm-add of /dashboard (the original
+// CACHE-STRATEGY-2 behaviour): the
+// SW installs from the LOGIN page (app.js registers on window.load), so
+// an install-time credentialed /dashboard fetch runs as a guest, 302s
+// to /login — and its Set-Cookie responses race the login POST's
+// session rotation and can OVERWRITE the fresh authenticated session
+// cookie with a guest one, randomly de-authenticating the user
+// (observed as 401s on XHRs right after login). The runtime
+// NetworkFirst handler above populates pm-shell-v1 with /dashboard on
+// the first real authenticated navigation, so the warm-add bought
+// nothing the runtime cache doesn't already provide.
 self.addEventListener('install', (event) => {
     event.waitUntil(
         (async () => {
-            const cache = await caches.open('pm-shell-v1');
-            // allSettled (not addAll): /dashboard may 302 to /login when the
-            // SW installs before authentication, but /offline is public and
-            // must still be cached so the catch handler below can serve it.
-            await Promise.allSettled([cache.add('/dashboard'), cache.add('/offline')]);
+            try {
+                const response = await fetch('/offline', { credentials: 'omit' });
+                if (response.ok) {
+                    const cache = await caches.open('pm-shell-v1');
+                    await cache.put('/offline', response);
+                }
+            } catch {
+                // fail-soft: install proceeds; the catch handler simply
+                // has no /offline copy until a later fetch caches one.
+            }
         })(),
     );
 });
