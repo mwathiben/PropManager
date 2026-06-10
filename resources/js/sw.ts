@@ -22,7 +22,7 @@
 
 import { clientsClaim } from 'workbox-core';
 import { precacheAndRoute, cleanupOutdatedCaches } from 'workbox-precaching';
-import { registerRoute, NavigationRoute } from 'workbox-routing';
+import { registerRoute, NavigationRoute, setCatchHandler } from 'workbox-routing';
 import { CacheFirst, NetworkFirst, NetworkOnly, StaleWhileRevalidate } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 import { BackgroundSyncPlugin } from 'workbox-background-sync';
@@ -70,14 +70,25 @@ registerRoute(
 self.addEventListener('install', (event) => {
     event.waitUntil(
         (async () => {
-            try {
-                const cache = await caches.open('pm-shell-v1');
-                await cache.add('/dashboard');
-            } catch {
-                // best-effort precache — see comment above
-            }
+            const cache = await caches.open('pm-shell-v1');
+            // allSettled (not addAll): /dashboard may 302 to /login when the
+            // SW installs before authentication, but /offline is public and
+            // must still be cached so the catch handler below can serve it.
+            await Promise.allSettled([cache.add('/dashboard'), cache.add('/offline')]);
         })(),
     );
+});
+
+// Phase-26 PWA-SHELL-2: the real offline fallback. When a navigation can
+// be served from neither the network nor the shell cache (e.g. an offline
+// visit to a page never opened online), serve the precached /offline shell
+// instead of the browser's default error page.
+setCatchHandler(async ({ request }) => {
+    if (request.mode === 'navigate') {
+        const cached = await caches.match('/offline');
+        if (cached) return cached;
+    }
+    return Response.error();
 });
 
 // Phase-26 PWA-PERF-3: documented runtime caching strategies. See
@@ -316,9 +327,12 @@ self.addEventListener('install', () => {
     self.skipWaiting();
 });
 
-self.addEventListener('activate', () => {
-    clientsClaim();
-});
+// clientsClaim() registers its OWN 'activate' listener internally, so it
+// must run at module top level. Calling it inside an 'activate' handler
+// registers the claim callback AFTER activation has already fired — it
+// never runs, the open page is never claimed, and
+// navigator.serviceWorker.controller stays null forever.
+clientsClaim();
 
 self.addEventListener('push', (event: PushEvent) => {
     type PushPayload = {

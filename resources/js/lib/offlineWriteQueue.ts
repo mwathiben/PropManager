@@ -26,9 +26,15 @@ import type { RouteFamily } from '@/composables/useBackgroundSync';
 export const MAX_ATTEMPTS = 5;
 export const REPLAY_LOG_MAX = 50;
 
-const queueStore = createStore('pm-offline-writes', 'queue');
-const deadLetterStore = createStore('pm-offline-writes', 'dead-letter');
-const replayLogStore = createStore('pm-offline-writes', 'replay-log');
+// idb-keyval's createStore() only creates its object store inside the
+// DB's onupgradeneeded, which fires once per DB version. Three
+// createStore() calls against the SAME db name share one v1 upgrade, so
+// only the first store ('queue') is ever created — touching the other
+// two throws NotFoundError ("object store not found"). Give each store
+// its own database so every createStore() runs its own upgrade.
+const queueStore = createStore('pm-offline-writes-queue', 'queue');
+const deadLetterStore = createStore('pm-offline-writes-dead-letter', 'dead-letter');
+const replayLogStore = createStore('pm-offline-writes-replay-log', 'replay-log');
 
 export type OfflineWriteEntry = {
     id: string;

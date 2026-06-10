@@ -420,7 +420,13 @@ jobs:
 
       - name: Boot the app
         run: |
-          php artisan serve --host=127.0.0.1 --port=8000 &
+          # PHP_CLI_SERVER_WORKERS lets the built-in server fork worker
+          # processes (Linux-only) so it can absorb concurrent bursts —
+          # notably the ~469-asset Workbox SW precache install and the
+          # authenticated dashboard's code-split chunk waterfall. Without
+          # it the single-threaded server resets connections under load,
+          # which fails SW activation (PWA/Lighthouse) and slows logins.
+          PHP_CLI_SERVER_WORKERS=10 php artisan serve --host=127.0.0.1 --port=8000 &
           # Wait for the health endpoint before handing off to k6.
           for i in $(seq 1 30); do
             if curl -sf http://127.0.0.1:8000/api/health > /dev/null; then
@@ -520,7 +526,13 @@ jobs:
 
       - name: Boot the app
         run: |
-          php artisan serve --host=127.0.0.1 --port=8000 &
+          # PHP_CLI_SERVER_WORKERS lets the built-in server fork worker
+          # processes (Linux-only) so it can absorb concurrent bursts —
+          # notably the ~469-asset Workbox SW precache install and the
+          # authenticated dashboard's code-split chunk waterfall. Without
+          # it the single-threaded server resets connections under load,
+          # which fails SW activation (PWA/Lighthouse) and slows logins.
+          PHP_CLI_SERVER_WORKERS=10 php artisan serve --host=127.0.0.1 --port=8000 &
           for i in $(seq 1 30); do
             if curl -sf http://127.0.0.1:8000/api/health > /dev/null; then
               echo "app is up"; break
@@ -609,7 +621,13 @@ jobs:
 
       - name: Boot the app
         run: |
-          php artisan serve --host=127.0.0.1 --port=8000 &
+          # PHP_CLI_SERVER_WORKERS lets the built-in server fork worker
+          # processes (Linux-only) so it can absorb concurrent bursts —
+          # notably the ~469-asset Workbox SW precache install and the
+          # authenticated dashboard's code-split chunk waterfall. Without
+          # it the single-threaded server resets connections under load,
+          # which fails SW activation (PWA/Lighthouse) and slows logins.
+          PHP_CLI_SERVER_WORKERS=10 php artisan serve --host=127.0.0.1 --port=8000 &
           for i in $(seq 1 30); do
             if curl -sf http://127.0.0.1:8000/api/health > /dev/null; then
               echo "app is up"; break
@@ -703,7 +721,13 @@ jobs:
 
       - name: Boot the app
         run: |
-          php artisan serve --host=127.0.0.1 --port=8000 &
+          # PHP_CLI_SERVER_WORKERS lets the built-in server fork worker
+          # processes (Linux-only) so it can absorb concurrent bursts —
+          # notably the ~469-asset Workbox SW precache install and the
+          # authenticated dashboard's code-split chunk waterfall. Without
+          # it the single-threaded server resets connections under load,
+          # which fails SW activation (PWA/Lighthouse) and slows logins.
+          PHP_CLI_SERVER_WORKERS=10 php artisan serve --host=127.0.0.1 --port=8000 &
           for i in $(seq 1 30); do
             if curl -sf http://127.0.0.1:8000/api/health > /dev/null; then
               echo "app is up"; break
@@ -790,7 +814,13 @@ jobs:
 
       - name: Boot the app
         run: |
-          php artisan serve --host=127.0.0.1 --port=8000 &
+          # PHP_CLI_SERVER_WORKERS lets the built-in server fork worker
+          # processes (Linux-only) so it can absorb concurrent bursts —
+          # notably the ~469-asset Workbox SW precache install and the
+          # authenticated dashboard's code-split chunk waterfall. Without
+          # it the single-threaded server resets connections under load,
+          # which fails SW activation (PWA/Lighthouse) and slows logins.
+          PHP_CLI_SERVER_WORKERS=10 php artisan serve --host=127.0.0.1 --port=8000 &
           for i in $(seq 1 30); do
             if curl -sf http://127.0.0.1:8000/api/health > /dev/null; then
               echo "app is up"; break
@@ -798,9 +828,21 @@ jobs:
             sleep 1
           done
 
+      # PWA-CI-1: LHCI's healthcheck + the puppeteer login script both need
+      # a real Chrome binary. The job never installed one, so chrome-launcher
+      # failed with "Chrome installation not found" / "path undefined" before
+      # auditing. setup-chrome provisions a known build and exposes its path.
+      - name: Setup Chrome
+        id: setup-chrome
+        uses: browser-actions/setup-chrome@v1
+
       - name: Run Lighthouse CI (PWA category)
         run: npm run test:lhci
         env:
           LHCI_BASE_URL: http://127.0.0.1:8000
           LHCI_USER_EMAIL: loadtest@propmanager.test
           LHCI_USER_PASSWORD: password
+          # CHROME_PATH satisfies LHCI's chrome-launcher; PUPPETEER_EXECUTABLE_PATH
+          # points the login script's puppeteer.launch() at the same binary.
+          CHROME_PATH: ${{ steps.setup-chrome.outputs.chrome-path }}
+          PUPPETEER_EXECUTABLE_PATH: ${{ steps.setup-chrome.outputs.chrome-path }}

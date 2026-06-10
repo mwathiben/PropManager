@@ -30,7 +30,7 @@ function retry() {
     <Head :title="t('offline.page_title')" />
 
     <component :is="layout">
-        <div class="flex min-h-[60vh] items-center justify-center px-4 py-12">
+        <div class="flex min-h-[60vh] items-center justify-center px-4 py-12" data-testid="offline-page">
             <div class="max-w-md text-center">
                 <WifiIcon class="mx-auto h-16 w-16 text-gray-400" aria-hidden="true" />
                 <p class="mt-4 text-sm font-semibold text-indigo-600">{{ t('offline.eyebrow') }}</p>

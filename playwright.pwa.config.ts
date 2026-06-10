@@ -7,7 +7,10 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
     testDir: './tests/pwa',
-    timeout: 45_000,
+    // Each spec logs in first (slow first dashboard load under the CI's
+    // `php artisan serve`) then waits for SW activation (precache of
+    // ~469 entries). Budget must cover login + the 60s controller wait.
+    timeout: 200_000,
     fullyParallel: false,
     retries: 0,
     reporter: 'list',
