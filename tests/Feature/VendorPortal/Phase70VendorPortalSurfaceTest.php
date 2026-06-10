@@ -81,7 +81,10 @@ class Phase70VendorPortalSurfaceTest extends TestCase
         $this->assertIsArray(__('vendor_portal.inbox'));
         $this->assertIsArray(__('vendor_portal.job'));
         $this->assertIsArray(__('vendor_portal.statement'));
-        $this->assertIsArray(__('vendor_portal.sla'));
+        // The SLA keyspace moved to its own file (vendor_portal_sla.php)
+        // in i18n batch 32 — Pages/VendorPortal/Sla.vue consumes
+        // vendor_portal_sla.* keys.
+        $this->assertIsArray(__('vendor_portal_sla'));
     }
 
     public function test_portal_routes_are_session_guarded(): void
