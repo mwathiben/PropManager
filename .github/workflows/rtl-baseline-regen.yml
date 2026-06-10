@@ -1,0 +1,102 @@
+# One-shot, manually-dispatched regeneration of the RTL visual baselines
+# (Phase-53 RTL-BASELINES-2). The baselines are *-chromium-linux.png, so
+# they MUST be produced on a Linux runner — this mirrors the ci.yml
+# rtl job exactly but runs `npm run test:rtl:update` and uploads the
+# regenerated snapshots as an artifact for an operator to review and
+# commit (per docs/runbooks/rtl-snapshots.md, a deliberate visual change
+# requires a seeded baseline commit).
+#
+# Trigger: gh workflow run rtl-baseline-regen.yml
+name: RTL baseline regen (manual)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  regen:
+    name: Regenerate RTL baselines
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: propmanager_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, pdo, pdo_mysql, bcmath
+          tools: composer:v2
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Configure .env with valid APP_KEY
+        run: |
+          cp .env.example .env
+          php -r "file_put_contents('.env', preg_replace('/^APP_KEY=.*/m', 'APP_KEY=base64:'.base64_encode(random_bytes(32)), file_get_contents('.env')));"
+          echo "DB_CONNECTION=mysql" >> .env
+          echo "DB_HOST=127.0.0.1" >> .env
+          echo "DB_PORT=3306" >> .env
+          echo "DB_DATABASE=propmanager_test" >> .env
+          echo "DB_USERNAME=root" >> .env
+          echo "DB_PASSWORD=password" >> .env
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress --no-scripts
+
+      - name: Discover packages
+        run: php artisan package:discover --ansi
+
+      - name: Build assets (manifest required for Inertia pages)
+        run: |
+          npm ci
+          npm run build
+
+      - name: Migrate + seed the load-test landlord
+        run: |
+          php artisan migrate --force
+          php artisan db:seed --class="Database\\Seeders\\LoadTestSeeder" --force
+
+      - name: Boot the app
+        run: |
+          PHP_CLI_SERVER_WORKERS=10 php artisan serve --host=127.0.0.1 --port=8000 &
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8000/api/health > /dev/null; then
+              echo "app is up"; break
+            fi
+            sleep 1
+          done
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Regenerate RTL baselines
+        run: npm run test:rtl:update
+        env:
+          A11Y_BASE_URL: http://127.0.0.1:8000
+
+      - name: Upload regenerated baselines
+        uses: actions/upload-artifact@v4
+        with:
+          name: rtl-baselines
+          path: |
+            tests/a11y/rtl/rtl-snapshot.spec.ts-snapshots/
+            tests/a11y/rtl/__screenshots__/
+          if-no-files-found: error
