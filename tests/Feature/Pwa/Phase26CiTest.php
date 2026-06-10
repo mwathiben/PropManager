@@ -76,9 +76,9 @@ class Phase26CiTest extends TestCase
             'PWA-CI-2: the spec must force offline mode to verify the navigation fallback to /offline.',
         );
         $this->assertStringContainsString(
-            "You're offline",
+            "getByTestId('offline-page')",
             $src,
-            'PWA-CI-2: the spec must assert the /offline page actually renders (not the Chrome dinosaur).',
+            'PWA-CI-2: the spec must assert the /offline shell renders via its stable [data-testid="offline-page"] root (decoupled from i18n copy) — not the Chrome dinosaur.',
         );
     }
 
