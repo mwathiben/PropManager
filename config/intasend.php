@@ -33,6 +33,19 @@ return [
     'webhook_callback_path' => '/webhooks/intasend/mpesa',
 
     /*
+    | Optional IP allowlist (defense-in-depth ON TOP of the challenge, which
+    | is the primary control). Empty by default — IntaSend's documented model
+    | is challenge-based, and IntaSend does not publish a stable webhook-source
+    | IP range, so failing closed on an empty list would 403 every callback and
+    | halt payments. Set INTASEND_WEBHOOK_ALLOWED_IPS (comma-separated) to
+    | enforce; when set, ValidateIntaSendWebhook rejects any other source IP.
+    */
+    'webhook_allowed_ips' => array_values(array_filter(array_map(
+        'trim',
+        explode(',', (string) env('INTASEND_WEBHOOK_ALLOWED_IPS', ''))
+    ))),
+
+    /*
     |--------------------------------------------------------------------------
     | Platform Fee Settings
     |--------------------------------------------------------------------------

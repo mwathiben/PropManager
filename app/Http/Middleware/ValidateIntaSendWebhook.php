@@ -24,6 +24,11 @@ class ValidateIntaSendWebhook
     {
         $allowedIps = config('intasend.webhook_allowed_ips', []);
 
+        // Fail OPEN on an empty list BY DESIGN: IntaSend's primary control is
+        // the per-landlord challenge (verified in the controller), and IntaSend
+        // publishes no stable webhook-source IP range — failing closed here
+        // would 403 every callback and halt payments. When operators DO set
+        // INTASEND_WEBHOOK_ALLOWED_IPS, this enforces it as defense-in-depth.
         if (empty($allowedIps)) {
             return true;
         }
