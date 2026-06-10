@@ -9,10 +9,12 @@ use App\Models\Lease;
 use App\Models\Property;
 use App\Models\Unit;
 use App\Models\User;
+use App\Models\WaterConnection;
 use App\Models\WaterReading;
 use App\Services\InvoiceService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 class InvoiceServiceTest extends TestCase
@@ -268,5 +270,50 @@ class InvoiceServiceTest extends TestCase
 
         $expectedDueDate = Carbon::create(2024, 7, 6);
         $this->assertEquals($expectedDueDate->toDateString(), $invoice->due_date->toDateString());
+    }
+
+    public function test_generates_standalone_water_connection_invoice(): void
+    {
+        Queue::fake();
+        $connection = WaterConnection::factory()->create([
+            'landlord_id' => $this->landlord->id,
+            'unit_id' => $this->unit->id,
+        ]);
+
+        $invoice = $this->service->generateInvoiceForWaterConnection(
+            $connection,
+            Carbon::create(2026, 3, 15),
+            1234.50,
+            12.5,
+        );
+
+        $this->assertNull($invoice->lease_id, 'water-connection invoice is not tied to a lease');
+        $this->assertSame($connection->id, $invoice->water_connection_id);
+        $this->assertSame($this->landlord->id, $invoice->landlord_id);
+        $this->assertSame(1234.50, (float) $invoice->water_due);
+        $this->assertSame(1234.50, (float) $invoice->total_due);
+        $this->assertSame(InvoiceStatus::Sent, $invoice->status);
+        $this->assertSame('2026-03-01', $invoice->billing_period_start->format('Y-m-d'));
+        $this->assertStringContainsString('12.5', (string) $invoice->notes);
+    }
+
+    public function test_water_connection_invoice_is_idempotent_per_billing_month(): void
+    {
+        Queue::fake();
+        $connection = WaterConnection::factory()->create([
+            'landlord_id' => $this->landlord->id,
+            'unit_id' => $this->unit->id,
+        ]);
+        $period = Carbon::create(2026, 3, 1);
+
+        $first = $this->service->generateInvoiceForWaterConnection($connection, $period, 1234.50);
+
+        // A second call for the SAME connection + month returns the EXISTING
+        // invoice (locked lookup) — a replayed reading must not double-bill.
+        $second = $this->service->generateInvoiceForWaterConnection($connection, $period->copy(), 9999.00);
+
+        $this->assertSame($first->id, $second->id);
+        $this->assertSame(1234.50, (float) $second->water_due, 'amount from the first call is preserved');
+        $this->assertSame(1, Invoice::where('water_connection_id', $connection->id)->count());
     }
 }
