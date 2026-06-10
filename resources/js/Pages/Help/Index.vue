@@ -4,6 +4,7 @@ import { Head, Link } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { useErrorHandler } from '@/composables';
 import { useI18n } from '@/composables/useI18n';
+import DOMPurify from 'dompurify';
 import type { HelpIndexPageProps } from '@/types/help';
 import {
     MagnifyingGlassIcon,
@@ -180,7 +181,7 @@ const currentCategoryArticles = computed(() => {
                                     <div
                                         v-if="expandedFaqs[faq.id]"
                                         class="mt-3 text-gray-600 text-sm leading-relaxed prose prose-sm max-w-none"
-                                        v-html="faq.answer"
+                                        v-html="DOMPurify.sanitize(faq.answer)"
                                     />
                                 </div>
 
