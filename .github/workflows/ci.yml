@@ -747,12 +747,14 @@ jobs:
     name: Lighthouse best-practices >= 0.9 (PWA-CI-1)
     runs-on: ubuntu-latest
     needs: lint
-    # Phase-26 PWA-CI-1: Lighthouse CI runs the PWA + best-practices
-    # categories against /dashboard with an authenticated cookie. The
-    # gate is categories:pwa minScore 0.9. Reports upload to LHCI's
-    # temporary-public-storage for artifact inspection; the URL is
-    # printed to the run log. Warn-on-main / block-on-PR like the
-    # other smoke jobs.
+    # Phase-26 PWA-CI-1: Lighthouse CI runs the best-practices category
+    # against /dashboard with an authenticated cookie; the gate is
+    # categories:best-practices minScore 0.9. (Lighthouse 12 removed the
+    # PWA category, so the original categories:pwa gate could never run —
+    # SW/offline/installability are enforced by the pwa-smoke job above.)
+    # Reports upload to LHCI's temporary-public-storage for artifact
+    # inspection; the URL is printed to the run log. Warn-on-main /
+    # block-on-PR like the other smoke jobs.
     continue-on-error: ${{ github.event_name == 'push' }}
 
     services:

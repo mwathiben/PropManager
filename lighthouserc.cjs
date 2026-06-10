@@ -10,7 +10,7 @@
  * "auditRan expected >= 1" — it could never pass. The PWA-specific
  * guarantees (SW registers + takes control, offline fallback,
  * manifest installability) are enforced by the pwa-smoke Playwright
- * job (tests/pwa/sw.spec.ts + install.spec.ts).
+ * job (tests/pwa/sw.spec.ts + tests/pwa/install.spec.ts).
  *
  * Other categories are NOT gated here — performance has its own
  * gates (Phase-22 PERF-CI), a11y has axe-core (Phase-23 A11Y-CI-2).
