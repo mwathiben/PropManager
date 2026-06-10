@@ -109,18 +109,22 @@ class Phase62OfflineWritesTest extends TestCase
             $src,
             'OFFLINE-WRITES-3: offlineWriteQueue must define a MAX_ATTEMPTS constant so dead-letter eviction is testable.',
         );
+        // Each store gets its OWN database: idb-keyval's createStore() only
+        // creates its object store during that db's v1 upgrade, so three
+        // createStore() calls sharing one db name leave dead-letter/replay-log
+        // uncreated (NotFoundError on boot). Dedicated dbs per store fix that.
         $this->assertStringContainsString(
-            "createStore('pm-offline-writes', 'queue')",
+            "createStore('pm-offline-writes-queue', 'queue')",
             $src,
-            'OFFLINE-WRITES-3: offlineWriteQueue must use a dedicated pm-offline-writes IDB database so it does not collide with the per-user offlineStore.',
+            'OFFLINE-WRITES-3: offlineWriteQueue must use a dedicated pm-offline-writes-queue IDB database so it does not collide with the per-user offlineStore.',
         );
         $this->assertStringContainsString(
-            "createStore('pm-offline-writes', 'dead-letter')",
+            "createStore('pm-offline-writes-dead-letter', 'dead-letter')",
             $src,
-            'OFFLINE-WRITES-3: offlineWriteQueue must keep dead-letter ops in a separate object store so they survive queue drain.',
+            'OFFLINE-WRITES-3: offlineWriteQueue must keep dead-letter ops in their own database so they survive queue drain.',
         );
         $this->assertStringContainsString(
-            "createStore('pm-offline-writes', 'replay-log')",
+            "createStore('pm-offline-writes-replay-log', 'replay-log')",
             $src,
             'OFFLINE-WRITES-3: offlineWriteQueue must keep a replay log for audit.',
         );
