@@ -91,14 +91,25 @@ class Phase62CacheStrategyTest extends TestCase
         );
     }
 
-    public function test_sw_precaches_dashboard_at_install(): void
+    public function test_sw_warms_offline_shell_at_install_without_credentials(): void
     {
         $src = (string) file_get_contents(resource_path('js/sw.ts'));
 
+        // CACHE-STRATEGY-2 (revised): the install warm-add must be the
+        // PUBLIC /offline page fetched with credentials:'omit'. The old
+        // credentialed cache.add('/dashboard') ran as a guest from the
+        // login page and its Set-Cookie responses raced the login POST's
+        // session rotation, clobbering the authenticated session cookie
+        // (random 401s right after login).
         $this->assertStringContainsString(
+            "fetch('/offline', { credentials: 'omit' })",
+            $src,
+            'CACHE-STRATEGY-2: install handler must warm /offline WITHOUT credentials so it can never thrash the session cookie.',
+        );
+        $this->assertStringNotContainsString(
             "cache.add('/dashboard')",
             $src,
-            'CACHE-STRATEGY-2: install handler must precache /dashboard so the first offline navigation has a cached shell.',
+            'CACHE-STRATEGY-2: install must NOT make a credentialed /dashboard fetch — it races login session rotation and de-authenticates users.',
         );
     }
 

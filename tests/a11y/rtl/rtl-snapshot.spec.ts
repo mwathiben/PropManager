@@ -27,13 +27,32 @@ async function switchToArabic(page: Page): Promise<void> {
     // Phase-24 I18N-INFRA-4 endpoint: PATCH /locale {locale: 'ar'}.
     // Sets users.locale + session; SetLocale middleware applies on
     // the next request.
-    await page.request.patch('/locale', {
-        data: { locale: 'ar' },
-        headers: {
-            'Accept': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest',
-        },
+    //
+    // Must run IN-PAGE (page.evaluate + fetch), not via page.request:
+    // Playwright's APIRequestContext does not attach the app's Secure
+    // session cookies over plain http, so the old page.request.patch
+    // silently 419'd, the locale never switched, and every dir="rtl"
+    // assertion failed against an English ltr page.
+    const status = await page.evaluate(async () => {
+        const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
+        const res = await fetch('/locale', {
+            method: 'PATCH',
+            credentials: 'same-origin',
+            redirect: 'manual',
+            headers: {
+                'X-XSRF-TOKEN': match ? decodeURIComponent(match[1]) : '',
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: JSON.stringify({ locale: 'ar' }),
+        });
+        return res.status;
     });
+    // 0 = opaqueredirect (back()'s 302 under redirect:manual) — success.
+    // Anything 4xx/5xx means the switch silently failed and every
+    // snapshot below would be LTR garbage; fail loudly here instead.
+    expect([0, 200, 302], `locale switch must succeed (got HTTP ${status})`).toContain(status);
 }
 
 async function login(page: Page): Promise<void> {
