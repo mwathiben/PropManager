@@ -23,20 +23,23 @@ class Phase26CiTest extends TestCase
 
         $config = (string) file_get_contents($path);
 
+        // Lighthouse 12 removed the PWA category, so the gate asserts
+        // best-practices instead; SW/installability guarantees live in the
+        // pwa-smoke Playwright job (sw.spec.ts + install.spec.ts).
         $this->assertStringContainsString(
-            "'categories:pwa'",
+            "'categories:best-practices'",
             $config,
-            'PWA-CI-1: lighthouserc.cjs must declare a categories:pwa assertion.',
+            'PWA-CI-1: lighthouserc.cjs must declare a categories:best-practices assertion (the PWA category no longer exists in Lighthouse 12).',
         );
         $this->assertMatchesRegularExpression(
             "/minScore:\s*0\.9/",
             $config,
-            'PWA-CI-1: the PWA score gate must be 0.9 — lowering it without raising the bar elsewhere weakens the gate silently.',
+            'PWA-CI-1: the score gate must be 0.9 — lowering it without raising the bar elsewhere weakens the gate silently.',
         );
         $this->assertStringContainsString(
             "'error'",
             $config,
-            'PWA-CI-1: the assertion level for categories:pwa must be "error" so a failed audit fails the build (not "warn" which only logs).',
+            'PWA-CI-1: the assertion level must be "error" so a failed audit fails the build (not "warn" which only logs).',
         );
     }
 
