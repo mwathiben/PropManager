@@ -142,7 +142,7 @@ const isActiveTab = computed(() => props.filters.status !== 'released');
                                             <span :class="['inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium', pillClass(hold.holdable_type)]">
                                                 {{ subjectTypeLabel(hold.holdable_type) }}
                                             </span>
-                                            <span class="ml-2 text-sm text-gray-600">#{{ hold.holdable_id }}</span>
+                                            <span class="ms-2 text-sm text-gray-600">#{{ hold.holdable_id }}</span>
                                         </td>
                                         <td class="px-4 py-3 text-sm text-gray-900 max-w-md">
                                             <span :title="hold.reason">

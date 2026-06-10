@@ -39,10 +39,10 @@ const ariaLabel = computed<string>(() =>
 <template>
     <Link
         :href="inboxRoute"
-        :aria-label="ariaLabel"
         class="relative inline-flex items-center justify-center w-10 h-10 rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
         data-testid="inbox-bell"
     >
+        <span class="sr-only">{{ ariaLabel }}</span>
         <EnvelopeIcon class="h-6 w-6" aria-hidden="true" />
         <span
             v-if="unreadCount > 0"
