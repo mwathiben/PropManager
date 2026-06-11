@@ -2,16 +2,15 @@
 
 namespace App\Services;
 
-use App\Enums\Currency;
 use App\Models\Notification;
 use App\Models\NotificationPreference;
-use App\Models\PaymentConfiguration;
 use App\Models\User;
 use App\Repositories\Contracts\NotificationConfigRepositoryInterface;
 use App\Services\Notification\ChannelPrioritizer;
 use App\Services\Notification\ChannelSelector;
 use App\Services\Notification\ChannelTransport;
 use App\Services\Notification\DeferredNotificationHandler;
+use App\Services\Notification\NotificationContentBuilder;
 use App\Services\Notification\NotificationDispatcher;
 use App\Services\Notification\NotificationRateLimiter;
 use Illuminate\Support\Facades\Log;
@@ -42,15 +41,14 @@ class NotificationService
     ];
 
     public function __construct(
-        private readonly WhatsAppTemplateService $whatsAppTemplateService,
-        private readonly PaymentLinkService $paymentLinkService,
         private readonly NotificationConfigRepositoryInterface $configRepository,
         private readonly ChannelSelector $channelSelector,
         private readonly NotificationDispatcher $dispatcher,
         private readonly NotificationRateLimiter $rateLimiter,
         private readonly ChannelTransport $channelTransport,
         private readonly ChannelPrioritizer $channelPrioritizer,
-        private readonly DeferredNotificationHandler $deferralHandler
+        private readonly DeferredNotificationHandler $deferralHandler,
+        private readonly NotificationContentBuilder $contentBuilder
     ) {}
 
     /**
@@ -156,17 +154,6 @@ class NotificationService
     private function resolveLandlordId(User $recipient): int
     {
         return $recipient->role === 'tenant' ? $recipient->landlord_id : $recipient->id;
-    }
-
-    private function resolveCurrencySymbol(array $data, int $landlordId): string
-    {
-        if (isset($data['currency_symbol'])) {
-            return $data['currency_symbol'];
-        }
-
-        $config = PaymentConfiguration::where('landlord_id', $landlordId)->first();
-
-        return ($config?->default_currency ?? Currency::default())->symbol();
     }
 
     /**
@@ -385,42 +372,9 @@ class NotificationService
      */
     public function sendRentReminder(int $tenantId, array $data, int $landlordId): array
     {
-        $tenant = User::findOrFail($tenantId);
-        $symbol = $this->resolveCurrencySymbol($data, $landlordId);
+        [$subject, $message, $payload] = $this->contentBuilder->rentReminder($tenantId, $data, $landlordId);
 
-        $paymentLink = isset($data['invoice_id'])
-            ? $this->paymentLinkService->generateUrl($data['invoice_id'], 'rent_reminder')
-            : route('tenant.finances.index');
-
-        $message = sprintf(
-            "Hello %s,\n\nThis is a friendly reminder that your rent of %s %s is due on %s.\n\nPay now: %s\n\nThank you.",
-            $tenant->name,
-            $symbol,
-            number_format($data['amount'], 2),
-            $data['due_date'],
-            $paymentLink
-        );
-
-        $templateData = [
-            'tenant_name' => $tenant->name,
-            'amount' => number_format($data['amount'], 0),
-            'due_date' => $data['due_date'],
-        ];
-
-        // Only include payment_link in template data if feature enabled
-        // (requires Meta-approved WhatsApp template with payment_link variable)
-        if (config('features.whatsapp_payment_links_enabled', false)) {
-            $templateData['payment_link'] = $paymentLink;
-        }
-
-        return $this->send(
-            $tenantId,
-            'rent_reminder',
-            'Rent Reminder - Due '.$data['due_date'],
-            $message,
-            array_merge($data, $templateData),
-            $landlordId
-        );
+        return $this->send($tenantId, 'rent_reminder', $subject, $message, $payload, $landlordId);
     }
 
     /**
@@ -428,40 +382,9 @@ class NotificationService
      */
     public function sendArrearsNotice(int $tenantId, array $data, int $landlordId): array
     {
-        $tenant = User::findOrFail($tenantId);
-        $symbol = $this->resolveCurrencySymbol($data, $landlordId);
+        [$subject, $message, $payload] = $this->contentBuilder->arrearsNotice($tenantId, $data, $landlordId);
 
-        $paymentLink = isset($data['invoice_id'])
-            ? $this->paymentLinkService->generateUrl($data['invoice_id'], 'arrears_notice')
-            : route('tenant.finances.index');
-
-        $message = sprintf(
-            "Hello %s,\n\nYou have an outstanding balance of %s %s. Please clear your arrears as soon as possible.\n\nPay now: %s\n\nThank you.",
-            $tenant->name,
-            $symbol,
-            number_format($data['arrears_amount'], 2),
-            $paymentLink
-        );
-
-        $templateData = [
-            'tenant_name' => $tenant->name,
-            'amount' => number_format($data['arrears_amount'], 0),
-            'days_overdue' => (string) ($data['days_overdue'] ?? 0),
-        ];
-
-        // Only include payment_link in template data if feature enabled
-        if (config('features.whatsapp_payment_links_enabled', false)) {
-            $templateData['payment_link'] = $paymentLink;
-        }
-
-        return $this->send(
-            $tenantId,
-            'arrears_notice',
-            'Payment Overdue - Please Clear Arrears',
-            $message,
-            array_merge($data, $templateData),
-            $landlordId
-        );
+        return $this->send($tenantId, 'arrears_notice', $subject, $message, $payload, $landlordId);
     }
 
     /**
@@ -469,34 +392,9 @@ class NotificationService
      */
     public function sendInvoice(int $tenantId, array $invoiceData, int $landlordId): array
     {
-        $tenant = User::findOrFail($tenantId);
-        $symbol = $this->resolveCurrencySymbol($invoiceData, $landlordId);
+        [$subject, $message, $payload] = $this->contentBuilder->invoice($tenantId, $invoiceData, $landlordId);
 
-        $message = sprintf(
-            "Hello %s,\n\nYour invoice #%s for %s %s has been generated. Due date: %s.\n\nPlease login to view and pay.",
-            $tenant->name,
-            $invoiceData['invoice_number'],
-            $symbol,
-            number_format($invoiceData['total_amount'], 2),
-            $invoiceData['due_date']
-        );
-
-        $templateData = [
-            'tenant_name' => $tenant->name,
-            'invoice_no' => $invoiceData['invoice_number'],
-            'amount' => number_format($invoiceData['total_amount'], 0),
-            'due_date' => $invoiceData['due_date'],
-            'link' => $invoiceData['link'] ?? url('/tenant/invoices'),
-        ];
-
-        return $this->send(
-            $tenantId,
-            'invoice',
-            'New Invoice - '.$invoiceData['invoice_number'],
-            $message,
-            array_merge($invoiceData, $templateData),
-            $landlordId
-        );
+        return $this->send($tenantId, 'invoice', $subject, $message, $payload, $landlordId);
     }
 
     /**
@@ -504,32 +402,9 @@ class NotificationService
      */
     public function sendReceipt(int $tenantId, array $receiptData, int $landlordId): array
     {
-        $tenant = User::findOrFail($tenantId);
-        $symbol = $this->resolveCurrencySymbol($receiptData, $landlordId);
+        [$subject, $message, $payload] = $this->contentBuilder->receipt($tenantId, $receiptData, $landlordId);
 
-        $message = sprintf(
-            "Hello %s,\n\nPayment of %s %s received successfully. Receipt #%s.\n\nThank you for your payment.",
-            $tenant->name,
-            $symbol,
-            number_format($receiptData['amount'], 2),
-            $receiptData['receipt_number']
-        );
-
-        $templateData = [
-            'tenant_name' => $tenant->name,
-            'amount' => number_format($receiptData['amount'], 0),
-            'reference' => $receiptData['receipt_number'],
-            'balance' => number_format($receiptData['balance'] ?? 0, 0),
-        ];
-
-        return $this->send(
-            $tenantId,
-            'receipt',
-            'Payment Receipt - '.$receiptData['receipt_number'],
-            $message,
-            array_merge($receiptData, $templateData),
-            $landlordId
-        );
+        return $this->send($tenantId, 'receipt', $subject, $message, $payload, $landlordId);
     }
 
     /**
@@ -537,27 +412,9 @@ class NotificationService
      */
     public function sendRentHike(int $tenantId, array $data, int $landlordId): array
     {
-        $tenant = User::findOrFail($tenantId);
-        $symbol = $this->resolveCurrencySymbol($data, $landlordId);
+        [$subject, $message, $payload] = $this->contentBuilder->rentHike($tenantId, $data, $landlordId);
 
-        $message = sprintf(
-            "Hello %s,\n\nThis is to inform you that your rent will be adjusted from %s %s to %s %s effective %s.\n\nThank you for your understanding.",
-            $tenant->name,
-            $symbol,
-            number_format($data['old_rent'], 2),
-            $symbol,
-            number_format($data['new_rent'], 2),
-            $data['effective_date']
-        );
-
-        return $this->send(
-            $tenantId,
-            'rent_hike',
-            'Rent Adjustment Notice',
-            $message,
-            $data,
-            $landlordId
-        );
+        return $this->send($tenantId, 'rent_hike', $subject, $message, $payload, $landlordId);
     }
 
     /**
@@ -565,24 +422,9 @@ class NotificationService
      */
     public function sendEvictionNotice(int $tenantId, array $data, int $landlordId): array
     {
-        $tenant = User::findOrFail($tenantId);
-        $symbol = $this->resolveCurrencySymbol($data, $landlordId);
+        [$subject, $message, $payload] = $this->contentBuilder->evictionNotice($tenantId, $data, $landlordId);
 
-        $message = sprintf(
-            "Hello %s,\n\nThis is a formal notice of eviction. Due to non-payment of rent, you are required to vacate the premises within the specified period.\n\nOutstanding Balance: %s %s\n\nPlease contact your landlord immediately to discuss this matter.\n\nRegards",
-            $tenant->name,
-            $symbol,
-            number_format($data['arrears_amount'] ?? 0, 2)
-        );
-
-        return $this->send(
-            $tenantId,
-            'eviction_notice',
-            'Eviction Notice',
-            $message,
-            $data,
-            $landlordId
-        );
+        return $this->send($tenantId, 'eviction_notice', $subject, $message, $payload, $landlordId);
     }
 
     /**
@@ -590,24 +432,9 @@ class NotificationService
      */
     public function sendCaretakerInvitation(int $targetUserId, array $data, int $landlordId): array
     {
-        $targetUser = User::findOrFail($targetUserId);
+        [$subject, $message, $payload] = $this->contentBuilder->caretakerInvitation($targetUserId, $data, $landlordId);
 
-        $message = sprintf(
-            "Hello %s,\n\nYou've been invited by %s to become a caretaker for %s.\n\nPlease log in to your account to accept or decline this invitation.\n\nThis invitation expires on %s.",
-            $targetUser->name,
-            $data['landlord_name'],
-            $data['property_name'],
-            $data['expires_at'] ?? 'in 30 days'
-        );
-
-        return $this->sendInAppOnly(
-            $targetUserId,
-            Notification::TYPE_CARETAKER_INVITATION,
-            'Caretaker Invitation from '.$data['landlord_name'],
-            $message,
-            $data,
-            $landlordId
-        );
+        return $this->sendInAppOnly($targetUserId, Notification::TYPE_CARETAKER_INVITATION, $subject, $message, $payload, $landlordId);
     }
 
     /**
@@ -615,30 +442,9 @@ class NotificationService
      */
     public function sendTenantInvitation(int $targetUserId, array $data, int $landlordId): array
     {
-        $targetUser = User::findOrFail($targetUserId);
-        $symbol = $this->resolveCurrencySymbol($data, $landlordId);
+        [$subject, $message, $payload] = $this->contentBuilder->tenantInvitation($targetUserId, $data, $landlordId);
 
-        $message = sprintf(
-            "Hello %s,\n\nYou've been invited by %s to lease Unit %s at %s.\n\nMonthly Rent: %s %s\nDeposit: %s %s\n\nPlease log in to your account to accept or decline this invitation.\n\nThis invitation expires on %s.",
-            $targetUser->name,
-            $data['landlord_name'],
-            $data['unit_number'],
-            $data['property_name'],
-            $symbol,
-            number_format($data['rent_amount'] ?? 0, 2),
-            $symbol,
-            number_format($data['deposit_amount'] ?? 0, 2),
-            $data['expires_at'] ?? 'in 30 days'
-        );
-
-        return $this->sendInAppOnly(
-            $targetUserId,
-            Notification::TYPE_TENANT_INVITATION,
-            'Lease Invitation from '.$data['landlord_name'],
-            $message,
-            $data,
-            $landlordId
-        );
+        return $this->sendInAppOnly($targetUserId, Notification::TYPE_TENANT_INVITATION, $subject, $message, $payload, $landlordId);
     }
 
     /**
