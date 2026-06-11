@@ -551,7 +551,7 @@ class NotificationsController extends Controller
             'days_offset' => $validated['days_offset'],
             'send_time' => $validated['send_time'],
             'channels' => $validated['channels'],
-            'template_id' => $validated['template_id'],
+            'template_id' => $validated['template_id'] ?? null,
             'is_active' => $validated['is_active'] ?? true,
         ]);
 

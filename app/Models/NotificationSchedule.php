@@ -3,11 +3,13 @@
 namespace App\Models;
 
 use App\Traits\TenantScope;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class NotificationSchedule extends Model
 {
+    use HasFactory;
     use TenantScope;
 
     protected $fillable = [
