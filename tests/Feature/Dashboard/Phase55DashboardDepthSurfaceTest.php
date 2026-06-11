@@ -22,7 +22,9 @@ class Phase55DashboardDepthSurfaceTest extends TestCase
 
     public function test_recent_payments_query_has_payment_date_order_with_trashed_and_voided_filter(): void
     {
-        $body = (string) file_get_contents(base_path('app/Services/DashboardService.php'));
+        // M2: the building/landlord metrics (incl. the recent-payments query)
+        // were extracted from DashboardService into LandlordMetricsCalculator.
+        $body = (string) file_get_contents(base_path('app/Services/Dashboard/LandlordMetricsCalculator.php'));
 
         // RECENT-PAYMENTS-2: Lease lookup must use withTrashed.
         $this->assertStringContainsString(
