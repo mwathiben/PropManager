@@ -26,6 +26,7 @@ use App\Models\Setting;
 use App\Models\User;
 use App\Repositories\Contracts\NotificationConfigRepositoryInterface;
 use App\Repositories\Contracts\NotificationDefaultsRepositoryInterface;
+use App\Services\Notification\NotificationSettingsService;
 use App\Services\Notification\ProviderStatusCollector;
 use App\Services\NotificationService;
 use App\Services\PushNotificationService;
@@ -59,6 +60,8 @@ class NotificationsController extends Controller
 
     protected NotificationDefaultsRepositoryInterface $defaultsRepository;
 
+    protected NotificationSettingsService $settingsService;
+
     public function __construct(
         NotificationService $notificationService,
         TemplateService $templateService,
@@ -66,7 +69,8 @@ class NotificationsController extends Controller
         PushNotificationService $pushService,
         WhatsAppTemplateService $whatsAppTemplateService,
         NotificationConfigRepositoryInterface $configRepository,
-        NotificationDefaultsRepositoryInterface $defaultsRepository
+        NotificationDefaultsRepositoryInterface $defaultsRepository,
+        NotificationSettingsService $settingsService
     ) {
         $this->notificationService = $notificationService;
         $this->templateService = $templateService;
@@ -75,6 +79,7 @@ class NotificationsController extends Controller
         $this->whatsAppTemplateService = $whatsAppTemplateService;
         $this->configRepository = $configRepository;
         $this->defaultsRepository = $defaultsRepository;
+        $this->settingsService = $settingsService;
     }
 
     public function index(Request $request): Response
@@ -683,7 +688,7 @@ class NotificationsController extends Controller
             'smsProviders' => ProviderStatusCollector::getSmsProviderOptions(),
             'currentSmsProvider' => $providerCollector->getCurrentSmsProvider($landlordId),
             'globalPreferences' => $this->loadGlobalPreferences($landlordId),
-            'setupComplete' => $this->isSetupComplete($landlordId),
+            'setupComplete' => $this->settingsService->isSetupComplete($landlordId),
             'buildings' => $this->getBuildingsForFilter(),
             'tenants' => [],
             'notifications' => ['data' => []],
@@ -697,20 +702,7 @@ class NotificationsController extends Controller
         $user = auth()->user();
         $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
 
-        switch ($provider) {
-            case 'email':
-                $this->updateEmailSettings($request, $landlordId);
-                break;
-            case 'sms':
-                $this->updateSmsSettings($request, $landlordId);
-                break;
-            case 'whatsapp':
-                $this->updateWhatsAppSettings($request, $landlordId);
-                break;
-            case 'push':
-                $this->updatePushSettings($request, $landlordId);
-                break;
-        }
+        $this->settingsService->updateProvider($request, $provider, $landlordId);
 
         return redirect()->back()->with('success', 'Provider settings updated successfully.');
     }
@@ -746,7 +738,7 @@ class NotificationsController extends Controller
 
         try {
             $result = match ($provider) {
-                'sms' => $this->testSmsProvider($landlordId),
+                'sms' => $this->settingsService->testSmsProvider($landlordId),
                 'push' => ['success' => $this->pushService->isConfigured($landlordId), 'message' => 'Push notifications configured'],
                 default => ['success' => false, 'message' => 'Unknown provider'],
             };
@@ -769,7 +761,7 @@ class NotificationsController extends Controller
         $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
 
         return response()->json([
-            'complete' => $this->isSetupComplete($landlordId),
+            'complete' => $this->settingsService->isSetupComplete($landlordId),
             'providers' => [
                 'email' => true,
                 'sms' => $this->configRepository->isProviderConfigured($landlordId, 'sms'),
@@ -903,7 +895,7 @@ class NotificationsController extends Controller
             'buildings' => $this->getBuildingsForFilter(),
             'notifications' => ['data' => []],
             'filters' => [],
-            'setupComplete' => $this->isSetupComplete($landlordId),
+            'setupComplete' => $this->settingsService->isSetupComplete($landlordId),
         ]);
     }
 
@@ -964,147 +956,6 @@ class NotificationsController extends Controller
         $this->configRepository->markSetupComplete($landlordId);
 
         return redirect()->route('notifications.overview')->with('success', 'Notification setup completed successfully!');
-    }
-
-    /**
-     * Check if setup is complete
-     */
-    private function isSetupComplete(int $landlordId): bool
-    {
-        // Check if explicitly marked as complete
-        if ($this->configRepository->isSetupComplete($landlordId)) {
-            return true;
-        }
-
-        // Or if at least one additional channel besides email is configured
-        $smsConfigured = $this->configRepository->isProviderConfigured($landlordId, 'sms');
-        $pushConfigured = $this->pushService->isConfigured($landlordId);
-
-        return $smsConfigured || $pushConfigured;
-    }
-
-    /**
-     * Update Email settings
-     */
-    private function updateEmailSettings(Request $request, int $landlordId): void
-    {
-        $validated = $request->validate([
-            'mail_mailer' => 'nullable|string',
-            'mail_host' => 'nullable|string',
-            'mail_port' => 'nullable|string',
-            'mail_username' => 'nullable|string',
-            'mail_password' => 'nullable|string',
-            'mail_encryption' => 'nullable|string',
-            'mail_from_address' => 'nullable|email',
-            'mail_from_name' => 'nullable|string',
-            'enabled' => 'boolean',
-        ]);
-
-        $this->configRepository->setEmailCredentials($landlordId, [
-            'mailer' => $validated['mail_mailer'] ?? null,
-            'host' => $validated['mail_host'] ?? null,
-            'port' => $validated['mail_port'] ?? null,
-            'username' => $validated['mail_username'] ?? null,
-            'password' => $validated['mail_password'] ?? null,
-            'encryption' => $validated['mail_encryption'] ?? null,
-            'from_address' => $validated['mail_from_address'] ?? null,
-            'from_name' => $validated['mail_from_name'] ?? null,
-            'enabled' => $validated['enabled'] ?? true,
-        ]);
-    }
-
-    /**
-     * Update SMS settings
-     */
-    private function updateSmsSettings(Request $request, int $landlordId): void
-    {
-        $validated = $request->validate([
-            'sms_provider' => 'required|in:none,twilio,africas_talking',
-            'twilio_account_sid' => 'nullable|string',
-            'twilio_auth_token' => 'nullable|string',
-            'twilio_phone_number' => 'nullable|string',
-            'africas_talking_api_key' => 'nullable|string',
-            'africas_talking_username' => 'nullable|string',
-            'africas_talking_from' => 'nullable|string',
-        ]);
-
-        $this->configRepository->setSmsProvider($landlordId, $validated['sms_provider']);
-
-        if ($validated['sms_provider'] === 'twilio') {
-            $this->configRepository->setTwilioCredentials($landlordId, [
-                'account_sid' => $validated['twilio_account_sid'] ?? null,
-                'auth_token' => $validated['twilio_auth_token'] ?? null,
-                'phone_number' => $validated['twilio_phone_number'] ?? null,
-            ]);
-        } elseif ($validated['sms_provider'] === 'africas_talking') {
-            $this->configRepository->setAfricasTalkingCredentials($landlordId, [
-                'api_key' => $validated['africas_talking_api_key'] ?? null,
-                'username' => $validated['africas_talking_username'] ?? null,
-                'from' => $validated['africas_talking_from'] ?? null,
-            ]);
-        }
-    }
-
-    /**
-     * Update WhatsApp settings
-     */
-    private function updateWhatsAppSettings(Request $request, int $landlordId): void
-    {
-        $validated = $request->validate([
-            'twilio_whatsapp_number' => 'nullable|string',
-        ]);
-
-        if (! empty($validated['twilio_whatsapp_number'])) {
-            $this->configRepository->setWhatsAppNumber($landlordId, $validated['twilio_whatsapp_number']);
-        }
-    }
-
-    /**
-     * Update push settings
-     */
-    private function updatePushSettings(Request $request, int $landlordId): void
-    {
-        $action = $request->input('action');
-
-        if ($action === 'generate_keys') {
-            $keys = $this->pushService->generateVapidKeys();
-            $this->pushService->saveVapidKeys($landlordId, $keys);
-        }
-    }
-
-    /**
-     * Test SMS provider connection
-     */
-    private function testSmsProvider(int $landlordId): array
-    {
-        $provider = $this->configRepository->getSmsProvider($landlordId);
-
-        if ($provider === 'none') {
-            return ['success' => false, 'message' => 'No SMS provider configured'];
-        }
-
-        // Just verify credentials exist for now
-        if ($provider === 'twilio') {
-            $credentials = $this->configRepository->getTwilioCredentials($landlordId);
-            $hasCredentials = ! empty($credentials['account_sid']) && ! empty($credentials['auth_token']);
-
-            return [
-                'success' => $hasCredentials,
-                'message' => $hasCredentials ? 'Twilio credentials configured' : 'Twilio credentials missing',
-            ];
-        }
-
-        if ($provider === 'africas_talking') {
-            $credentials = $this->configRepository->getAfricasTalkingCredentials($landlordId);
-            $hasCredentials = ! empty($credentials['api_key']) && ! empty($credentials['username']);
-
-            return [
-                'success' => $hasCredentials,
-                'message' => $hasCredentials ? "Africa's Talking credentials configured" : "Africa's Talking credentials missing",
-            ];
-        }
-
-        return ['success' => false, 'message' => 'Unknown provider'];
     }
 
     /**
