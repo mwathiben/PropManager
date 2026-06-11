@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Enums\Currency;
-use App\Jobs\SendNotificationJob;
 use App\Models\Notification;
 use App\Models\NotificationPreference;
 use App\Models\PaymentConfiguration;
@@ -12,9 +11,9 @@ use App\Repositories\Contracts\NotificationConfigRepositoryInterface;
 use App\Services\Notification\ChannelPrioritizer;
 use App\Services\Notification\ChannelSelector;
 use App\Services\Notification\ChannelTransport;
+use App\Services\Notification\DeferredNotificationHandler;
 use App\Services\Notification\NotificationDispatcher;
 use App\Services\Notification\NotificationRateLimiter;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 
 class NotificationService
@@ -46,12 +45,12 @@ class NotificationService
         private readonly WhatsAppTemplateService $whatsAppTemplateService,
         private readonly PaymentLinkService $paymentLinkService,
         private readonly NotificationConfigRepositoryInterface $configRepository,
-        private readonly QuietHoursService $quietHoursService,
         private readonly ChannelSelector $channelSelector,
         private readonly NotificationDispatcher $dispatcher,
         private readonly NotificationRateLimiter $rateLimiter,
         private readonly ChannelTransport $channelTransport,
-        private readonly ChannelPrioritizer $channelPrioritizer
+        private readonly ChannelPrioritizer $channelPrioritizer,
+        private readonly DeferredNotificationHandler $deferralHandler
     ) {}
 
     /**
@@ -73,8 +72,8 @@ class NotificationService
         $urgency = Notification::getUrgencyForType($type);
         $allowedChannels = $this->channelSelector->getChannelsForUrgency($urgency);
 
-        if ($this->shouldDeferForQuietHours($urgency, $recipient, $landlordId)) {
-            return $this->deferNotificationForQuietHours(
+        if ($this->deferralHandler->shouldDefer($urgency, $recipient, $landlordId)) {
+            return $this->deferralHandler->defer(
                 $recipientId, $type, $subject, $message, $data, $landlordId, $urgency, $allowedChannels
             );
         }
@@ -168,11 +167,6 @@ class NotificationService
         $config = PaymentConfiguration::where('landlord_id', $landlordId)->first();
 
         return ($config?->default_currency ?? Currency::default())->symbol();
-    }
-
-    private function shouldDeferForQuietHours(string $urgency, User $recipient, int $landlordId): bool
-    {
-        return ! $this->canBypassQuietHours($urgency) && $this->isInQuietHours($recipient, $landlordId);
     }
 
     /**
@@ -772,146 +766,10 @@ class NotificationService
     }
 
     /**
-     * Check if recipient is currently in quiet hours.
-     */
-    protected function isInQuietHours(User $recipient, int $landlordId): bool
-    {
-        $config = $this->quietHoursService->getConfigForUser($recipient, $landlordId);
-
-        return $this->quietHoursService->isQuietHours($config);
-    }
-
-    /**
-     * Check if this urgency level can bypass quiet hours.
-     * Critical and urgent notifications are never deferred.
-     */
-    protected function canBypassQuietHours(string $urgency): bool
-    {
-        return $this->quietHoursService->canBypassQuietHours($urgency);
-    }
-
-    /**
-     * Get the next quiet hours end time for scheduling deferred notifications.
-     */
-    protected function getQuietHoursEndTime(User $recipient, int $landlordId): Carbon
-    {
-        $config = $this->quietHoursService->getConfigForUser($recipient, $landlordId);
-
-        return $this->quietHoursService->getNextDeliveryTime($config);
-    }
-
-    /**
-     * Create a deferred notification scheduled for after quiet hours.
-     */
-    protected function createDeferredNotification(
-        int $landlordId,
-        int $recipientId,
-        string $type,
-        string $channel,
-        string $subject,
-        string $message,
-        ?array $data,
-        string $urgency,
-        Carbon $scheduledFor
-    ): Notification {
-        return Notification::create([
-            'landlord_id' => $landlordId,
-            'recipient_id' => $recipientId,
-            'type' => $type,
-            'urgency' => $urgency,
-            'channel' => $channel,
-            'subject' => $subject,
-            'message' => $message,
-            'data' => $data,
-            'status' => 'pending',
-            'scheduled_for' => $scheduledFor,
-            'quiet_hours_suppressed' => true,
-        ]);
-    }
-
-    /**
-     * Defer notification until after quiet hours end.
-     */
-    protected function deferNotificationForQuietHours(
-        int $recipientId,
-        string $type,
-        string $subject,
-        string $message,
-        ?array $data,
-        int $landlordId,
-        string $urgency,
-        array $allowedChannels
-    ): array {
-        $recipient = User::findOrFail($recipientId);
-        $preferences = NotificationPreference::getOrCreate($recipientId, $landlordId);
-        $prioritizedChannels = $this->channelPrioritizer->prioritizeChannelsWithUrgency($preferences, $allowedChannels);
-        $primaryChannel = $this->channelPrioritizer->findPrimaryChannel($prioritizedChannels, $preferences, $type);
-
-        if (! $primaryChannel) {
-            return ['error' => 'no_available_channel'];
-        }
-
-        $scheduledFor = $this->getQuietHoursEndTime($recipient, $landlordId);
-
-        $notification = $this->createDeferredNotification(
-            $landlordId,
-            $recipientId,
-            $type,
-            $primaryChannel,
-            $subject,
-            $message,
-            $data,
-            $urgency,
-            $scheduledFor
-        );
-
-        // Dispatch delayed job to send notification when quiet hours end
-        SendNotificationJob::forDeferred($notification->id)
-            ->delay($scheduledFor);
-
-        Log::info('Notification deferred for quiet hours', [
-            'notification_id' => $notification->id,
-            'recipient_id' => $recipientId,
-            'scheduled_for' => $scheduledFor->toDateTimeString(),
-            'channel' => $primaryChannel,
-        ]);
-
-        return [
-            $primaryChannel => 'deferred',
-            'scheduled_for' => $scheduledFor->toDateTimeString(),
-            'quiet_hours_suppressed' => true,
-        ];
-    }
-
-    /**
      * Send a deferred notification (used by scheduler/job).
      */
     public function sendDeferredNotification(Notification $notification): bool
     {
-        if (! $notification->isScheduled() && $notification->scheduled_for?->isPast()) {
-            $recipient = $notification->recipient;
-
-            if (! $recipient) {
-                $notification->markAsFailed('Recipient not found');
-
-                return false;
-            }
-
-            try {
-                $sent = $this->sendViaChannel($notification, $recipient);
-                if ($sent) {
-                    $notification->update(['scheduled_for' => null]);
-                }
-
-                return $sent;
-            } catch (\Exception $e) {
-                $notification->markAsFailed($e->getMessage());
-                $this->channelTransport->logChannelFailure($notification, $e);
-
-                return false;
-            }
-        }
-
-        return false;
+        return $this->deferralHandler->sendDeferred($notification);
     }
 }
