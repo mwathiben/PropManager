@@ -9,6 +9,7 @@ use App\Models\NotificationPreference;
 use App\Models\PaymentConfiguration;
 use App\Models\User;
 use App\Repositories\Contracts\NotificationConfigRepositoryInterface;
+use App\Services\Notification\ChannelPrioritizer;
 use App\Services\Notification\ChannelSelector;
 use App\Services\Notification\ChannelTransport;
 use App\Services\Notification\NotificationDispatcher;
@@ -49,7 +50,8 @@ class NotificationService
         private readonly ChannelSelector $channelSelector,
         private readonly NotificationDispatcher $dispatcher,
         private readonly NotificationRateLimiter $rateLimiter,
-        private readonly ChannelTransport $channelTransport
+        private readonly ChannelTransport $channelTransport,
+        private readonly ChannelPrioritizer $channelPrioritizer
     ) {}
 
     /**
@@ -193,7 +195,7 @@ class NotificationService
         }
 
         $preferences = NotificationPreference::getOrCreate($recipientId, $landlordId);
-        $channels = $this->prioritizeChannels($preferences);
+        $channels = $this->channelPrioritizer->prioritizeChannels($preferences);
         $urgency = Notification::getUrgencyForType($type);
         $results = [];
 
@@ -284,52 +286,12 @@ class NotificationService
     /**
      * Find the first channel that user can receive notifications on.
      */
-    private function findPrimaryChannel(array $channels, NotificationPreference $preferences, string $type): ?string
-    {
-        foreach ($channels as $channel) {
-            if ($preferences->canReceive($type, $channel)) {
-                return $channel;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Get prioritized channel order based on user's WhatsApp availability.
-     * WhatsApp is promoted to first position when user has valid whatsapp_number and whatsapp_enabled.
-     */
-    private function prioritizeChannels(NotificationPreference $preferences): array
-    {
-        $defaultOrder = ['email', 'sms', 'whatsapp', 'push', 'in_app'];
-
-        $hasValidWhatsApp = $preferences->whatsapp_enabled
-            && ! empty($preferences->whatsapp_number)
-            && $preferences->isValidE164WhatsAppNumber();
-
-        if ($hasValidWhatsApp) {
-            return ['whatsapp', 'sms', 'email', 'push', 'in_app'];
-        }
-
-        return $defaultOrder;
-    }
-
     /**
      * Get allowed channels for a given urgency level.
      */
     public function getChannelsForUrgency(string $urgency): array
     {
         return $this->channelSelector->getChannelsForUrgency($urgency);
-    }
-
-    /**
-     * Filter and prioritize channels based on urgency and user preferences.
-     */
-    private function prioritizeChannelsWithUrgency(NotificationPreference $preferences, array $allowedChannels): array
-    {
-        $prioritized = $this->prioritizeChannels($preferences);
-
-        return array_values(array_intersect($prioritized, $allowedChannels));
     }
 
     /**
@@ -882,8 +844,8 @@ class NotificationService
     ): array {
         $recipient = User::findOrFail($recipientId);
         $preferences = NotificationPreference::getOrCreate($recipientId, $landlordId);
-        $prioritizedChannels = $this->prioritizeChannelsWithUrgency($preferences, $allowedChannels);
-        $primaryChannel = $this->findPrimaryChannel($prioritizedChannels, $preferences, $type);
+        $prioritizedChannels = $this->channelPrioritizer->prioritizeChannelsWithUrgency($preferences, $allowedChannels);
+        $primaryChannel = $this->channelPrioritizer->findPrimaryChannel($prioritizedChannels, $preferences, $type);
 
         if (! $primaryChannel) {
             return ['error' => 'no_available_channel'];
