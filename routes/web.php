@@ -1100,13 +1100,13 @@ Route::middleware('auth')->group(function () {
         ->name('notifications.templates.preview');
 
     // Notification Schedules
-    Route::get('/notifications/schedules', [\App\Http\Controllers\NotificationsController::class, 'schedules'])->name('notifications.schedules');
-    Route::post('/notifications/schedules', [\App\Http\Controllers\NotificationsController::class, 'storeSchedule'])->name('notifications.schedules.store');
-    Route::put('/notifications/schedules/{schedule}', [\App\Http\Controllers\NotificationsController::class, 'updateSchedule'])->name('notifications.schedules.update');
-    Route::delete('/notifications/schedules/{schedule}', [\App\Http\Controllers\NotificationsController::class, 'destroySchedule'])->name('notifications.schedules.destroy');
-    Route::post('/notifications/schedules/{schedule}/toggle', [\App\Http\Controllers\NotificationsController::class, 'toggleSchedule'])->name('notifications.schedules.toggle');
+    Route::get('/notifications/schedules', [\App\Http\Controllers\NotificationScheduleController::class, 'schedules'])->name('notifications.schedules');
+    Route::post('/notifications/schedules', [\App\Http\Controllers\NotificationScheduleController::class, 'storeSchedule'])->name('notifications.schedules.store');
+    Route::put('/notifications/schedules/{schedule}', [\App\Http\Controllers\NotificationScheduleController::class, 'updateSchedule'])->name('notifications.schedules.update');
+    Route::delete('/notifications/schedules/{schedule}', [\App\Http\Controllers\NotificationScheduleController::class, 'destroySchedule'])->name('notifications.schedules.destroy');
+    Route::post('/notifications/schedules/{schedule}/toggle', [\App\Http\Controllers\NotificationScheduleController::class, 'toggleSchedule'])->name('notifications.schedules.toggle');
     // RATE-11: run-now triggers an immediate broadcast — sensitive bound.
-    Route::post('/notifications/schedules/{schedule}/run', [\App\Http\Controllers\NotificationsController::class, 'runScheduleNow'])
+    Route::post('/notifications/schedules/{schedule}/run', [\App\Http\Controllers\NotificationScheduleController::class, 'runScheduleNow'])
         ->middleware('throttle:sensitive')
         ->name('notifications.schedules.run');
 

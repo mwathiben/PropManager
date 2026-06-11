@@ -57,7 +57,14 @@ class NotificationScheduleControllerTest extends TestCase
     public function test_landlord_can_run_a_schedule_now(): void
     {
         ['landlord' => $landlord] = $this->createLandlordWithFullSetup();
-        $schedule = NotificationSchedule::factory()->create(['landlord_id' => $landlord->id]);
+        // Pin the type/trigger so runNow() exercises a deterministic path
+        // (the factory randomizes type, which would otherwise flake).
+        $schedule = NotificationSchedule::factory()->create([
+            'landlord_id' => $landlord->id,
+            'type' => 'rent_reminder',
+            'trigger' => 'days_before_due',
+            'days_offset' => 3,
+        ]);
 
         $this->actingAs($landlord)
             ->post(route('notifications.schedules.run', $schedule))
