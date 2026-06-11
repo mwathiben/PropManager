@@ -35,7 +35,11 @@ class ProcessingRestrictionTest extends TestCase
 
     public function test_request_restriction_stamps_the_flag_and_writes_audit(): void
     {
-        $user = User::factory()->create(['role' => 'tenant']);
+        // A real tenant always has a landlord (TenantScope fails closed for
+        // a landlord-less non-landlord), so give them one — otherwise the
+        // AuditLog query below is scoped to nothing.
+        $landlord = User::factory()->create(['role' => 'landlord']);
+        $user = User::factory()->create(['role' => 'tenant', 'landlord_id' => $landlord->id]);
 
         $response = $this
             ->actingAs($user)
@@ -67,10 +71,12 @@ class ProcessingRestrictionTest extends TestCase
 
     public function test_release_restriction_clears_flags_and_writes_audit(): void
     {
+        $landlord = User::factory()->create(['role' => 'landlord']);
         $user = User::factory()->create([
             'restricted_at' => now()->subHour(),
             'restriction_reason' => 'Previous reason',
             'role' => 'tenant',
+            'landlord_id' => $landlord->id,
         ]);
 
         $response = $this
