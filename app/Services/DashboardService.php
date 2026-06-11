@@ -14,6 +14,7 @@ use App\Models\Ticket;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\WaterReading;
+use App\Services\Dashboard\ArrearsAgingCalculator;
 use App\Traits\DatabaseAgnosticQueries;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -22,6 +23,14 @@ use Illuminate\Support\Facades\Log;
 class DashboardService
 {
     use DatabaseAgnosticQueries;
+
+    /**
+     * Default-injected so both container resolution (app(DashboardService::class))
+     * and direct `new DashboardService` (console commands) keep working.
+     */
+    public function __construct(
+        private ArrearsAgingCalculator $arrears = new ArrearsAgingCalculator,
+    ) {}
 
     /**
      * OBS-15: bracket a dashboard section with hrtime() so a slow
@@ -576,67 +585,25 @@ class DashboardService
         ];
     }
 
+    // Arrears-aging math now lives in ArrearsAgingCalculator (M2 step 1);
+    // these remain as the public surface (callers: BenchmarkDatabase,
+    // PaymentReceived, internal getPortfolioOverview) and delegate.
     public function getArrearsInRange(int $minDays, int $maxDays): float
     {
-        return Invoice::whereIn('status', ['overdue', 'partial'])
-            ->where('due_date', '<=', now()->subDays($minDays))
-            ->where('due_date', '>=', now()->subDays($maxDays))
-            ->selectRaw('COALESCE(SUM(total_due - amount_paid), 0) as total')
-            ->value('total') ?? 0;
+        return $this->arrears->inRange($minDays, $maxDays);
     }
 
     public function getArrearsInRangeForLeases(Collection $leaseIds, int $minDays, int $maxDays): float
     {
-        if ($leaseIds->isEmpty()) {
-            return 0;
-        }
-
-        return Invoice::whereIn('lease_id', $leaseIds)
-            ->whereIn('status', ['overdue', 'partial'])
-            ->where('due_date', '<=', now()->subDays($minDays))
-            ->where('due_date', '>=', now()->subDays($maxDays))
-            ->selectRaw('COALESCE(SUM(total_due - amount_paid), 0) as total')
-            ->value('total') ?? 0;
+        return $this->arrears->inRangeForLeases($leaseIds, $minDays, $maxDays);
     }
 
     /**
-     * Compute all four arrears-aging buckets in ONE query instead of four
-     * separate SUMs against the same row set. Saves 3 queries per landlord
-     * dashboard render and per real-time payment broadcast.
-     *
      * @return array{0_30: float, 31_60: float, 61_90: float, 90_plus: float}
      */
     public function getArrearsAgingBucketsForLeases(Collection $leaseIds): array
     {
-        $empty = ['0_30' => 0.0, '31_60' => 0.0, '61_90' => 0.0, '90_plus' => 0.0];
-
-        if ($leaseIds->isEmpty()) {
-            return $empty;
-        }
-
-        $daysDiffSql = $this->getDaysBetweenSql('due_date', now()->format('Y-m-d'));
-
-        $row = Invoice::whereIn('lease_id', $leaseIds)
-            ->whereIn('status', ['overdue', 'partial'])
-            ->whereNotNull('due_date')
-            ->selectRaw("
-                COALESCE(SUM(CASE WHEN {$daysDiffSql} BETWEEN 0 AND 30
-                    THEN total_due - amount_paid ELSE 0 END), 0) as bucket_0_30,
-                COALESCE(SUM(CASE WHEN {$daysDiffSql} BETWEEN 31 AND 60
-                    THEN total_due - amount_paid ELSE 0 END), 0) as bucket_31_60,
-                COALESCE(SUM(CASE WHEN {$daysDiffSql} BETWEEN 61 AND 90
-                    THEN total_due - amount_paid ELSE 0 END), 0) as bucket_61_90,
-                COALESCE(SUM(CASE WHEN {$daysDiffSql} > 90
-                    THEN total_due - amount_paid ELSE 0 END), 0) as bucket_90_plus
-            ")
-            ->first();
-
-        return [
-            '0_30' => round((float) $row->bucket_0_30, 2),
-            '31_60' => round((float) $row->bucket_31_60, 2),
-            '61_90' => round((float) $row->bucket_61_90, 2),
-            '90_plus' => round((float) $row->bucket_90_plus, 2),
-        ];
+        return $this->arrears->agingBucketsForLeases($leaseIds);
     }
 
     protected function getLandlordMonthlyRevenue(int $landlordId): float
