@@ -46,21 +46,29 @@ trait TenantScope
 
                 if ($user->role === 'landlord') {
                     $builder->where('landlord_id', $user->id);
-                } elseif ($user->role === 'caretaker') {
-                    // Caretaker manages landlord's properties, sees landlord's data
-                    $builder->where('landlord_id', $user->landlord_id);
-                } elseif ($user->role === 'tenant') {
-                    // Tenant scoped to their landlord for general queries
-                    // (tenant-specific filtering done at controller level)
-                    $builder->where('landlord_id', $user->landlord_id);
-                } elseif ($user->role === 'water_client') {
-                    // Phase-94: a water client is scoped to their supplier landlord
-                    // (account-specific filtering done at controller level).
-                    $builder->where('landlord_id', $user->landlord_id);
-                } elseif ($user->role === 'owner') {
-                    // Phase-102: an owner is scoped to their PM (landlord_id). The
-                    // per-owner filter (only THEIR properties) is enforced explicitly
-                    // in the owner-portal controllers — TenantScope alone is not enough.
+
+                    return;
+                }
+
+                // Caretaker (manages a landlord's properties), tenant,
+                // water_client (Phase-94) and owner (Phase-102) are all scoped
+                // to their supplier landlord_id. Per-row filtering (only THEIR
+                // unit / account / properties) is enforced explicitly in the
+                // respective controllers — TenantScope alone is not enough for
+                // these roles.
+                if (in_array($user->role, ['caretaker', 'tenant', 'water_client', 'owner'], true)) {
+                    // Fail CLOSED: a non-landlord user whose landlord_id is null
+                    // (a malformed assignment that never set it) must be scoped
+                    // to NOTHING. Without this guard the clause degrades to
+                    // `where landlord_id IS NULL` and would leak every orphaned
+                    // (null-landlord) row. Verified no such users exist in
+                    // production — this is defense-in-depth (audit S1).
+                    if (empty($user->landlord_id)) {
+                        $builder->whereRaw('1 = 0');
+
+                        return;
+                    }
+
                     $builder->where('landlord_id', $user->landlord_id);
                 }
             });

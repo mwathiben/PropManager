@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Security;
 
+use App\Models\AuditLog;
 use App\Models\Building;
 use App\Models\Notification;
 use App\Models\Property;
 use App\Models\Unit;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
@@ -136,5 +138,34 @@ class TenantScopeMassAssignmentTest extends TestCase
         ]);
 
         $this->assertSame($landlord->id, $building->landlord_id);
+    }
+
+    public function test_non_landlord_user_with_null_landlord_id_is_scoped_to_zero_rows(): void
+    {
+        // #given a TenantScope row that genuinely has landlord_id = NULL
+        // (orphaned / legacy data — audit_logs.landlord_id is nullable):
+        DB::table('audit_logs')->insert([
+            'landlord_id' => null,
+            'event_type' => 'test.orphan',
+            'auditable_type' => User::class,
+            'auditable_id' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // #given a non-landlord user whose landlord_id is ALSO null — a
+        // malformed caretaker whose landlord assignment never happened:
+        $caretaker = User::factory()->create(['role' => 'caretaker', 'landlord_id' => null]);
+        $this->actingAs($caretaker);
+
+        // #then the global scope must fail CLOSED (match nothing). The
+        // pre-guard behaviour was `where('landlord_id', null)` ->
+        // `landlord_id IS NULL`, which would LEAK every orphan row to a
+        // landlord-less non-landlord user.
+        $this->assertSame(
+            0,
+            AuditLog::query()->count(),
+            'a non-landlord user with null landlord_id must be scoped to zero rows, not all NULL-landlord rows',
+        );
     }
 }
