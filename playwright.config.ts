@@ -8,6 +8,13 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
     testDir: './tests/a11y',
+    // The RTL visual-snapshot suite lives under tests/a11y/rtl but runs in
+    // its OWN job/config (playwright.rtl.config.ts, project 'chromium-rtl').
+    // Without this ignore the axe job re-runs the RTL spec under project
+    // 'chromium', expecting a parallel *-chromium-linux.png baseline set
+    // that was never seeded — failing the A11Y job on snapshots that are
+    // not its responsibility.
+    testIgnore: '**/rtl/**',
     timeout: 45_000,
     fullyParallel: false,
     retries: 0,
