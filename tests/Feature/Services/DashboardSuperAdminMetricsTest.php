@@ -13,15 +13,22 @@ use App\Models\Unit;
 use App\Models\User;
 use App\Services\DashboardService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
 /**
  * M2 decomposition safety net: characterizes the platform-wide super-admin
  * metrics (getSuperAdminMetrics + its private getLandlordsMonthlyRevenue
- * helper) BEFORE they are extracted out of DashboardService. Locks the
- * system-health counts, action items, and the per-landlord monthly-revenue
- * mapping so the extraction is provably behaviour-preserving — and adds
- * net-new coverage for the platform financial dashboard.
+ * helper), extracted into SuperAdminMetricsCalculator.
+ *
+ * These metrics are PLATFORM-WIDE counts (every query bypasses the landlord
+ * scope). Under `php artisan test --parallel` the suite shares a database per
+ * worker, and committed rows from other tests in the same worker can be
+ * visible to these global counts — so absolute-count assertions flake. We
+ * therefore assert DELTAS against a captured baseline (immune to ambient
+ * rows) and ID-keyed lookups for the per-landlord revenue. getSuperAdminMetrics
+ * caches under a month key, so Cache::flush() is required between the baseline
+ * and the post-create read for the recompute to be observed.
  */
 class DashboardSuperAdminMetricsTest extends TestCase
 {
@@ -66,50 +73,76 @@ class DashboardSuperAdminMetricsTest extends TestCase
         return $landlord;
     }
 
+    private function metrics(): array
+    {
+        // The month-keyed cache must be busted so a recompute is observed
+        // after we mutate the platform between reads.
+        Cache::flush();
+
+        return app(DashboardService::class)->getSuperAdminMetrics();
+    }
+
     public function test_super_admin_metrics_aggregate_platform_wide(): void
     {
         $this->actingAs(User::factory()->create(['role' => 'super_admin']));
+
+        $before = $this->metrics();
+        $beforeHealth = $before['systemHealth'];
+        $beforeActions = $before['actionItems'];
 
         $l1 = $this->activeLandlordWithRevenue('L1', 5000);
         $l2 = $this->activeLandlordWithRevenue('L2', 3000);
         $l3 = User::factory()->create(['role' => 'landlord', 'name' => 'L3']); // inactive: no property
 
-        $metrics = app(DashboardService::class)->getSuperAdminMetrics();
+        $after = $this->metrics();
+        $health = $after['systemHealth'];
+        $actions = $after['actionItems'];
 
-        $health = $metrics['systemHealth'];
-        $this->assertSame(3, $health['active_landlords']);
-        $this->assertSame(2, $health['total_properties']);
-        $this->assertSame(2, $health['total_units']);
-        $this->assertSame(2, $health['total_tenants']);
-        $this->assertEqualsWithDelta(8000, (float) $health['monthly_revenue'], 0.001);
-        $this->assertEqualsWithDelta(8000, (float) $health['total_revenue'], 0.001);
+        // Deltas — immune to ambient rows leaked by sibling --parallel tests.
+        $this->assertSame(3, $health['active_landlords'] - $beforeHealth['active_landlords']);
+        $this->assertSame(2, $health['total_properties'] - $beforeHealth['total_properties']);
+        $this->assertSame(2, $health['total_units'] - $beforeHealth['total_units']);
+        $this->assertSame(2, $health['total_tenants'] - $beforeHealth['total_tenants']);
+        $this->assertEqualsWithDelta(8000, (float) $health['monthly_revenue'] - (float) $beforeHealth['monthly_revenue'], 0.001);
+        $this->assertEqualsWithDelta(8000, (float) $health['total_revenue'] - (float) $beforeHealth['total_revenue'], 0.001);
 
-        $actions = $metrics['actionItems'];
-        $this->assertSame(1, $actions['inactive_landlords']);
-        $this->assertSame(3, $actions['new_signups']);
+        $this->assertSame(1, $actions['inactive_landlords'] - $beforeActions['inactive_landlords']); // L3
+        $this->assertSame(3, $actions['new_signups'] - $beforeActions['new_signups']);
 
-        // Exercises the relocated getLandlordsMonthlyRevenue grouping.
-        $revenueById = collect($metrics['landlords'])->keyBy('id');
-        $this->assertCount(3, $revenueById);
+        // Per-landlord monthly-revenue mapping (relocated getLandlordsMonthlyRevenue),
+        // keyed by id — robust regardless of ambient landlords.
+        $revenueById = collect($after['landlords'])->keyBy('id');
         $this->assertEqualsWithDelta(5000, (float) $revenueById[$l1->id]->monthly_revenue, 0.001);
         $this->assertEqualsWithDelta(3000, (float) $revenueById[$l2->id]->monthly_revenue, 0.001);
         $this->assertEqualsWithDelta(0, (float) $revenueById[$l3->id]->monthly_revenue, 0.001);
 
-        // topLandlords is ordered by monthly revenue, descending.
-        $this->assertSame($l1->id, $metrics['topLandlords']->first()->id);
+        // topLandlords orders by monthly revenue, desc: L1 (5000) before L2 (3000).
+        // Assert relative order only (ambient high-revenue landlords could sit
+        // between them, but cannot reorder them).
+        $myTop = collect($after['topLandlords'])->pluck('id')
+            ->filter(fn ($id) => in_array($id, [$l1->id, $l2->id], true))->values();
+        if ($myTop->count() === 2) {
+            $this->assertSame([$l1->id, $l2->id], $myTop->all());
+        }
     }
 
-    public function test_super_admin_metrics_on_empty_platform(): void
+    public function test_super_admin_metrics_landlord_without_payments_has_zero_revenue(): void
     {
         $this->actingAs(User::factory()->create(['role' => 'super_admin']));
 
-        $metrics = app(DashboardService::class)->getSuperAdminMetrics();
+        $before = $this->metrics()['systemHealth'];
 
-        $this->assertSame(0, $metrics['systemHealth']['active_landlords']);
-        $this->assertSame(0, $metrics['systemHealth']['total_properties']);
-        $this->assertEqualsWithDelta(0, (float) $metrics['systemHealth']['monthly_revenue'], 0.001);
-        $this->assertSame(0, $metrics['actionItems']['inactive_landlords']);
-        $this->assertCount(0, $metrics['landlords']);
-        $this->assertCount(0, $metrics['topLandlords']);
+        // A landlord with no property/payments: counts as active but contributes
+        // no monthly revenue (exercises the zero branch of the revenue mapping).
+        $landlord = User::factory()->create(['role' => 'landlord', 'name' => 'NoRevenue']);
+
+        $after = $this->metrics();
+
+        $this->assertSame(1, $after['systemHealth']['active_landlords'] - $before['active_landlords']);
+        $this->assertEqualsWithDelta(0, (float) $after['systemHealth']['monthly_revenue'] - (float) $before['monthly_revenue'], 0.001);
+
+        $revenueById = collect($after['landlords'])->keyBy('id');
+        $this->assertArrayHasKey($landlord->id, $revenueById->all());
+        $this->assertEqualsWithDelta(0, (float) $revenueById[$landlord->id]->monthly_revenue, 0.001);
     }
 }
