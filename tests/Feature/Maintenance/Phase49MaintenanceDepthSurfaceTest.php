@@ -155,7 +155,16 @@ class Phase49MaintenanceDepthSurfaceTest extends TestCase
         app(VendorAssignmentService::class)->assign($ticket, $vendor, 'urgent');
 
         $this->assertSame($vendor->id, $ticket->fresh()->vendor_id);
-        $this->assertSame('vendor_assigned', $ticket->activities()->latest('id')->first()->action);
+        // Assert the activity was recorded, not that it is the chronologically
+        // last one. assign() updates the vendor_* fields then writes the
+        // vendor_assigned activity, but a later-id activity (e.g. the ticket
+        // created-observer's afterCommit auto-route when maintenance.auto_route_vendors
+        // is enabled) can win latest('id') and flake this assertion. Existence
+        // is the real intent and is order-independent.
+        $this->assertTrue(
+            $ticket->activities()->where('action', 'vendor_assigned')->exists(),
+            'assign() should record a vendor_assigned activity.',
+        );
         Event::assertDispatched(TicketAssignedToVendor::class);
     }
 
