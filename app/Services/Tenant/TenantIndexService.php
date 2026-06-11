@@ -14,7 +14,10 @@ class TenantIndexService
 {
     public function getDataForTab(string $tab, int $landlordId, Request $request): ?LengthAwarePaginator
     {
-        $search = $request->get('search', '');
+        // ConvertEmptyStringsToNull turns an empty `?search=` into null, and
+        // get()'s default only applies to an ABSENT key — so a present-but-null
+        // value bypasses it. Cast to guarantee the `string $search` contract.
+        $search = (string) $request->get('search', '');
 
         return match ($tab) {
             'active' => $this->getActiveTenants($landlordId, $search),
