@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\InvoiceStatus;
 use App\Http\Requests\Notification\SendBulkNotificationRequest;
 use App\Http\Requests\Notification\SendNotificationRequest;
 use App\Http\Requests\Notification\StoreNotificationScheduleRequest;
@@ -26,6 +25,7 @@ use App\Models\Setting;
 use App\Models\User;
 use App\Repositories\Contracts\NotificationConfigRepositoryInterface;
 use App\Repositories\Contracts\NotificationDefaultsRepositoryInterface;
+use App\Services\Notification\BulkReminderDispatcher;
 use App\Services\Notification\NotificationSettingsService;
 use App\Services\Notification\ProviderStatusCollector;
 use App\Services\NotificationService;
@@ -62,6 +62,8 @@ class NotificationsController extends Controller
 
     protected NotificationSettingsService $settingsService;
 
+    protected BulkReminderDispatcher $bulkReminderDispatcher;
+
     public function __construct(
         NotificationService $notificationService,
         TemplateService $templateService,
@@ -70,7 +72,8 @@ class NotificationsController extends Controller
         WhatsAppTemplateService $whatsAppTemplateService,
         NotificationConfigRepositoryInterface $configRepository,
         NotificationDefaultsRepositoryInterface $defaultsRepository,
-        NotificationSettingsService $settingsService
+        NotificationSettingsService $settingsService,
+        BulkReminderDispatcher $bulkReminderDispatcher
     ) {
         $this->notificationService = $notificationService;
         $this->templateService = $templateService;
@@ -80,6 +83,7 @@ class NotificationsController extends Controller
         $this->configRepository = $configRepository;
         $this->defaultsRepository = $defaultsRepository;
         $this->settingsService = $settingsService;
+        $this->bulkReminderDispatcher = $bulkReminderDispatcher;
     }
 
     public function index(Request $request): Response
@@ -221,42 +225,7 @@ class NotificationsController extends Controller
         $user = auth()->user();
         $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
 
-        // PERF-Q2: thin Lease projection + chunked iteration. The reminder is
-        // per-tenant personalized (name + rent_amount), so we keep the per-
-        // lease dispatch but stop hydrating full Lease rows and bound memory
-        // for landlords with thousands of leases.
-        $sent = 0;
-
-        Lease::where('landlord_id', $landlordId)
-            ->where('is_active', true)
-            ->select(['id', 'tenant_id', 'rent_amount', 'landlord_id'])
-            ->with('tenant:id,name')
-            ->chunkById(250, function ($leases) use ($landlordId, &$sent) {
-                foreach ($leases as $lease) {
-                    if (! $lease->tenant) {
-                        continue;
-                    }
-
-                    dispatch(SendNotificationJob::forNew(
-                        $lease->tenant_id,
-                        'rent_reminder',
-                        'Rent Reminder',
-                        sprintf(
-                            "Hello %s,\n\nYour rent of KES %s is due soon.\n\nThank you.",
-                            $lease->tenant->name,
-                            number_format($lease->rent_amount, 2)
-                        ),
-                        [
-                            'lease_id' => $lease->id,
-                            'amount' => $lease->rent_amount,
-                            'due_date' => now()->format('Y-m-d'),
-                        ],
-                        $landlordId
-                    ));
-
-                    $sent++;
-                }
-            });
+        $sent = $this->bulkReminderDispatcher->dispatchRentReminders($landlordId);
 
         return redirect()->back()->with('success', "Rent reminders queued for {$sent} tenants.");
     }
@@ -266,46 +235,7 @@ class NotificationsController extends Controller
         $user = auth()->user();
         $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
 
-        // Get all active leases that have overdue invoices
-        $leases = Lease::where('landlord_id', $landlordId)
-            ->where('is_active', true)
-            ->whereHas('invoices', function ($query) {
-                $query->whereIn('status', [InvoiceStatus::Overdue, InvoiceStatus::Partial, InvoiceStatus::Sent])
-                    ->whereColumn('amount_paid', '<', 'total_due');
-            })
-            ->with(['tenant:id,name', 'invoices' => function ($query) {
-                $query->whereIn('status', [InvoiceStatus::Overdue, InvoiceStatus::Partial, InvoiceStatus::Sent])
-                    ->whereColumn('amount_paid', '<', 'total_due');
-            }])
-            ->get();
-
-        $sent = 0;
-
-        foreach ($leases as $lease) {
-            if ($lease->tenant) {
-                $arrearsAmount = $lease->invoices->sum(fn ($inv) => $inv->total_due - $inv->amount_paid);
-
-                if ($arrearsAmount > 0) {
-                    dispatch(SendNotificationJob::forNew(
-                        $lease->tenant_id,
-                        'arrears_notice',
-                        'Payment Overdue - Arrears Notice',
-                        sprintf(
-                            "Hello %s,\n\nYou have an outstanding balance of KES %s. Please clear your arrears as soon as possible.\n\nThank you.",
-                            $lease->tenant->name,
-                            number_format($arrearsAmount, 2)
-                        ),
-                        [
-                            'lease_id' => $lease->id,
-                            'arrears_amount' => $arrearsAmount,
-                        ],
-                        $landlordId
-                    ));
-
-                    $sent++;
-                }
-            }
-        }
+        $sent = $this->bulkReminderDispatcher->dispatchArrearsNotices($landlordId);
 
         return redirect()->back()->with('success', "Arrears notices queued for {$sent} tenants.");
     }
