@@ -12,19 +12,15 @@ use App\Models\User;
 use App\Repositories\Contracts\NotificationConfigRepositoryInterface;
 use App\Services\Notification\ChannelSelector;
 use App\Services\Notification\NotificationDispatcher;
+use App\Services\Notification\NotificationRateLimiter;
 use Carbon\Carbon;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\RateLimiter;
 
 class NotificationService
 {
-    private const RATE_LIMIT_PER_HOUR = 100;
-
-    private const RATE_LIMIT_PER_DAY = 1000;
-
     public const URGENCY_CHANNELS = [
         Notification::URGENCY_CRITICAL => [
             Notification::CHANNEL_WHATSAPP,
@@ -54,7 +50,8 @@ class NotificationService
         private readonly NotificationConfigRepositoryInterface $configRepository,
         private readonly QuietHoursService $quietHoursService,
         private readonly ChannelSelector $channelSelector,
-        private readonly NotificationDispatcher $dispatcher
+        private readonly NotificationDispatcher $dispatcher,
+        private readonly NotificationRateLimiter $rateLimiter
     ) {}
 
     /**
@@ -97,7 +94,7 @@ class NotificationService
             return ['error' => 'no_available_channel'];
         }
 
-        if (! $this->checkRateLimits($landlordId, $primaryChannel)) {
+        if (! $this->rateLimiter->check($landlordId, $primaryChannel)) {
             Log::warning('Notification rate limited', compact('landlordId', 'primaryChannel'));
 
             return [$primaryChannel => 'rate_limited'];
@@ -227,7 +224,7 @@ class NotificationService
 
         foreach ($channels as $channel) {
             if ($preferences->canReceive($type, $channel)) {
-                if (! $this->checkRateLimits($landlordId, $channel)) {
+                if (! $this->rateLimiter->check($landlordId, $channel)) {
                     $results[$channel] = 'rate_limited';
 
                     continue;
@@ -278,7 +275,7 @@ class NotificationService
 
         foreach ($allowedChannels as $channel) {
             if ($preferences->canReceive($type, $channel)) {
-                if (! $this->checkRateLimits($landlordId, $channel)) {
+                if (! $this->rateLimiter->check($landlordId, $channel)) {
                     $results[$channel] = 'rate_limited';
 
                     continue;
@@ -1144,79 +1141,21 @@ class NotificationService
     }
 
     /**
-     * Check rate limits for notification channel
-     */
-    private function checkRateLimits(int $landlordId, string $channel): bool
-    {
-        if ($channel === 'in_app') {
-            return true;
-        }
-
-        $hourlyKey = "notifications:{$landlordId}:{$channel}:hourly";
-        $dailyKey = "notifications:{$landlordId}:{$channel}:daily";
-
-        $rateLimits = $this->configRepository->getRateLimits($landlordId);
-        $hourlyLimit = $rateLimits['hourly'];
-        $dailyLimit = $rateLimits['daily'];
-
-        $hourlyAttempts = RateLimiter::attempt(
-            $hourlyKey,
-            $hourlyLimit,
-            fn () => true,
-            3600
-        );
-
-        if (! $hourlyAttempts) {
-            return false;
-        }
-
-        $dailyAttempts = RateLimiter::attempt(
-            $dailyKey,
-            $dailyLimit,
-            fn () => true,
-            86400
-        );
-
-        return $dailyAttempts;
-    }
-
-    /**
-     * Get remaining rate limit for a channel
+     * Get remaining rate limit for a channel.
+     *
+     * @return array{hourly: array{remaining: int, limit: int, resets_at: int}, daily: array{remaining: int, limit: int, resets_at: int}}
      */
     public function getRateLimitRemaining(int $landlordId, string $channel): array
     {
-        $hourlyKey = "notifications:{$landlordId}:{$channel}:hourly";
-        $dailyKey = "notifications:{$landlordId}:{$channel}:daily";
-
-        $rateLimits = $this->configRepository->getRateLimits($landlordId);
-        $hourlyLimit = $rateLimits['hourly'];
-        $dailyLimit = $rateLimits['daily'];
-
-        return [
-            'hourly' => [
-                'remaining' => max(0, $hourlyLimit - RateLimiter::attempts($hourlyKey)),
-                'limit' => $hourlyLimit,
-                'resets_at' => RateLimiter::availableAt($hourlyKey),
-            ],
-            'daily' => [
-                'remaining' => max(0, $dailyLimit - RateLimiter::attempts($dailyKey)),
-                'limit' => $dailyLimit,
-                'resets_at' => RateLimiter::availableAt($dailyKey),
-            ],
-        ];
+        return $this->rateLimiter->remaining($landlordId, $channel);
     }
 
     /**
-     * Reset rate limits for a landlord
+     * Reset rate limits for a landlord.
      */
     public function resetRateLimits(int $landlordId, ?string $channel = null): void
     {
-        $channels = $channel ? [$channel] : ['email', 'sms', 'whatsapp', 'push'];
-
-        foreach ($channels as $ch) {
-            RateLimiter::clear("notifications:{$landlordId}:{$ch}:hourly");
-            RateLimiter::clear("notifications:{$landlordId}:{$ch}:daily");
-        }
+        $this->rateLimiter->reset($landlordId, $channel);
     }
 
     /**
