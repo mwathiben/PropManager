@@ -32,6 +32,38 @@ use Illuminate\Support\Facades\Auth;
 trait TenantScope
 {
     /**
+     * When true, the creating() hook will NOT overwrite an explicitly-set
+     * landlord_id on this model class. Trait statics are per-using-class, so
+     * this flag is scoped to the model it's toggled on. Always flipped via
+     * withoutLandlordOverride(), which restores the previous value in a
+     * finally block.
+     */
+    protected static bool $landlordOverrideDisabled = false;
+
+    /**
+     * Run $callback with the always-overwrite landlord_id guard disabled, for
+     * the rare legitimate cross-landlord server write — e.g. recording an
+     * onboarding milestone for landlord A while a tenant of A (or no one) is
+     * authenticated. The guard is re-armed even if $callback throws.
+     *
+     * @template TReturn
+     *
+     * @param  callable(): TReturn  $callback
+     * @return TReturn
+     */
+    public static function withoutLandlordOverride(callable $callback): mixed
+    {
+        $previous = static::$landlordOverrideDisabled;
+        static::$landlordOverrideDisabled = true;
+
+        try {
+            return $callback();
+        } finally {
+            static::$landlordOverrideDisabled = $previous;
+        }
+    }
+
+    /**
      * Attach global landlord scope on model boot.
      * Skipped for Super Admins who need cross-tenant visibility.
      */
@@ -84,17 +116,31 @@ trait TenantScope
         parent::boot();
 
         static::creating(function ($model) {
-            // Auto-populate landlord_id ONLY when the caller didn't set it. Overwriting an
-            // explicitly-set value silently mis-attributes legitimate cross-landlord writes
-            // (e.g. OnboardingMilestoneRecorder records a milestone for a specific landlord
-            // while a different landlord is authed) — and no FormRequest accepts landlord_id,
-            // so a request can never inject one here; the value is always set by server code.
-            if (Auth::check() && empty($model->landlord_id)) {
-                $user = Auth::user();
-
-                // Landlord owns their data; caretaker's data belongs to their boss
-                $model->landlord_id = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+            // Defense-in-depth (audit M1 / MASS-4..6): landlord_id sits in
+            // $fillable on most tenant-scoped models, so a mass-assignment
+            // vector could otherwise smuggle a foreign landlord_id into
+            // ::create(). ALWAYS overwrite it with the authenticated user's
+            // landlord context so an attacker-supplied value can never win.
+            //
+            // Three carve-outs leave an explicit landlord_id intact:
+            //   - no authenticated user (queue jobs, console commands, the
+            //     registration flow) — trusted server code owns the value;
+            //   - super admins — trusted cross-tenant writers, mirroring the
+            //     bootTenantScope() global-scope bypass above;
+            //   - withoutLandlordOverride() — explicit opt-out for the rare
+            //     legitimate cross-landlord write (OnboardingMilestoneRecorder).
+            if (! Auth::check() || static::$landlordOverrideDisabled) {
+                return;
             }
+
+            $user = Auth::user();
+
+            if ($user->isSuperAdmin()) {
+                return;
+            }
+
+            // Landlord owns their data; caretaker's data belongs to their boss
+            $model->landlord_id = $user->role === 'landlord' ? $user->id : $user->landlord_id;
         });
     }
 }

@@ -7,9 +7,11 @@ namespace Tests\Feature\Security;
 use App\Models\AuditLog;
 use App\Models\Building;
 use App\Models\Notification;
+use App\Models\OnboardingMilestone;
 use App\Models\Property;
 use App\Models\Unit;
 use App\Models\User;
+use App\Services\Onboarding\OnboardingMilestoneRecorder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -36,17 +38,6 @@ class TenantScopeMassAssignmentTest extends TestCase
 
     public function test_building_create_landlord_id_is_overridden_by_tenant_scope(): void
     {
-        // TODO(SECURITY/TENANT-SCOPE-HARDEN): the TenantScope trait was
-        // changed (TenantScope.php:79-83) to auto-fill landlord_id ONLY
-        // when empty, deliberately allowing legitimate cross-landlord
-        // server writes (OnboardingMilestoneRecorder etc.). Defense-in-
-        // depth requires restoring the always-overwrite behaviour PLUS
-        // an explicit `withoutLandlordOverride()` escape hatch. See
-        // docs/decisions/2026-05-28-AUTHZ-DEBT.md for the larger AUTHZ
-        // roadmap; a dedicated TENANT-SCOPE-HARDEN PR will resolve this
-        // properly. Skipped here to unblock chore/agent-infra-rag.
-        $this->markTestSkipped('TENANT-SCOPE-HARDEN: design decision pending — see TODO above.');
-
         $landlordA = User::factory()->create(['role' => 'landlord']);
         $landlordB = User::factory()->create(['role' => 'landlord']);
         $propertyA = Property::factory()->create(['landlord_id' => $landlordA->id]);
@@ -66,10 +57,6 @@ class TenantScopeMassAssignmentTest extends TestCase
 
     public function test_unit_create_landlord_id_is_overridden_by_tenant_scope(): void
     {
-        // TODO(SECURITY/TENANT-SCOPE-HARDEN): see same TODO on the
-        // building_create test above. Skipped pending design decision.
-        $this->markTestSkipped('TENANT-SCOPE-HARDEN: design decision pending.');
-
         $landlordA = User::factory()->create(['role' => 'landlord']);
         $landlordB = User::factory()->create(['role' => 'landlord']);
         $building = Building::factory()->create(['landlord_id' => $landlordA->id]);
@@ -89,10 +76,6 @@ class TenantScopeMassAssignmentTest extends TestCase
 
     public function test_notification_create_landlord_id_is_overridden_by_tenant_scope(): void
     {
-        // TODO(SECURITY/TENANT-SCOPE-HARDEN): see same TODO on the
-        // building_create test above. Skipped pending design decision.
-        $this->markTestSkipped('TENANT-SCOPE-HARDEN: design decision pending.');
-
         $landlordA = User::factory()->create(['role' => 'landlord']);
         $landlordB = User::factory()->create(['role' => 'landlord']);
         $tenant = User::factory()->create([
@@ -166,6 +149,107 @@ class TenantScopeMassAssignmentTest extends TestCase
             0,
             AuditLog::query()->count(),
             'a non-landlord user with null landlord_id must be scoped to zero rows, not all NULL-landlord rows',
+        );
+    }
+
+    public function test_without_landlord_override_preserves_explicit_landlord_id(): void
+    {
+        // The escape hatch: a legitimate cross-landlord server write inside
+        // withoutLandlordOverride() must keep the explicit landlord_id even
+        // though a DIFFERENT landlord is authenticated.
+        $landlordA = User::factory()->create(['role' => 'landlord']);
+        $landlordB = User::factory()->create(['role' => 'landlord']);
+        $propertyB = Property::factory()->create(['landlord_id' => $landlordB->id]);
+
+        $this->actingAs($landlordA);
+
+        $building = Building::withoutLandlordOverride(fn () => Building::create([
+            'property_id' => $propertyB->id,
+            'landlord_id' => $landlordB->id, // legitimate cross-landlord write
+            'name' => 'Block B',
+            'is_wing' => false,
+            'unit_prefix' => 'B',
+        ]));
+
+        $this->assertSame(
+            $landlordB->id,
+            $building->landlord_id,
+            'withoutLandlordOverride() must let an explicit landlord_id survive the creating() guard',
+        );
+    }
+
+    public function test_without_landlord_override_flag_is_restored_after_call(): void
+    {
+        // The flag must reset even across calls so a later ::create() is
+        // guarded again — guarantee provided by the finally block.
+        $landlordA = User::factory()->create(['role' => 'landlord']);
+        $landlordB = User::factory()->create(['role' => 'landlord']);
+        $propertyA = Property::factory()->create(['landlord_id' => $landlordA->id]);
+
+        $this->actingAs($landlordA);
+
+        Building::withoutLandlordOverride(fn () => null);
+
+        $building = Building::create([
+            'property_id' => $propertyA->id,
+            'landlord_id' => $landlordB->id, // attacker-supplied — must be overwritten
+            'name' => 'Block C',
+            'is_wing' => false,
+            'unit_prefix' => 'C',
+        ]);
+
+        $this->assertSame(
+            $landlordA->id,
+            $building->landlord_id,
+            'the override guard must be re-armed after withoutLandlordOverride() returns',
+        );
+    }
+
+    public function test_super_admin_create_keeps_explicit_landlord_id(): void
+    {
+        // Super admins are trusted cross-tenant writers (they bypass the
+        // global read scope too), so an explicit landlord_id they set must
+        // NOT be overwritten.
+        $superAdmin = User::factory()->create(['role' => 'super_admin']);
+        $landlordA = User::factory()->create(['role' => 'landlord']);
+        $propertyA = Property::factory()->create(['landlord_id' => $landlordA->id]);
+
+        $this->actingAs($superAdmin);
+
+        $building = Building::create([
+            'property_id' => $propertyA->id,
+            'landlord_id' => $landlordA->id,
+            'name' => 'Admin-created block',
+            'is_wing' => false,
+            'unit_prefix' => 'D',
+        ]);
+
+        $this->assertSame(
+            $landlordA->id,
+            $building->landlord_id,
+            'a super admin write must keep its explicit landlord_id (no overwrite to the admin\'s null landlord)',
+        );
+    }
+
+    public function test_onboarding_milestone_recorder_writes_for_target_landlord_under_foreign_auth(): void
+    {
+        // The flagged legitimate cross-landlord writer: the recorder stamps
+        // a milestone for landlord A while a DIFFERENT landlord (B) is the
+        // authenticated user. Without the escape hatch, always-overwrite
+        // would mis-attribute the milestone to landlord B.
+        $landlordA = User::factory()->create(['role' => 'landlord']);
+        $landlordB = User::factory()->create(['role' => 'landlord']);
+
+        $this->actingAs($landlordB);
+
+        $milestone = app(OnboardingMilestoneRecorder::class)
+            ->record($landlordA->id, OnboardingMilestone::SIGNED_UP);
+
+        $this->assertNotNull($milestone);
+        $this->assertSame(
+            $landlordA->id,
+            $milestone->landlord_id,
+            'OnboardingMilestoneRecorder must stamp the target landlord_id, not the authenticated landlord',
         );
     }
 }
