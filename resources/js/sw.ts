@@ -338,9 +338,12 @@ registerOfflinePost('pm-offline-messages', (url) =>
 // Backend infra unchanged.
 // =========================================================================
 
-self.addEventListener('install', () => {
-    self.skipWaiting();
-});
+// Prompt-to-update: an updated SW intentionally does NOT skipWaiting on
+// install. It stays in the 'waiting' state so the host page can surface a
+// "new version available — refresh" prompt (see app.js). It activates only
+// when the page posts { type: 'SKIP_WAITING' } (handled in the 'message'
+// listener below), i.e. when the user accepts the update. The first-ever
+// install has no predecessor to wait behind, so it activates immediately.
 
 // clientsClaim() registers its OWN 'activate' listener internally, so it
 // must run at module top level. Calling it inside an 'activate' handler
