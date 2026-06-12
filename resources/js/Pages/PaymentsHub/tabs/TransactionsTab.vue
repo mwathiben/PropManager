@@ -4,6 +4,7 @@ import { router, Link } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables/useFormatters';
 import { useI18n } from '@/composables/useI18n';
 import EmptyState from '@/Components/EmptyState.vue';
+import PaginatorLink from '@/Components/PaginatorLink.vue';
 import {
     MagnifyingGlassIcon,
     FunnelIcon,
@@ -136,6 +137,11 @@ const methodBadgeClass = (method: string): string => {
 const methodLabel = (method: string): string => {
     return props.paymentMethods.find(m => m.value === method)?.label ?? method;
 };
+
+const filterToggleBtnBase = 'inline-flex items-center gap-2 px-3 py-2 text-sm rounded-lg border transition-colors';
+const filterToggleBtnInactive = 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700';
+const paginationBtnBase = 'px-3 py-1.5 text-sm rounded-lg border transition-colors';
+const paginationBtnInactive = 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700';
 </script>
 
 <template>
@@ -158,10 +164,10 @@ const methodLabel = (method: string): string => {
             <button
                 type="button"
                 :class="[
-                    'inline-flex items-center gap-2 px-3 py-2 text-sm rounded-lg border transition-colors',
+                    filterToggleBtnBase,
                     showFilters
                         ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-900/30 dark:border-indigo-700 dark:text-indigo-300'
-                        : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700',
+                        : filterToggleBtnInactive,
                 ]"
                 @click="showFilters = !showFilters"
             >
@@ -330,18 +336,20 @@ const methodLabel = (method: string): string => {
                         v-if="link.url"
                         :href="link.url"
                         :class="[
-                            'px-3 py-1.5 text-sm rounded-lg border transition-colors',
+                            paginationBtnBase,
                             link.active
                                 ? 'bg-indigo-600 border-indigo-600 text-white'
-                                : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700',
+                                : paginationBtnInactive,
                         ]"
-                        v-html="link.label"
-                    />
+                    >
+                        <PaginatorLink :label="link.label" />
+                    </Link>
                     <span
                         v-else
                         class="px-3 py-1.5 text-sm text-gray-400 dark:text-gray-600"
-                        v-html="link.label"
-                    />
+                    >
+                        <PaginatorLink :label="link.label" />
+                    </span>
                 </template>
             </div>
         </div>

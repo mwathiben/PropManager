@@ -35,6 +35,8 @@ const props = withDefaults(defineProps<Props>(), {});
 
 const { t } = useI18n();
 
+const statusBadgeBase = 'inline-block px-2.5 py-0.5 rounded-full text-xs font-medium';
+
 const prefsForm = useForm({
     default_payment_terms_days: props.preferences?.default_payment_terms_days ?? 7,
     auto_send_invoices: props.preferences?.auto_send_invoices ?? true,
@@ -191,7 +193,7 @@ const frequencyOptions = [
                         </div>
                         <span
                             :class="[
-                                'inline-block px-2.5 py-0.5 rounded-full text-xs font-medium',
+                                statusBadgeBase,
                                 invoiceSettings.include_water_charges
                                     ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
                                     : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
@@ -207,7 +209,7 @@ const frequencyOptions = [
                         </div>
                         <span
                             :class="[
-                                'inline-block px-2.5 py-0.5 rounded-full text-xs font-medium',
+                                statusBadgeBase,
                                 invoiceSettings.include_arrears
                                     ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
                                     : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
@@ -223,7 +225,7 @@ const frequencyOptions = [
                         </div>
                         <span
                             :class="[
-                                'inline-block px-2.5 py-0.5 rounded-full text-xs font-medium',
+                                statusBadgeBase,
                                 invoiceSettings.auto_generate_monthly
                                     ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
                                     : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',

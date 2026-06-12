@@ -104,6 +104,11 @@ const methodColor = (method: string): string => methodColors[method] ?? 'bg-indi
 const breakdownTotal = computed(() => {
     return props.paymentMethodBreakdown.reduce((sum, item) => sum + item.total, 0) || 1;
 });
+
+const periodBtnBase = 'px-4 py-2 text-sm font-medium rounded-lg border transition-colors';
+const periodBtnInactive = 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700';
+const trendBadgeBase = 'flex items-center gap-1 px-2.5 py-1 rounded-full text-sm font-medium';
+const rankCircleBase = 'w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0';
 </script>
 
 <template>
@@ -115,10 +120,10 @@ const breakdownTotal = computed(() => {
                 :key="p.value"
                 type="button"
                 :class="[
-                    'px-4 py-2 text-sm font-medium rounded-lg border transition-colors',
+                    periodBtnBase,
                     period === p.value
                         ? 'bg-indigo-600 border-indigo-600 text-white'
-                        : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700',
+                        : periodBtnInactive,
                 ]"
                 @click="changePeriod(p.value)"
             >
@@ -143,7 +148,7 @@ const breakdownTotal = computed(() => {
                     <div
                         v-if="revenueData"
                         :class="[
-                            'flex items-center gap-1 px-2.5 py-1 rounded-full text-sm font-medium',
+                            trendBadgeBase,
                             revenueData.trend_direction === 'up'
                                 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
                                 : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
@@ -171,7 +176,7 @@ const breakdownTotal = computed(() => {
                     <div
                         v-if="collectionRates"
                         :class="[
-                            'flex items-center gap-1 px-2.5 py-1 rounded-full text-sm font-medium',
+                            trendBadgeBase,
                             collectionRates.trend === 'up'
                                 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
                                 : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
@@ -267,7 +272,7 @@ const breakdownTotal = computed(() => {
                     >
                         <div
                             :class="[
-                                'w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0',
+                                rankCircleBase,
                                 index === 0
                                     ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
                                     : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
