@@ -195,4 +195,82 @@ class BuildingControllerTest extends TestCase
         $this->assertEquals(-1.2921, $building->coordinates['lat']);
         $this->assertEquals(36.8219, $building->coordinates['lng']);
     }
+
+    public function test_landlord_can_bulk_update_unit_rent(): void
+    {
+        $building = $this->setupData['building'];
+        $unitIds = $building->units()->pluck('id')->all();
+
+        $response = $this->actingAs($this->landlord)
+            ->post(route('buildings.update-units', $building), [
+                'selectedUnitIds' => $unitIds,
+                'action' => 'update_rent',
+                'value' => '30000',
+            ]);
+
+        $response->assertSessionHasNoErrors();
+        $response->assertRedirect();
+
+        foreach ($unitIds as $id) {
+            $this->assertDatabaseHas('units', ['id' => $id, 'target_rent' => 30000]);
+        }
+    }
+
+    public function test_landlord_can_bulk_update_unit_type(): void
+    {
+        $building = $this->setupData['building'];
+        $unitIds = $building->units()->pluck('id')->all();
+
+        $response = $this->actingAs($this->landlord)
+            ->post(route('buildings.update-units', $building), [
+                'selectedUnitIds' => $unitIds,
+                'action' => 'update_type',
+                'value' => 'commercial',
+            ]);
+
+        $response->assertSessionHasNoErrors();
+        $response->assertRedirect();
+        $this->assertDatabaseHas('units', ['id' => $unitIds[0], 'unit_type' => 'commercial']);
+    }
+
+    public function test_landlord_can_add_unit(): void
+    {
+        $building = $this->setupData['building'];
+
+        $response = $this->actingAs($this->landlord)
+            ->post(route('buildings.add-unit', $building), [
+                'floor_number' => 3,
+                'unit_number' => 'Z301',
+                'target_rent' => 25000,
+                'unit_type' => 'residential',
+            ]);
+
+        $response->assertSessionHasNoErrors();
+        $response->assertRedirect();
+        $this->assertDatabaseHas('units', [
+            'building_id' => $building->id,
+            'unit_number' => 'Z301',
+            'target_rent' => 25000,
+            'landlord_id' => $this->landlord->id,
+        ]);
+    }
+
+    public function test_added_unit_above_total_floors_raises_building_total_floors(): void
+    {
+        $building = $this->setupData['building'];
+        $newFloor = $building->total_floors + 5;
+
+        $response = $this->actingAs($this->landlord)
+            ->post(route('buildings.add-unit', $building), [
+                'floor_number' => $newFloor,
+                'unit_number' => 'Z'.($newFloor * 100 + 1),
+                'target_rent' => 25000,
+                'unit_type' => 'residential',
+            ]);
+
+        $response->assertSessionHasNoErrors();
+        $response->assertRedirect();
+        $building->refresh();
+        $this->assertSame($newFloor, $building->total_floors);
+    }
 }
