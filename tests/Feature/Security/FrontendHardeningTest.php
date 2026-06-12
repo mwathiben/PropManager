@@ -62,6 +62,25 @@ class FrontendHardeningTest extends TestCase
         $this->assertStringContainsString("img-src 'self' data: blob:", $csp);
     }
 
+    public function test_csp_allowlists_building_map_and_webfont_origins(): void
+    {
+        // The BuildingMap (Leaflet) loads OpenStreetMap raster tiles +
+        // cdnjs marker icons as <img>, geocodes via Nominatim (fetch), and
+        // the service worker fetches the Figtree webfont CSS. Each needs an
+        // explicit CSP origin or the Architect's Location tab / app font
+        // silently break. Regression guard for those exact origins.
+        $csp = $this->get('/')->headers->get('Content-Security-Policy') ?? '';
+
+        $directives = explode('; ', $csp);
+        $imgSrc = array_values(array_filter($directives, fn ($d) => str_starts_with($d, 'img-src ')))[0] ?? '';
+        $this->assertStringContainsString('https://*.tile.openstreetmap.org', $imgSrc);
+        $this->assertStringContainsString('https://cdnjs.cloudflare.com', $imgSrc);
+
+        $connectSrc = array_values(array_filter($directives, fn ($d) => str_starts_with($d, 'connect-src ')))[0] ?? '';
+        $this->assertStringContainsString('https://nominatim.openstreetmap.org', $connectSrc);
+        $this->assertStringContainsString('https://fonts.bunny.net', $connectSrc);
+    }
+
     public function test_csp_report_endpoint_records_security_log(): void
     {
         $payload = [
