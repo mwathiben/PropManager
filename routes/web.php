@@ -1091,11 +1091,11 @@ Route::middleware('auth')->group(function () {
     Route::delete('/notifications/{notification}', [\App\Http\Controllers\NotificationsController::class, 'destroy'])->name('notifications.destroy');
 
     // Notification Templates
-    Route::get('/notifications/templates', [\App\Http\Controllers\NotificationsController::class, 'templates'])->name('notifications.templates');
-    Route::post('/notifications/templates', [\App\Http\Controllers\NotificationsController::class, 'storeTemplate'])->name('notifications.templates.store');
-    Route::put('/notifications/templates/{template}', [\App\Http\Controllers\NotificationsController::class, 'updateTemplate'])->name('notifications.templates.update');
-    Route::delete('/notifications/templates/{template}', [\App\Http\Controllers\NotificationsController::class, 'destroyTemplate'])->name('notifications.templates.destroy');
-    Route::post('/notifications/templates/{template}/preview', [\App\Http\Controllers\NotificationsController::class, 'previewTemplate'])
+    Route::get('/notifications/templates', [\App\Http\Controllers\NotificationTemplateController::class, 'templates'])->name('notifications.templates');
+    Route::post('/notifications/templates', [\App\Http\Controllers\NotificationTemplateController::class, 'storeTemplate'])->name('notifications.templates.store');
+    Route::put('/notifications/templates/{template}', [\App\Http\Controllers\NotificationTemplateController::class, 'updateTemplate'])->name('notifications.templates.update');
+    Route::delete('/notifications/templates/{template}', [\App\Http\Controllers\NotificationTemplateController::class, 'destroyTemplate'])->name('notifications.templates.destroy');
+    Route::post('/notifications/templates/{template}/preview', [\App\Http\Controllers\NotificationTemplateController::class, 'previewTemplate'])
         ->middleware('throttle:provider-test')
         ->name('notifications.templates.preview');
 
