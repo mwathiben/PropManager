@@ -46,15 +46,21 @@ class OnboardingMilestoneRecorder
         // UniqueConstraintViolationException. Catch + reload makes
         // the recorder truly idempotent.
         try {
-            $row = OnboardingMilestone::query()->withoutGlobalScopes()->firstOrCreate(
-                [
-                    'landlord_id' => $landlordId,
-                    'milestone' => $milestone,
-                ],
-                [
-                    'reached_at' => now(),
-                    'metadata' => $metadata,
-                ],
+            // Legitimate cross-landlord write: this records a milestone for
+            // $landlordId regardless of who is authenticated (observers fire
+            // under a tenant's session, a sibling landlord's, or none), so
+            // opt out of TenantScope's always-overwrite landlord_id guard.
+            $row = OnboardingMilestone::withoutLandlordOverride(
+                fn () => OnboardingMilestone::query()->withoutGlobalScopes()->firstOrCreate(
+                    [
+                        'landlord_id' => $landlordId,
+                        'milestone' => $milestone,
+                    ],
+                    [
+                        'reached_at' => now(),
+                        'metadata' => $metadata,
+                    ],
+                ),
             );
         } catch (\Illuminate\Database\UniqueConstraintViolationException) {
             $row = OnboardingMilestone::query()
