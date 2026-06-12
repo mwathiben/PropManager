@@ -111,7 +111,7 @@ class Phase46OnboardingCanonicalSurfaceTest extends TestCase
 
     public function test_onboarding_routes_carry_verified_middleware(): void
     {
-        $src = file_get_contents(base_path('routes/web.php'));
+        $src = file_get_contents(base_path('routes/web/onboarding.php'));
         $this->assertMatchesRegularExpression(
             "/Route::prefix\\('onboarding'\\)->middleware\\('verified'\\)/",
             $src,
@@ -150,7 +150,7 @@ class Phase46OnboardingCanonicalSurfaceTest extends TestCase
 
     public function test_resume_route_registered_with_signed_middleware(): void
     {
-        $src = file_get_contents(base_path('routes/web.php'));
+        $src = file_get_contents(base_path('routes/web/onboarding.php'));
         $this->assertStringContainsString(
             "Route::get('/onboarding/resume/{session}'",
             $src,

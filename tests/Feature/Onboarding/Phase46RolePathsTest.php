@@ -117,7 +117,8 @@ class Phase46RolePathsTest extends TestCase
         // must include 'verified' (Phase-46 ROLE-PATHS-2). A runtime
         // assertion would couple to OnboardingController::index's own
         // redirect behaviour (which has its own routing logic).
-        $src = file_get_contents(base_path('routes/web.php'));
+        // M2: the onboarding routes were split into routes/web/onboarding.php.
+        $src = file_get_contents(base_path('routes/web/onboarding.php'));
 
         // The group line must include 'verified' middleware between
         // prefix() and name().
