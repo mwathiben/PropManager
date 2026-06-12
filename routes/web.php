@@ -1117,17 +1117,17 @@ Route::middleware('auth')->group(function () {
         ->middleware('throttle:provider-test')
         ->name('notifications.settings.test');
     Route::post('/notifications/settings/complete-setup', [\App\Http\Controllers\NotificationsController::class, 'completeSetup'])->name('notifications.settings.complete-setup');
-    Route::post('/notifications/push/generate-keys', [\App\Http\Controllers\NotificationsController::class, 'generateVapidKeys'])->name('notifications.push.generate-keys');
+    Route::post('/notifications/push/generate-keys', [\App\Http\Controllers\NotificationPushController::class, 'generateVapidKeys'])->name('notifications.push.generate-keys');
     Route::get('/notifications/settings/status', [\App\Http\Controllers\NotificationsController::class, 'checkSetupStatus'])->name('notifications.settings.status');
-    Route::post('/notifications/settings/vapid', [\App\Http\Controllers\NotificationsController::class, 'generateVapidKeys'])->name('notifications.settings.vapid');
+    Route::post('/notifications/settings/vapid', [\App\Http\Controllers\NotificationPushController::class, 'generateVapidKeys'])->name('notifications.settings.vapid');
     Route::get('/notifications/settings/global', [\App\Http\Controllers\NotificationsController::class, 'getGlobalPreferences'])->name('notifications.settings.global.get');
     Route::post('/notifications/settings/global', [\App\Http\Controllers\NotificationsController::class, 'updateGlobalPreferences'])->name('notifications.settings.global');
     Route::post('/notifications/settings/whatsapp-templates', [\App\Http\Controllers\NotificationsController::class, 'updateWhatsAppTemplates'])->name('notifications.settings.whatsapp-templates');
 
     // Push Notifications
-    Route::post('/notifications/push/subscribe', [\App\Http\Controllers\NotificationsController::class, 'subscribePush'])->name('notifications.push.subscribe');
-    Route::post('/notifications/push/unsubscribe', [\App\Http\Controllers\NotificationsController::class, 'unsubscribePush'])->name('notifications.push.unsubscribe');
-    Route::get('/notifications/push/key', [\App\Http\Controllers\NotificationsController::class, 'getVapidPublicKey'])->name('notifications.push.key');
+    Route::post('/notifications/push/subscribe', [\App\Http\Controllers\NotificationPushController::class, 'subscribePush'])->name('notifications.push.subscribe');
+    Route::post('/notifications/push/unsubscribe', [\App\Http\Controllers\NotificationPushController::class, 'unsubscribePush'])->name('notifications.push.unsubscribe');
+    Route::get('/notifications/push/key', [\App\Http\Controllers\NotificationPushController::class, 'getVapidPublicKey'])->name('notifications.push.key');
 
     // 13. Bulk Operations
     Route::get('/bulk-operations', [\App\Http\Controllers\BulkOperationsController::class, 'index'])->name('bulk.index');
