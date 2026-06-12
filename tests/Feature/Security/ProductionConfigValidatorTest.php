@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Security;
 
-use App\Providers\AppServiceProvider;
+use App\Support\ProductionSecurityValidator;
 use Tests\TestCase;
 
 /**
@@ -22,7 +22,7 @@ class ProductionConfigValidatorTest extends TestCase
 {
     private function critical(): array
     {
-        $provider = new AppServiceProvider($this->app);
+        $provider = new ProductionSecurityValidator($this->app);
         $method = new \ReflectionMethod($provider, 'collectCriticalProductionMisconfig');
         $method->setAccessible(true);
 
@@ -31,7 +31,7 @@ class ProductionConfigValidatorTest extends TestCase
 
     private function warnings(): array
     {
-        $provider = new AppServiceProvider($this->app);
+        $provider = new ProductionSecurityValidator($this->app);
         $method = new \ReflectionMethod($provider, 'collectProductionWarnings');
         $method->setAccessible(true);
 
