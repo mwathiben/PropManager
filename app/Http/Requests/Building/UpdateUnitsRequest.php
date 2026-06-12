@@ -18,7 +18,7 @@ class UpdateUnitsRequest extends FormRequest
         return [
             'selectedUnitIds' => 'required|array',
             'selectedUnitIds.*' => 'integer|exists:units,id',
-            'action' => ['required', 'string', Rule::in(['update_rent', 'update_status', 'update_type', 'delete'])],
+            'action' => ['required', 'string', Rule::in(['update_rent', 'update_type', 'delete'])],
             'value' => $this->valueRules(),
         ];
     }
@@ -29,6 +29,11 @@ class UpdateUnitsRequest extends FormRequest
      * it as a plain string silently rejected every rent change. update_type
      * sends a unit-type string; delete carries no value.
      *
+     * Bulk status changes are NOT handled here (BuildingService::bulkUpdateUnits
+     * has no update_status branch) — they have their own guarded endpoint,
+     * bulk.updateUnitStatus / UpdateUnitStatusRequest — so update_status is
+     * deliberately not an accepted action.
+     *
      * @return array<int, mixed>
      */
     private function valueRules(): array
@@ -36,7 +41,6 @@ class UpdateUnitsRequest extends FormRequest
         return match ($this->input('action')) {
             'update_rent' => ['required', 'numeric', 'min:0'],
             'update_type' => ['required', 'string', Rule::in(['residential', 'commercial'])],
-            'update_status' => ['required', 'string', Rule::in(['vacant', 'occupied', 'maintenance', 'arrears'])],
             default => ['nullable'],
         };
     }

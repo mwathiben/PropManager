@@ -96,4 +96,56 @@ class BuildingUpdateUnitsTest extends TestCase
             ])
             ->assertSessionHasErrors('value');
     }
+
+    public function test_update_status_is_not_an_accepted_action(): void
+    {
+        // BuildingService::bulkUpdateUnits has no update_status branch — it
+        // would silently no-op. Bulk status changes have their own guarded
+        // endpoint (bulk.updateUnitStatus), so this action must be rejected
+        // rather than accepted-and-ignored.
+        ['landlord' => $landlord, 'building' => $building] = $this->createLandlordWithFullSetup();
+        $unitId = $building->units()->value('id');
+
+        $this->actingAs($landlord)
+            ->post(route('buildings.update-units', $building), [
+                'selectedUnitIds' => [$unitId],
+                'action' => 'update_status',
+                'value' => 'occupied',
+            ])
+            ->assertSessionHasErrors('action');
+
+        $this->assertDatabaseHas('units', ['id' => $unitId, 'status' => 'vacant']);
+    }
+
+    public function test_add_unit_validates_floor_unit_number_and_type(): void
+    {
+        ['landlord' => $landlord, 'building' => $building] = $this->createLandlordWithFullSetup();
+
+        // Happy path with the values the real frontend sends.
+        $this->actingAs($landlord)
+            ->post(route('buildings.add-unit', $building), [
+                'floor_number' => 2,
+                'unit_number' => 'Z201',
+                'target_rent' => 24000,
+                'unit_type' => 'residential',
+            ])
+            ->assertSessionHasNoErrors()
+            ->assertRedirect();
+        $this->assertDatabaseHas('units', [
+            'building_id' => $building->id,
+            'unit_number' => 'Z201',
+            'unit_type' => 'residential',
+        ]);
+
+        // Tightened rules reject garbage that the loose `required`-only rules
+        // used to wave through.
+        $this->actingAs($landlord)
+            ->post(route('buildings.add-unit', $building), [
+                'floor_number' => 'ground floor', // not an integer
+                'unit_number' => str_repeat('X', 80), // too long
+                'target_rent' => -5, // negative
+                'unit_type' => 'spaceship', // not a real type
+            ])
+            ->assertSessionHasErrors(['floor_number', 'unit_number', 'target_rent', 'unit_type']);
+    }
 }
