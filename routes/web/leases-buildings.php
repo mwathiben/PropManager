@@ -170,7 +170,10 @@ Route::get('/operations', [OperationsHubController::class, 'index'])->name('oper
 // accidentally expose these endpoints to a tenant role token.
 Route::middleware('role:landlord,caretaker')->group(function () {
     Route::get('/tenants', [TenantController::class, 'index'])->name('tenants.index');
-    Route::get('/tenants/{tenant}', [TenantController::class, 'show'])->name('tenants.show');
+    // whereNumber so the literal /tenants/search + /tenants/history routes
+    // (registered later) aren't shadowed by this {tenant} param route and
+    // 404 with a model-binding miss.
+    Route::get('/tenants/{tenant}', [TenantController::class, 'show'])->whereNumber('tenant')->name('tenants.show');
     Route::get('/tenants/{tenant}/modal-data', [TenantController::class, 'modalData'])->name('tenants.modal-data');
     Route::put('/tenants/{tenant}', [TenantController::class, 'update'])->name('tenants.update');
     // Tenant Notes

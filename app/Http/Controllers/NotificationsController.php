@@ -375,7 +375,7 @@ class NotificationsController extends Controller
             'providers' => $providerCollector->collect($landlordId),
             'smsProviders' => ProviderStatusCollector::getSmsProviderOptions(),
             'currentSmsProvider' => $providerCollector->getCurrentSmsProvider($landlordId),
-            'globalPreferences' => $this->loadGlobalPreferences($landlordId),
+            'globalPreferences' => $this->settingsService->loadGlobalPreferences($landlordId),
             'setupComplete' => $this->settingsService->isSetupComplete($landlordId),
             'buildings' => $this->getBuildingsForFilter(),
             'tenants' => [],
