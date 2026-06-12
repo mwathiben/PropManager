@@ -118,12 +118,67 @@ createInertiaApp({
 //   ONCE at register time — multiple add/remove cycles would leak.
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
+        // Prompt-to-update: reload exactly once, and only after the user
+        // accepts the update, so the first-install controllerchange (when
+        // the SW first claims the page) never triggers a reload loop.
+        let swUpdateAccepted = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (swUpdateAccepted) {
+                window.location.reload();
+            }
+        });
+
+        const showSwUpdatePrompt = (worker) => {
+            if (! worker || document.getElementById('pm-sw-update-prompt')) {
+                return;
+            }
+            const bar = document.createElement('div');
+            bar.id = 'pm-sw-update-prompt';
+            bar.setAttribute('role', 'status');
+            bar.setAttribute('aria-live', 'polite');
+            bar.style.cssText = 'position:fixed;inset-block-end:1rem;inset-inline:0;z-index:2147483646;display:flex;justify-content:center;padding:0 1rem;pointer-events:none';
+
+            const pill = document.createElement('div');
+            pill.style.cssText = 'pointer-events:auto;display:flex;align-items:center;gap:0.75rem;padding:0.625rem 0.625rem 0.625rem 1rem;background:#1f2937;color:#fff;border-radius:9999px;box-shadow:0 10px 25px rgba(0,0,0,0.25);font:500 0.875rem/1.25rem ui-sans-serif,system-ui,sans-serif';
+            pill.append('A new version of PropManager is available.');
+
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = 'Refresh';
+            btn.style.cssText = 'cursor:pointer;border:0;border-radius:9999px;padding:0.375rem 0.875rem;background:#4f46e5;color:#fff;font:600 0.875rem/1.25rem ui-sans-serif,system-ui,sans-serif';
+            btn.addEventListener('click', () => {
+                btn.disabled = true;
+                btn.textContent = 'Refreshing…';
+                swUpdateAccepted = true;
+                worker.postMessage({ type: 'SKIP_WAITING' });
+            });
+
+            pill.appendChild(btn);
+            bar.appendChild(pill);
+            document.body.appendChild(bar);
+        };
+
         navigator.serviceWorker.register('/sw.js')
             .then(registration => {
                 if (import.meta.env.DEV) {
                     // eslint-disable-next-line no-console
                     console.log('Service Worker registered:', registration.scope);
                 }
+
+                // An updated SW waits (sw.ts no longer auto-skipWaiting) —
+                // surface the refresh prompt so users pick up the new build
+                // instead of running stale assets until every tab closes.
+                if (registration.waiting && navigator.serviceWorker.controller) {
+                    showSwUpdatePrompt(registration.waiting);
+                }
+                registration.addEventListener('updatefound', () => {
+                    const installing = registration.installing;
+                    installing?.addEventListener('statechange', () => {
+                        if (installing.state === 'installed' && navigator.serviceWorker.controller) {
+                            showSwUpdatePrompt(installing);
+                        }
+                    });
+                });
             })
             .catch(error => {
                 if (import.meta.env.DEV) {
