@@ -79,6 +79,11 @@ class FrontendHardeningTest extends TestCase
         $connectSrc = array_values(array_filter($directives, fn ($d) => str_starts_with($d, 'connect-src ')))[0] ?? '';
         $this->assertStringContainsString('https://nominatim.openstreetmap.org', $connectSrc);
         $this->assertStringContainsString('https://fonts.bunny.net', $connectSrc);
+        // The PWA service worker fetch()es tiles + marker icons to cache them,
+        // and a fetch() is governed by connect-src — so these must be here too,
+        // not only in img-src, or the SW blocks the map.
+        $this->assertStringContainsString('https://*.tile.openstreetmap.org', $connectSrc);
+        $this->assertStringContainsString('https://cdnjs.cloudflare.com', $connectSrc);
     }
 
     public function test_csp_report_endpoint_records_security_log(): void
