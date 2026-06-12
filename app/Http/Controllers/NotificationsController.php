@@ -4,8 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Notification\SendBulkNotificationRequest;
 use App\Http\Requests\Notification\SendNotificationRequest;
-use App\Http\Requests\Notification\SubscribePushRequest;
-use App\Http\Requests\Notification\UnsubscribePushRequest;
 use App\Http\Requests\Notification\UpdateGlobalPreferencesRequest;
 use App\Http\Requests\Notification\UpdateNotificationPreferencesRequest;
 use App\Http\Requests\Notification\UpdateWhatsAppTemplatesRequest;
@@ -463,73 +461,6 @@ class NotificationsController extends Controller
                 'whatsapp' => $this->configRepository->isProviderConfigured($landlordId, 'whatsapp'),
                 'push' => $this->pushService->isConfigured($landlordId),
             ],
-        ]);
-    }
-
-    /**
-     * Generate VAPID keys for push notifications
-     */
-    public function generateVapidKeys(): JsonResponse
-    {
-        $user = auth()->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
-
-        $keys = $this->pushService->generateVapidKeys();
-        $this->pushService->saveVapidKeys($landlordId, $keys);
-
-        return response()->json([
-            'success' => true,
-            'public_key' => $keys['public'],
-        ]);
-    }
-
-    // ==========================================
-    // PUSH SUBSCRIPTION METHODS
-    // ==========================================
-
-    /**
-     * Subscribe to push notifications
-     */
-    public function subscribePush(SubscribePushRequest $request): JsonResponse
-    {
-        $validated = $request->validated();
-
-        $user = auth()->user();
-
-        $subscription = $this->pushService->subscribe($user->id, $validated);
-
-        return response()->json([
-            'success' => true,
-            'subscription_id' => $subscription->id,
-        ]);
-    }
-
-    /**
-     * Unsubscribe from push notifications
-     */
-    public function unsubscribePush(UnsubscribePushRequest $request): JsonResponse
-    {
-        $validated = $request->validated();
-
-        $result = $this->pushService->unsubscribe($validated['endpoint']);
-
-        return response()->json([
-            'success' => $result,
-        ]);
-    }
-
-    /**
-     * Get VAPID public key
-     */
-    public function getVapidPublicKey(): JsonResponse
-    {
-        $user = auth()->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
-
-        $publicKey = $this->pushService->getPublicKey($landlordId);
-
-        return response()->json([
-            'public_key' => $publicKey,
         ]);
     }
 
