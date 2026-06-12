@@ -261,14 +261,29 @@ class SchedulerService
     }
 
     /**
-     * Run a schedule immediately (for manual trigger)
+     * Run a schedule immediately (for manual trigger).
+     *
+     * Mirrors the resilience of the batch processSchedules() loop: a single
+     * malformed lease/tenant row must not turn the user-facing "Run now"
+     * button into a 500. Catches \Throwable (not just \Exception) because a
+     * null relation dereference in processArrearsNotices /
+     * processLeaseExpiryReminders surfaces as an \Error under PHP 8.
      */
     public function runNow(NotificationSchedule $schedule): int
     {
-        $count = $this->processSchedule($schedule);
-        $schedule->markAsRun();
+        try {
+            $count = $this->processSchedule($schedule);
+            $schedule->markAsRun();
 
-        return $count;
+            return $count;
+        } catch (\Throwable $e) {
+            Log::error('Manual schedule run failed', [
+                'schedule_id' => $schedule->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return 0;
+        }
     }
 
     /**
