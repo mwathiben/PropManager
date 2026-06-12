@@ -6,7 +6,9 @@ namespace Tests\Feature\Controllers;
 
 use App\Models\NotificationSchedule;
 use App\Models\User;
+use App\Services\SchedulerService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Mockery;
 use Tests\TestCase;
 use Tests\Traits\CreatesTestData;
 
@@ -69,6 +71,26 @@ class NotificationScheduleControllerTest extends TestCase
         $this->actingAs($landlord)
             ->post(route('notifications.schedules.run', $schedule))
             ->assertRedirect();
+    }
+
+    public function test_run_schedule_now_does_not_500_when_processing_throws(): void
+    {
+        ['landlord' => $landlord] = $this->createLandlordWithFullSetup();
+        $schedule = NotificationSchedule::factory()->create([
+            'landlord_id' => $landlord->id,
+            'type' => 'rent_reminder',
+            'trigger' => 'days_before_due',
+            'days_offset' => 3,
+        ]);
+
+        $service = Mockery::mock(SchedulerService::class)->makePartial();
+        $service->shouldReceive('processSchedule')->andThrow(new \RuntimeException('malformed lease row'));
+        $this->instance(SchedulerService::class, $service);
+
+        $this->actingAs($landlord)
+            ->post(route('notifications.schedules.run', $schedule))
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
     }
 
     public function test_landlord_can_toggle_and_delete_own_schedule(): void
