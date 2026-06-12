@@ -16,7 +16,6 @@ use App\Models\NotificationPreference;
 use App\Models\Setting;
 use App\Models\User;
 use App\Repositories\Contracts\NotificationConfigRepositoryInterface;
-use App\Repositories\Contracts\NotificationDefaultsRepositoryInterface;
 use App\Services\Notification\BulkReminderDispatcher;
 use App\Services\Notification\NotificationSettingsService;
 use App\Services\Notification\ProviderStatusCollector;
@@ -44,8 +43,6 @@ class NotificationsController extends Controller
 
     protected NotificationConfigRepositoryInterface $configRepository;
 
-    protected NotificationDefaultsRepositoryInterface $defaultsRepository;
-
     protected NotificationSettingsService $settingsService;
 
     protected BulkReminderDispatcher $bulkReminderDispatcher;
@@ -55,7 +52,6 @@ class NotificationsController extends Controller
         PushNotificationService $pushService,
         WhatsAppTemplateService $whatsAppTemplateService,
         NotificationConfigRepositoryInterface $configRepository,
-        NotificationDefaultsRepositoryInterface $defaultsRepository,
         NotificationSettingsService $settingsService,
         BulkReminderDispatcher $bulkReminderDispatcher
     ) {
@@ -63,7 +59,6 @@ class NotificationsController extends Controller
         $this->pushService = $pushService;
         $this->whatsAppTemplateService = $whatsAppTemplateService;
         $this->configRepository = $configRepository;
-        $this->defaultsRepository = $defaultsRepository;
         $this->settingsService = $settingsService;
         $this->bulkReminderDispatcher = $bulkReminderDispatcher;
     }
@@ -544,7 +539,7 @@ class NotificationsController extends Controller
         $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
 
         return response()->json([
-            'preferences' => $this->loadGlobalPreferences($landlordId),
+            'preferences' => $this->settingsService->loadGlobalPreferences($landlordId),
         ]);
     }
 
@@ -553,61 +548,8 @@ class NotificationsController extends Controller
         $user = auth()->user();
         $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
 
-        $validated = $request->validated();
-
-        $this->defaultsRepository->updateDefaults($landlordId, [
-            'quiet_hours_enabled' => $validated['quiet_hours_enabled'] ?? false,
-            'quiet_hours_start' => $validated['quiet_hours_start'] ?? '22:00',
-            'quiet_hours_end' => $validated['quiet_hours_end'] ?? '08:00',
-            'quiet_hours_queue_notifications' => $validated['quiet_hours_queue_notifications'] ?? true,
-            'max_retries' => $validated['notification_max_retries'] ?? 3,
-            'retry_delay_minutes' => $validated['notification_retry_delay'] ?? 5,
-            'daily_limit_per_tenant' => $validated['notification_daily_limit_per_tenant'] ?? 20,
-            'hourly_limit_per_tenant' => $validated['notification_hourly_limit_per_tenant'] ?? 5,
-            'sender_name' => $validated['notification_sender_name'] ?? '',
-            'reply_to_email' => $validated['notification_reply_to_email'] ?? '',
-            'archive_days' => $validated['notification_archive_days'] ?? 90,
-            'track_read_status' => $validated['notification_track_read_status'] ?? true,
-            'reminder_days_before_due' => $validated['default_rent_reminder_days'] ?? 7,
-            'default_channels' => $validated['default_notification_channels'] ?? ['email'],
-        ]);
+        $this->settingsService->updateGlobalDefaults($request->validated(), $landlordId);
 
         return redirect()->back()->with('success', 'Global preferences saved successfully.');
-    }
-
-    /**
-     * Load global preferences for a landlord
-     */
-    private function loadGlobalPreferences(int $landlordId): array
-    {
-        $defaults = $this->defaultsRepository->getDefaults($landlordId);
-
-        return [
-            // Quiet Hours
-            'quiet_hours_enabled' => $defaults['quiet_hours_enabled'],
-            'quiet_hours_start' => $defaults['quiet_hours_start'],
-            'quiet_hours_end' => $defaults['quiet_hours_end'],
-            'quiet_hours_queue_notifications' => $defaults['quiet_hours_queue_notifications'],
-
-            // Retry Configuration
-            'notification_max_retries' => $defaults['max_retries'],
-            'notification_retry_delay' => $defaults['retry_delay_minutes'],
-
-            // Rate Limiting
-            'notification_daily_limit_per_tenant' => $defaults['daily_limit_per_tenant'],
-            'notification_hourly_limit_per_tenant' => $defaults['hourly_limit_per_tenant'],
-
-            // Sender Information
-            'notification_sender_name' => $defaults['sender_name'] ?? '',
-            'notification_reply_to_email' => $defaults['reply_to_email'] ?? '',
-
-            // Archive Settings
-            'notification_archive_days' => $defaults['archive_days'],
-            'notification_track_read_status' => $defaults['track_read_status'],
-
-            // Default Preferences
-            'default_rent_reminder_days' => $defaults['reminder_days_before_due'],
-            'default_notification_channels' => $defaults['default_channels'],
-        ];
     }
 }

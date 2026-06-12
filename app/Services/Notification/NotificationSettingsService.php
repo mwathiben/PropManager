@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Notification;
 
 use App\Repositories\Contracts\NotificationConfigRepositoryInterface;
+use App\Repositories\Contracts\NotificationDefaultsRepositoryInterface;
 use App\Services\PushNotificationService;
 use Illuminate\Http\Request;
 
@@ -21,7 +22,73 @@ class NotificationSettingsService
     public function __construct(
         private readonly NotificationConfigRepositoryInterface $configRepository,
         private readonly PushNotificationService $pushService,
+        private readonly NotificationDefaultsRepositoryInterface $defaultsRepository,
     ) {}
+
+    /**
+     * Load the landlord's global notification defaults, keyed for the
+     * settings UI.
+     *
+     * @return array<string, mixed>
+     */
+    public function loadGlobalPreferences(int $landlordId): array
+    {
+        $defaults = $this->defaultsRepository->getDefaults($landlordId);
+
+        return [
+            // Quiet Hours
+            'quiet_hours_enabled' => $defaults['quiet_hours_enabled'],
+            'quiet_hours_start' => $defaults['quiet_hours_start'],
+            'quiet_hours_end' => $defaults['quiet_hours_end'],
+            'quiet_hours_queue_notifications' => $defaults['quiet_hours_queue_notifications'],
+
+            // Retry Configuration
+            'notification_max_retries' => $defaults['max_retries'],
+            'notification_retry_delay' => $defaults['retry_delay_minutes'],
+
+            // Rate Limiting
+            'notification_daily_limit_per_tenant' => $defaults['daily_limit_per_tenant'],
+            'notification_hourly_limit_per_tenant' => $defaults['hourly_limit_per_tenant'],
+
+            // Sender Information
+            'notification_sender_name' => $defaults['sender_name'] ?? '',
+            'notification_reply_to_email' => $defaults['reply_to_email'] ?? '',
+
+            // Archive Settings
+            'notification_archive_days' => $defaults['archive_days'],
+            'notification_track_read_status' => $defaults['track_read_status'],
+
+            // Default Preferences
+            'default_rent_reminder_days' => $defaults['reminder_days_before_due'],
+            'default_notification_channels' => $defaults['default_channels'],
+        ];
+    }
+
+    /**
+     * Persist the landlord's global notification defaults from a validated
+     * UpdateGlobalPreferences payload.
+     *
+     * @param  array<string, mixed>  $validated
+     */
+    public function updateGlobalDefaults(array $validated, int $landlordId): void
+    {
+        $this->defaultsRepository->updateDefaults($landlordId, [
+            'quiet_hours_enabled' => $validated['quiet_hours_enabled'] ?? false,
+            'quiet_hours_start' => $validated['quiet_hours_start'] ?? '22:00',
+            'quiet_hours_end' => $validated['quiet_hours_end'] ?? '08:00',
+            'quiet_hours_queue_notifications' => $validated['quiet_hours_queue_notifications'] ?? true,
+            'max_retries' => $validated['notification_max_retries'] ?? 3,
+            'retry_delay_minutes' => $validated['notification_retry_delay'] ?? 5,
+            'daily_limit_per_tenant' => $validated['notification_daily_limit_per_tenant'] ?? 20,
+            'hourly_limit_per_tenant' => $validated['notification_hourly_limit_per_tenant'] ?? 5,
+            'sender_name' => $validated['notification_sender_name'] ?? '',
+            'reply_to_email' => $validated['notification_reply_to_email'] ?? '',
+            'archive_days' => $validated['notification_archive_days'] ?? 90,
+            'track_read_status' => $validated['notification_track_read_status'] ?? true,
+            'reminder_days_before_due' => $validated['default_rent_reminder_days'] ?? 7,
+            'default_channels' => $validated['default_notification_channels'] ?? ['email'],
+        ]);
+    }
 
     public function updateProvider(Request $request, string $provider, int $landlordId): void
     {
