@@ -105,14 +105,24 @@ class SecurityHeaders
         // Phase-15 FRONT-5: img-src https: was wide-open. Now restricted
         // to explicit origins. Vue/Vite emit data: and blob: URIs for
         // small inline assets so those remain.
+        //
+        // BuildingMap (Leaflet) explicit origins. The PWA service worker
+        // intercepts these requests, so the OpenStreetMap raster tiles +
+        // cdnjs marker icons need BOTH img-src (the <img> render) AND
+        // connect-src (the SW's fetch-to-cache — a fetch() is governed by
+        // connect-src, not img-src). Nominatim geocoding + the Figtree
+        // webfont CSS are fetches too (connect-src); the @font-face the
+        // webfont returns is already covered by style-src/font-src.
+        $mapOrigins = 'https://*.tile.openstreetmap.org https://cdnjs.cloudflare.com';
+
         $directives = [
             "default-src 'self'",
             "script-src 'self' 'nonce-{$nonce}'",
             "style-src 'self' 'nonce-{$nonce}' https://fonts.bunny.net",
             "style-src-attr 'unsafe-inline'",
-            "img-src 'self' data: blob: https://imgs.paystack.co",
+            "img-src 'self' data: blob: https://imgs.paystack.co {$mapOrigins}",
             "font-src 'self' data: https://fonts.bunny.net",
-            "connect-src 'self' ws: wss: https://api.paystack.co",
+            "connect-src 'self' ws: wss: https://api.paystack.co https://nominatim.openstreetmap.org https://fonts.bunny.net {$mapOrigins}",
             "frame-ancestors 'none'",
             "base-uri 'self'",
             "form-action 'self'",
@@ -130,7 +140,7 @@ class SecurityHeaders
 
             if ($viteOrigin) {
                 $directives[1] = "script-src 'self' 'nonce-{$nonce}' {$viteOrigin}";
-                $directives[6] = "connect-src 'self' ws: wss: {$viteOrigin} https://api.paystack.co";
+                $directives[6] = "connect-src 'self' ws: wss: {$viteOrigin} https://api.paystack.co https://nominatim.openstreetmap.org https://fonts.bunny.net {$mapOrigins}";
             }
         }
 
