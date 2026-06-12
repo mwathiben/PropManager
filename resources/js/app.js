@@ -104,6 +104,12 @@ createInertiaApp({
     },
     progress: {
         color: '#4B5563',
+        // NProgress injects its CSS as a runtime <style> with no nonce,
+        // which strict style-src ('self' 'nonce-…', no 'unsafe-inline')
+        // blocks — leaving the top loading bar unstyled/invisible. Ship the
+        // CSS from resources/css/app.css (loaded via a nonced stylesheet)
+        // instead. Keep the colour in sync with the #nprogress rules there.
+        includeCSS: false,
     },
 });
 

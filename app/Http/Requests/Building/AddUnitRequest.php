@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Building;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class AddUnitRequest extends FormRequest
 {
@@ -14,10 +15,10 @@ class AddUnitRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'floor_number' => 'required',
-            'unit_number' => 'required',
-            'target_rent' => 'required|numeric',
-            'unit_type' => 'required|string',
+            'floor_number' => 'required|integer|min:1',
+            'unit_number' => 'required|string|max:50',
+            'target_rent' => 'required|numeric|min:0',
+            'unit_type' => ['required', 'string', Rule::in(['residential', 'commercial'])],
         ];
     }
 }
