@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Security;
 
-use App\Providers\AppServiceProvider;
 use App\Services\KenyaDpaService;
+use App\Support\ProductionSecurityValidator;
 use Tests\TestCase;
 
 /**
@@ -21,7 +21,7 @@ class CrossBorderTransferTest extends TestCase
 {
     private function warnings(): array
     {
-        $provider = new AppServiceProvider($this->app);
+        $provider = new ProductionSecurityValidator($this->app);
         $method = new \ReflectionMethod($provider, 'collectCrossBorderTransferWarnings');
         $method->setAccessible(true);
 
@@ -37,7 +37,7 @@ class CrossBorderTransferTest extends TestCase
 
     public function test_helper_classifies_aws_us_region(): void
     {
-        $provider = new AppServiceProvider($this->app);
+        $provider = new ProductionSecurityValidator($this->app);
         $method = new \ReflectionMethod($provider, 'awsRegionToCountryCode');
         $method->setAccessible(true);
 
@@ -52,7 +52,7 @@ class CrossBorderTransferTest extends TestCase
 
     public function test_helper_classifies_sentry_host(): void
     {
-        $provider = new AppServiceProvider($this->app);
+        $provider = new ProductionSecurityValidator($this->app);
         $method = new \ReflectionMethod($provider, 'sentryHostToCountryCode');
         $method->setAccessible(true);
 

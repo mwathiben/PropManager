@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Security;
 
 use App\Logging\TapJsonFormatter;
-use App\Providers\AppServiceProvider;
+use App\Support\ProductionSecurityValidator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Log\Logger;
 use Illuminate\Support\Facades\Artisan;
@@ -43,7 +43,7 @@ class ObservabilityPhase14ExtensionsTest extends TestCase
             'filesystems.default' => 's3',
         ]);
 
-        $provider = new AppServiceProvider($this->app);
+        $provider = new ProductionSecurityValidator($this->app);
         $method = new \ReflectionMethod($provider, 'collectProductionWarnings');
         $method->setAccessible(true);
         $warnings = $method->invoke($provider);
@@ -76,7 +76,7 @@ class ObservabilityPhase14ExtensionsTest extends TestCase
             'filesystems.default' => 's3',
         ]);
 
-        $provider = new AppServiceProvider($this->app);
+        $provider = new ProductionSecurityValidator($this->app);
         $method = new \ReflectionMethod($provider, 'collectProductionWarnings');
         $method->setAccessible(true);
         $warnings = $method->invoke($provider);

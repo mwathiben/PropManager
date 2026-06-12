@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Performance;
 
-use App\Providers\AppServiceProvider;
+use App\Support\ProductionSecurityValidator;
 use ReflectionMethod;
 use Tests\TestCase;
 
@@ -47,7 +47,7 @@ class Phase22StatelessnessTest extends TestCase
             'cache.default' => 'file',
         ]);
 
-        $provider = new AppServiceProvider($this->app);
+        $provider = new ProductionSecurityValidator($this->app);
         $method = new ReflectionMethod($provider, 'collectProductionWarnings');
         $method->setAccessible(true);
         /** @var array<int, string> $warnings */
@@ -75,7 +75,7 @@ class Phase22StatelessnessTest extends TestCase
             'cache.default' => 'redis',
         ]);
 
-        $provider = new AppServiceProvider($this->app);
+        $provider = new ProductionSecurityValidator($this->app);
         $method = new ReflectionMethod($provider, 'collectProductionWarnings');
         $method->setAccessible(true);
         $joined = implode("\n", $method->invoke($provider));
