@@ -36,7 +36,7 @@ class MoveOutController extends Controller
         /** @var User $user */
         $user = Auth::user();
 
-        if (! $user->isLandlord() && ! $user->isCaretaker()) {
+        if (! $user->isScopeOwner() && ! $user->isCaretaker()) {
             abort(403, 'Access denied.');
         }
 

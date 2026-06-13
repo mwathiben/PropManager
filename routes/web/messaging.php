@@ -3,7 +3,7 @@
 use Illuminate\Support\Facades\Route;
 
 // Phase-45 LEASE-COUNTER-2: landlord-side review of a tenant counter-offer.
-Route::middleware(['auth', 'verified', 'role:landlord,caretaker'])->group(function () {
+Route::middleware(['auth', 'verified', 'role:landlord,manager,caretaker'])->group(function () {
     Route::post('/landlords/renewals/{renewal}/counter/accept', [\App\Http\Controllers\LeaseRenewalCounterReviewController::class, 'accept'])
         ->middleware('throttle:sensitive')
         ->name('landlords.renewals.counter.accept');

@@ -141,7 +141,7 @@ class PaymentsHubController extends Controller
         /** @var \App\Models\User $user */
         $user = Auth::user();
 
-        if (! $user->isLandlord()) {
+        if (! $user->isScopeOwner()) {
             abort(403, 'Only landlords can add payout accounts.');
         }
 

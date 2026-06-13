@@ -23,7 +23,7 @@ class DashboardController extends Controller
 
         return match ($user->role) {
             'super_admin' => $this->superAdminDashboard(),
-            'landlord' => $this->landlordDashboard($request),
+            'landlord', 'manager' => $this->landlordDashboard($request),
             'caretaker' => $this->caretakerDashboard(),
             'tenant' => $this->tenantDashboard(),
             'water_client' => $this->waterClientDashboard(),
@@ -135,7 +135,7 @@ class DashboardController extends Controller
     {
         $user = auth()->user();
 
-        if ($user->role === 'landlord' && $unit->landlord_id !== $user->id) {
+        if ($user->isScopeOwner() && $unit->landlord_id !== $user->id) {
             abort(403);
         }
 

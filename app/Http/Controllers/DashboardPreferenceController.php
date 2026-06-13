@@ -27,7 +27,7 @@ class DashboardPreferenceController extends Controller
     public function update(Request $request): RedirectResponse
     {
         $landlord = $request->user();
-        abort_unless($landlord !== null && $landlord->isLandlord(), 403);
+        abort_unless($landlord !== null && $landlord->isScopeOwner(), 403);
 
         $validated = $request->validate([
             'widget_order' => ['required', 'array', 'min:1', 'max:'.count(self::ALLOWED_WIDGETS)],
@@ -49,7 +49,7 @@ class DashboardPreferenceController extends Controller
     public function updateScope(Request $request): RedirectResponse
     {
         $landlord = $request->user();
-        abort_unless($landlord !== null && $landlord->isLandlord(), 403);
+        abort_unless($landlord !== null && $landlord->isScopeOwner(), 403);
 
         $validated = $request->validate([
             'scope' => ['required', Rule::in(self::SCOPES)],

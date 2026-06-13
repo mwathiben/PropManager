@@ -124,4 +124,55 @@ class MultiRoleRouteSmokeTest extends TestCase
 
         $this->assertSame([], $failures, "Caretaker routes returning 5xx:\n".implode("\n", $failures));
     }
+
+    public function test_manager_landlord_operational_routes_do_not_500_or_403(): void
+    {
+        $manager = User::factory()->manager()->create();
+
+        $property = \App\Models\Property::create([
+            'name' => 'Manager Property',
+            'address' => '1 Manager St',
+            'type' => 'apartment',
+            'landlord_id' => $manager->id,
+        ]);
+
+        $building = \App\Models\Building::create([
+            'property_id' => $property->id,
+            'name' => 'Manager Block',
+            'total_floors' => 1,
+            'units_per_floor' => 2,
+            'landlord_id' => $manager->id,
+            'building_type' => 'residential_apartment',
+        ]);
+
+        $unit = \App\Models\Unit::create([
+            'building_id' => $building->id,
+            'unit_number' => 'M101',
+            'floor_number' => 1,
+            'status' => 'vacant',
+            'target_rent' => 20000,
+            'landlord_id' => $manager->id,
+        ]);
+
+        $failures = [];
+        $routes = [
+            '/dashboard',
+            '/buildings',
+            '/tenants',
+            '/finances',
+            '/payments-hub/overview',
+            '/payments-hub/collection',
+        ];
+
+        foreach ($routes as $route) {
+            $response = $this->actingAs($manager)->get($route);
+            $status = $response->getStatusCode();
+            if ($status >= 500 || $status === 403) {
+                $message = $response->exception?->getMessage() ?? '(no exception captured)';
+                $failures[] = "{$route} -> {$status}: {$message}";
+            }
+        }
+
+        $this->assertSame([], $failures, "Manager operational routes returning 5xx or 403:\n".implode("\n", $failures));
+    }
 }

@@ -133,7 +133,7 @@ Route::get('/units/{unit}/detail', [DashboardController::class, 'unitDetail'])
     ->name('units.detail');
 
 Route::get('/dashboard/stats', \App\Http\Controllers\DashboardStatsController::class)
-    ->middleware(['auth', 'role:landlord,caretaker', 'throttle:30,1'])
+    ->middleware(['auth', 'role:landlord,manager,caretaker', 'throttle:30,1'])
     ->withoutMiddleware([\App\Http\Middleware\HandleInertiaRequests::class])
     ->name('dashboard.stats');
 

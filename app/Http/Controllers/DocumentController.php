@@ -101,7 +101,7 @@ class DocumentController extends Controller
         // only. Held set comes from the 60s-cached registry; the active hold id
         // for the rows ON THIS PAGE is resolved in ONE query (no N+1).
         $user = $request->user();
-        $canSeeHolds = $user->isLandlord() || $user->isSuperAdmin();
+        $canSeeHolds = $user->isScopeOwner() || $user->isSuperAdmin();
         $holdIdByDocument = [];
 
         if ($canSeeHolds) {

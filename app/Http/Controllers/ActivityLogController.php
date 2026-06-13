@@ -17,7 +17,7 @@ class ActivityLogController extends Controller
     {
         $user = auth()->user();
 
-        if (! $user->isLandlord() && ! $user->isCaretaker()) {
+        if (! $user->isScopeOwner() && ! $user->isCaretaker()) {
             abort(403, 'Access denied.');
         }
 

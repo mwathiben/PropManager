@@ -42,7 +42,7 @@ class TenantController extends Controller
     {
         $user = auth()->user();
 
-        if (! $user->isLandlord() && ! $user->isCaretaker()) {
+        if (! $user->isScopeOwner() && ! $user->isCaretaker()) {
             abort(403, 'Access denied.');
         }
 
@@ -293,7 +293,7 @@ class TenantController extends Controller
     {
         $user = auth()->user();
 
-        if (! $user->isLandlord() && ! $user->isCaretaker()) {
+        if (! $user->isScopeOwner() && ! $user->isCaretaker()) {
             return response()->json(['data' => []], 403);
         }
 
@@ -787,7 +787,7 @@ class TenantController extends Controller
     {
         $user = auth()->user();
 
-        if (! $user->isLandlord() && ! $user->isCaretaker()) {
+        if (! $user->isScopeOwner() && ! $user->isCaretaker()) {
             abort(403, 'Access denied.');
         }
 

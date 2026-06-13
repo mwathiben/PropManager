@@ -44,7 +44,7 @@ Route::get('/onboarding/resume/{session}', \App\Http\Controllers\Onboarding\Onbo
     ->name('onboarding.resume');
 
 // Phase-31 ONB-SAMPLE-2: prospect demo dataset toggle
-Route::middleware('role:landlord')->group(function () {
+Route::middleware('role:landlord,manager')->group(function () {
     Route::post('/onboarding/sample-data/populate', [\App\Http\Controllers\Onboarding\SampleDataController::class, 'populate'])
         ->name('onboarding.sample.populate');
     Route::post('/onboarding/sample-data/reset', [\App\Http\Controllers\Onboarding\SampleDataController::class, 'reset'])
@@ -162,7 +162,7 @@ Route::middleware('verified')->group(function () {
 // Phase-34 GROWTH-REFERRAL-2: landlord self-serve referral surface.
 // NOT super_admin gated — every landlord sees their own code +
 // their own ledger.
-Route::middleware('role:landlord')->group(function () {
+Route::middleware('role:landlord,manager')->group(function () {
     Route::post('/referrals/redeem', [\App\Http\Controllers\Growth\ReferralController::class, 'redeem'])
         ->name('referrals.redeem');
     Route::get('/referrals/mine', [\App\Http\Controllers\Growth\ReferralController::class, 'mine'])

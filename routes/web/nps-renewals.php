@@ -19,7 +19,7 @@ Route::middleware(['auth', 'throttle:30,1'])->group(function () {
 });
 
 // Phase-29 WF-LEASE-RENEW-2: landlord-side renewal initiate + confirm.
-Route::middleware(['auth', 'role:landlord'])->group(function () {
+Route::middleware(['auth', 'role:landlord,manager'])->group(function () {
     Route::post('/leases/{lease}/renewals', [\App\Http\Controllers\LeaseRenewalController::class, 'store'])
         ->name('leases.renewals.store');
     Route::post('/renewals/{renewal}/confirm', [\App\Http\Controllers\LeaseRenewalController::class, 'confirm'])

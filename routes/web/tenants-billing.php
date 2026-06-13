@@ -74,19 +74,19 @@ Route::get('/documents/{document}/view', [DocumentController::class, 'view'])->n
 Route::delete('/documents/{document}', [DocumentController::class, 'destroy'])->name('documents.destroy');
 // Phase-82 DOC-RENEWAL-1: renew (supersede) an expiring document.
 Route::post('/documents/{document}/renew', [DocumentController::class, 'renew'])
-    ->middleware(['throttle:file-upload', 'role:landlord,caretaker'])
+    ->middleware(['throttle:file-upload', 'role:landlord,manager,caretaker'])
     ->whereNumber('document')->name('documents.renew');
 // Phase-82 NOTICE-GEN-1: generate a notice PDF stored as a Document on a lease.
 Route::post('/leases/{lease}/generate-notice', [DocumentController::class, 'generateNotice'])
-    ->middleware('role:landlord,caretaker')
+    ->middleware('role:landlord,manager,caretaker')
     ->whereNumber('lease')->name('documents.generate-notice');
 // Phase-83 LEASE-DOC-GEN-1: generate the lease-agreement PDF as a Document.
 Route::post('/leases/{lease}/generate-lease', [DocumentController::class, 'generateLeaseAgreement'])
-    ->middleware('role:landlord,caretaker')
+    ->middleware('role:landlord,manager,caretaker')
     ->whereNumber('lease')->name('documents.generate-lease');
 // Phase-83 LEASE-DOC-GEN-2: generate a renewal-offer PDF as a Document.
 Route::post('/renewals/{renewal}/generate-offer', [DocumentController::class, 'generateRenewalOffer'])
-    ->middleware('role:landlord,caretaker')
+    ->middleware('role:landlord,manager,caretaker')
     ->whereNumber('renewal')->name('documents.generate-renewal-offer');
 Route::get('/documents/for-model', [DocumentController::class, 'forModel'])->name('documents.forModel');
 
@@ -182,9 +182,9 @@ Route::post('/reconciliation/process-queue', [\App\Http\Controllers\Reconciliati
 
 // Phase-85 RECON-VIEW: gateway (Paystack/Stripe) reconciliation report viewer.
 Route::get('/gateway-reconciliation', [\App\Http\Controllers\GatewayReconciliationController::class, 'index'])
-    ->middleware('role:landlord,caretaker')->name('gateway-reconciliation.index');
+    ->middleware('role:landlord,manager,caretaker')->name('gateway-reconciliation.index');
 Route::get('/gateway-reconciliation/{report}', [\App\Http\Controllers\GatewayReconciliationController::class, 'show'])
-    ->middleware('role:landlord,caretaker')->whereNumber('report')->name('gateway-reconciliation.show');
+    ->middleware('role:landlord,manager,caretaker')->whereNumber('report')->name('gateway-reconciliation.show');
 
 // 9. Settings (Integrations & Configuration)
 Route::get('/settings', [\App\Http\Controllers\SettingsController::class, 'index'])->name('settings.index');

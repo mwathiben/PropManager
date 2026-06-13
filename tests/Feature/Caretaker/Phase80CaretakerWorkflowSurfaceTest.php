@@ -43,8 +43,10 @@ class Phase80CaretakerWorkflowSurfaceTest extends TestCase
     {
         $this->assertContains('role:caretaker', Route::getRoutes()->getByName('tasks.index')->gatherMiddleware());
         $this->assertContains('role:caretaker', Route::getRoutes()->getByName('tasks.escalate')->gatherMiddleware());
-        $this->assertContains('role:landlord', Route::getRoutes()->getByName('maintenance.caretaker-performance')->gatherMiddleware());
-        $this->assertContains('role:landlord', Route::getRoutes()->getByName('tickets.escalation.acknowledge')->gatherMiddleware());
+        // Scope-owner gated (landlord self-manager + manager firm/individual),
+        // and notably NOT caretaker — these are management surfaces.
+        $this->assertContains('role:landlord,manager', Route::getRoutes()->getByName('maintenance.caretaker-performance')->gatherMiddleware());
+        $this->assertContains('role:landlord,manager', Route::getRoutes()->getByName('tickets.escalation.acknowledge')->gatherMiddleware());
     }
 
     public function test_rollup_command_exits_zero(): void

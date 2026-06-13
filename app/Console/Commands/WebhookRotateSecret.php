@@ -66,7 +66,7 @@ class WebhookRotateSecret extends Command
         }
 
         $landlord = User::find($landlordId);
-        if (! $landlord || ! $landlord->isLandlord()) {
+        if (! $landlord || ! $landlord->isScopeOwner()) {
             $this->error("Landlord id={$landlordId} not found, or user is not a landlord.");
 
             return self::FAILURE;

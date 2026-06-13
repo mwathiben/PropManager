@@ -5,7 +5,7 @@ use Illuminate\Support\Facades\Route;
 // Phase-65 HOLD-UI-1 + BULK-HOLD-2/3: landlord-initiated legal-hold
 // CRUD + bulk + tenant-litigation preset. throttle:legal-hold limits
 // abuse on the higher-leverage bulk endpoint.
-Route::middleware(['auth', 'role:landlord'])->group(function () {
+Route::middleware(['auth', 'role:landlord,manager'])->group(function () {
     Route::get('/legal-holds', [\App\Http\Controllers\LegalHoldController::class, 'index'])
         ->name('legal-holds.index');
     // Phase-72 COMMAND-CENTER: the flat list (formerly the index landing).

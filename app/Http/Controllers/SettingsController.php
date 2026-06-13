@@ -29,7 +29,7 @@ class SettingsController extends Controller
     {
         $user = auth()->user();
 
-        if (! $user->isLandlord()) {
+        if (! $user->isScopeOwner()) {
             abort(403, 'Only landlords can access settings.');
         }
 
@@ -175,7 +175,7 @@ class SettingsController extends Controller
     {
         $user = auth()->user();
 
-        if (! $user->isLandlord()) {
+        if (! $user->isScopeOwner()) {
             abort(403);
         }
 
@@ -232,7 +232,7 @@ class SettingsController extends Controller
     {
         $user = auth()->user();
 
-        if (! $user->isLandlord()) {
+        if (! $user->isScopeOwner()) {
             abort(403);
         }
 
