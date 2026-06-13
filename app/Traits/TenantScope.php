@@ -76,7 +76,12 @@ trait TenantScope
 
                 $user = Auth::user();
 
-                if ($user->role === 'landlord') {
+                // landlord (self-manager) and manager (firm/individual) are both
+                // scope owners — their tenant data is keyed on their own id. A
+                // manager additionally keeps landlord_id == its own id (the User
+                // invariant), so every `isLandlord() ? id : landlord_id` scope
+                // resolution across the app lands on the same id without a sweep.
+                if (in_array($user->role, ['landlord', 'manager'], true)) {
                     $builder->where('landlord_id', $user->id);
 
                     return;
@@ -139,8 +144,12 @@ trait TenantScope
                 return;
             }
 
-            // Landlord owns their data; caretaker's data belongs to their boss
-            $model->landlord_id = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+            // Scope owners (landlord self-manager, manager firm/individual) own
+            // their own data; attached roles (caretaker, etc.) inherit their
+            // managing account's id.
+            $model->landlord_id = in_array($user->role, ['landlord', 'manager'], true)
+                ? $user->id
+                : $user->landlord_id;
         });
     }
 }
