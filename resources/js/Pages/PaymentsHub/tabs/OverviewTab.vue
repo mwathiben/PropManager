@@ -172,7 +172,7 @@ const methodBadgeClass = (method: string): string => {
                 <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
                     <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ t('payments_hub.overview.recent_payments') }}</h2>
                     <Link
-                        :href="route('payments-hub.transactions')"
+                        :href="route('finances.payments')"
                         class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
                     >
                         {{ t('payments_hub.overview.view_all') }}

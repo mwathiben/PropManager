@@ -133,7 +133,15 @@ class PaymentControllerTest extends TestCase
         $response->assertJson(['public_key' => 'pk_test_xxxxx']);
     }
 
-    public function test_payment_transactions_page(): void
+    public function test_payments_index_redirects_to_finances_payments(): void
+    {
+        // The legacy /payments route now redirects to Finance Hub payments list.
+        $this->actingAs($this->landlord)
+            ->get(route('payments.index'))
+            ->assertRedirect(route('finances.payments'));
+    }
+
+    public function test_finance_hub_payments_page_shows_payments(): void
     {
         $unit = $this->setupData['units']->first();
         ['lease' => $lease] = $this->createTenantWithActiveLease($this->landlord, $unit);
@@ -150,7 +158,7 @@ class PaymentControllerTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->landlord)
-            ->get(route('payments-hub.transactions'));
+            ->get(route('finances.payments'));
 
         $response->assertOk();
     }

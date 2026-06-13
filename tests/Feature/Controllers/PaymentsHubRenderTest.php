@@ -28,8 +28,7 @@ class PaymentsHubRenderTest extends TestCase
     private const TABS = [
         'overview' => ['stats', 'recentPayments', 'quickActions', 'payoutAccountSummary'],
         'collection' => ['paymentMethods', 'payoutAccounts', 'billingSettings'],
-        'transactions' => ['payments', 'filters'],
-        'analytics' => ['revenueData', 'monthlyTrend', 'platformFees'],
+        'analytics' => ['collectionRates', 'platformFees'],
         'settings' => ['preferences', 'invoiceSettings', 'reminderSettings'],
     ];
 
@@ -81,15 +80,19 @@ class PaymentsHubRenderTest extends TestCase
             ->assertRedirect(route('payments-hub.overview'));
     }
 
-    public function test_payments_and_payout_entrypoints_land_on_the_hub(): void
+    public function test_payments_index_redirects_to_finance_hub_payments(): void
     {
         ['landlord' => $landlord] = $this->createLandlordWithFullSetup();
 
-        // /payments and /settings/payout redirect into the hub — the two
-        // user-facing entrypoints that were broken before the component existed.
+        // /payments now redirects to Finance Hub payments list (not Payments Hub transactions).
         $this->actingAs($landlord)
             ->get(route('payments.index'))
-            ->assertRedirect(route('payments-hub.transactions'));
+            ->assertRedirect(route('finances.payments'));
+    }
+
+    public function test_payout_entrypoint_lands_on_the_hub(): void
+    {
+        ['landlord' => $landlord] = $this->createLandlordWithFullSetup();
 
         $this->actingAs($landlord)
             ->get(route('settings.payout.index'))

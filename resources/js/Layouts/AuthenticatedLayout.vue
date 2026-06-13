@@ -219,6 +219,7 @@ const navigationItems = computed(() => {
 
             // FINANCES HUB (Already consolidated)
             { name: t('nav.finances'), href: route('finances.index'), icon: BanknotesIcon, active: route().current('finances.*'), badgeKey: 'invoices', badgeColor: 'bg-red-500', tour: 'nav-finances' },
+            { name: t('nav.payments'), href: route('payments-hub.overview'), icon: CreditCardIcon, active: route().current('payments-hub.*') },
 
             // MAINTENANCE HUB (Consolidated)
             {

@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Enums\InvoiceStatus;
 use App\Http\Traits\WithLandlordScope;
-use App\Models\Building;
 use App\Models\Invoice;
 use App\Models\LandlordPayoutAccount;
 use App\Models\Payment;
@@ -14,7 +13,6 @@ use App\Models\PlatformFee;
 use App\Services\BillingModelService;
 use App\Services\FinanceCacheService;
 use App\Services\PaystackSubaccountService;
-use App\Traits\DatabaseAgnosticQueries;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,7 +22,6 @@ use Inertia\Response;
 
 class PaymentsHubController extends Controller
 {
-    use DatabaseAgnosticQueries;
     use WithLandlordScope;
 
     public function __construct(
@@ -77,22 +74,7 @@ class PaymentsHubController extends Controller
     }
 
     /**
-     * Transactions tab - payment history
-     */
-    public function transactions(Request $request): Response
-    {
-        $landlordId = $this->getLandlordId();
-
-        return $this->renderHub('transactions', [
-            'payments' => $this->getPaginatedPayments($request, $landlordId),
-            'paymentMethods' => $this->getPaymentMethodsForFilter(),
-            'buildings' => $this->getBuildings($landlordId),
-            'filters' => $request->only(['search', 'method', 'date_from', 'date_to', 'building_id']),
-        ]);
-    }
-
-    /**
-     * Analytics tab - revenue insights
+     * Analytics tab - collection-specific insights
      */
     public function analytics(Request $request): Response
     {
@@ -101,11 +83,8 @@ class PaymentsHubController extends Controller
 
         return $this->renderHub('analytics', [
             'period' => $period,
-            'revenueData' => $this->getRevenueData($landlordId, $period),
             'collectionRates' => $this->getCollectionRates($landlordId),
             'paymentMethodBreakdown' => $this->getPaymentMethodBreakdown($landlordId),
-            'monthlyTrend' => $this->getMonthlyTrend($landlordId, 12),
-            'topPayingUnits' => $this->getTopPayingUnits($landlordId, 5),
             'platformFees' => $this->getPlatformFeeSummary($landlordId),
         ]);
     }
@@ -408,7 +387,6 @@ class PaymentsHubController extends Controller
         return [
             ['id' => 'overview', 'name' => 'Overview', 'route' => 'payments-hub.overview', 'icon' => 'HomeIcon'],
             ['id' => 'collection', 'name' => 'Collection', 'route' => 'payments-hub.collection', 'icon' => 'CreditCardIcon'],
-            ['id' => 'transactions', 'name' => 'Transactions', 'route' => 'payments-hub.transactions', 'icon' => 'ClockIcon'],
             ['id' => 'analytics', 'name' => 'Analytics', 'route' => 'payments-hub.analytics', 'icon' => 'ChartBarIcon'],
             ['id' => 'settings', 'name' => 'Settings', 'route' => 'payments-hub.settings', 'icon' => 'Cog6ToothIcon'],
         ];
@@ -662,120 +640,6 @@ class PaymentsHubController extends Controller
     }
 
     /**
-     * Get paginated payments for transactions tab
-     */
-    private function getPaginatedPayments(Request $request, int $landlordId)
-    {
-        $query = Payment::where('landlord_id', $landlordId)
-            ->with([
-                'invoice:id,invoice_number,total_due',
-                'lease.tenant:id,name,email',
-                'lease.unit:id,unit_number,building_id',
-                'lease.unit.building:id,name',
-                'platformFee:id,payment_id,fee_amount,net_amount',
-            ]);
-
-        // Search filter
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('reference', 'like', "%{$search}%")
-                    ->orWhereHas('invoice', function ($q) use ($search) {
-                        $q->where('invoice_number', 'like', "%{$search}%");
-                    })
-                    ->orWhereHas('lease.tenant', function ($q) use ($search) {
-                        $q->where('name', 'like', "%{$search}%");
-                    });
-            });
-        }
-
-        // Payment method filter
-        if ($request->filled('method')) {
-            $query->where('payment_method', $request->method);
-        }
-
-        // Date range filter
-        if ($request->filled('date_from')) {
-            $query->whereDate('payment_date', '>=', $request->date_from);
-        }
-        if ($request->filled('date_to')) {
-            $query->whereDate('payment_date', '<=', $request->date_to);
-        }
-
-        // Building filter
-        if ($request->filled('building_id')) {
-            $query->whereHas('lease.unit', function ($q) use ($request) {
-                $q->where('building_id', $request->building_id);
-            });
-        }
-
-        return $query->orderBy('payment_date', 'desc')
-            ->paginate(20)
-            ->withQueryString();
-    }
-
-    /**
-     * Get payment methods for filter dropdown
-     */
-    private function getPaymentMethodsForFilter(): array
-    {
-        return [
-            ['value' => 'cash', 'label' => 'Cash'],
-            ['value' => 'bank_transfer', 'label' => 'Bank Transfer'],
-            ['value' => 'mobile_money', 'label' => 'Mobile Money'],
-            ['value' => 'paystack', 'label' => 'Paystack'],
-        ];
-    }
-
-    /**
-     * Get revenue data for analytics
-     */
-    private function getRevenueData(int $landlordId, string $period): array
-    {
-        $now = now();
-
-        switch ($period) {
-            case 'week':
-                $startDate = $now->copy()->startOfWeek();
-                break;
-            case 'quarter':
-                $startDate = $now->copy()->startOfQuarter();
-                break;
-            case 'year':
-                $startDate = $now->copy()->startOfYear();
-                break;
-            default:
-                $startDate = $now->copy()->startOfMonth();
-        }
-
-        $total = Payment::withArchived()->where('landlord_id', $landlordId)
-            ->where('payment_date', '>=', $startDate)
-            ->sum('amount');
-
-        $previousPeriodStart = match ($period) {
-            'week' => $startDate->copy()->subWeek(),
-            'quarter' => $startDate->copy()->subQuarter(),
-            'year' => $startDate->copy()->subYear(),
-            default => $startDate->copy()->subMonth(),
-        };
-
-        $previousTotal = Payment::withArchived()->where('landlord_id', $landlordId)
-            ->whereBetween('payment_date', [$previousPeriodStart, $startDate])
-            ->sum('amount');
-
-        $trend = $previousTotal > 0
-            ? round((($total - $previousTotal) / $previousTotal) * 100, 1)
-            : 0;
-
-        return [
-            'total' => round($total, 2),
-            'previous_total' => round($previousTotal, 2),
-            'trend' => $trend,
-            'trend_direction' => $trend >= 0 ? 'up' : 'down',
-        ];
-    }
-
-    /**
      * Get collection rates
      */
     private function getCollectionRates(int $landlordId): array
@@ -823,62 +687,6 @@ class PaymentsHubController extends Controller
                     'label' => PaymentConfiguration::getAvailablePaymentMethods()[$item->payment_method] ?? ucfirst($item->payment_method),
                     'count' => $item->count,
                     'total' => round($item->total, 2),
-                ];
-            })
-            ->toArray();
-    }
-
-    /**
-     * Get monthly trend data
-     */
-    private function getMonthlyTrend(int $landlordId, int $months = 12): array
-    {
-        $startDate = now()->subMonths($months - 1)->startOfMonth();
-
-        $dateFormat = $this->getDateFormatSql('payment_date', '%Y-%m');
-
-        $payments = Payment::withArchived()->where('landlord_id', $landlordId)
-            ->where('payment_date', '>=', $startDate)
-            ->selectRaw("{$dateFormat} as month_key, SUM(amount) as total")
-            ->groupBy('month_key')
-            ->get()
-            ->keyBy('month_key');
-
-        $trend = [];
-        for ($i = $months - 1; $i >= 0; $i--) {
-            $date = now()->subMonths($i);
-            $monthKey = $date->format('Y-m');
-
-            $amount = $payments->get($monthKey)?->total ?? 0;
-
-            $trend[] = [
-                'month' => $date->format('M Y'),
-                'short_month' => $date->format('M'),
-                'amount' => round((float) $amount, 2),
-            ];
-        }
-
-        return $trend;
-    }
-
-    /**
-     * Get top paying units
-     */
-    private function getTopPayingUnits(int $landlordId, int $limit = 5): array
-    {
-        return Payment::withArchived()->where('landlord_id', $landlordId)
-            ->with(['lease.unit:id,unit_number,building_id', 'lease.unit.building:id,name'])
-            ->selectRaw('lease_id, SUM(amount) as total_paid, COUNT(*) as payment_count')
-            ->groupBy('lease_id')
-            ->orderByDesc('total_paid')
-            ->limit($limit)
-            ->get()
-            ->map(function ($item) {
-                return [
-                    'unit' => $item->lease?->unit?->unit_number ?? 'N/A',
-                    'building' => $item->lease?->unit?->building?->name ?? 'N/A',
-                    'total_paid' => round($item->total_paid, 2),
-                    'payment_count' => $item->payment_count,
                 ];
             })
             ->toArray();

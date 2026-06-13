@@ -53,7 +53,8 @@
         "view_buildings": "View Buildings",
         "messages": "Messages",
         "inbox": "Inbox",
-        "legal_holds": "Legal holds"
+        "legal_holds": "Legal holds",
+        "payments": "Payments"
     },
     "menu": {
         "account": "Account",
@@ -171,7 +172,6 @@
         "tabs": {
             "overview": "Overview",
             "collection": "Collection",
-            "transactions": "Transactions",
             "analytics": "Analytics",
             "settings": "Settings"
         },
@@ -237,53 +237,22 @@
             "adding": "Adding…",
             "deactivate_confirm": "Are you sure you want to deactivate this payout account?"
         },
-        "transactions": {
-            "search_placeholder": "Search reference, tenant, invoice…",
-            "filters": "Filters",
-            "clear": "Clear",
-            "filter_method": "Payment Method",
-            "filter_all_methods": "All methods",
-            "filter_building": "Building",
-            "filter_all_buildings": "All buildings",
-            "filter_from": "From",
-            "filter_to": "To",
-            "showing": "Showing {from}–{to} of {total} payments",
-            "no_results": "No payments found",
-            "columns": {
-                "reference": "Reference",
-                "tenant_unit": "Tenant / Unit",
-                "invoice": "Invoice",
-                "amount": "Amount",
-                "method": "Method",
-                "date": "Date",
-                "net": "Net"
-            },
-            "no_transactions_title": "No transactions found",
-            "no_transactions_desc": "Try adjusting your filters or record a new payment.",
-            "page_of": "Page {current} of {total}"
-        },
         "analytics": {
-            "revenue": "Revenue",
-            "previous": "previous",
             "collection_rate": "Collection Rate",
             "last_month": "last month",
-            "trend_chart_title": "12-Month Revenue Trend",
-            "no_trend_title": "No trend data",
-            "no_trend_desc": "Payment data will appear here as you record transactions.",
             "method_breakdown_title": "Payment Method Breakdown",
             "payments_count": "{count} payments",
             "no_breakdown_title": "No data this period",
             "no_breakdown_desc": "Payment method breakdown will appear here.",
-            "top_units_title": "Top Paying Units",
-            "no_units_title": "No data yet",
-            "no_units_desc": "Top paying units will appear here.",
             "platform_fees_title": "Platform Fees",
             "fees_this_month": "This Month",
             "fees_total": "Total Fees",
             "fees_gross": "Gross Volume",
             "fees_net": "Net Volume",
             "trend_up": "Up",
-            "trend_down": "Down"
+            "trend_down": "Down",
+            "full_reports_cta": "Full revenue reports & statements",
+            "full_reports_btn": "Go to Finance Hub Reports"
         },
         "settings": {
             "prefs_title": "Payment Preferences",
