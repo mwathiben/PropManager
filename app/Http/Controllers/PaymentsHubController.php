@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\InvoiceStatus;
+use App\Http\Requests\Settings\UpdatePaymentMethodsRequest;
 use App\Http\Traits\WithLandlordScope;
 use App\Models\Invoice;
 use App\Models\LandlordPayoutAccount;
@@ -13,6 +14,8 @@ use App\Models\PlatformFee;
 use App\Services\BillingModelService;
 use App\Services\FinanceCacheService;
 use App\Services\PaystackSubaccountService;
+use App\Services\SecurityLogger;
+use App\Services\Settings\PaymentMethodConfigService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -26,7 +29,8 @@ class PaymentsHubController extends Controller
 
     public function __construct(
         protected BillingModelService $billingService,
-        protected PaystackSubaccountService $subaccountService
+        protected PaystackSubaccountService $subaccountService,
+        protected PaymentMethodConfigService $configService
     ) {}
 
     // ========================================
@@ -59,15 +63,21 @@ class PaymentsHubController extends Controller
     }
 
     /**
-     * Collection tab - payment methods and payout accounts
+     * Collection tab - payment methods, gateway credentials, and payout accounts.
+     *
+     * Passes the full masked credential config (including *_last4 fields) so
+     * the Collection tab can render the complete gateway credentials form.
      */
     public function collection(): Response
     {
         $landlordId = $this->getLandlordId();
 
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+
         return $this->renderHub('collection', [
             'paymentMethods' => PaymentConfiguration::getAvailablePaymentMethods(),
-            'paymentConfig' => $this->getPaymentConfig($landlordId),
+            'paymentConfig' => $this->configService->maskedConfig($user),
             'payoutAccounts' => $this->getPayoutAccounts($landlordId),
             'billingSettings' => $this->getBillingSettings(),
         ]);
@@ -108,35 +118,17 @@ class PaymentsHubController extends Controller
     // ========================================
 
     /**
-     * Update payment methods configuration
+     * Update payment methods and gateway credentials from the Collection tab.
+     *
+     * Uses the canonical UpdatePaymentMethodsRequest (full validation rules) and
+     * delegates to PaymentMethodConfigService for blank-preserve + audit logic.
      */
-    public function updatePaymentMethods(Request $request): RedirectResponse
+    public function updatePaymentMethods(UpdatePaymentMethodsRequest $request, SecurityLogger $logger): RedirectResponse
     {
-        $landlordId = $this->getLandlordId();
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
 
-        $validated = $request->validate([
-            'accepted_payment_methods' => 'required|array|min:1',
-            'accepted_payment_methods.*' => 'in:cash,bank_transfer,mobile_money,paystack',
-            'bank_name' => 'nullable|required_if:bank_transfer,true|string|max:255',
-            'bank_account_name' => 'nullable|string|max:255',
-            'bank_account_number' => 'nullable|string|max:50',
-            'bank_branch' => 'nullable|string|max:255',
-            'mpesa_paybill' => 'nullable|string|max:50',
-            'mpesa_account_name' => 'nullable|string|max:255',
-        ]);
-
-        $config = PaymentConfiguration::getOrCreateForLandlord($landlordId);
-
-        $config->update([
-            'accepted_payment_methods' => $validated['accepted_payment_methods'],
-            'bank_name' => $validated['bank_name'] ?? null,
-            'bank_account_name' => $validated['bank_account_name'] ?? null,
-            'bank_account_number' => $validated['bank_account_number'] ?? null,
-            'bank_branch' => $validated['bank_branch'] ?? null,
-            'mpesa_paybill' => $validated['mpesa_paybill'] ?? null,
-            'mpesa_account_name' => $validated['mpesa_account_name'] ?? null,
-            'paystack_enabled' => in_array('paystack', $validated['accepted_payment_methods']),
-        ]);
+        $this->configService->apply($user, $request->validated(), $logger);
 
         return redirect()->back()->with('success', 'Payment methods updated successfully.');
     }
@@ -568,29 +560,6 @@ class PaymentsHubController extends Controller
                 'route' => 'notifications.index',
                 'icon' => 'BellIcon',
             ],
-        ];
-    }
-
-    /**
-     * Get payment configuration
-     */
-    private function getPaymentConfig(int $landlordId): ?array
-    {
-        $config = PaymentConfiguration::where('landlord_id', $landlordId)->first();
-
-        if (! $config) {
-            return null;
-        }
-
-        return [
-            'accepted_payment_methods' => $config->accepted_payment_methods ?? [],
-            'bank_name' => $config->bank_name,
-            'bank_account_name' => $config->bank_account_name,
-            'bank_account_number' => $config->bank_account_number,
-            'bank_branch' => $config->bank_branch,
-            'mpesa_paybill' => $config->mpesa_paybill,
-            'mpesa_account_name' => $config->mpesa_account_name,
-            'paystack_enabled' => $config->paystack_enabled,
         ];
     }
 

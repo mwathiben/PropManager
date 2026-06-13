@@ -109,7 +109,7 @@ class MpesaB2CCredentialConfigurationTest extends TestCase
     public function test_settings_controller_returns_last4_for_b2c_password(): void
     {
         $response = $this->actingAs($this->landlord)
-            ->get(route('settings.index', ['tab' => 'payments']));
+            ->get(route('payments-hub.collection'));
 
         $response->assertOk();
 
@@ -122,7 +122,7 @@ class MpesaB2CCredentialConfigurationTest extends TestCase
     public function test_settings_controller_returns_last4_for_b2c_security_credential(): void
     {
         $response = $this->actingAs($this->landlord)
-            ->get(route('settings.index', ['tab' => 'payments']));
+            ->get(route('payments-hub.collection'));
 
         $response->assertOk();
 
@@ -135,7 +135,7 @@ class MpesaB2CCredentialConfigurationTest extends TestCase
     public function test_b2c_secrets_never_exposed_to_frontend(): void
     {
         $response = $this->actingAs($this->landlord)
-            ->get(route('settings.index', ['tab' => 'payments']));
+            ->get(route('payments-hub.collection'));
 
         $response->assertOk();
 
@@ -151,7 +151,7 @@ class MpesaB2CCredentialConfigurationTest extends TestCase
         $originalCredential = $this->paymentConfig->mpesa_b2c_security_credential;
 
         $response = $this->actingAs($this->landlord)
-            ->post(route('settings.payment.update'), [
+            ->post(route('payments-hub.payment-methods.update'), [
                 'accepted_payment_methods' => ['cash', 'mobile_money'],
                 'mpesa_b2c_shortcode' => '999999',
                 'mpesa_b2c_password' => '',
@@ -170,7 +170,7 @@ class MpesaB2CCredentialConfigurationTest extends TestCase
     public function test_update_overwrites_b2c_secrets_when_provided(): void
     {
         $response = $this->actingAs($this->landlord)
-            ->post(route('settings.payment.update'), [
+            ->post(route('payments-hub.payment-methods.update'), [
                 'accepted_payment_methods' => ['cash', 'mobile_money'],
                 'mpesa_b2c_password' => 'new_b2c_password_xxxx',
                 'mpesa_b2c_security_credential' => 'new_b2c_cred_yyyy',

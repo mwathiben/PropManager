@@ -21,4 +21,11 @@ return [
         'kyc_title' => 'KYC Requirements',
         'kyc_description' => 'Configure document requirements for tenant verification',
     ],
+    'payment_hub_redirect' => [
+        'heading' => 'Payment Methods & Credentials',
+        'description' => 'Payment gateway credentials are now managed in the Payments Hub for a unified experience.',
+        'panel_title' => 'Manage in Payments Hub',
+        'panel_desc' => 'Configure accepted payment methods, gateway credentials (Paystack, M-Pesa, IntaSend), and bank details.',
+        'button' => 'Go to Payments Hub',
+    ],
 ];

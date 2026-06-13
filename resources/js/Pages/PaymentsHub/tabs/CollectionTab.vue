@@ -4,6 +4,9 @@ import { router, useForm } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables/useFormatters';
 import { useI18n } from '@/composables/useI18n';
 import EmptyState from '@/Components/EmptyState.vue';
+import InputLabel from '@/Components/InputLabel.vue';
+import TextInput from '@/Components/TextInput.vue';
+import InputError from '@/Components/InputError.vue';
 import {
     BanknotesIcon,
     PlusIcon,
@@ -16,6 +19,7 @@ import {
     CreditCardIcon,
     BuildingLibraryIcon,
     DevicePhoneMobileIcon,
+    GlobeAltIcon,
 } from '@heroicons/vue/24/outline';
 
 interface PaymentConfig {
@@ -26,7 +30,24 @@ interface PaymentConfig {
     bank_branch: string | null;
     mpesa_paybill: string | null;
     mpesa_account_name: string | null;
+    mpesa_shortcode: string | null;
+    mpesa_shortcode_type: string | null;
+    mpesa_b2c_shortcode: string | null;
+    mpesa_b2c_initiator: string | null;
+    mpesa_environment: string | null;
     paystack_enabled: boolean;
+    paystack_public_key: string | null;
+    intasend_enabled: boolean;
+    intasend_publishable_key: string | null;
+    intasend_webhook_challenge: string | null;
+    intasend_environment: string | null;
+    // Last-4 masked values (secrets stripped server-side)
+    paystack_secret_key_last4: string | null;
+    mpesa_consumer_key_last4: string | null;
+    mpesa_consumer_secret_last4: string | null;
+    intasend_secret_key_last4: string | null;
+    mpesa_b2c_password_last4: string | null;
+    mpesa_b2c_security_credential_last4: string | null;
 }
 
 interface PayoutAccount {
@@ -72,36 +93,56 @@ const props = withDefaults(defineProps<Props>(), {
 const { formatMoney } = useFormatters();
 const { t } = useI18n();
 
-// ── Payment methods form ──────────────────────────────────────────────────────
+// ── Credential + methods form ─────────────────────────────────────────────────
 
-const methodsForm = useForm({
-    accepted_payment_methods: props.paymentConfig?.accepted_payment_methods ?? [],
+const credForm = useForm({
+    accepted_payment_methods: props.paymentConfig?.accepted_payment_methods ?? ['cash'],
     bank_name: props.paymentConfig?.bank_name ?? '',
     bank_account_name: props.paymentConfig?.bank_account_name ?? '',
     bank_account_number: props.paymentConfig?.bank_account_number ?? '',
     bank_branch: props.paymentConfig?.bank_branch ?? '',
     mpesa_paybill: props.paymentConfig?.mpesa_paybill ?? '',
     mpesa_account_name: props.paymentConfig?.mpesa_account_name ?? '',
+    mpesa_shortcode: props.paymentConfig?.mpesa_shortcode ?? '',
+    mpesa_shortcode_type: props.paymentConfig?.mpesa_shortcode_type ?? 'paybill',
+    mpesa_environment: props.paymentConfig?.mpesa_environment ?? 'sandbox',
+    // Secrets start empty — blank = keep existing (server-side blank-preserve)
+    mpesa_consumer_key: '',
+    mpesa_consumer_secret: '',
+    mpesa_passkey: '',
+    mpesa_b2c_shortcode: props.paymentConfig?.mpesa_b2c_shortcode ?? '',
+    mpesa_b2c_initiator: props.paymentConfig?.mpesa_b2c_initiator ?? '',
+    mpesa_b2c_password: '',
+    mpesa_b2c_security_credential: '',
+    paystack_enabled: props.paymentConfig?.paystack_enabled ?? false,
+    paystack_public_key: props.paymentConfig?.paystack_public_key ?? '',
+    paystack_secret_key: '',
+    intasend_enabled: props.paymentConfig?.intasend_enabled ?? false,
+    intasend_publishable_key: props.paymentConfig?.intasend_publishable_key ?? '',
+    intasend_secret_key: '',
+    intasend_webhook_challenge: props.paymentConfig?.intasend_webhook_challenge ?? '',
+    intasend_environment: props.paymentConfig?.intasend_environment ?? 'sandbox',
 });
+
+const wantsBankTransfer = computed(() => credForm.accepted_payment_methods.includes('bank_transfer'));
+const wantsMobileMoney = computed(() => credForm.accepted_payment_methods.includes('mobile_money'));
+const wantsPaystack = computed(() => credForm.accepted_payment_methods.includes('paystack'));
+const wantsIntasend = computed(() => credForm.accepted_payment_methods.includes('intasend_mpesa'));
+
+const hasPaystackSecretKey = computed(() => !!props.paymentConfig?.paystack_secret_key_last4);
+const hasMpesaConsumerKey = computed(() => !!props.paymentConfig?.mpesa_consumer_key_last4);
+const hasMpesaB2CPassword = computed(() => !!props.paymentConfig?.mpesa_b2c_password_last4);
+const hasMpesaB2CCredential = computed(() => !!props.paymentConfig?.mpesa_b2c_security_credential_last4);
+const hasIntasendSecretKey = computed(() => !!props.paymentConfig?.intasend_secret_key_last4);
 
 const methodEntries = computed(() =>
     Object.entries(props.paymentMethods).map(([value, label]) => ({ value, label }))
 );
 
-const wantsBankTransfer = computed(() =>
-    methodsForm.accepted_payment_methods.includes('bank_transfer')
-);
-
-const wantsMobileMoney = computed(() =>
-    methodsForm.accepted_payment_methods.includes('mobile_money')
-);
-
-const wantsPaystack = computed(() =>
-    methodsForm.accepted_payment_methods.includes('paystack')
-);
-
-const submitPaymentMethods = () => {
-    methodsForm.post(route('payments-hub.payment-methods.update'));
+const submitCredForm = () => {
+    credForm.post(route('payments-hub.payment-methods.update'), {
+        preserveScroll: true,
+    });
 };
 
 // ── Payout accounts ───────────────────────────────────────────────────────────
@@ -226,14 +267,14 @@ const statusIcon = (status: string) => {
                         {{ t('payments_hub.collection.billing_model') }} <strong>{{ billingSettings.billing_model }}</strong>
                     </p>
                     <p v-if="billingSettings.billing_model !== 'subscription'" class="text-sm text-blue-700 dark:text-blue-300">
-                        Fee: <strong>{{ billingSettings.transaction_fee_percentage }}%</strong> {{ t('payments_hub.collection.per_transaction') }}
-                        (min {{ formatMoney(billingSettings.minimum_fee) }})
+                        {{ t('payments_hub.collection.fee_label') }}: <strong>{{ billingSettings.transaction_fee_percentage }}%</strong> {{ t('payments_hub.collection.per_transaction') }}
+                        ({{ t('payments_hub.collection.min_label') }} {{ formatMoney(billingSettings.minimum_fee) }})
                     </p>
                 </div>
             </div>
         </div>
 
-        <!-- Payment methods card -->
+        <!-- Gateway credentials + accepted methods form -->
         <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
             <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                 <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">{{ t('payments_hub.collection.accepted_methods_title') }}</h2>
@@ -242,7 +283,7 @@ const statusIcon = (status: string) => {
                 </p>
             </div>
 
-            <form class="p-6 space-y-5" @submit.prevent="submitPaymentMethods">
+            <form class="p-6 space-y-6" @submit.prevent="submitCredForm">
                 <!-- Method checkboxes -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <label
@@ -251,7 +292,7 @@ const statusIcon = (status: string) => {
                         class="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors"
                     >
                         <input
-                            v-model="methodsForm.accepted_payment_methods"
+                            v-model="credForm.accepted_payment_methods"
                             type="checkbox"
                             :value="method.value"
                             class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
@@ -259,102 +300,277 @@ const statusIcon = (status: string) => {
                         <div class="flex items-center gap-2">
                             <BuildingLibraryIcon v-if="method.value === 'bank_transfer'" class="w-5 h-5 text-gray-500 dark:text-gray-400" />
                             <DevicePhoneMobileIcon v-else-if="method.value === 'mobile_money'" class="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                            <CreditCardIcon v-else class="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                            <CreditCardIcon v-else-if="method.value === 'paystack'" class="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                            <GlobeAltIcon v-else-if="method.value === 'intasend_mpesa'" class="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                            <BanknotesIcon v-else class="w-5 h-5 text-gray-500 dark:text-gray-400" />
                             <span class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ method.label }}</span>
                         </div>
                     </label>
                 </div>
-                <p v-if="methodsForm.errors.accepted_payment_methods" class="text-sm text-red-600">
-                    {{ methodsForm.errors.accepted_payment_methods }}
+                <p v-if="credForm.errors.accepted_payment_methods" class="text-sm text-red-600">
+                    {{ credForm.errors.accepted_payment_methods }}
                 </p>
 
                 <!-- Bank transfer details -->
                 <div v-if="wantsBankTransfer" class="rounded-lg bg-gray-50 dark:bg-gray-700/50 p-4 space-y-4">
-                    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300">{{ t('payments_hub.collection.bank_transfer_details') }}</h3>
+                    <div class="flex items-center gap-2">
+                        <BuildingLibraryIcon class="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                        <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300">{{ t('payments_hub.collection.bank_transfer_details') }}</h3>
+                    </div>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <label for="bank_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t('payments_hub.collection.bank_name') }}</label>
-                            <input
-                                id="bank_name"
-                                v-model="methodsForm.bank_name"
-                                type="text"
-                                class="block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500"
-                            />
-                            <p v-if="methodsForm.errors.bank_name" class="mt-1 text-xs text-red-600">{{ methodsForm.errors.bank_name }}</p>
+                            <InputLabel for="cred_bank_name" :value="t('payments_hub.collection.bank_name')" />
+                            <TextInput id="cred_bank_name" v-model="credForm.bank_name" type="text" class="mt-1 block w-full" />
+                            <InputError :message="credForm.errors.bank_name" class="mt-1" />
                         </div>
                         <div>
-                            <label for="bank_account_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t('payments_hub.collection.account_name') }}</label>
-                            <input
-                                id="bank_account_name"
-                                v-model="methodsForm.bank_account_name"
-                                type="text"
-                                class="block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500"
-                            />
+                            <InputLabel for="cred_bank_branch" :value="t('payments_hub.collection.branch')" />
+                            <TextInput id="cred_bank_branch" v-model="credForm.bank_branch" type="text" class="mt-1 block w-full" />
+                            <InputError :message="credForm.errors.bank_branch" class="mt-1" />
                         </div>
                         <div>
-                            <label for="bank_account_number" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t('payments_hub.collection.account_number') }}</label>
-                            <input
-                                id="bank_account_number"
-                                v-model="methodsForm.bank_account_number"
-                                type="text"
-                                class="block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500"
-                            />
+                            <InputLabel for="cred_bank_account_name" :value="t('payments_hub.collection.account_name')" />
+                            <TextInput id="cred_bank_account_name" v-model="credForm.bank_account_name" type="text" class="mt-1 block w-full" />
+                            <InputError :message="credForm.errors.bank_account_name" class="mt-1" />
                         </div>
                         <div>
-                            <label for="bank_branch" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t('payments_hub.collection.branch') }}</label>
-                            <input
-                                id="bank_branch"
-                                v-model="methodsForm.bank_branch"
-                                type="text"
-                                class="block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500"
-                            />
+                            <InputLabel for="cred_bank_account_number" :value="t('payments_hub.collection.account_number')" />
+                            <TextInput id="cred_bank_account_number" v-model="credForm.bank_account_number" type="text" class="mt-1 block w-full" />
+                            <InputError :message="credForm.errors.bank_account_number" class="mt-1" />
                         </div>
                     </div>
                 </div>
 
-                <!-- M-Pesa details -->
+                <!-- M-Pesa details + API credentials -->
                 <div v-if="wantsMobileMoney" class="rounded-lg bg-gray-50 dark:bg-gray-700/50 p-4 space-y-4">
-                    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300">{{ t('payments_hub.collection.mpesa_details') }}</h3>
+                    <div class="flex items-center gap-2">
+                        <DevicePhoneMobileIcon class="w-5 h-5 text-green-600 dark:text-green-400" />
+                        <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300">{{ t('payments_hub.collection.mpesa_details') }}</h3>
+                    </div>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <label for="mpesa_paybill" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t('payments_hub.collection.mpesa_paybill') }}</label>
-                            <input
-                                id="mpesa_paybill"
-                                v-model="methodsForm.mpesa_paybill"
-                                type="text"
-                                class="block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500"
-                            />
+                            <InputLabel for="cred_mpesa_paybill" :value="t('payments_hub.collection.mpesa_paybill')" />
+                            <TextInput id="cred_mpesa_paybill" v-model="credForm.mpesa_paybill" type="text" class="mt-1 block w-full" />
+                            <InputError :message="credForm.errors.mpesa_paybill" class="mt-1" />
                         </div>
                         <div>
-                            <label for="mpesa_account_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t('payments_hub.collection.mpesa_account_name') }}</label>
-                            <input
-                                id="mpesa_account_name"
-                                v-model="methodsForm.mpesa_account_name"
-                                type="text"
-                                class="block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500"
-                            />
+                            <InputLabel for="cred_mpesa_account_name" :value="t('payments_hub.collection.mpesa_account_name')" />
+                            <TextInput id="cred_mpesa_account_name" v-model="credForm.mpesa_account_name" type="text" class="mt-1 block w-full" />
+                            <InputError :message="credForm.errors.mpesa_account_name" class="mt-1" />
+                        </div>
+                    </div>
+
+                    <!-- STK Push API credentials -->
+                    <div class="pt-3 border-t border-gray-200 dark:border-gray-600 space-y-4">
+                        <p class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('payments_hub.collection.mpesa_stk_heading') }}</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <InputLabel for="cred_mpesa_consumer_key">
+                                    {{ t('payments_hub.collection.mpesa_consumer_key') }}
+                                    <span v-if="props.paymentConfig?.mpesa_consumer_key_last4" class="ms-2 text-xs text-green-600">({{ props.paymentConfig.mpesa_consumer_key_last4 }})</span>
+                                </InputLabel>
+                                <TextInput
+                                    id="cred_mpesa_consumer_key"
+                                    v-model="credForm.mpesa_consumer_key"
+                                    type="password"
+                                    class="mt-1 block w-full font-mono text-sm"
+                                    :placeholder="hasMpesaConsumerKey ? '••••••••••••' : t('payments_hub.collection.mpesa_consumer_key_placeholder')"
+                                />
+                                <p class="mt-1 text-xs text-gray-500">{{ t('payments_hub.collection.credential_keep_hint') }}</p>
+                                <InputError :message="credForm.errors.mpesa_consumer_key" class="mt-1" />
+                            </div>
+                            <div>
+                                <InputLabel for="cred_mpesa_consumer_secret">
+                                    {{ t('payments_hub.collection.mpesa_consumer_secret') }}
+                                    <span v-if="props.paymentConfig?.mpesa_consumer_secret_last4" class="ms-2 text-xs text-green-600">({{ props.paymentConfig.mpesa_consumer_secret_last4 }})</span>
+                                </InputLabel>
+                                <TextInput
+                                    id="cred_mpesa_consumer_secret"
+                                    v-model="credForm.mpesa_consumer_secret"
+                                    type="password"
+                                    class="mt-1 block w-full font-mono text-sm"
+                                    :placeholder="hasMpesaConsumerKey ? '••••••••••••' : t('payments_hub.collection.mpesa_consumer_secret_placeholder')"
+                                />
+                                <p class="mt-1 text-xs text-gray-500">{{ t('payments_hub.collection.credential_keep_hint') }}</p>
+                                <InputError :message="credForm.errors.mpesa_consumer_secret" class="mt-1" />
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div :class="['w-2 h-2 rounded-full', hasMpesaConsumerKey || (credForm.mpesa_consumer_key && credForm.mpesa_consumer_secret) ? 'bg-green-500' : 'bg-gray-300']"></div>
+                            <span class="text-sm text-gray-600 dark:text-gray-400">
+                                {{ hasMpesaConsumerKey || (credForm.mpesa_consumer_key && credForm.mpesa_consumer_secret) ? t('payments_hub.collection.mpesa_stk_enabled') : t('payments_hub.collection.mpesa_stk_disabled') }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- B2C credentials -->
+                    <div class="pt-3 border-t border-gray-200 dark:border-gray-600 space-y-4">
+                        <p class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('payments_hub.collection.mpesa_b2c_heading') }}</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <InputLabel for="cred_mpesa_b2c_shortcode" :value="t('payments_hub.collection.mpesa_b2c_shortcode')" />
+                                <TextInput id="cred_mpesa_b2c_shortcode" v-model="credForm.mpesa_b2c_shortcode" type="text" class="mt-1 block w-full" />
+                                <InputError :message="credForm.errors.mpesa_b2c_shortcode" class="mt-1" />
+                            </div>
+                            <div>
+                                <InputLabel for="cred_mpesa_b2c_initiator" :value="t('payments_hub.collection.mpesa_b2c_initiator')" />
+                                <TextInput id="cred_mpesa_b2c_initiator" v-model="credForm.mpesa_b2c_initiator" type="text" class="mt-1 block w-full" />
+                                <InputError :message="credForm.errors.mpesa_b2c_initiator" class="mt-1" />
+                            </div>
+                            <div>
+                                <InputLabel for="cred_mpesa_b2c_password">
+                                    {{ t('payments_hub.collection.mpesa_b2c_password') }}
+                                    <span v-if="props.paymentConfig?.mpesa_b2c_password_last4" class="ms-2 text-xs text-green-600">({{ props.paymentConfig.mpesa_b2c_password_last4 }})</span>
+                                </InputLabel>
+                                <TextInput
+                                    id="cred_mpesa_b2c_password"
+                                    v-model="credForm.mpesa_b2c_password"
+                                    type="password"
+                                    class="mt-1 block w-full font-mono text-sm"
+                                    :placeholder="hasMpesaB2CPassword ? '••••••••••••' : t('payments_hub.collection.mpesa_b2c_password_placeholder')"
+                                />
+                                <p class="mt-1 text-xs text-gray-500">{{ t('payments_hub.collection.credential_keep_hint') }}</p>
+                                <InputError :message="credForm.errors.mpesa_b2c_password" class="mt-1" />
+                            </div>
+                            <div>
+                                <InputLabel for="cred_mpesa_b2c_security_credential">
+                                    {{ t('payments_hub.collection.mpesa_b2c_security') }}
+                                    <span v-if="props.paymentConfig?.mpesa_b2c_security_credential_last4" class="ms-2 text-xs text-green-600">({{ props.paymentConfig.mpesa_b2c_security_credential_last4 }})</span>
+                                </InputLabel>
+                                <TextInput
+                                    id="cred_mpesa_b2c_security_credential"
+                                    v-model="credForm.mpesa_b2c_security_credential"
+                                    type="password"
+                                    class="mt-1 block w-full font-mono text-sm"
+                                    :placeholder="hasMpesaB2CCredential ? '••••••••••••' : t('payments_hub.collection.mpesa_b2c_security_placeholder')"
+                                />
+                                <p class="mt-1 text-xs text-gray-500">{{ t('payments_hub.collection.credential_keep_hint') }}</p>
+                                <InputError :message="credForm.errors.mpesa_b2c_security_credential" class="mt-1" />
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div :class="['w-2 h-2 rounded-full', (hasMpesaB2CPassword && hasMpesaB2CCredential) || (credForm.mpesa_b2c_password && credForm.mpesa_b2c_security_credential) ? 'bg-green-500' : 'bg-gray-300']"></div>
+                            <span class="text-sm text-gray-600 dark:text-gray-400">
+                                {{ (hasMpesaB2CPassword && hasMpesaB2CCredential) || (credForm.mpesa_b2c_password && credForm.mpesa_b2c_security_credential) ? t('payments_hub.collection.mpesa_b2c_enabled') : t('payments_hub.collection.mpesa_b2c_disabled') }}
+                            </span>
                         </div>
                     </div>
                 </div>
 
-                <!-- Paystack notice -->
-                <div
-                    v-if="wantsPaystack"
-                    class="flex items-start gap-3 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 p-4"
-                >
-                    <CreditCardIcon class="w-5 h-5 text-purple-600 dark:text-purple-400 mt-0.5 shrink-0" />
-                    <p class="text-sm text-purple-700 dark:text-purple-300">
-                        {{ t('payments_hub.collection.paystack_notice') }}
-                    </p>
+                <!-- Paystack credentials -->
+                <div v-if="wantsPaystack" class="rounded-lg bg-gray-50 dark:bg-gray-700/50 p-4 space-y-4">
+                    <div class="flex items-center gap-2">
+                        <CreditCardIcon class="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                        <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300">{{ t('payments_hub.collection.paystack_heading') }}</h3>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" v-model="credForm.paystack_enabled" class="sr-only peer">
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                            <span class="ms-3 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                {{ credForm.paystack_enabled ? t('payments_hub.collection.toggle_enabled') : t('payments_hub.collection.toggle_disabled') }}
+                            </span>
+                        </label>
+                    </div>
+                    <div v-if="credForm.paystack_enabled" class="space-y-4 pt-3 border-t border-gray-200 dark:border-gray-600">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <InputLabel for="cred_paystack_public_key" :value="t('payments_hub.collection.paystack_public_key')" />
+                                <TextInput id="cred_paystack_public_key" v-model="credForm.paystack_public_key" type="text" class="mt-1 block w-full font-mono text-sm" placeholder="pk_live_... or pk_test_..." />
+                                <InputError :message="credForm.errors.paystack_public_key" class="mt-1" />
+                            </div>
+                            <div>
+                                <InputLabel for="cred_paystack_secret_key">
+                                    {{ t('payments_hub.collection.paystack_secret_key') }}
+                                    <span v-if="props.paymentConfig?.paystack_secret_key_last4" class="ms-2 text-xs text-green-600">({{ props.paymentConfig.paystack_secret_key_last4 }})</span>
+                                </InputLabel>
+                                <TextInput
+                                    id="cred_paystack_secret_key"
+                                    v-model="credForm.paystack_secret_key"
+                                    type="password"
+                                    class="mt-1 block w-full font-mono text-sm"
+                                    :placeholder="hasPaystackSecretKey ? '••••••••••••' : 'sk_live_... or sk_test_...'"
+                                />
+                                <p class="mt-1 text-xs text-gray-500">{{ t('payments_hub.collection.credential_keep_hint') }}</p>
+                                <InputError :message="credForm.errors.paystack_secret_key" class="mt-1" />
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div :class="['w-2 h-2 rounded-full', credForm.paystack_public_key && (hasPaystackSecretKey || credForm.paystack_secret_key) ? 'bg-green-500' : 'bg-yellow-500']"></div>
+                            <span class="text-sm text-gray-600 dark:text-gray-400">
+                                {{ credForm.paystack_public_key && (hasPaystackSecretKey || credForm.paystack_secret_key) ? t('payments_hub.collection.paystack_ready') : t('payments_hub.collection.paystack_pending') }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- IntaSend credentials -->
+                <div v-if="wantsIntasend" class="rounded-lg bg-gray-50 dark:bg-gray-700/50 p-4 space-y-4">
+                    <div class="flex items-center gap-2">
+                        <GlobeAltIcon class="w-5 h-5 text-green-600 dark:text-green-400" />
+                        <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300">{{ t('payments_hub.collection.intasend_heading') }}</h3>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" v-model="credForm.intasend_enabled" class="sr-only peer">
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                            <span class="ms-3 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                {{ credForm.intasend_enabled ? t('payments_hub.collection.toggle_enabled') : t('payments_hub.collection.toggle_disabled') }}
+                            </span>
+                        </label>
+                    </div>
+                    <div v-if="credForm.intasend_enabled" class="space-y-4 pt-3 border-t border-gray-200 dark:border-gray-600">
+                        <div>
+                            <InputLabel for="cred_intasend_environment" :value="t('payments_hub.collection.intasend_environment')" />
+                            <select id="cred_intasend_environment" v-model="credForm.intasend_environment" class="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                <option value="sandbox">{{ t('payments_hub.collection.environment_sandbox') }}</option>
+                                <option value="production">{{ t('payments_hub.collection.environment_production') }}</option>
+                            </select>
+                            <InputError :message="credForm.errors.intasend_environment" class="mt-1" />
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <InputLabel for="cred_intasend_publishable_key" :value="t('payments_hub.collection.intasend_publishable_key')" />
+                                <TextInput id="cred_intasend_publishable_key" v-model="credForm.intasend_publishable_key" type="text" class="mt-1 block w-full font-mono text-sm" placeholder="ISPubKey_..." />
+                                <InputError :message="credForm.errors.intasend_publishable_key" class="mt-1" />
+                            </div>
+                            <div>
+                                <InputLabel for="cred_intasend_secret_key">
+                                    {{ t('payments_hub.collection.intasend_secret_key') }}
+                                    <span v-if="props.paymentConfig?.intasend_secret_key_last4" class="ms-2 text-xs text-green-600">({{ props.paymentConfig.intasend_secret_key_last4 }})</span>
+                                </InputLabel>
+                                <TextInput
+                                    id="cred_intasend_secret_key"
+                                    v-model="credForm.intasend_secret_key"
+                                    type="password"
+                                    class="mt-1 block w-full font-mono text-sm"
+                                    :placeholder="hasIntasendSecretKey ? '••••••••••••' : 'ISSecretKey_...'"
+                                />
+                                <p class="mt-1 text-xs text-gray-500">{{ t('payments_hub.collection.credential_keep_hint') }}</p>
+                                <InputError :message="credForm.errors.intasend_secret_key" class="mt-1" />
+                            </div>
+                        </div>
+                        <div>
+                            <InputLabel for="cred_intasend_webhook_challenge" :value="t('payments_hub.collection.intasend_webhook')" />
+                            <TextInput id="cred_intasend_webhook_challenge" v-model="credForm.intasend_webhook_challenge" type="text" class="mt-1 block w-full" :placeholder="t('payments_hub.collection.intasend_webhook_placeholder')" />
+                            <InputError :message="credForm.errors.intasend_webhook_challenge" class="mt-1" />
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div :class="['w-2 h-2 rounded-full', credForm.intasend_publishable_key && (hasIntasendSecretKey || credForm.intasend_secret_key) ? 'bg-green-500' : 'bg-yellow-500']"></div>
+                            <span class="text-sm text-gray-600 dark:text-gray-400">
+                                {{ credForm.intasend_publishable_key && (hasIntasendSecretKey || credForm.intasend_secret_key) ? t('payments_hub.collection.intasend_ready') : t('payments_hub.collection.intasend_pending') }}
+                            </span>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="flex justify-end">
                     <button
                         type="submit"
-                        :disabled="methodsForm.processing"
+                        :disabled="credForm.processing"
                         class="px-5 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
                     >
-                        {{ methodsForm.processing ? t('payments_hub.collection.saving') : t('payments_hub.collection.save_methods') }}
+                        {{ credForm.processing ? t('payments_hub.collection.saving') : t('payments_hub.collection.save_methods') }}
                     </button>
                 </div>
             </form>
@@ -408,13 +624,10 @@ const statusIcon = (status: string) => {
                             </div>
 
                             <div class="flex items-center gap-4 shrink-0">
-                                <!-- Status badge -->
                                 <div class="flex items-center gap-1" :class="account.status_color">
                                     <component :is="statusIcon(account.verification_status)" class="w-4 h-4" />
                                     <span class="text-sm">{{ account.status_label }}</span>
                                 </div>
-
-                                <!-- Actions -->
                                 <div class="flex items-center gap-1">
                                     <button
                                         v-if="!account.is_primary && account.can_receive_payments"
