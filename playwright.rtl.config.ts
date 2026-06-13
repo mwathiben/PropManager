@@ -16,6 +16,13 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
     testDir: './tests/a11y/rtl',
+    // Keep baselines next to the spec under __screenshots__/ (as the runbook
+    // and spec header document). Without this, Playwright defaults to the
+    // `<spec>.spec.ts-snapshots/` sibling, which left __screenshots__/ holding
+    // only a .gitkeep while the real baselines lived elsewhere — a confusing
+    // split. The {projectName}/{platform} suffixes keep CI's Linux/Chromium
+    // baselines from colliding with any locally-generated render.
+    snapshotPathTemplate: '{testDir}/__screenshots__/{arg}-{projectName}-{platform}{ext}',
     timeout: 60_000,
     fullyParallel: false,
     retries: 0,
