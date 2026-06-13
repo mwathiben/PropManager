@@ -98,7 +98,7 @@ class PaystackCredentialMigrationTest extends TestCase
     public function test_settings_controller_returns_last_4_chars_of_secret_key(): void
     {
         $response = $this->actingAs($this->landlord)
-            ->get(route('settings.index', ['tab' => 'payments']));
+            ->get(route('payments-hub.collection'));
 
         $response->assertOk();
 
@@ -112,7 +112,7 @@ class PaystackCredentialMigrationTest extends TestCase
     public function test_full_secret_key_never_exposed_to_frontend(): void
     {
         $response = $this->actingAs($this->landlord)
-            ->get(route('settings.index', ['tab' => 'payments']));
+            ->get(route('payments-hub.collection'));
 
         $response->assertOk();
 
@@ -222,7 +222,7 @@ class PaystackCredentialMigrationTest extends TestCase
         $originalSecret = $this->paymentConfig->paystack_secret_key;
 
         $this->actingAs($this->landlord)
-            ->post(route('settings.payment.update'), [
+            ->post(route('payments-hub.payment-methods.update'), [
                 'accepted_payment_methods' => ['cash', 'paystack'],
                 'paystack_enabled' => true,
                 'paystack_public_key' => 'pk_test_new_public_key',
@@ -240,7 +240,7 @@ class PaystackCredentialMigrationTest extends TestCase
     public function test_update_overwrites_secret_when_provided(): void
     {
         $this->actingAs($this->landlord)
-            ->post(route('settings.payment.update'), [
+            ->post(route('payments-hub.payment-methods.update'), [
                 'accepted_payment_methods' => ['cash', 'paystack'],
                 'paystack_enabled' => true,
                 'paystack_public_key' => 'pk_test_abcdef123456789',

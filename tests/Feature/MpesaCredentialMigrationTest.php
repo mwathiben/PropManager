@@ -106,7 +106,7 @@ class MpesaCredentialMigrationTest extends TestCase
     public function test_settings_controller_returns_last_4_chars_of_consumer_key(): void
     {
         $response = $this->actingAs($this->landlord)
-            ->get(route('settings.index', ['tab' => 'payments']));
+            ->get(route('payments-hub.collection'));
 
         $response->assertOk();
 
@@ -119,7 +119,7 @@ class MpesaCredentialMigrationTest extends TestCase
     public function test_settings_controller_returns_last_4_chars_of_consumer_secret(): void
     {
         $response = $this->actingAs($this->landlord)
-            ->get(route('settings.index', ['tab' => 'payments']));
+            ->get(route('payments-hub.collection'));
 
         $response->assertOk();
 
@@ -132,7 +132,7 @@ class MpesaCredentialMigrationTest extends TestCase
     public function test_full_consumer_credentials_never_exposed_to_frontend(): void
     {
         $response = $this->actingAs($this->landlord)
-            ->get(route('settings.index', ['tab' => 'payments']));
+            ->get(route('payments-hub.collection'));
 
         $response->assertOk();
 
@@ -196,7 +196,7 @@ class MpesaCredentialMigrationTest extends TestCase
         $originalSecret = $this->paymentConfig->mpesa_consumer_secret;
 
         $this->actingAs($this->landlord)
-            ->post(route('settings.payment.update'), [
+            ->post(route('payments-hub.payment-methods.update'), [
                 'accepted_payment_methods' => ['cash', 'mobile_money'],
                 'mpesa_shortcode' => '999999',
                 'mpesa_consumer_key' => '',
@@ -213,7 +213,7 @@ class MpesaCredentialMigrationTest extends TestCase
     public function test_update_overwrites_secret_when_provided(): void
     {
         $this->actingAs($this->landlord)
-            ->post(route('settings.payment.update'), [
+            ->post(route('payments-hub.payment-methods.update'), [
                 'accepted_payment_methods' => ['cash', 'mobile_money'],
                 'mpesa_consumer_key' => 'new_consumer_key_xxxx',
                 'mpesa_consumer_secret' => 'new_consumer_secret_yyyy',

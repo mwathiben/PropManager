@@ -21,4 +21,11 @@ return [
         'kyc_title' => 'Mahitaji ya KYC',
         'kyc_description' => 'Sanidi mahitaji ya hati kwa uthibitishaji wa mpangaji',
     ],
+    'payment_hub_redirect' => [
+        'heading' => 'Mbinu za Malipo na Vitambulisho',
+        'description' => 'Vitambulisho vya lango la malipo sasa vinasimamiwa katika Kitovu cha Malipo kwa uzoefu wa pamoja.',
+        'panel_title' => 'Dhibiti katika Kitovu cha Malipo',
+        'panel_desc' => 'Sanidi mbinu za malipo zinazokubaliwa, vitambulisho vya lango (Paystack, M-Pesa, IntaSend), na maelezo ya benki.',
+        'button' => 'Nenda Kitovu cha Malipo',
+    ],
 ];

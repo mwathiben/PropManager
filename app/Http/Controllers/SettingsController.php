@@ -15,12 +15,15 @@ use App\Models\PaymentConfiguration;
 use App\Models\Setting;
 use App\Services\OcrService;
 use App\Services\SecurityLogger;
+use App\Services\Settings\PaymentMethodConfigService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 class SettingsController extends Controller
 {
+    public function __construct(protected PaymentMethodConfigService $configService) {}
+
     /**
      * Display settings page
      */
@@ -28,107 +31,62 @@ class SettingsController extends Controller
     {
         $user = auth()->user();
 
-        // Only landlords can access settings
         if (! $user->isLandlord()) {
             abort(403, 'Only landlords can access settings.');
         }
 
         $landlordId = $user->id;
 
-        // Get landlord profile
-        $landlordProfile = LandlordProfile::where('user_id', $landlordId)->first();
-
-        // Get payment configuration with secret sanitization (PAY-V2-004)
-        $paymentConfig = PaymentConfiguration::getOrCreateForLandlord($landlordId);
-        $paymentConfigData = $paymentConfig->toArray();
-
-        // Add last 4 chars for secret keys (for UI display)
-        $paymentConfigData['paystack_secret_key_last4'] = $paymentConfig->paystack_secret_key
-            ? '****'.substr($paymentConfig->paystack_secret_key, -4)
-            : null;
-        $paymentConfigData['mpesa_consumer_key_last4'] = $paymentConfig->mpesa_consumer_key
-            ? '****'.substr($paymentConfig->mpesa_consumer_key, -4)
-            : null;
-        $paymentConfigData['mpesa_consumer_secret_last4'] = $paymentConfig->mpesa_consumer_secret
-            ? '****'.substr($paymentConfig->mpesa_consumer_secret, -4)
-            : null;
-        $paymentConfigData['intasend_secret_key_last4'] = $paymentConfig->intasend_secret_key
-            ? '****'.substr($paymentConfig->intasend_secret_key, -4)
-            : null;
-        $paymentConfigData['mpesa_b2c_password_last4'] = $paymentConfig->mpesa_b2c_password
-            ? '****'.substr($paymentConfig->mpesa_b2c_password, -4)
-            : null;
-        $paymentConfigData['mpesa_b2c_security_credential_last4'] = $paymentConfig->mpesa_b2c_security_credential
-            ? '****'.substr($paymentConfig->mpesa_b2c_security_credential, -4)
-            : null;
-
-        // Remove actual secrets - they should NEVER go to frontend
-        unset(
-            $paymentConfigData['paystack_secret_key'],
-            $paymentConfigData['mpesa_consumer_key'],
-            $paymentConfigData['mpesa_consumer_secret'],
-            $paymentConfigData['mpesa_passkey'],
-            $paymentConfigData['mpesa_b2c_password'],
-            $paymentConfigData['mpesa_b2c_security_credential'],
-            $paymentConfigData['intasend_secret_key'],
-            $paymentConfigData['intasend_webhook_challenge']
-        );
-
-        // Get current OCR settings (mask sensitive data)
-        $ocrSettings = [
-            'provider' => Setting::get('ocr_provider', 'none', $landlordId),
-            'enabled' => Setting::get('ocr_enabled', 'false', $landlordId) === 'true',
-            'auto_verify' => Setting::get('ocr_auto_verify', 'false', $landlordId) === 'true',
-        ];
-
-        // Check if API key is set (don't expose the actual key)
-        $ocrSettings['has_api_key'] = false;
-        if ($ocrSettings['provider'] === 'ocr_space') {
-            $ocrSettings['has_api_key'] = ! empty(Setting::get('ocr_space_api_key', null, $landlordId));
-        } elseif ($ocrSettings['provider'] === 'google_vision') {
-            $ocrSettings['has_api_key'] = ! empty(Setting::get('google_vision_api_key', null, $landlordId));
-        } elseif ($ocrSettings['provider'] === 'azure_vision') {
-            $ocrSettings['has_api_key'] = ! empty(Setting::get('azure_vision_api_key', null, $landlordId));
-        }
-
-        // Get branding settings
-        $brandingSettings = [
-            'invoice_number_format' => Setting::get('invoice_number_format', 'INV-{YYYY}{MM}-{NNNN}', $landlordId),
-            'invoice_footer_text' => Setting::get('invoice_footer_text', '', $landlordId),
-            'receipt_footer_text' => Setting::get('receipt_footer_text', '', $landlordId),
-            'business_logo_path' => Setting::get('business_logo_path', '', $landlordId),
-        ];
-
-        // Generate logo URL if exists
-        if ($brandingSettings['business_logo_path']) {
-            $brandingSettings['business_logo_url'] = Storage::disk('public')->url($brandingSettings['business_logo_path']);
-        } else {
-            $brandingSettings['business_logo_url'] = null;
-        }
-
-        // Get notification defaults (landlord's own preferences as defaults for new tenants)
         $notificationDefaults = NotificationPreference::where('user_id', $landlordId)
             ->where('landlord_id', $landlordId)
             ->first();
 
-        // Get 2FA status
         $twoFactorEnabled = ! empty($user->two_factor_secret) && ! empty($user->two_factor_confirmed_at);
 
-        // Determine active tab from query string
-        $activeTab = $request->query('tab', 'business');
-
         return Inertia::render('Settings/Index', [
-            'activeTab' => $activeTab,
-            'landlordProfile' => $landlordProfile,
-            'paymentConfig' => $paymentConfigData,
+            'activeTab' => $request->query('tab', 'business'),
+            'landlordProfile' => LandlordProfile::where('user_id', $landlordId)->first(),
+            'paymentConfig' => $this->configService->maskedConfig($user),
             'paymentMethods' => PaymentConfiguration::getAvailablePaymentMethods(),
-            'ocrSettings' => $ocrSettings,
+            'ocrSettings' => $this->resolveOcrSettings($landlordId),
             'ocrProviders' => OcrService::getAvailableProviders(),
-            'brandingSettings' => $brandingSettings,
+            'brandingSettings' => $this->resolveBrandingSettings($landlordId),
             'notificationDefaults' => $notificationDefaults,
             'twoFactorEnabled' => $twoFactorEnabled,
             'invoiceNumberFormats' => $this->getInvoiceNumberFormats(),
         ]);
+    }
+
+    private function resolveOcrSettings(int $landlordId): array
+    {
+        $provider = Setting::get('ocr_provider', 'none', $landlordId);
+        $apiKeyMap = [
+            'ocr_space' => 'ocr_space_api_key',
+            'google_vision' => 'google_vision_api_key',
+            'azure_vision' => 'azure_vision_api_key',
+        ];
+        $hasApiKey = isset($apiKeyMap[$provider])
+            && ! empty(Setting::get($apiKeyMap[$provider], null, $landlordId));
+
+        return [
+            'provider' => $provider,
+            'enabled' => Setting::get('ocr_enabled', 'false', $landlordId) === 'true',
+            'auto_verify' => Setting::get('ocr_auto_verify', 'false', $landlordId) === 'true',
+            'has_api_key' => $hasApiKey,
+        ];
+    }
+
+    private function resolveBrandingSettings(int $landlordId): array
+    {
+        $logoPath = Setting::get('business_logo_path', '', $landlordId);
+
+        return [
+            'invoice_number_format' => Setting::get('invoice_number_format', 'INV-{YYYY}{MM}-{NNNN}', $landlordId),
+            'invoice_footer_text' => Setting::get('invoice_footer_text', '', $landlordId),
+            'receipt_footer_text' => Setting::get('receipt_footer_text', '', $landlordId),
+            'business_logo_path' => $logoPath,
+            'business_logo_url' => $logoPath ? Storage::disk('public')->url($logoPath) : null,
+        ];
     }
 
     /**
@@ -159,55 +117,14 @@ class SettingsController extends Controller
     }
 
     /**
-     * Update payment methods configuration
+     * Update payment methods configuration.
+     *
+     * Delegates to PaymentMethodConfigService — the canonical credential writer.
+     * This keeps the settings.payment.update route working as a compatibility shim.
      */
     public function updatePaymentMethods(UpdatePaymentMethodsRequest $request, SecurityLogger $securityLogger)
     {
-        $config = PaymentConfiguration::getOrCreateForLandlord(auth()->id());
-
-        $data = $request->validated();
-
-        $secretFields = [
-            'paystack_secret_key',
-            'mpesa_passkey',
-            'mpesa_consumer_key',
-            'mpesa_consumer_secret',
-            'mpesa_b2c_password',
-            'mpesa_b2c_security_credential',
-            'intasend_secret_key',
-        ];
-
-        foreach ($secretFields as $field) {
-            if (empty($data[$field])) {
-                unset($data[$field]);
-            }
-        }
-
-        // OBS-6: capture only the NAMES of changed fields (no secret values)
-        // before the update so the audit trail can survive a credentials
-        // leak without becoming the leak. Diff against the existing record
-        // so that no-op submits don't create noise in the security log.
-        // Non-scalars (e.g. b2c_initiators array) are JSON-serialised so the
-        // diff is stable and can't blow up on Array-to-string conversion.
-        $normalise = static fn (mixed $v): string => is_scalar($v) || $v === null
-            ? (string) ($v ?? '')
-            : json_encode($v);
-        $changedFields = [];
-        foreach ($data as $field => $value) {
-            if ($normalise($config->{$field} ?? null) !== $normalise($value)) {
-                $changedFields[] = $field;
-            }
-        }
-
-        $config->update($data);
-
-        if ($changedFields !== []) {
-            $securityLogger->logPaymentConfigChange(
-                auth()->user(),
-                $changedFields,
-                ['landlord_id' => (int) auth()->id()]
-            );
-        }
+        $this->configService->apply(auth()->user(), $request->validated(), $securityLogger);
 
         return redirect()->back()->with('success', 'Payment methods updated successfully.');
     }
@@ -240,20 +157,30 @@ class SettingsController extends Controller
         Setting::set('ocr_auto_verify', $validated['auto_verify'] ? 'true' : 'false', false, 'ocr', 'Auto-verify matching OCR readings', $landlordId);
 
         if (! empty($validated['api_key'])) {
-            if ($validated['provider'] === 'ocr_space') {
-                Setting::set('ocr_space_api_key', $validated['api_key'], true, 'ocr', 'OCR.space API Key', $landlordId);
-            } elseif ($validated['provider'] === 'google_vision') {
-                Setting::set('google_vision_api_key', $validated['api_key'], true, 'ocr', 'Google Vision API Key', $landlordId);
-            } elseif ($validated['provider'] === 'azure_vision') {
-                Setting::set('azure_vision_api_key', $validated['api_key'], true, 'ocr', 'Azure Vision API Key', $landlordId);
-
-                if (! empty($validated['azure_endpoint'])) {
-                    Setting::set('azure_vision_endpoint', $validated['azure_endpoint'], false, 'ocr', 'Azure Vision Endpoint URL', $landlordId);
-                }
-            }
+            $this->saveOcrApiKey($validated['provider'], $validated['api_key'], $validated['azure_endpoint'] ?? null, $landlordId);
         }
 
         return redirect()->back()->with('success', 'OCR settings updated successfully.');
+    }
+
+    private function saveOcrApiKey(string $provider, string $apiKey, ?string $azureEndpoint, int $landlordId): void
+    {
+        $providerKeyMap = [
+            'ocr_space' => ['ocr_space_api_key', 'OCR.space API Key'],
+            'google_vision' => ['google_vision_api_key', 'Google Vision API Key'],
+            'azure_vision' => ['azure_vision_api_key', 'Azure Vision API Key'],
+        ];
+
+        if (! isset($providerKeyMap[$provider])) {
+            return;
+        }
+
+        [$settingKey, $label] = $providerKeyMap[$provider];
+        Setting::set($settingKey, $apiKey, true, 'ocr', $label, $landlordId);
+
+        if ($provider === 'azure_vision' && ! empty($azureEndpoint)) {
+            Setting::set('azure_vision_endpoint', $azureEndpoint, false, 'ocr', 'Azure Vision Endpoint URL', $landlordId);
+        }
     }
 
     /**

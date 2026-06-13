@@ -27,7 +27,6 @@ import type {
 
 // Tab Components
 import BusinessProfileTab from './partials/BusinessProfileTab.vue';
-import PaymentMethodsTab from './partials/PaymentMethodsTab.vue';
 import NotificationsTab from './partials/NotificationsTab.vue';
 import IntegrationsTab from './partials/IntegrationsTab.vue';
 import SecurityTab from './partials/SecurityTab.vue';
@@ -127,12 +126,29 @@ const navigateToTab = (tab) => {
                         :landlord-profile="landlordProfile"
                     />
 
-                    <!-- Payment Methods Tab -->
-                    <PaymentMethodsTab
-                        v-if="currentTab === 'payment'"
-                        :payment-config="paymentConfig"
-                        :payment-methods="paymentMethods"
-                    />
+                    <!-- Payment Methods Tab (managed in Payments Hub) -->
+                    <div v-if="currentTab === 'payment'" class="space-y-6">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">{{ t('settings_index.payment_hub_redirect.heading') }}</h3>
+                            <p class="mt-1 text-sm text-gray-600">
+                                {{ t('settings_index.payment_hub_redirect.description') }}
+                            </p>
+                        </div>
+                        <div class="flex items-center gap-4 p-4 bg-indigo-50 rounded-xl border border-indigo-200">
+                            <CreditCardIcon class="w-8 h-8 text-indigo-600 shrink-0" />
+                            <div class="flex-1">
+                                <p class="font-medium text-indigo-900">{{ t('settings_index.payment_hub_redirect.panel_title') }}</p>
+                                <p class="text-sm text-indigo-700 mt-0.5">{{ t('settings_index.payment_hub_redirect.panel_desc') }}</p>
+                            </div>
+                            <Link
+                                :href="route('payments-hub.collection')"
+                                class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+                            >
+                                {{ t('settings_index.payment_hub_redirect.button') }}
+                                <ArrowRightIcon class="w-4 h-4" />
+                            </Link>
+                        </div>
+                    </div>
 
                     <!-- Notifications Tab -->
                     <NotificationsTab
