@@ -117,4 +117,8 @@ return [
         'december' => 'December',
     ],
     'saving' => 'Saving...',
+    'payment_hub_notice' => [
+        'text' => 'Payment methods & gateway credentials are managed in Payments Hub.',
+        'button' => 'Go to Payments Hub',
+    ],
 ];

@@ -113,15 +113,11 @@ Route::middleware('role:landlord')->prefix('subscription')->group(function () {
     Route::get('/payments/{payment}/invoice', [SubscriptionController::class, 'downloadInvoice'])->name('subscription.invoice');
 });
 
-// 18. Payout Accounts Management (Landlords Only) - Legacy routes, redirect to Payments Hub
-Route::middleware('role:landlord')->prefix('settings/payout')->name('settings.payout.')->group(function () {
-    Route::get('/', fn () => redirect()->route('payments-hub.collection'))->name('index');
-    // Keep action routes pointing to PaymentsHubController for backward compatibility
-    Route::post('/', [PaymentsHubController::class, 'storePayoutAccount'])->name('store');
-    Route::post('/{account}/primary', [PaymentsHubController::class, 'setPayoutPrimary'])->name('primary');
-    Route::post('/{account}/sync', [PaymentsHubController::class, 'syncPayoutAccount'])->name('sync');
-    Route::delete('/{account}', [PaymentsHubController::class, 'destroyPayoutAccount'])->name('destroy');
-});
+// 18. Payout Accounts Management (Landlords Only) — back-compat bookmark only.
+// All actions and the full UI live in Payments Hub (payments-hub.collection).
+Route::middleware('role:landlord')
+    ->get('/settings/payout', fn () => redirect()->route('payments-hub.collection'))
+    ->name('settings.payout.index');
 
 // API endpoints for payout accounts - redirect to Payments Hub endpoints
 Route::middleware('role:landlord')->group(function () {

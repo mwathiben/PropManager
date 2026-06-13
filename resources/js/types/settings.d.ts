@@ -153,12 +153,6 @@ export interface SettingsPageProps {
 
 // Tab-specific props for Settings partials
 
-// PaymentMethodsTab props
-export interface PaymentMethodsTabProps {
-  paymentConfig: PaymentConfiguration;
-  paymentMethods: PaymentMethodsLookup;
-}
-
 // IntegrationsTab props
 export interface IntegrationsTabProps {
   ocrSettings: OcrSettings;

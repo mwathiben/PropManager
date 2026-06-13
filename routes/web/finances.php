@@ -69,7 +69,6 @@ Route::prefix('finances')->name('finances.')->group(function () {
     Route::get('/deposits', [FinanceDepositController::class, 'index'])->name('deposits');
     Route::get('/arrears', [FinancesController::class, 'arrears'])->name('arrears');
     Route::get('/settings', [FinanceSettingsController::class, 'index'])->name('settings');
-    Route::post('/settings/payment-methods', [FinanceSettingsController::class, 'updatePaymentMethods'])->name('settings.payment-methods');
     Route::post('/settings/invoice', [FinanceSettingsController::class, 'updateInvoiceSettings'])->name('settings.invoice');
     Route::post('/settings/reminder', [FinanceSettingsController::class, 'updateReminderSettings'])->name('settings.reminder');
     Route::post('/settings/receipt', [FinanceSettingsController::class, 'updateReceiptSettings'])->name('settings.receipt');

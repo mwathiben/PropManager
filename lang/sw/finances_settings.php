@@ -117,4 +117,8 @@ return [
         'december' => 'Desemba',
     ],
     'saving' => 'Inahifadhi...',
+    'payment_hub_notice' => [
+        'text' => 'Njia za malipo na vitambulisho vya lango vinasimamiwa katika Kitovu cha Malipo.',
+        'button' => 'Nenda Kitovu cha Malipo',
+    ],
 ];
