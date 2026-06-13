@@ -52,7 +52,7 @@ class ProfileController extends Controller
 
         // Add landlord-specific business profile data
         $landlordProfile = null;
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             $profile = $user->landlordProfile;
             if ($profile) {
                 $landlordProfile = [
@@ -107,7 +107,7 @@ class ProfileController extends Controller
         unset($validated['profile_photo']);
 
         // Handle landlord business profile separately
-        if ($user->isLandlord() && $request->has('business_profile')) {
+        if ($user->isScopeOwner() && $request->has('business_profile')) {
             $businessData = $request->input('business_profile', []);
             $profile = $user->landlordProfile ?? $user->landlordProfile()->create([]);
             $profile->update([

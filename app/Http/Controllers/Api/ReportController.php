@@ -43,7 +43,7 @@ class ReportController extends Controller
             ]);
 
             $target = User::find($request->integer('landlord_id'));
-            abort_unless($target?->isLandlord(), 422, 'landlord_id must reference a user with the landlord role.');
+            abort_unless($target?->isScopeOwner(), 422, 'landlord_id must reference a user with the landlord or manager role.');
 
             return (int) $target->id;
         }

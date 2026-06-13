@@ -106,11 +106,11 @@ Route::get('/tickets/{ticket}', [TicketController::class, 'show'])->name('ticket
 Route::put('/tickets/{ticket}', [TicketController::class, 'update'])->name('tickets.update');
 Route::post('/tickets/{ticket}/assign', [TicketController::class, 'assign'])->name('tickets.assign');
 Route::post('/tickets/{ticket}/assign-vendor', [\App\Http\Controllers\TicketVendorAssignmentController::class, 'store'])
-    ->middleware('role:landlord')
+    ->middleware('role:landlord,manager')
     ->name('tickets.assign-vendor');
 // Phase-75 VENDOR-ROUTING-2: suggested vendor pool for a ticket.
 Route::get('/tickets/{ticket}/vendor-pool', [\App\Http\Controllers\TicketVendorAssignmentController::class, 'suggest'])
-    ->middleware('role:landlord')
+    ->middleware('role:landlord,manager')
     ->name('tickets.vendor-pool');
 Route::post('/tickets/{ticket}/comment', [TicketController::class, 'addComment'])->name('tickets.comment');
 Route::post('/tickets/{ticket}/resolve', [TicketController::class, 'resolve'])->name('tickets.resolve');
@@ -132,7 +132,7 @@ Route::middleware('role:caretaker')->group(function () {
 });
 // Phase-80 ESCALATION-VIEW: landlord acknowledges an open escalation.
 Route::post('/tickets/{ticket}/escalation/acknowledge', [TicketController::class, 'acknowledgeEscalation'])
-    ->middleware('role:landlord')->whereNumber('ticket')->name('tickets.escalation.acknowledge');
+    ->middleware('role:landlord,manager')->whereNumber('ticket')->name('tickets.escalation.acknowledge');
 
 // 14b. Complaints (Alias to Tickets with category filter)
 Route::get('/complaints', [TicketController::class, 'index'])->name('complaints.index')->defaults('category', 'complaint');

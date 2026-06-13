@@ -24,7 +24,7 @@ class LegalHoldSubjectController extends Controller
         ]);
 
         $user = $request->user();
-        abort_unless($user->isLandlord(), 403);
+        abort_unless($user->isScopeOwner(), 403);
 
         $tenant = User::query()->withoutGlobalScopes()->find($data['tenant_id']);
         abort_unless(

@@ -43,24 +43,24 @@ Route::patch('/leases/{lease}/auto-renew', [LeaseController::class, 'toggleAutoR
     ->name('leases.auto-renew');
 // Phase-83 RENT-ESCALATION-3: schedule / cancel future rent increases.
 Route::post('/leases/{lease}/escalations', [RentEscalationController::class, 'store'])
-    ->middleware('role:landlord,caretaker')
+    ->middleware('role:landlord,manager,caretaker')
     ->whereNumber('lease')->name('rent-escalations.store');
 Route::delete('/escalations/{escalation}', [RentEscalationController::class, 'destroy'])
-    ->middleware('role:landlord,caretaker')
+    ->middleware('role:landlord,manager,caretaker')
     ->whereNumber('escalation')->name('rent-escalations.destroy');
 // Phase-83 CO-TENANT-2: manage co-tenants on a joint tenancy.
 Route::post('/leases/{lease}/co-tenants', [LeaseCoTenantController::class, 'store'])
-    ->middleware('role:landlord,caretaker')
+    ->middleware('role:landlord,manager,caretaker')
     ->whereNumber('lease')->name('lease-co-tenants.store');
 Route::delete('/co-tenants/{coTenant}', [LeaseCoTenantController::class, 'destroy'])
-    ->middleware('role:landlord,caretaker')
+    ->middleware('role:landlord,manager,caretaker')
     ->whereNumber('coTenant')->name('lease-co-tenants.destroy');
 // Phase-83 GUARANTOR-2: manage guarantors standing behind a lease.
 Route::post('/leases/{lease}/guarantors', [LeaseGuarantorController::class, 'store'])
-    ->middleware('role:landlord,caretaker')
+    ->middleware('role:landlord,manager,caretaker')
     ->whereNumber('lease')->name('lease-guarantors.store');
 Route::post('/guarantors/{guarantor}/release', [LeaseGuarantorController::class, 'release'])
-    ->middleware('role:landlord,caretaker')
+    ->middleware('role:landlord,manager,caretaker')
     ->whereNumber('guarantor')->name('lease-guarantors.release');
 
 // 3. The Architect (Building Configuration)
@@ -83,7 +83,7 @@ Route::post('/buildings', [BuildingController::class, 'storeStandalone'])->name(
 Route::post('/properties', [\App\Http\Controllers\PropertyController::class, 'store'])->name('properties.store');
 // Phase-78 PROPERTY-VIEW/SWITCH: the property tier is landlord/caretaker only
 // (CodeRabbit H1 — explicit role gate, not just getLandlordId()'s 403).
-Route::middleware('role:landlord,caretaker')->group(function () {
+Route::middleware('role:landlord,manager,caretaker')->group(function () {
     Route::get('/properties', [\App\Http\Controllers\PropertyController::class, 'index'])->name('properties.index');
     // PROPERTY-BENCHMARK: cross-property ranking (no id — before the {property} route).
     Route::get('/properties/benchmark', [\App\Http\Controllers\PropertyController::class, 'benchmark'])->name('properties.benchmark');
@@ -93,7 +93,7 @@ Route::middleware('role:landlord,caretaker')->group(function () {
     // active-property is a per-landlord concept and the switcher UI is
     // landlord-only (CodeRabbit M1: caretakers must not write it).
     Route::post('/properties/{property}/switch', [\App\Http\Controllers\PropertyController::class, 'switchTo'])
-        ->middleware('role:landlord')->whereNumber('property')->name('properties.switch');
+        ->middleware('role:landlord,manager')->whereNumber('property')->name('properties.switch');
     // PROPERTY-VIEW-1: single-property dashboard.
     Route::get('/properties/{property}', [\App\Http\Controllers\PropertyController::class, 'show'])
         ->whereNumber('property')->name('properties.show');
@@ -129,17 +129,17 @@ Route::get('/tenants-hub', [TenantsHubController::class, 'index'])->name('tenant
 Route::get('/maintenance', [MaintenanceHubController::class, 'index'])->name('maintenance.hub');
 
 // Phase-75 VENDOR-PERF-2: landlord-side vendor performance comparison.
-Route::middleware('role:landlord')
+Route::middleware('role:landlord,manager')
     ->get('/maintenance/vendor-performance', [\App\Http\Controllers\MaintenanceVendorPerformanceController::class, 'index'])
     ->name('maintenance.vendor-performance');
 
 // Phase-80 CARETAKER-PERF-2: landlord-side caretaker performance comparison.
-Route::middleware('role:landlord')
+Route::middleware('role:landlord,manager')
     ->get('/maintenance/caretaker-performance', [\App\Http\Controllers\MaintenanceCaretakerPerformanceController::class, 'index'])
     ->name('maintenance.caretaker-performance');
 
 // Phase-75 PHOTO-ROLLUP: landlord-wide maintenance photo gallery + PDF export.
-Route::middleware('role:landlord')->group(function () {
+Route::middleware('role:landlord,manager')->group(function () {
     Route::get('/maintenance/photos', [\App\Http\Controllers\MaintenancePhotoGalleryController::class, 'index'])
         ->name('maintenance.photos');
     Route::get('/maintenance/photos/export-pdf', [\App\Http\Controllers\MaintenancePhotoGalleryController::class, 'exportPdf'])
@@ -168,7 +168,7 @@ Route::get('/operations', [OperationsHubController::class, 'index'])->name('oper
 // landlord scope inline, but the route-level role:landlord,caretaker
 // means a misconfigured controller (or a future regression) cannot
 // accidentally expose these endpoints to a tenant role token.
-Route::middleware('role:landlord,caretaker')->group(function () {
+Route::middleware('role:landlord,manager,caretaker')->group(function () {
     Route::get('/tenants', [TenantController::class, 'index'])->name('tenants.index');
     // whereNumber so the literal /tenants/search + /tenants/history routes
     // (registered later) aren't shadowed by this {tenant} param route and
@@ -217,7 +217,7 @@ Route::middleware('water.module')->group(function () {
     // Phase-86 METER-LIFECYCLE: landlord-only meter fleet management
     // (register with a non-zero baseline, replace preserving continuity,
     // decommission). Caretakers record readings but never manage meters.
-    Route::middleware('role:landlord')->group(function () {
+    Route::middleware('role:landlord,manager')->group(function () {
         Route::get('/water/meters', [\App\Http\Controllers\MeterController::class, 'index'])->name('meters.index');
         Route::post('/water/meters', [\App\Http\Controllers\MeterController::class, 'store'])->name('meters.store');
         Route::post('/water/meters/{meter}/replace', [\App\Http\Controllers\MeterController::class, 'replace'])->whereNumber('meter')->name('meters.replace');
@@ -250,7 +250,7 @@ Route::middleware('water.module')->group(function () {
 // 6. Invitations (Caretaker Management)
 // Caretaker removal (Operations → Team). landlord-only; controller
 // re-checks the caretaker belongs to this landlord (404 otherwise).
-Route::middleware('role:landlord')
+Route::middleware('role:landlord,manager')
     ->delete('/caretakers/{caretaker}', [\App\Http\Controllers\CaretakerController::class, 'destroy'])
     ->whereNumber('caretaker')
     ->name('caretakers.destroy');

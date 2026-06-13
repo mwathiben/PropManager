@@ -77,7 +77,7 @@ Route::get('/help/{article:slug}', [HelpController::class, 'show'])
 // (mint/list/revoke Sanctum PATs for integrations like
 // QuickBooks Sync, Zapier, custom landlord ERPs). Super-admins
 // pass the role gate via EnsureRole's bypass.
-Route::middleware('role:landlord')->prefix('settings/api-tokens')->name('settings.api-tokens.')->group(function () {
+Route::middleware('role:landlord,manager')->prefix('settings/api-tokens')->name('settings.api-tokens.')->group(function () {
     Route::get('/', [\App\Http\Controllers\ApiTokenController::class, 'index'])->name('index');
     Route::post('/', [\App\Http\Controllers\ApiTokenController::class, 'store'])->name('store');
     Route::delete('/{token}', [\App\Http\Controllers\ApiTokenController::class, 'destroy'])->name('destroy');
@@ -86,7 +86,7 @@ Route::middleware('role:landlord')->prefix('settings/api-tokens')->name('setting
 // Phase-25 API-WEBHOOK-1/2/3: outbound webhook subscriptions.
 // Landlords register integration endpoints to receive
 // payment.received / invoice.created / lease.signed events.
-Route::middleware('role:landlord')->prefix('settings/webhooks')->name('settings.webhooks.')->group(function () {
+Route::middleware('role:landlord,manager')->prefix('settings/webhooks')->name('settings.webhooks.')->group(function () {
     Route::get('/', [\App\Http\Controllers\WebhookSubscriptionController::class, 'index'])->name('index');
     Route::post('/', [\App\Http\Controllers\WebhookSubscriptionController::class, 'store'])->name('store');
     Route::get('/{subscription}', [\App\Http\Controllers\WebhookSubscriptionController::class, 'show'])->name('show');
@@ -97,7 +97,7 @@ Route::middleware('role:landlord')->prefix('settings/webhooks')->name('settings.
 });
 
 // 17. Subscription Management (Landlords Only)
-Route::middleware('role:landlord')->prefix('subscription')->group(function () {
+Route::middleware('role:landlord,manager')->prefix('subscription')->group(function () {
     Route::get('/', [SubscriptionController::class, 'index'])->name('subscription.index');
     Route::get('/plans', [SubscriptionController::class, 'plans'])->name('subscription.plans');
     Route::post('/subscribe', [SubscriptionController::class, 'subscribe'])->name('subscription.subscribe');
@@ -115,12 +115,12 @@ Route::middleware('role:landlord')->prefix('subscription')->group(function () {
 
 // 18. Payout Accounts Management (Landlords Only) — back-compat bookmark only.
 // All actions and the full UI live in Payments Hub (payments-hub.collection).
-Route::middleware('role:landlord')
+Route::middleware('role:landlord,manager')
     ->get('/settings/payout', fn () => redirect()->route('payments-hub.collection'))
     ->name('settings.payout.index');
 
 // API endpoints for payout accounts - redirect to Payments Hub endpoints
-Route::middleware('role:landlord')->group(function () {
+Route::middleware('role:landlord,manager')->group(function () {
     // RATE-10: bank-verify on the legacy alias too.
     Route::get('/api/banks', [PaymentsHubController::class, 'getBanks'])
         ->middleware('throttle:bank-verify')
@@ -131,7 +131,7 @@ Route::middleware('role:landlord')->group(function () {
 });
 
 // 19. KYC Review Routes (Landlords and Caretakers)
-Route::middleware('role:landlord,caretaker')->group(function () {
+Route::middleware('role:landlord,manager,caretaker')->group(function () {
     Route::get('/kyc/pending', [\App\Http\Controllers\TenantKycController::class, 'pendingReviews'])->name('kyc.pending');
     Route::post('/kyc/submissions/{submission}/review', [\App\Http\Controllers\TenantKycController::class, 'review'])->name('kyc.review');
 });

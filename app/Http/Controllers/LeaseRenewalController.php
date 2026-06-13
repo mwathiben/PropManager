@@ -27,7 +27,7 @@ class LeaseRenewalController extends Controller
     public function store(Request $request, Lease $lease): RedirectResponse
     {
         abort_unless(
-            $request->user()->isLandlord() && $lease->landlord_id === $request->user()->id,
+            $request->user()->isScopeOwner() && $lease->landlord_id === $request->user()->id,
             403,
             'Only the lease landlord can propose a renewal.',
         );
@@ -59,7 +59,7 @@ class LeaseRenewalController extends Controller
     public function confirm(Request $request, LeaseRenewal $renewal): RedirectResponse
     {
         abort_unless(
-            $request->user()->isLandlord() && $renewal->landlord_id === $request->user()->id,
+            $request->user()->isScopeOwner() && $renewal->landlord_id === $request->user()->id,
             403,
             'Only the lease landlord can confirm a renewal.',
         );

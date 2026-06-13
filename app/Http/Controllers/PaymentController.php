@@ -54,7 +54,7 @@ class PaymentController extends Controller
         /** @var \App\Models\User $user */
         $user = Auth::user();
 
-        if (! $user->isLandlord() && ! $user->isCaretaker()) {
+        if (! $user->isScopeOwner() && ! $user->isCaretaker()) {
             abort(403, 'Access denied.');
         }
 
@@ -111,7 +111,7 @@ class PaymentController extends Controller
         /** @var \App\Models\User $user */
         $user = Auth::user();
 
-        if (! $user->isLandlord() && ! $user->isCaretaker()) {
+        if (! $user->isScopeOwner() && ! $user->isCaretaker()) {
             abort(403, 'Access denied.');
         }
 
@@ -511,7 +511,7 @@ class PaymentController extends Controller
         /** @var \App\Models\User $user */
         $user = Auth::user();
 
-        if (! $user->isLandlord() && ! $user->isCaretaker()) {
+        if (! $user->isScopeOwner() && ! $user->isCaretaker()) {
             abort(403, 'Access denied.');
         }
 
@@ -527,7 +527,7 @@ class PaymentController extends Controller
     {
         /** @var \App\Models\User $user */
         $user = Auth::user();
-        if (! $user->isLandlord() && ! $user->isCaretaker()) {
+        if (! $user->isScopeOwner() && ! $user->isCaretaker()) {
             abort(403, 'Access denied.');
         }
 

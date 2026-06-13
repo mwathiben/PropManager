@@ -99,7 +99,7 @@ class TicketController extends Controller
 
         // Get buildings for filter dropdown (landlords and caretakers) - only main buildings with wings
         $buildings = [];
-        if ($user->isLandlord() || $user->isCaretaker()) {
+        if ($user->isScopeOwner() || $user->isCaretaker()) {
             $buildings = $this->getBuildingsForFilter();
         }
 
@@ -231,7 +231,7 @@ class TicketController extends Controller
 
         // Get caretakers for assignment dropdown (landlords only)
         $caretakers = [];
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             $caretakers = User::where('landlord_id', $user->id)
                 ->where('role', 'caretaker')
                 ->select('id', 'name')
@@ -252,14 +252,14 @@ class TicketController extends Controller
             // authoritative).
             'legalHoldActive' => $ticket->isHeld(),
             'caretakers' => $caretakers,
-            'canAssign' => $user->isLandlord(),
+            'canAssign' => $user->isScopeOwner(),
             'canChangeStatus' => ! $user->isTenant(),
             'canAddInternalComment' => ! $user->isTenant(),
             'canSubmitFeedback' => $user->isTenant() && $ticket->status === \App\Enums\TicketStatus::Closed && ! $ticket->hasFeedback(),
-            'canManageCosts' => $user->isLandlord(),
+            'canManageCosts' => $user->isScopeOwner(),
             // Phase-80 ESCALATION-VIEW-3: landlord can acknowledge an open escalation from the ticket.
             'isEscalated' => $ticket->isEscalated(),
-            'canAcknowledgeEscalation' => $user->isLandlord() && $ticket->isEscalated(),
+            'canAcknowledgeEscalation' => $user->isScopeOwner() && $ticket->isEscalated(),
             'escalationReason' => $ticket->isEscalated() ? $ticket->escalation_reason : null,
             'escalatedByName' => $ticket->isEscalated() ? $ticket->escalatedBy?->name : null,
             'costs' => $costs,
@@ -334,7 +334,7 @@ class TicketController extends Controller
      */
     public function acknowledgeEscalation(Ticket $ticket, \App\Services\Maintenance\TicketEscalationService $escalation): RedirectResponse
     {
-        abort_unless(Auth::user()->isLandlord() && (int) $ticket->landlord_id === (int) Auth::id(), 403);
+        abort_unless(Auth::user()->isScopeOwner() && (int) $ticket->landlord_id === (int) Auth::id(), 403);
 
         $escalation->acknowledge($ticket, Auth::user());
 

@@ -58,7 +58,7 @@ class BuildingController extends Controller
         }
 
         $user = auth()->user();
-        if ($user->isLandlord() && $building->landlord_id !== $user->id) {
+        if ($user->isScopeOwner() && $building->landlord_id !== $user->id) {
             abort(403);
         }
         if ($user->isCaretaker() && $building->landlord_id !== $user->landlord_id) {
@@ -80,7 +80,7 @@ class BuildingController extends Controller
         }
 
         $user = auth()->user();
-        if ($user->isLandlord() && $building->landlord_id !== $user->id) {
+        if ($user->isScopeOwner() && $building->landlord_id !== $user->id) {
             abort(403);
         }
         if ($user->isCaretaker() && $building->landlord_id !== $user->landlord_id) {
