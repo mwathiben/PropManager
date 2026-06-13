@@ -43,6 +43,17 @@ class UserFactory extends Factory
     }
 
     /**
+     * A management firm/individual. The User saved-hook enforces the scope-owner
+     * invariant (landlord_id == own id), so no landlord_id need be passed.
+     */
+    public function manager(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => 'manager',
+        ]);
+    }
+
+    /**
      * Configure the model factory.
      * Handles guarded fields (role, landlord_id, is_archived) via afterCreating.
      */

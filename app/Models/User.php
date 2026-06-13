@@ -119,6 +119,24 @@ class User extends Authenticatable implements HasLocalePreference
     ];
 
     /**
+     * A manager is its own scope owner: keep landlord_id pointing at its own id
+     * so TenantScope and the ubiquitous `isLandlord() ? id : landlord_id`
+     * scope-owner resolution treat a manager exactly like a self-managing
+     * landlord. Enforced on create so the invariant can never drift.
+     */
+    protected static function booted(): void
+    {
+        // `saved` (not `created`): the UserFactory sets the guarded `role` in a
+        // follow-up update, so the invariant must also apply on update. saveQuietly
+        // suppresses the event, so this never recurses.
+        static::saved(function (self $user): void {
+            if ($user->role === 'manager' && (int) $user->landlord_id !== (int) $user->id) {
+                $user->forceFill(['landlord_id' => $user->id])->saveQuietly();
+            }
+        });
+    }
+
+    /**
      * Phase-13 DPA-4: Article 18 / Kenya DPA Section 26(d).
      */
     public function isRestricted(): bool
@@ -166,6 +184,23 @@ class User extends Authenticatable implements HasLocalePreference
     public function isLandlord(): bool
     {
         return $this->role === 'landlord';
+    }
+
+    /**
+     * A management firm or individual who runs properties on owners' behalf for
+     * a fee. Like a landlord, a manager is its own scope owner — it keeps
+     * landlord_id == its own id (enforced in booted()), so the system-wide
+     * `isLandlord() ? id : landlord_id` scope resolution treats it identically.
+     */
+    public function isManager(): bool
+    {
+        return $this->role === 'manager';
+    }
+
+    /** A scope owner — owns a tenancy scope keyed on its own id (vs an attached account). */
+    public function isScopeOwner(): bool
+    {
+        return in_array($this->role, ['landlord', 'manager'], true);
     }
 
     public function isCaretaker(): bool
