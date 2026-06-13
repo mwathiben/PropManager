@@ -5,7 +5,6 @@ import Breadcrumb from '@/Components/Breadcrumb.vue';
 import {
     HomeIcon,
     CreditCardIcon,
-    ClockIcon,
     ChartBarIcon,
     Cog6ToothIcon,
     BanknotesIcon,
@@ -14,7 +13,6 @@ import {
 import { useI18n } from '@/composables/useI18n';
 import OverviewTab from './tabs/OverviewTab.vue';
 import CollectionTab from './tabs/CollectionTab.vue';
-import TransactionsTab from './tabs/TransactionsTab.vue';
 import AnalyticsTab from './tabs/AnalyticsTab.vue';
 import SettingsTab from './tabs/SettingsTab.vue';
 
@@ -106,63 +104,7 @@ interface BillingSettings {
     billing_model: string;
 }
 
-// ── Transactions tab ──────────────────────────────────────────────────────────
-
-interface PlatformFee {
-    fee_amount: number;
-    net_amount: number;
-}
-
-interface TransactionPayment {
-    id: number;
-    amount: number;
-    payment_method: string;
-    payment_date: string;
-    reference: string;
-    invoice: { invoice_number: string; total_due: number } | null;
-    lease: {
-        tenant: { name: string; email: string };
-        unit: { unit_number: string; building: { name: string } };
-    } | null;
-    platform_fee: PlatformFee | null;
-}
-
-interface PaginatedPayments {
-    data: TransactionPayment[];
-    links: Array<{ url: string | null; label: string; active: boolean }>;
-    current_page: number;
-    last_page: number;
-    total: number;
-    from: number | null;
-    to: number | null;
-}
-
-interface PaymentMethodOption {
-    value: string;
-    label: string;
-}
-
-interface Building {
-    id: number;
-    name: string;
-}
-
-interface TransactionFilters {
-    search?: string | null;
-    method?: string | null;
-    date_from?: string | null;
-    date_to?: string | null;
-    building_id?: number | null;
-}
-
 // ── Analytics tab ─────────────────────────────────────────────────────────────
-
-interface RevenueData {
-    total: number;
-    previous_total: number;
-    trend: number;
-    trend_direction: 'up' | 'down';
-}
 
 interface CollectionRates {
     current_month: number;
@@ -175,19 +117,6 @@ interface PaymentMethodBreakdownItem {
     label: string;
     count: number;
     total: number;
-}
-
-interface MonthlyTrendItem {
-    month: string;
-    short_month: string;
-    amount: number;
-}
-
-interface TopPayingUnit {
-    unit: string;
-    building: string;
-    total_paid: number;
-    payment_count: number;
 }
 
 interface PlatformFees {
@@ -236,18 +165,10 @@ interface Props {
     paymentConfig?: PaymentConfig | null;
     payoutAccounts?: PayoutAccount[];
     billingSettings?: BillingSettings;
-    // Transactions tab
-    payments?: PaginatedPayments;
-    paymentMethodOptions?: PaymentMethodOption[];
-    buildings?: Building[];
-    filters?: TransactionFilters;
     // Analytics tab
     period?: string;
-    revenueData?: RevenueData;
     collectionRates?: CollectionRates;
     paymentMethodBreakdown?: PaymentMethodBreakdownItem[];
-    monthlyTrend?: MonthlyTrendItem[];
-    topPayingUnits?: TopPayingUnit[];
     platformFees?: PlatformFees;
     // Settings tab
     preferences?: Preferences;
@@ -261,11 +182,6 @@ const props = withDefaults(defineProps<Props>(), {
     quickActions: () => [],
     payoutAccounts: () => [],
     paymentMethodBreakdown: () => [],
-    monthlyTrend: () => [],
-    topPayingUnits: () => [],
-    buildings: () => [],
-    paymentMethodOptions: () => [],
-    filters: () => ({}),
     period: 'month',
 });
 
@@ -274,7 +190,6 @@ const { t } = useI18n();
 const tabIconMap: Record<string, unknown> = {
     HomeIcon,
     CreditCardIcon,
-    ClockIcon,
     ChartBarIcon,
     Cog6ToothIcon,
 };
@@ -399,22 +314,11 @@ const setupSteps = [
                             :billing-settings="billingSettings"
                         />
 
-                        <TransactionsTab
-                            v-else-if="activeTab === 'transactions'"
-                            :payments="payments"
-                            :payment-methods="paymentMethodOptions"
-                            :buildings="buildings"
-                            :filters="filters ?? {}"
-                        />
-
                         <AnalyticsTab
                             v-else-if="activeTab === 'analytics'"
                             :period="period"
-                            :revenue-data="revenueData"
                             :collection-rates="collectionRates"
                             :payment-method-breakdown="paymentMethodBreakdown"
-                            :monthly-trend="monthlyTrend"
-                            :top-paying-units="topPayingUnits"
                             :platform-fees="platformFees"
                         />
 

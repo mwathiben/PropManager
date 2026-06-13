@@ -53,7 +53,8 @@
         "view_buildings": "عرض المباني",
         "messages": "[TODO-ar] Messages",
         "inbox": "[TODO-ar] Inbox",
-        "legal_holds": "[TODO-ar] Legal holds"
+        "legal_holds": "[TODO-ar] Legal holds",
+        "payments": "المدفوعات"
     },
     "menu": {
         "account": "الحساب",
@@ -171,7 +172,6 @@
         "tabs": {
             "overview": "نظرة عامة",
             "collection": "التحصيل",
-            "transactions": "المعاملات",
             "analytics": "التحليلات",
             "settings": "الإعدادات"
         },
@@ -237,53 +237,22 @@
             "adding": "جارٍ الإضافة…",
             "deactivate_confirm": "هل أنت متأكد من رغبتك في تعطيل حساب الاستلام هذا؟"
         },
-        "transactions": {
-            "search_placeholder": "ابحث بالمرجع أو المستأجر أو الفاتورة…",
-            "filters": "التصفية",
-            "clear": "مسح",
-            "filter_method": "طريقة الدفع",
-            "filter_all_methods": "جميع الطرق",
-            "filter_building": "المبنى",
-            "filter_all_buildings": "جميع المباني",
-            "filter_from": "من",
-            "filter_to": "إلى",
-            "showing": "عرض {from}–{to} من أصل {total} دفعة",
-            "no_results": "لم يتم العثور على مدفوعات",
-            "columns": {
-                "reference": "المرجع",
-                "tenant_unit": "المستأجر / الوحدة",
-                "invoice": "الفاتورة",
-                "amount": "المبلغ",
-                "method": "الطريقة",
-                "date": "التاريخ",
-                "net": "الصافي"
-            },
-            "no_transactions_title": "لم يتم العثور على معاملات",
-            "no_transactions_desc": "حاول ضبط التصفية أو تسجيل دفعة جديدة.",
-            "page_of": "الصفحة {current} من {total}"
-        },
         "analytics": {
-            "revenue": "الإيرادات",
-            "previous": "السابق",
             "collection_rate": "معدل التحصيل",
             "last_month": "الشهر الماضي",
-            "trend_chart_title": "مؤشر الإيرادات لـ 12 شهراً",
-            "no_trend_title": "لا توجد بيانات مؤشر",
-            "no_trend_desc": "ستظهر بيانات المدفوعات هنا عند تسجيل المعاملات.",
             "method_breakdown_title": "توزيع طرق الدفع",
             "payments_count": "{count} دفعة",
             "no_breakdown_title": "لا توجد بيانات لهذه الفترة",
             "no_breakdown_desc": "سيظهر توزيع طرق الدفع هنا.",
-            "top_units_title": "أعلى الوحدات دفعاً",
-            "no_units_title": "لا توجد بيانات بعد",
-            "no_units_desc": "ستظهر أعلى الوحدات دفعاً هنا.",
             "platform_fees_title": "رسوم المنصة",
             "fees_this_month": "هذا الشهر",
             "fees_total": "إجمالي الرسوم",
             "fees_gross": "الحجم الإجمالي",
             "fees_net": "الحجم الصافي",
             "trend_up": "صاعد",
-            "trend_down": "هابط"
+            "trend_down": "هابط",
+            "full_reports_cta": "تقارير الإيرادات الكاملة والكشوفات",
+            "full_reports_btn": "الذهاب إلى تقارير Finance Hub"
         },
         "settings": {
             "prefs_title": "تفضيلات الدفع",

@@ -53,7 +53,8 @@
         "view_buildings": "Tazama Majengo",
         "messages": "Ujumbe",
         "inbox": "Sanduku la ujumbe",
-        "legal_holds": "[TODO-sw] Legal holds"
+        "legal_holds": "[TODO-sw] Legal holds",
+        "payments": "Malipo"
     },
     "menu": {
         "account": "Akaunti",
@@ -171,7 +172,6 @@
         "tabs": {
             "overview": "Muhtasari",
             "collection": "Ukusanyaji",
-            "transactions": "Miamala",
             "analytics": "Uchambuzi",
             "settings": "Mipangilio"
         },
@@ -237,53 +237,22 @@
             "adding": "Inaongeza…",
             "deactivate_confirm": "Una uhakika unataka kuzima akaunti hii ya malipo?"
         },
-        "transactions": {
-            "search_placeholder": "Tafuta kumbukumbu, mpangaji, ankara…",
-            "filters": "Vichujio",
-            "clear": "Futa",
-            "filter_method": "Njia ya Malipo",
-            "filter_all_methods": "Njia zote",
-            "filter_building": "Jengo",
-            "filter_all_buildings": "Majengo yote",
-            "filter_from": "Kutoka",
-            "filter_to": "Hadi",
-            "showing": "Inaonyesha {from}–{to} kati ya malipo {total}",
-            "no_results": "Hakuna malipo yaliyopatikana",
-            "columns": {
-                "reference": "Kumbukumbu",
-                "tenant_unit": "Mpangaji / Chumba",
-                "invoice": "Ankara",
-                "amount": "Kiasi",
-                "method": "Njia",
-                "date": "Tarehe",
-                "net": "Safi"
-            },
-            "no_transactions_title": "Hakuna miamala iliyopatikana",
-            "no_transactions_desc": "Jaribu kurekebisha vichujio vyako au rekodi malipo mapya.",
-            "page_of": "Ukurasa {current} kati ya {total}"
-        },
         "analytics": {
-            "revenue": "Mapato",
-            "previous": "iliyopita",
             "collection_rate": "Kiwango cha Ukusanyaji",
             "last_month": "mwezi uliopita",
-            "trend_chart_title": "Mwelekeo wa Mapato wa Miezi 12",
-            "no_trend_title": "Hakuna data ya mwelekeo",
-            "no_trend_desc": "Data ya malipo itaonekana hapa unaporekodiwa miamala.",
             "method_breakdown_title": "Mgawanyo wa Njia za Malipo",
             "payments_count": "malipo {count}",
             "no_breakdown_title": "Hakuna data kipindi hiki",
             "no_breakdown_desc": "Mgawanyo wa njia za malipo utaonekana hapa.",
-            "top_units_title": "Vyumba Vinavyolipa Zaidi",
-            "no_units_title": "Bado hakuna data",
-            "no_units_desc": "Vyumba vinavyolipa zaidi vitaonekana hapa.",
             "platform_fees_title": "Ada za Mfumo",
             "fees_this_month": "Mwezi Huu",
             "fees_total": "Ada Zote",
             "fees_gross": "Jumla ya Mauzo",
             "fees_net": "Jumla Safi",
             "trend_up": "Imepanda",
-            "trend_down": "Imeshuka"
+            "trend_down": "Imeshuka",
+            "full_reports_cta": "Ripoti kamili za mapato na taarifa",
+            "full_reports_btn": "Nenda kwenye Ripoti za Finance Hub"
         },
         "settings": {
             "prefs_title": "Mapendeleo ya Malipo",

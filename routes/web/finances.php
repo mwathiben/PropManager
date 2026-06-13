@@ -13,8 +13,8 @@ use App\Http\Controllers\PaymentsHubController;
 use App\Http\Controllers\RefundController;
 use Illuminate\Support\Facades\Route;
 
-// 15. Payments (Legacy route - redirect to Payments Hub)
-Route::get('/payments', fn () => redirect()->route('payments-hub.transactions'))->name('payments.index');
+// 15. Payments (Legacy route - redirect to Finance Hub payments list)
+Route::get('/payments', fn () => redirect()->route('finances.payments'))->name('payments.index');
 
 // 15b. Payments Hub (Unified Payment Management)
 Route::prefix('payments-hub')->name('payments-hub.')->group(function () {
@@ -22,7 +22,6 @@ Route::prefix('payments-hub')->name('payments-hub.')->group(function () {
     Route::get('/', [PaymentsHubController::class, 'index'])->name('index');
     Route::get('/overview', [PaymentsHubController::class, 'overview'])->name('overview');
     Route::get('/collection', [PaymentsHubController::class, 'collection'])->name('collection');
-    Route::get('/transactions', [PaymentsHubController::class, 'transactions'])->name('transactions');
     Route::get('/analytics', [PaymentsHubController::class, 'analytics'])->name('analytics');
     Route::get('/settings', [PaymentsHubController::class, 'settings'])->name('settings');
 
