@@ -7,14 +7,12 @@ use App\Http\Requests\Settings\UpdateBrandingRequest;
 use App\Http\Requests\Settings\UpdateBusinessProfileRequest;
 use App\Http\Requests\Settings\UpdateNotificationDefaultsRequest;
 use App\Http\Requests\Settings\UpdateOcrRequest;
-use App\Http\Requests\Settings\UpdatePaymentMethodsRequest;
 use App\Http\Requests\Settings\UploadLogoRequest;
 use App\Models\LandlordProfile;
 use App\Models\NotificationPreference;
 use App\Models\PaymentConfiguration;
 use App\Models\Setting;
 use App\Services\OcrService;
-use App\Services\SecurityLogger;
 use App\Services\Settings\PaymentMethodConfigService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -114,19 +112,6 @@ class SettingsController extends Controller
         );
 
         return redirect()->back()->with('success', 'Business profile updated successfully.');
-    }
-
-    /**
-     * Update payment methods configuration.
-     *
-     * Delegates to PaymentMethodConfigService — the canonical credential writer.
-     * This keeps the settings.payment.update route working as a compatibility shim.
-     */
-    public function updatePaymentMethods(UpdatePaymentMethodsRequest $request, SecurityLogger $securityLogger)
-    {
-        $this->configService->apply(auth()->user(), $request->validated(), $securityLogger);
-
-        return redirect()->back()->with('success', 'Payment methods updated successfully.');
     }
 
     /**

@@ -4,8 +4,6 @@ import { Link, useForm } from '@inertiajs/vue3';
 import { useI18n } from '@/composables/useI18n';
 import {
     CreditCardIcon,
-    BanknotesIcon,
-    DevicePhoneMobileIcon,
     Cog6ToothIcon,
     BellIcon,
     DocumentTextIcon,
@@ -22,15 +20,7 @@ interface CurrencyOption {
 }
 
 interface PaymentConfig {
-    accepted_payment_methods?: string[];
     default_currency?: string;
-    bank_name?: string;
-    bank_account_name?: string;
-    bank_account_number?: string;
-    bank_branch?: string;
-    mpesa_shortcode_type?: 'paybill' | 'till';
-    mpesa_shortcode?: string;
-    mpesa_account_name?: string;
 }
 
 interface InvoiceSettings {
@@ -63,7 +53,6 @@ interface FiscalYearSettings {
 
 interface Props {
     paymentConfig?: PaymentConfig;
-    paymentMethods?: Record<string, boolean>;
     currencyOptions?: CurrencyOption[];
     invoiceSettings?: InvoiceSettings;
     reminderSettings?: ReminderSettings;
@@ -73,7 +62,6 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
     paymentConfig: () => ({}),
-    paymentMethods: () => ({}),
     currencyOptions: () => [],
     invoiceSettings: () => ({}),
     reminderSettings: () => ({}),
@@ -83,19 +71,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const { t } = useI18n();
 
-const activeSection = ref('payment-methods');
-
-const paymentMethodsForm = useForm({
-    accepted_payment_methods: props.paymentConfig?.accepted_payment_methods || [],
-    bank_name: props.paymentConfig?.bank_name || '',
-    bank_account_name: props.paymentConfig?.bank_account_name || '',
-    bank_account_number: props.paymentConfig?.bank_account_number || '',
-    bank_branch: props.paymentConfig?.bank_branch || '',
-    mpesa_shortcode_type: props.paymentConfig?.mpesa_shortcode_type || 'paybill',
-    mpesa_shortcode: props.paymentConfig?.mpesa_shortcode || '',
-    mpesa_account_name: props.paymentConfig?.mpesa_account_name || '',
-    mpesa_passkey: '',
-});
+const activeSection = ref('currency');
 
 const invoiceForm = useForm({
     include_water_charges: props.invoiceSettings?.include_water_charges ?? true,
@@ -144,27 +120,8 @@ const monthOptions = [
     { value: 12, label: t('finances_settings.months.december') },
 ];
 
-const togglePaymentMethod = (method) => {
-    const index = paymentMethodsForm.accepted_payment_methods.indexOf(method);
-    if (index > -1) {
-        paymentMethodsForm.accepted_payment_methods.splice(index, 1);
-    } else {
-        paymentMethodsForm.accepted_payment_methods.push(method);
-    }
-};
-
-const isMethodEnabled = (method) => {
-    return paymentMethodsForm.accepted_payment_methods.includes(method);
-};
-
 const saveCurrencySettings = () => {
     currencyForm.post(route('finances.settings.default-currency'), {
-        preserveScroll: true,
-    });
-};
-
-const savePaymentMethods = () => {
-    paymentMethodsForm.post(route('finances.settings.payment-methods'), {
         preserveScroll: true,
     });
 };
@@ -210,15 +167,7 @@ const isChannelEnabled = (channel) => {
     return reminderForm.reminder_channels.includes(channel);
 };
 
-const methodIcons = {
-    cash: BanknotesIcon,
-    bank_transfer: CreditCardIcon,
-    mobile_money: DevicePhoneMobileIcon,
-    paystack: CreditCardIcon,
-};
-
 const sections = [
-    { id: 'payment-methods', name: t('finances_settings.sections.payment_methods'), icon: CreditCardIcon },
     { id: 'currency', name: t('finances_settings.sections.currency'), icon: CurrencyDollarIcon },
     { id: 'invoice-settings', name: t('finances_settings.sections.invoice_settings'), icon: DocumentTextIcon },
     { id: 'receipt-settings', name: t('finances_settings.sections.receipt_settings'), icon: ReceiptPercentIcon },
@@ -227,7 +176,6 @@ const sections = [
 ];
 
 const navButtonBaseClass = 'w-full flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-colors';
-const methodButtonBaseClass = 'flex items-center gap-3 p-4 rounded-lg border-2 transition-colors text-start';
 const fiscalTypeButtonBaseClass = 'flex-1 px-4 py-3 text-sm rounded-lg border-2 transition-colors text-start';
 const channelButtonBaseClass = 'px-4 py-2 text-sm rounded-lg border-2 transition-colors';
 </script>
@@ -254,144 +202,16 @@ const channelButtonBaseClass = 'px-4 py-2 text-sm rounded-lg border-2 transition
         </div>
 
         <div class="lg:col-span-3">
-            <div v-if="activeSection === 'payment-methods'" class="space-y-6">
-                <div class="bg-white rounded-xl border border-gray-200 p-6">
-                    <h3 class="text-sm font-semibold text-gray-900 mb-4">{{ t('finances_settings.payment_methods.heading') }}</h3>
-                    <div class="grid grid-cols-2 gap-4">
-                        <button
-                            v-for="(label, method) in paymentMethods"
-                            :key="method"
-                            @click="togglePaymentMethod(method)"
-                            :class="[
-                                methodButtonBaseClass,
-                                isMethodEnabled(method)
-                                    ? 'border-emerald-500 bg-emerald-50'
-                                    : 'border-gray-200 hover:border-gray-300'
-                            ]"
-                        >
-                            <div :class="['p-2 rounded-lg', isMethodEnabled(method) ? 'bg-emerald-100' : 'bg-gray-100']">
-                                <component
-                                    :is="methodIcons[method] || CreditCardIcon"
-                                    :class="['h-5 w-5', isMethodEnabled(method) ? 'text-emerald-600' : 'text-gray-400']"
-                                />
-                            </div>
-                            <div>
-                                <p :class="['text-sm font-medium', isMethodEnabled(method) ? 'text-emerald-900' : 'text-gray-900']">
-                                    {{ label }}
-                                </p>
-                            </div>
-                        </button>
-                    </div>
-                </div>
-
-                <div v-if="isMethodEnabled('bank_transfer')" class="bg-white rounded-xl border border-gray-200 p-6">
-                    <h3 class="text-sm font-semibold text-gray-900 mb-4">{{ t('finances_settings.bank.heading') }}</h3>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_settings.bank.name') }}</label>
-                            <input
-                                v-model="paymentMethodsForm.bank_name"
-                                type="text"
-                                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                            />
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_settings.bank.account_name') }}</label>
-                            <input
-                                v-model="paymentMethodsForm.bank_account_name"
-                                type="text"
-                                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                            />
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_settings.bank.account_number') }}</label>
-                            <input
-                                v-model="paymentMethodsForm.bank_account_number"
-                                type="text"
-                                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                            />
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_settings.bank.branch') }}</label>
-                            <input
-                                v-model="paymentMethodsForm.bank_branch"
-                                type="text"
-                                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                            />
-                        </div>
-                    </div>
-                </div>
-
-                <div v-if="isMethodEnabled('mobile_money')" class="bg-white rounded-xl border border-gray-200 p-6">
-                    <h3 class="text-sm font-semibold text-gray-900 mb-4">{{ t('finances_settings.mpesa.heading') }}</h3>
-                    <div class="space-y-4">
-                        <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-2">{{ t('finances_settings.mpesa.shortcode_type') }}</label>
-                            <div class="flex gap-4">
-                                <label class="flex items-center gap-2 cursor-pointer">
-                                    <input
-                                        v-model="paymentMethodsForm.mpesa_shortcode_type"
-                                        type="radio"
-                                        value="paybill"
-                                        class="h-4 w-4 text-emerald-600 border-gray-300 focus:ring-emerald-500"
-                                    />
-                                    <span class="text-sm text-gray-700">{{ t('finances_settings.mpesa.paybill') }}</span>
-                                </label>
-                                <label class="flex items-center gap-2 cursor-pointer">
-                                    <input
-                                        v-model="paymentMethodsForm.mpesa_shortcode_type"
-                                        type="radio"
-                                        value="till"
-                                        class="h-4 w-4 text-emerald-600 border-gray-300 focus:ring-emerald-500"
-                                    />
-                                    <span class="text-sm text-gray-700">{{ t('finances_settings.mpesa.till') }}</span>
-                                </label>
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-1">
-                                    {{ paymentMethodsForm.mpesa_shortcode_type === 'till' ? t('finances_settings.mpesa.till_number') : t('finances_settings.mpesa.paybill_number') }}
-                                </label>
-                                <input
-                                    v-model="paymentMethodsForm.mpesa_shortcode"
-                                    type="text"
-                                    :placeholder="paymentMethodsForm.mpesa_shortcode_type === 'till' ? t('finances_settings.mpesa.till_placeholder') : t('finances_settings.mpesa.paybill_placeholder')"
-                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                                />
-                            </div>
-                            <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_settings.mpesa.account_name') }}</label>
-                                <input
-                                    v-model="paymentMethodsForm.mpesa_account_name"
-                                    type="text"
-                                    :placeholder="t('finances_settings.mpesa.account_name_placeholder')"
-                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                                />
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_settings.mpesa.passkey') }}</label>
-                            <input
-                                v-model="paymentMethodsForm.mpesa_passkey"
-                                type="password"
-                                :placeholder="t('finances_settings.mpesa.passkey_placeholder')"
-                                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                            />
-                            <p class="mt-1 text-xs text-gray-500">{{ t('finances_settings.mpesa.passkey_help') }}</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="flex justify-end">
-                    <button
-                        @click="savePaymentMethods"
-                        :disabled="paymentMethodsForm.processing"
-                        class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
-                    >
-                        {{ paymentMethodsForm.processing ? t('finances_settings.saving') : t('finances_settings.payment_methods.save') }}
-                    </button>
-                </div>
+            <!-- Payment Methods & gateway credentials live in Payments Hub -->
+            <div class="mb-6 flex items-center gap-4 p-4 bg-indigo-50 rounded-xl border border-indigo-200">
+                <CreditCardIcon class="w-6 h-6 text-indigo-600 shrink-0" />
+                <p class="flex-1 text-sm text-indigo-800">{{ t('finances_settings.payment_hub_notice.text') }}</p>
+                <Link
+                    :href="route('payments-hub.collection')"
+                    class="inline-flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors whitespace-nowrap"
+                >
+                    {{ t('finances_settings.payment_hub_notice.button') }}
+                </Link>
             </div>
 
             <div v-if="activeSection === 'currency'" class="space-y-6">

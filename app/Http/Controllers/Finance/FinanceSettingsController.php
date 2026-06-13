@@ -7,7 +7,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\UpdateDefaultCurrencyRequest;
 use App\Http\Requests\UpdateFiscalYearSettingsRequest;
 use App\Http\Requests\UpdateInvoiceSettingsRequest;
-use App\Http\Requests\UpdatePaymentMethodsRequest;
 use App\Http\Requests\UpdateReceiptSettingsRequest;
 use App\Http\Requests\UpdateReminderSettingsRequest;
 use App\Http\Traits\WithFinanceRendering;
@@ -48,13 +47,6 @@ class FinanceSettingsController extends Controller
         $this->settingsService->updateDefaultCurrency($this->getLandlordId(), $request);
 
         return back()->with('success', 'Default currency updated successfully.');
-    }
-
-    public function updatePaymentMethods(UpdatePaymentMethodsRequest $request): RedirectResponse
-    {
-        $this->settingsService->updatePaymentMethods($this->getLandlordId(), $request);
-
-        return back()->with('success', 'Payment methods saved successfully.');
     }
 
     public function updateInvoiceSettings(UpdateInvoiceSettingsRequest $request): RedirectResponse

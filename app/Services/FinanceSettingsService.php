@@ -97,29 +97,6 @@ class FinanceSettingsService
         );
     }
 
-    public function updatePaymentMethods(int $landlordId, Request $request): void
-    {
-        $data = [
-            'accepted_payment_methods' => $request->accepted_payment_methods,
-            'bank_name' => $request->bank_name,
-            'bank_account_name' => $request->bank_account_name,
-            'bank_account_number' => $request->bank_account_number,
-            'bank_branch' => $request->bank_branch,
-            'mpesa_shortcode_type' => $request->mpesa_shortcode_type ?? 'paybill',
-            'mpesa_shortcode' => $request->mpesa_shortcode,
-            'mpesa_account_name' => $request->mpesa_account_name,
-        ];
-
-        if ($request->filled('mpesa_passkey')) {
-            $data['mpesa_passkey'] = $request->mpesa_passkey;
-        }
-
-        PaymentConfiguration::updateOrCreate(
-            ['landlord_id' => $landlordId],
-            $data
-        );
-    }
-
     public function updateInvoiceSettings(int $landlordId, Request $request): void
     {
         Setting::set('invoice_include_water_charges', $request->include_water_charges ? 'true' : 'false', false, 'invoice', null, $landlordId);

@@ -189,7 +189,6 @@ Route::get('/gateway-reconciliation/{report}', [\App\Http\Controllers\GatewayRec
 // 9. Settings (Integrations & Configuration)
 Route::get('/settings', [\App\Http\Controllers\SettingsController::class, 'index'])->name('settings.index');
 Route::post('/settings/business-profile', [\App\Http\Controllers\SettingsController::class, 'updateBusinessProfile'])->name('settings.business.update');
-Route::post('/settings/payment-methods', [\App\Http\Controllers\SettingsController::class, 'updatePaymentMethods'])->name('settings.payment.update');
 Route::post('/settings/notifications', [\App\Http\Controllers\SettingsController::class, 'updateNotificationDefaults'])->name('settings.notifications.update');
 Route::post('/settings/ocr', [\App\Http\Controllers\SettingsController::class, 'updateOcr'])->name('settings.ocr.update');
 Route::post('/settings/ocr/test', [\App\Http\Controllers\SettingsController::class, 'testOcr'])->name('settings.ocr.test');

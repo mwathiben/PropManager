@@ -206,7 +206,6 @@ class Phase21Phase3Test extends TestCase
         $adopters = [
             'resources/js/Pages/Tenants/Show.vue',
             'resources/js/Pages/MoveOuts/Show.vue',
-            'resources/js/Pages/Settings/PayoutAccounts.vue',
         ];
 
         foreach ($adopters as $relative) {
