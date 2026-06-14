@@ -10,9 +10,10 @@ namespace App\Services\ManagementFee;
  * stays pure and unit-testable.
  *
  * - collected / billed / scheduled feed the percentage bases.
- * - occupancyWeightedUnits feeds a per-unit flat fee: the sum, across the
- *   owner's units, of each unit's occupied share of the period (a unit occupied
- *   for half the period contributes 0.5).
+ * - occupiedUnits feeds a per-unit flat fee: the count of the owner's units that
+ *   were occupied at any point in the period. Each is charged the full flat
+ *   amount — the manager does the same work (the move-out included) whether a
+ *   unit was occupied for the whole period or only part of it.
  */
 final readonly class FeePeriodContext
 {
@@ -20,6 +21,6 @@ final readonly class FeePeriodContext
         public float $collected = 0.0,
         public float $billed = 0.0,
         public float $scheduled = 0.0,
-        public float $occupancyWeightedUnits = 0.0,
+        public int $occupiedUnits = 0,
     ) {}
 }

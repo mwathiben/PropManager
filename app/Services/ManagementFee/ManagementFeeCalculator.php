@@ -42,7 +42,7 @@ final class ManagementFeeCalculator
         $value = (float) $relationship->management_fee_value;
 
         return match ($relationship->management_fee_flat_cadence) {
-            'per_unit' => $value * $context->occupancyWeightedUnits,
+            'per_unit' => $value * $context->occupiedUnits,
             default => $value,
         };
     }
