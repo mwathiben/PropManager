@@ -22,5 +22,12 @@ final readonly class FeePeriodContext
         public float $billed = 0.0,
         public float $scheduled = 0.0,
         public int $occupiedUnits = 0,
-    ) {}
+    ) {
+        if ($collected < 0.0 || $billed < 0.0 || $scheduled < 0.0 || $occupiedUnits < 0) {
+            throw new \InvalidArgumentException(
+                'FeePeriodContext figures must be non-negative; got collected='.$collected
+                .', billed='.$billed.', scheduled='.$scheduled.', occupiedUnits='.$occupiedUnits.'.'
+            );
+        }
+    }
 }

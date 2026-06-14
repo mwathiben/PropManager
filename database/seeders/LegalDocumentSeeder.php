@@ -7,12 +7,15 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 
 /**
- * Seeds the current Platform Terms of Service and Privacy Policy so the consent
- * gate (EnsureLegalAcceptance) has a current version to require. Idempotent.
+ * Seeds the current Platform Terms of Service and Privacy Policy as INACTIVE drafts.
+ * Idempotent — safe to re-run.
  *
- * The content below is a DRAFT placeholder that encodes the platform's neutral-host
- * liability posture and the "informational, not legal advice" stance — it MUST be
- * reviewed by a Kenyan advocate before go-live (see docs/legal-review-brief.md §A).
+ * Documents seed with is_active = false. Activation is a deliberate, post-advocate-review
+ * step: a super-admin must call LegalDocument::publish() (or flip is_active manually) only
+ * after a Kenyan advocate has signed off on the content (see docs/legal-review-brief.md §A).
+ *
+ * The consent gate (EnsureLegalAcceptance) is inert until at least one active document
+ * exists — seeding inactive docs therefore has no effect on the gate.
  */
 class LegalDocumentSeeder extends Seeder
 {
@@ -39,7 +42,7 @@ class LegalDocumentSeeder extends Seeder
                 'version' => '1.0',
                 'title' => 'Terms of Service',
                 'summary' => 'The terms governing your use of the PropManager platform.',
-                'is_active' => true,
+                'is_active' => false,
                 'effective_date' => $effectiveDate,
                 'created_by' => null,
                 'content' => $this->terms(),
@@ -49,7 +52,7 @@ class LegalDocumentSeeder extends Seeder
                 'version' => '1.0',
                 'title' => 'Privacy Policy',
                 'summary' => 'How PropManager collects, uses, and protects your personal data.',
-                'is_active' => true,
+                'is_active' => false,
                 'effective_date' => $effectiveDate,
                 'created_by' => null,
                 'content' => $this->privacy(),

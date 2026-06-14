@@ -149,15 +149,15 @@ class Consent extends Model
 
     /**
      * Get current consent version for a type.
+     *
+     * Delegates entirely to LegalDocument::getActive() so the version decision
+     * is always made by the same filters (is_active + effective_date <= now,
+     * ordered by effective_date desc then id desc). Avoids lexicographic
+     * latest('version') drift between this method and the active-document query.
      */
     public static function getCurrentVersion(string $type): ?string
     {
-        $document = LegalDocument::where('type', $type)
-            ->where('is_active', true)
-            ->latest('version')
-            ->first();
-
-        return $document?->version;
+        return LegalDocument::getActive($type)?->version;
     }
 
     /**

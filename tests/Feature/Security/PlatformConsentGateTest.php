@@ -121,4 +121,40 @@ class PlatformConsentGateTest extends TestCase
             'consent must be bound to the exact document content it accepted',
         );
     }
+
+    public function test_accept_returns_422_for_non_active_document_version(): void
+    {
+        // Seed a document that exists but is inactive (stale version)
+        LegalDocument::create([
+            'type' => 'terms',
+            'version' => '0.9',
+            'title' => 'Terms (Draft)',
+            'content' => 'Old draft',
+            'summary' => 'summary',
+            'is_active' => false,
+            'effective_date' => now()->toDateString(),
+        ]);
+
+        $user = User::factory()->create(['role' => 'landlord']);
+
+        $this->actingAs($user)->post(route('consent.accept'), [
+            'consents' => ['terms:0.9'],
+        ])->assertStatus(422);
+
+        $this->assertDatabaseMissing('consents', [
+            'user_id' => $user->id,
+            'consent_type' => 'terms',
+        ]);
+    }
+
+    public function test_accept_rejects_a_malformed_consent_key_via_the_form_request(): void
+    {
+        $user = User::factory()->create(['role' => 'landlord']);
+
+        $this->actingAs($user)
+            ->from(route('consent.required'))
+            ->post(route('consent.accept'), ['consents' => ['not-a-valid-key']])
+            ->assertStatus(302)
+            ->assertSessionHasErrors('consents.0');
+    }
 }

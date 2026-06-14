@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\ManagementFeeBase;
+use App\Enums\ManagementFeeFlatCadence;
+use App\Enums\ManagementFeeType;
+use App\Services\ManagementFee\ManagementFeeCalculator;
 use App\Traits\Auditable;
 use App\Traits\TenantScope;
 use Illuminate\Database\Eloquent\Builder;
@@ -36,10 +40,16 @@ class PropertyOwner extends Model
         'management_fee_flat_cadence',
     ];
 
-    protected $casts = [
-        'is_active' => 'boolean',
-        'management_fee_value' => 'decimal:2',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'is_active' => 'boolean',
+            'management_fee_value' => 'decimal:2',
+            'management_fee_type' => ManagementFeeType::class,
+            'management_fee_base' => ManagementFeeBase::class,
+            'management_fee_flat_cadence' => ManagementFeeFlatCadence::class,
+        ];
+    }
 
     /**
      * Phase-103 OWNER-PAYOUTS: the PM's management fee on a period's collected (gross)
@@ -54,12 +64,11 @@ class PropertyOwner extends Model
     public function managementFeeOn(float $collected): float
     {
         return round(match ($this->management_fee_type) {
-            // Clamp the rate at 100% here (not only in the FormRequest) so a value set by a
-            // seeder/import/tinker can never drive the owner's net negative.
-            'percentage' => $collected * min((float) $this->management_fee_value, 100.0) / 100,
-            'flat' => (float) $this->management_fee_value,
-            'none' => 0.0,
-            default => 0.0,
+            // Clamp the rate to [0, 100] here (not only in the FormRequest) so a value set by a
+            // seeder/import/tinker can never drive the owner's net negative (top OR bottom).
+            ManagementFeeType::Percentage => $collected * max(0.0, min((float) $this->management_fee_value, ManagementFeeCalculator::MAX_PERCENTAGE)) / 100,
+            ManagementFeeType::Flat => (float) $this->management_fee_value,
+            ManagementFeeType::None => 0.0,
         }, 2);
     }
 

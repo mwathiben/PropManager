@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\ManagementFee;
 
+use App\Enums\ManagementFeeBase;
+use App\Enums\ManagementFeeFlatCadence;
+use App\Enums\ManagementFeeType;
 use App\Models\PropertyOwner;
 
 /**
@@ -17,24 +20,27 @@ use App\Models\PropertyOwner;
  */
 final class ManagementFeeCalculator
 {
+    /** Maximum allowable percentage rate — prevents negative owner net. */
+    public const float MAX_PERCENTAGE = 100.0;
+
     public function calculate(PropertyOwner $relationship, FeePeriodContext $context): float
     {
         return round(match ($relationship->management_fee_type) {
-            'percentage' => $this->percentageFee($relationship, $context),
-            'flat' => $this->flatFee($relationship, $context),
-            default => 0.0,
+            ManagementFeeType::Percentage => $this->percentageFee($relationship, $context),
+            ManagementFeeType::Flat => $this->flatFee($relationship, $context),
+            ManagementFeeType::None => 0.0,
         }, 2);
     }
 
     private function percentageFee(PropertyOwner $relationship, FeePeriodContext $context): float
     {
         $base = match ($relationship->management_fee_base) {
-            'billed' => $context->billed,
-            'scheduled' => $context->scheduled,
-            default => $context->collected,
+            ManagementFeeBase::Billed => $context->billed,
+            ManagementFeeBase::Scheduled => $context->scheduled,
+            ManagementFeeBase::Collected, null => $context->collected,
         };
 
-        return $base * min((float) $relationship->management_fee_value, 100.0) / 100;
+        return $base * max(0.0, min((float) $relationship->management_fee_value, self::MAX_PERCENTAGE)) / 100;
     }
 
     private function flatFee(PropertyOwner $relationship, FeePeriodContext $context): float
@@ -42,8 +48,8 @@ final class ManagementFeeCalculator
         $value = (float) $relationship->management_fee_value;
 
         return match ($relationship->management_fee_flat_cadence) {
-            'per_unit' => $value * $context->occupiedUnits,
-            default => $value,
+            ManagementFeeFlatCadence::PerUnit => $value * $context->occupiedUnits,
+            ManagementFeeFlatCadence::PerPeriod, null => $value,
         };
     }
 }
