@@ -11,6 +11,40 @@ import { ZiggyVue } from 'ziggy-js';
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
 /**
+ * Self-heal stale lazy-chunk loads. Page/route components are dynamic imports
+ * with hashed filenames; after a deploy (or when the PWA service worker is
+ * serving a stale precache) the old hashed chunk can 404, which would otherwise
+ * leave the user on a silently-broken page with no error. Vite fires
+ * `vite:preloadError` when such an import fails — reload to pull the fresh
+ * manifest + chunks (a NetworkFirst navigation gets the new index, which
+ * references the new chunks). The timestamp guard reloads at most once per
+ * window, so a genuine outage (asset truly gone, offline) surfaces the error
+ * instead of looping the tab, while a later deploy can still self-heal.
+ */
+const CHUNK_RELOAD_KEY = 'pm:chunk-reload-at';
+const CHUNK_RELOAD_COOLDOWN_MS = 10_000;
+window.addEventListener('vite:preloadError', (event) => {
+    let lastReloadAt = 0;
+    try {
+        lastReloadAt = Number(window.sessionStorage.getItem(CHUNK_RELOAD_KEY)) || 0;
+    } catch {
+        // sessionStorage unavailable (private mode / disabled) — fall through
+        // and reload anyway; without a guard a true outage may loop, which is
+        // still preferable to a permanently-broken page.
+    }
+    if (Date.now() - lastReloadAt < CHUNK_RELOAD_COOLDOWN_MS) {
+        return;
+    }
+    try {
+        window.sessionStorage.setItem(CHUNK_RELOAD_KEY, String(Date.now()));
+    } catch {
+        // ignore — see above
+    }
+    event.preventDefault();
+    window.location.reload();
+});
+
+/**
  * Phase-21 DEFER-AUTHZ-4: client-side route guard. URL-prefix → required
  * ability table. The `before` hook pre-checks the shared abilities map
  * (props.auth.user.abilities) and redirects to /403 client-side, so a
