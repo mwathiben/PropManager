@@ -11,6 +11,8 @@ use App\Models\Property;
 use App\Models\TenantInvitation;
 use App\Models\Unit;
 use App\Models\User;
+use App\Services\Onboarding\BuildingStructureBuilder;
+use App\Services\Onboarding\BuildingStructureSpec;
 use App\Services\Onboarding\OnboardingStepProcessor;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -27,6 +29,10 @@ class OnboardingService implements OnboardingStepProcessor
         7 => 'first-tenant',
         8 => 'complete',
     ];
+
+    public function __construct(
+        private readonly BuildingStructureBuilder $structureBuilder,
+    ) {}
 
     public function getProgress(User $user): array
     {
@@ -114,67 +120,18 @@ class OnboardingService implements OnboardingStepProcessor
         $progress = $user->getOrCreateOnboardingProgress();
 
         DB::transaction(function () use ($data, $user, $progress) {
-            // Phase-47 STEP-DATA-DEPRECATE-2: Property is canonical. The created
-            // row must be captured — both structure branches below reference
-            // $property->id, so discarding it raised an undefined-variable fatal.
+            // Phase-47 STEP-DATA-DEPRECATE-2: Property is canonical and must be
+            // captured — the structure spec resolves property_id and landlord_id
+            // from it.
             $property = Property::create([
                 'landlord_id' => $user->id,
                 'name' => $data['propertyName'],
                 'type' => $data['propertyType'],
             ]);
 
-            $hasWings = ($data['hasWings'] ?? false) && ! empty($data['wings']);
-
-            if ($hasWings) {
-                $mainBuilding = Building::create([
-                    'property_id' => $property->id,
-                    'landlord_id' => $user->id,
-                    'name' => $data['propertyName'],
-                    'total_floors' => 0,
-                    'units_per_floor' => 0,
-                    'is_wing' => false,
-                ]);
-
-                foreach ($data['wings'] as $wingData) {
-                    $wing = Building::create([
-                        'property_id' => $property->id,
-                        'landlord_id' => $user->id,
-                        'parent_building_id' => $mainBuilding->id,
-                        'name' => $wingData['name'],
-                        'unit_prefix' => strtoupper($wingData['prefix']),
-                        'total_floors' => $wingData['floors'],
-                        'units_per_floor' => $wingData['unitsPerFloor'],
-                        'is_wing' => true,
-                    ]);
-
-                    $this->generateUnits(
-                        $wing,
-                        strtoupper($wingData['prefix']),
-                        $wingData['floors'],
-                        $wingData['unitsPerFloor'],
-                        $data['baseRent'],
-                        $user->id
-                    );
-                }
-            } else {
-                $building = Building::create([
-                    'property_id' => $property->id,
-                    'landlord_id' => $user->id,
-                    'name' => $data['propertyName'],
-                    'total_floors' => $data['floors'],
-                    'units_per_floor' => $data['unitsPerFloor'],
-                    'is_wing' => false,
-                ]);
-
-                $this->generateUnits(
-                    $building,
-                    '',
-                    $data['floors'],
-                    $data['unitsPerFloor'],
-                    $data['baseRent'],
-                    $user->id
-                );
-            }
+            $this->structureBuilder->build(
+                BuildingStructureSpec::fromLegacyPayload($data, $property),
+            );
 
             $progress->markComplete();
         });
@@ -338,78 +295,15 @@ class OnboardingService implements OnboardingStepProcessor
             return false;
         }
 
-        return DB::transaction(function () use ($data, $user, $property) {
-            $existingBuildings = Building::where('property_id', $property->id)
-                ->where('landlord_id', $user->id)
-                ->get();
+        // Phase-47 STEP-DATA-DEPRECATE-3: canonical default_rent. The builder
+        // throws a ValidationException when units carry leases/water readings,
+        // so a structure re-edit can't silently destroy tenancy or billing data.
+        $baseRent = (float) (PaymentConfiguration::where('landlord_id', $user->id)
+            ->value('default_rent') ?? 10000);
 
-            foreach ($existingBuildings as $building) {
-                $building->units()->forceDelete();
-                $building->forceDelete();
-            }
-
-            $hasWings = ($data['has_wings'] ?? false) && ! empty($data['wings']);
-            // Phase-47 STEP-DATA-DEPRECATE-3: canonical default_rent.
-            $baseRent = PaymentConfiguration::where('landlord_id', $user->id)
-                ->value('default_rent') ?? 10000;
-
-            if ($hasWings) {
-                $mainBuilding = Building::create([
-                    'property_id' => $property->id,
-                    'landlord_id' => $user->id,
-                    'name' => $property->name,
-                    'total_floors' => 0,
-                    'units_per_floor' => 0,
-                    'is_wing' => false,
-                    'parent_building_id' => null,
-                ]);
-
-                foreach ($data['wings'] as $wingData) {
-                    $wing = Building::create([
-                        'property_id' => $property->id,
-                        'landlord_id' => $user->id,
-                        'parent_building_id' => $mainBuilding->id,
-                        'name' => $wingData['name'],
-                        'unit_prefix' => strtoupper($wingData['prefix']),
-                        'total_floors' => $wingData['floors'],
-                        'units_per_floor' => $wingData['units_per_floor'],
-                        'is_wing' => true,
-                    ]);
-
-                    $this->generateUnits(
-                        $wing,
-                        strtoupper($wingData['prefix']),
-                        $wingData['floors'],
-                        $wingData['units_per_floor'],
-                        $baseRent,
-                        $user->id
-                    );
-                }
-            } else {
-                $building = Building::create([
-                    'property_id' => $property->id,
-                    'landlord_id' => $user->id,
-                    'name' => $property->name,
-                    'total_floors' => $data['floors'],
-                    'units_per_floor' => $data['units_per_floor'],
-                    'is_wing' => false,
-                    'parent_building_id' => null,
-                ]);
-
-                $this->generateUnits(
-                    $building,
-                    '',
-                    $data['floors'],
-                    $data['units_per_floor'],
-                    $baseRent,
-                    $user->id
-                );
-            }
-
-            // Phase-47 LANDLORD-MIGRATE-3: canonical Building + Unit rows are
-            // the source of truth; the step_data(4) mirror is removed.
-            return true;
-        });
+        return $this->structureBuilder->replaceForProperty(
+            BuildingStructureSpec::fromCanonicalStep($data, $property, $baseRent),
+        );
     }
 
     private function processFinancial(array $data, User $user, OnboardingProgress $progress): bool
@@ -506,23 +400,5 @@ class OnboardingService implements OnboardingStepProcessor
         $progress->markComplete();
 
         return true;
-    }
-
-    private function generateUnits(Building $building, string $prefix, int $floors, int $unitsPerFloor, float $baseRent, int $landlordId): void
-    {
-        for ($f = 1; $f <= $floors; $f++) {
-            for ($u = 1; $u <= $unitsPerFloor; $u++) {
-                $unitNumber = $prefix.(($f * 100) + $u);
-
-                Unit::create([
-                    'landlord_id' => $landlordId,
-                    'building_id' => $building->id,
-                    'floor_number' => $f,
-                    'unit_number' => (string) $unitNumber,
-                    'status' => 'vacant',
-                    'target_rent' => $baseRent,
-                ]);
-            }
-        }
     }
 }
