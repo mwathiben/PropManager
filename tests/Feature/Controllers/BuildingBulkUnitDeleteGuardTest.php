@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Controllers;
 
 use App\Models\Unit;
+use App\Models\WaterConnection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 use Tests\Traits\CreatesTestData;
@@ -12,9 +13,9 @@ use Tests\Traits\CreatesTestData;
 /**
  * The Architect's bulk unit-delete (BuildingService::bulkUpdateUnits('delete'),
  * exposed via buildings.update-units) must fail-closed when any selected unit
- * already carries an active lease or water readings — otherwise a bulk action
- * silently soft-deletes occupied/metered units, orphaning tenancy + billing
- * history. Mirrors the guard deleteBuilding() already enforces.
+ * already carries an active lease, water readings, or a water connection —
+ * otherwise a bulk action silently soft-deletes occupied/metered units,
+ * orphaning tenancy + billing history.
  */
 class BuildingBulkUnitDeleteGuardTest extends TestCase
 {
@@ -52,6 +53,21 @@ class BuildingBulkUnitDeleteGuardTest extends TestCase
             ->assertSessionHasErrors('units');
 
         $this->assertNotSoftDeleted('units', ['id' => $metered->id]);
+    }
+
+    public function test_bulk_delete_is_blocked_when_a_selected_unit_has_a_water_connection(): void
+    {
+        ['landlord' => $landlord, 'building' => $building, 'units' => $units] = $this->createLandlordWithFullSetup();
+        $connected = $units->first();
+        WaterConnection::factory()->create([
+            'landlord_id' => $landlord->id,
+            'unit_id' => $connected->id,
+        ]);
+
+        $this->postBulkDelete($landlord, $building, [$connected->id])
+            ->assertSessionHasErrors('units');
+
+        $this->assertNotSoftDeleted('units', ['id' => $connected->id]);
     }
 
     public function test_bulk_delete_succeeds_for_units_without_dependents(): void

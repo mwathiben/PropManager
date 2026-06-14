@@ -8,6 +8,7 @@ use App\Models\Building;
 use App\Models\Lease;
 use App\Models\Property;
 use App\Models\Unit;
+use App\Models\WaterConnection;
 use App\Models\WaterReading;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -81,10 +82,13 @@ final class BuildingStructureBuilder
 
     /**
      * Refuse a rebuild when the property's existing units carry irreplaceable
-     * history. Scope is deliberately leases + water readings: those are the
-     * canonical tenancy and billing records, and invoices/payments hang off a
-     * lease (so a leased unit is already caught). Loosely-attached records
-     * (unit documents, building tickets) are intentionally NOT gated here, to
+     * history. The rebuild force-deletes units, and water_connections.unit_id is
+     * nullOnDelete — so a water connection (and its restrictOnDelete invoices) is
+     * silently detached even when the unit has no lease and no readings. The scope
+     * is therefore leases + water readings + water connections: leases anchor
+     * tenancy and lease-backed invoices, while a water connection anchors
+     * water-client billing that does NOT hang off a lease. Loosely-attached
+     * records (unit documents, building tickets) are intentionally NOT gated, to
      * avoid false-positive blocks on an otherwise-empty structure.
      *
      * @param  Collection<int, int>  $unitIds
@@ -99,17 +103,19 @@ final class BuildingStructureBuilder
 
         $leaseCount = Lease::whereIn('unit_id', $unitIds)->count();
         $readingCount = WaterReading::whereIn('unit_id', $unitIds)->count();
+        $connectionCount = WaterConnection::whereIn('unit_id', $unitIds)->count();
 
-        if ($leaseCount === 0 && $readingCount === 0) {
+        if ($leaseCount === 0 && $readingCount === 0 && $connectionCount === 0) {
             return;
         }
 
-        Log::warning('Onboarding structure replace blocked: units have leases or water readings', [
+        Log::warning('Onboarding structure replace blocked: units have leases, water readings, or water connections', [
             'landlord_id' => $property->landlord_id,
             'property_id' => $property->id,
             'units' => $unitIds->count(),
             'leases' => $leaseCount,
             'water_readings' => $readingCount,
+            'water_connections' => $connectionCount,
         ]);
 
         throw ValidationException::withMessages([
