@@ -36,4 +36,28 @@ class PropertyOwnerFactory extends Factory
     {
         return $this->state(['is_active' => false]);
     }
+
+    /**
+     * A percentage management fee on the given base (collected / billed / scheduled).
+     */
+    public function withPercentageFee(float $rate = 10.0, string $base = 'collected'): static
+    {
+        return $this->state([
+            'management_fee_type' => 'percentage',
+            'management_fee_value' => $rate,
+            'management_fee_base' => $base,
+        ]);
+    }
+
+    /**
+     * A flat management fee, charged once per period or per occupied unit.
+     */
+    public function withFlatFee(float $amount = 5000.0, string $cadence = 'per_period'): static
+    {
+        return $this->state([
+            'management_fee_type' => 'flat',
+            'management_fee_value' => $amount,
+            'management_fee_flat_cadence' => $cadence,
+        ]);
+    }
 }

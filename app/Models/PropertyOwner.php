@@ -32,6 +32,8 @@ class PropertyOwner extends Model
         'is_active',
         'management_fee_type',
         'management_fee_value',
+        'management_fee_base',
+        'management_fee_flat_cadence',
     ];
 
     protected $casts = [
@@ -44,6 +46,10 @@ class PropertyOwner extends Model
      * rent — the standard property-management model (% of rent collected, or a flat
      * amount per statement). 'none' (the default) yields 0, so the owner's net is
      * unchanged from before fees existed.
+     *
+     * Collected-only shortcut. For the full model (billed/scheduled bases, per-unit
+     * flat), use {@see \App\Services\ManagementFee\ManagementFeeCalculator}; this stays
+     * for callers that only have a collected figure and a default-base relationship.
      */
     public function managementFeeOn(float $collected): float
     {
