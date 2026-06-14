@@ -9,6 +9,7 @@ use App\Models\Payment;
 use App\Models\Property;
 use App\Models\Ticket;
 use App\Models\Unit;
+use App\Models\WaterConnection;
 use App\Models\WaterReading;
 use App\Support\DateFilter;
 use Carbon\Carbon;
@@ -436,10 +437,17 @@ class BuildingService
     }
 
     /**
-     * Fail-closed bulk unit delete: refuse the whole batch when any selected
-     * unit (scoped to this building) still has an active lease or water readings,
-     * mirroring deleteBuilding()'s guard. Without this, a bulk "delete" silently
-     * soft-deletes occupied/metered units and orphans tenancy + billing history.
+     * Fail-closed bulk unit delete: refuse the whole batch when any selected unit
+     * (scoped to this building) still has an active lease, water readings, or a
+     * water connection — otherwise a bulk "delete" silently soft-deletes
+     * occupied/metered units and orphans tenancy + billing history.
+     *
+     * Stricter than deleteBuilding() (which guards active leases only). The lease
+     * check is is_active, not all-leases as the onboarding structure rebuild uses:
+     * this path soft-deletes (Unit::delete()), so a terminated lease still
+     * resolves its unit_id and keeps its history — only a live tenancy blocks.
+     * The rebuild force-deletes, which would orphan any lease, hence its stricter
+     * all-leases gate.
      *
      * @param  array<int, int|string>  $unitIds
      *
@@ -457,18 +465,20 @@ class BuildingService
 
         $activeLeaseCount = Lease::whereIn('unit_id', $scopedUnitIds)->where('is_active', true)->count();
         $readingCount = WaterReading::whereIn('unit_id', $scopedUnitIds)->count();
+        $connectionCount = WaterConnection::whereIn('unit_id', $scopedUnitIds)->count();
 
-        if ($activeLeaseCount > 0 || $readingCount > 0) {
-            Log::warning('Bulk unit delete blocked: units have active leases or water readings', [
+        if ($activeLeaseCount > 0 || $readingCount > 0 || $connectionCount > 0) {
+            Log::warning('Bulk unit delete blocked: units have active leases, water readings, or water connections', [
                 'landlord_id' => $building->landlord_id,
                 'building_id' => $building->id,
                 'units' => $scopedUnitIds->count(),
                 'active_leases' => $activeLeaseCount,
                 'water_readings' => $readingCount,
+                'water_connections' => $connectionCount,
             ]);
 
             throw new \InvalidArgumentException(
-                "Cannot delete the selected unit(s): {$activeLeaseCount} active lease(s) and {$readingCount} water reading(s) would be orphaned. Move out tenants and clear billing history first."
+                "Cannot delete the selected unit(s): {$activeLeaseCount} active lease(s), {$readingCount} water reading(s), and {$connectionCount} water connection(s) would be orphaned. Move out tenants and clear billing history first."
             );
         }
 

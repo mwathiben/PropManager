@@ -7,6 +7,7 @@ namespace Tests\Feature\Onboarding;
 use App\Models\Building;
 use App\Models\PaymentConfiguration;
 use App\Models\Unit;
+use App\Models\WaterConnection;
 use App\Services\OnboardingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Log;
@@ -202,6 +203,40 @@ class OnboardingDataLossGuardsTest extends TestCase
         }
 
         $this->assertSame(8, Unit::where('landlord_id', $landlord->id)->count());
+    }
+
+    public function test_step4_refuses_to_replace_structure_when_a_unit_has_a_water_connection(): void
+    {
+        ['landlord' => $landlord, 'units' => $units] = $this->createLandlordWithFullSetup();
+        // A water-client connection with no lease and no readings: its invoices
+        // hang off the connection (not a lease), and water_connections.unit_id is
+        // nullOnDelete, so a force-delete would silently detach it.
+        WaterConnection::factory()->create([
+            'landlord_id' => $landlord->id,
+            'unit_id' => $units->first()->id,
+        ]);
+        $this->actingAs($landlord);
+        Log::spy();
+
+        try {
+            $this->processStep(4, [
+                'has_wings' => false,
+                'floors' => 1,
+                'units_per_floor' => 2,
+            ], $landlord);
+            $this->fail('structure replace must refuse when a unit has a water connection.');
+        } catch (ValidationException $e) {
+            $this->assertArrayHasKey('error', $e->errors());
+        }
+
+        $this->assertSame(8, Unit::where('landlord_id', $landlord->id)->count(), 'no unit may be deleted.');
+
+        Log::shouldHaveReceived('warning')
+            ->withArgs(function (string $message, array $context): bool {
+                return str_contains($message, 'structure replace blocked')
+                    && ($context['water_connections'] ?? 0) === 1;
+            })
+            ->once();
     }
 
     public function test_step4_replaces_structure_when_no_dependents_exist(): void
