@@ -223,7 +223,21 @@ jobs:
           tools: composer:v2
 
       - name: composer audit
-        run: composer audit --no-dev --locked --format=plain --abandoned=fail
+        # Retry up to 3x: composer audit fetches the advisory DB from
+        # repo.packagist.org, which intermittently 502s — a transient infra blip
+        # must not block a merge. A genuine advisory still fails (after 3 tries),
+        # since the audit exits non-zero on real findings every attempt.
+        run: |
+          n=0
+          until composer audit --no-dev --locked --format=plain --abandoned=fail; do
+            n=$((n + 1))
+            if [ "$n" -ge 3 ]; then
+              echo "composer audit still failing after $n attempts" >&2
+              exit 1
+            fi
+            echo "composer audit attempt $n failed (possible transient Packagist error) — retrying in 15s..." >&2
+            sleep 15
+          done
 
       # Phase-14 SUPPLY-6: refuse install when composer.lock doesn't
       # match composer.json. Prevents a tampered or stale lockfile
