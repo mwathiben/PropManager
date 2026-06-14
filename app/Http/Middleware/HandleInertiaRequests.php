@@ -284,11 +284,37 @@ class HandleInertiaRequests extends Middleware
             }
 
             if ($bundle !== []) {
-                return $bundle;
+                return $this->escapeVueI18nLinkedMarkers($bundle);
             }
         }
 
         return [];
+    }
+
+    /**
+     * vue-i18n parses '@' as its linked-message operator (e.g. '@:other.key'),
+     * so a literal '@' in a translation — such as the email placeholder
+     * 'tenant@example.com' — makes the client message compiler throw a
+     * SyntaxError the moment that string is rendered, silently breaking the
+     * component (e.g. the onboarding wizard's team/first-tenant steps). This app
+     * uses no linked messages, so every '@' is literal; wrap each in vue-i18n's
+     * literal interpolation {'@'} when building the client bundle. The PHP lang
+     * files are left untouched, so Blade trans() still reads the raw '@'.
+     *
+     * @param  array<string, mixed>  $bundle
+     * @return array<string, mixed>
+     */
+    protected function escapeVueI18nLinkedMarkers(array $bundle): array
+    {
+        foreach ($bundle as $key => $value) {
+            if (is_array($value)) {
+                $bundle[$key] = $this->escapeVueI18nLinkedMarkers($value);
+            } elseif (is_string($value) && str_contains($value, '@')) {
+                $bundle[$key] = str_replace('@', "{'@'}", $value);
+            }
+        }
+
+        return $bundle;
     }
 
     /**
