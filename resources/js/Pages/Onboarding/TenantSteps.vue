@@ -41,8 +41,14 @@ const paymentTypeOptions = computed(() => [
     { value: 'bank', label: t('onboarding_tenant_steps.payment_type_bank') },
 ]);
 
+// preserveState: 'errors' — remount on a successful save so the shared form
+// object doesn't leak an earlier step's values into the next step; keep input
+// + errors on a 422. See Onboarding/Index.vue submitStep for the full rationale.
 function submit() {
-    form.post(route('onboarding.step.save', { step: props.currentStep }));
+    form.post(route('onboarding.step.save', { step: props.currentStep }), {
+        preserveScroll: true,
+        preserveState: 'errors',
+    });
 }
 </script>
 

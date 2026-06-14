@@ -114,12 +114,14 @@ class OnboardingService implements OnboardingStepProcessor
         $progress = $user->getOrCreateOnboardingProgress();
 
         DB::transaction(function () use ($data, $user, $progress) {
-            Property::create([
+            // Phase-47 STEP-DATA-DEPRECATE-2: Property is canonical. The created
+            // row must be captured — both structure branches below reference
+            // $property->id, so discarding it raised an undefined-variable fatal.
+            $property = Property::create([
                 'landlord_id' => $user->id,
                 'name' => $data['propertyName'],
                 'type' => $data['propertyType'],
             ]);
-            // Phase-47 STEP-DATA-DEPRECATE-2: Property is canonical.
 
             $hasWings = ($data['hasWings'] ?? false) && ! empty($data['wings']);
 

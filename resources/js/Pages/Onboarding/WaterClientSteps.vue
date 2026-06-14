@@ -25,8 +25,14 @@ const form = useForm<Record<string, unknown>>({
 const page = usePage();
 const flashError = computed(() => (page.props as { flash?: { error?: string } }).flash?.error ?? '');
 
+// preserveState: 'errors' — remount on a successful save so the shared form
+// object doesn't leak an earlier step's values into the next step; keep input
+// + errors on a 422. See Onboarding/Index.vue submitStep for the full rationale.
 function submit(): void {
-    form.post(route('onboarding.step.save', { step: props.currentStep }));
+    form.post(route('onboarding.step.save', { step: props.currentStep }), {
+        preserveScroll: true,
+        preserveState: 'errors',
+    });
 }
 </script>
 

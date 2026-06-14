@@ -85,8 +85,14 @@ const ctaLabel = computed(() => {
     return t('onboarding.wizard.resume_cta');
 });
 
+// preserveState: 'errors' — remount + re-hydrate from the new step's props on a
+// successful save (this wizard's useForm defaults are prop-derived); keep input
+// + errors on a 422. See Onboarding/Index.vue submitStep for the full rationale.
 function submit() {
-    form.post(route('onboarding.step.save', { step: props.currentStep }));
+    form.post(route('onboarding.step.save', { step: props.currentStep }), {
+        preserveScroll: true,
+        preserveState: 'errors',
+    });
 }
 </script>
 
