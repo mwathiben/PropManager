@@ -1,10 +1,10 @@
 # One-shot, manually-dispatched regeneration of the RTL visual baselines
-# (Phase-53 RTL-BASELINES-2). The baselines are *-chromium-linux.png, so
+# (Phase-53 RTL-BASELINES-2). The baselines are *-chromium-rtl-linux.png, so
 # they MUST be produced on a Linux runner — this mirrors the ci.yml
 # rtl job exactly but runs `npm run test:rtl:update` and uploads the
-# regenerated snapshots as an artifact for an operator to review and
-# commit (per docs/runbooks/rtl-snapshots.md, a deliberate visual change
-# requires a seeded baseline commit).
+# regenerated snapshots (tests/a11y/rtl/__screenshots__/) as an artifact
+# for an operator to review and commit (per docs/runbooks/rtl-snapshots.md,
+# a deliberate visual change requires a seeded baseline commit).
 #
 # Trigger: gh workflow run rtl-baseline-regen.yml
 name: RTL baseline regen (manual)
@@ -88,6 +88,12 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Regenerate RTL baselines
+        # --update-snapshots WRITES the baselines; some Playwright versions
+        # still report newly-created (vs updated) snapshots as a failed test,
+        # which would abort the job before the upload. We only care that the
+        # PNGs were produced — the upload step's if-no-files-found:error is the
+        # real gate, and the operator eyeballs each render before committing.
+        continue-on-error: true
         run: npm run test:rtl:update
         env:
           A11Y_BASE_URL: http://127.0.0.1:8000
@@ -96,7 +102,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: rtl-baselines
-          path: |
-            tests/a11y/rtl/rtl-snapshot.spec.ts-snapshots/
-            tests/a11y/rtl/__screenshots__/
+          path: tests/a11y/rtl/__screenshots__/
           if-no-files-found: error

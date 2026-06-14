@@ -50,6 +50,7 @@ class InvoiceController extends Controller
             ->when($request->search, fn ($q) => $q->where('invoice_number', 'like', '%'.$request->search.'%'))
             ->when($request->arrears_age, fn ($q) => $this->applyArrearsAgeFilter($q, $request->arrears_age))
             ->orderBy('created_at', 'desc')
+            ->orderBy('id', 'desc')
             ->paginate(50);
 
         return Inertia::render('Invoices/Index', [

@@ -41,6 +41,38 @@ class InvoiceControllerTest extends TestCase
         );
     }
 
+    public function test_invoice_index_orders_deterministically_when_created_at_ties(): void
+    {
+        $unit = $this->setupData['units']->first();
+        ['lease' => $lease] = $this->createTenantWithActiveLease($this->landlord, $unit);
+
+        // Force an identical created_at across a batch — this mirrors
+        // LoadTestSeeder inserting 27 invoices in the same instant. Without a
+        // stable tiebreaker the paginator returns ties in undefined order, so
+        // the RTL visual-snapshot rows reorder run-to-run and the pixel diff
+        // blows past the 1% gate.
+        $sharedTimestamp = now()->subMinute();
+        $ids = [];
+        foreach (range(1, 5) as $i) {
+            $invoice = $this->createInvoiceForLease($lease, 'sent');
+            $invoice->forceFill([
+                'created_at' => $sharedTimestamp,
+                'updated_at' => $sharedTimestamp,
+            ])->save();
+            $ids[] = $invoice->id;
+        }
+
+        $expectedOrder = collect($ids)->sortDesc()->values()->all();
+
+        $response = $this->actingAs($this->landlord)->get(route('invoices.index'));
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page->where(
+            'invoices.data',
+            fn ($data) => collect($data)->pluck('id')->all() === $expectedOrder
+        ));
+    }
+
     public function test_landlord_can_filter_invoices_by_status(): void
     {
         $unit = $this->setupData['units']->first();
