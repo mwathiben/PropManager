@@ -38,6 +38,7 @@ import XMarkIcon from '@heroicons/vue/24/outline/XMarkIcon';
 import CalendarIcon from '@heroicons/vue/24/outline/CalendarIcon';
 import ClockIcon from '@heroicons/vue/24/outline/ClockIcon';
 import CheckCircleSolidIcon from '@heroicons/vue/24/solid/CheckCircleIcon';
+import InputError from '@/Components/InputError.vue';
 import type {
     OnboardingProfile,
     OnboardingUser,
@@ -453,6 +454,7 @@ function completeOnboarding() {
                             </button>
                         </div>
                     </fieldset>
+                    <InputError class="mt-2" :message="form.errors.management_context" />
 
                     <div class="space-y-4 mb-8">
                         <div class="flex items-start gap-4 p-4 bg-indigo-50 rounded-xl">
@@ -522,6 +524,7 @@ function completeOnboarding() {
                                     class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                     :placeholder="t('onboarding.page.profile.name_placeholder')"
                                 />
+                                <InputError class="mt-1" :message="form.errors.name" />
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('onboarding.page.profile.phone') }}</label>
@@ -531,6 +534,7 @@ function completeOnboarding() {
                                     class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                     :placeholder="t('onboarding.page.profile.phone_placeholder')"
                                 />
+                                <InputError class="mt-1" :message="form.errors.mobile_number" />
                             </div>
                         </div>
 
@@ -550,6 +554,7 @@ function completeOnboarding() {
                                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                         :placeholder="t('onboarding.page.profile.company_name_placeholder')"
                                     />
+                                    <InputError class="mt-1" :message="form.errors.company_name" />
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('onboarding.page.profile.registration_number') }}</label>
@@ -559,6 +564,7 @@ function completeOnboarding() {
                                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                         :placeholder="t('onboarding.page.profile.registration_number_placeholder')"
                                     />
+                                    <InputError class="mt-1" :message="form.errors.business_registration_number" />
                                 </div>
                             </div>
 
@@ -570,6 +576,7 @@ function completeOnboarding() {
                                     class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                     :placeholder="t('onboarding.page.profile.address_placeholder')"
                                 ></textarea>
+                                <InputError class="mt-1" :message="form.errors.address" />
                             </div>
 
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
@@ -581,6 +588,7 @@ function completeOnboarding() {
                                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                         :placeholder="t('onboarding.page.profile.city_placeholder')"
                                     />
+                                    <InputError class="mt-1" :message="form.errors.city" />
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('onboarding.page.profile.country') }}</label>
@@ -590,6 +598,7 @@ function completeOnboarding() {
                                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                         :placeholder="t('onboarding.page.profile.country_placeholder')"
                                     />
+                                    <InputError class="mt-1" :message="form.errors.country" />
                                 </div>
                             </div>
                         </div>
@@ -633,6 +642,7 @@ function completeOnboarding() {
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                 :placeholder="t('onboarding.page.property.name_placeholder')"
                             />
+                            <InputError class="mt-1" :message="form.errors.property_name" />
                         </div>
 
                         <div>
@@ -694,6 +704,7 @@ function completeOnboarding() {
                                     <CheckCircleIcon v-if="form.property_type === 'mixed'" class="absolute top-4 end-4 h-5 w-5 text-indigo-600" />
                                 </div>
                             </div>
+                            <InputError class="mt-2" :message="form.errors.property_type" />
                         </div>
 
                         <div>
@@ -704,6 +715,7 @@ function completeOnboarding() {
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                 :placeholder="t('onboarding.page.property.address_placeholder')"
                             ></textarea>
+                            <InputError class="mt-1" :message="form.errors.property_address" />
                         </div>
 
                         <!-- Navigation -->
@@ -768,6 +780,7 @@ function completeOnboarding() {
                                         max="100"
                                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                     />
+                                    <InputError class="mt-1" :message="form.errors.floors" />
                                 </div>
                                 <div>
                                     <label class="block text-sm font-semibold text-gray-700 mb-1">{{ unitLabel }}</label>
@@ -778,6 +791,7 @@ function completeOnboarding() {
                                         max="50"
                                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                     />
+                                    <InputError class="mt-1" :message="form.errors.units_per_floor" />
                                 </div>
                             </div>
                         </div>
@@ -810,6 +824,7 @@ function completeOnboarding() {
                                             class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                             :placeholder="t('onboarding.page.structure.wing_name_placeholder')"
                                         />
+                                        <InputError class="mt-1" :message="form.errors['wings.' + index + '.name']" />
                                     </div>
                                     <div>
                                         <label class="block text-xs font-medium text-gray-600 mb-1">{{ t('onboarding.page.structure.prefix') }}</label>
@@ -820,6 +835,7 @@ function completeOnboarding() {
                                             class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 uppercase"
                                             :placeholder="t('onboarding.page.structure.prefix_placeholder')"
                                         />
+                                        <InputError class="mt-1" :message="form.errors['wings.' + index + '.prefix']" />
                                     </div>
                                     <div>
                                         <label class="block text-xs font-medium text-gray-600 mb-1">{{ t('onboarding.page.structure.floors') }}</label>
@@ -829,6 +845,7 @@ function completeOnboarding() {
                                             min="1"
                                             class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                         />
+                                        <InputError class="mt-1" :message="form.errors['wings.' + index + '.floors']" />
                                     </div>
                                 </div>
                                 <div class="mt-3">
@@ -839,6 +856,7 @@ function completeOnboarding() {
                                         min="1"
                                         class="w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                     />
+                                    <InputError class="mt-1" :message="form.errors['wings.' + index + '.units_per_floor']" />
                                 </div>
                                 <p class="text-xs text-gray-500 mt-2">
                                     {{ t('onboarding.page.structure.wing_preview', { prefix: wing.prefix, total: wing.floors * wing.units_per_floor }) }}
@@ -911,6 +929,7 @@ function completeOnboarding() {
                                     placeholder="20000"
                                 />
                             </div>
+                            <InputError class="mt-1" :message="form.errors.default_rent" />
                             <p class="text-xs text-gray-500 mt-1">{{ t('onboarding.page.financial.default_rent_hint') }}</p>
                             <div class="flex items-start gap-2 mt-3">
                                 <input
@@ -957,6 +976,7 @@ function completeOnboarding() {
                                     <div class="text-xs text-gray-500">{{ t('onboarding.page.financial.water_none_desc') }}</div>
                                 </button>
                             </div>
+                            <InputError class="mt-2" :message="form.errors.water_billing_type" />
 
                             <!-- Water Rate Input -->
                             <div v-if="form.water_billing_type === 'consumption'" class="mt-4">
@@ -967,6 +987,7 @@ function completeOnboarding() {
                                     min="0"
                                     class="w-40 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                 />
+                                <InputError class="mt-1" :message="form.errors.water_unit_rate" />
                             </div>
                             <div v-else-if="form.water_billing_type === 'flat_rate'" class="mt-4">
                                 <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('onboarding.page.financial.monthly_flat_rate', { currency: currencyCode }) }}</label>
@@ -976,6 +997,7 @@ function completeOnboarding() {
                                     min="0"
                                     class="w-40 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                 />
+                                <InputError class="mt-1" :message="form.errors.flat_water_rate" />
                             </div>
                         </div>
 
@@ -1002,6 +1024,7 @@ function completeOnboarding() {
                                     />
                                 </button>
                             </div>
+                            <InputError class="mt-2" :message="form.errors.accepted_payment_methods" />
                         </div>
 
                         <!-- Bank Details (conditionally shown) -->
@@ -1015,6 +1038,7 @@ function completeOnboarding() {
                                         :placeholder="t('onboarding.page.financial.bank_name')"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                     />
+                                    <InputError class="mt-1" :message="form.errors.bank_name" />
                                 </div>
                                 <div>
                                     <input
@@ -1023,6 +1047,7 @@ function completeOnboarding() {
                                         :placeholder="t('onboarding.page.financial.account_name')"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                     />
+                                    <InputError class="mt-1" :message="form.errors.bank_account_name" />
                                 </div>
                                 <div>
                                     <input
@@ -1031,6 +1056,7 @@ function completeOnboarding() {
                                         :placeholder="t('onboarding.page.financial.account_number')"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                     />
+                                    <InputError class="mt-1" :message="form.errors.bank_account_number" />
                                 </div>
                             </div>
                         </div>
@@ -1044,6 +1070,7 @@ function completeOnboarding() {
                                 :placeholder="t('onboarding.page.financial.paybill_placeholder')"
                                 class="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                             />
+                            <InputError class="mt-1" :message="form.errors.mpesa_paybill" />
                         </div>
 
                         <!-- Navigation -->
@@ -1112,6 +1139,7 @@ function completeOnboarding() {
                                         <TrashIcon class="w-5 h-5" />
                                     </button>
                                 </div>
+                                <InputError class="ms-8 mt-1" :message="form.errors['invitations.' + index + '.email']" />
                             </div>
 
                             <button
@@ -1190,6 +1218,7 @@ function completeOnboarding() {
                                         {{ unit.unit_number }} - {{ unit.building_name }} ({{ unit.property_name }}) - {{ formatCurrency(unit.target_rent) }}{{ t('onboarding.page.first_tenant.per_month') }}
                                     </option>
                                 </select>
+                                <InputError class="mt-1" :message="form.errors.unit_id" />
                             </div>
 
                             <!-- Tenant Details -->
@@ -1203,6 +1232,7 @@ function completeOnboarding() {
                                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                         :placeholder="t('onboarding.page.first_tenant.tenant_email_placeholder')"
                                     />
+                                    <InputError class="mt-1" :message="form.errors.tenant_email" />
                                 </div>
                                 <div>
                                     <label class="block text-sm font-semibold text-gray-700 mb-2">{{ t('onboarding.page.first_tenant.tenant_name') }}</label>
@@ -1212,6 +1242,7 @@ function completeOnboarding() {
                                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                         :placeholder="t('onboarding.page.first_tenant.tenant_name_placeholder')"
                                     />
+                                    <InputError class="mt-1" :message="form.errors.tenant_name" />
                                 </div>
                             </div>
 
@@ -1224,6 +1255,7 @@ function completeOnboarding() {
                                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                         :placeholder="t('onboarding.page.first_tenant.phone_placeholder')"
                                     />
+                                    <InputError class="mt-1" :message="form.errors.tenant_phone" />
                                 </div>
                                 <div>
                                     <label class="block text-sm font-semibold text-gray-700 mb-2">{{ t('onboarding.page.first_tenant.monthly_rent') }}</label>
@@ -1234,6 +1266,7 @@ function completeOnboarding() {
                                         min="0"
                                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                     />
+                                    <InputError class="mt-1" :message="form.errors.rent_amount" />
                                 </div>
                                 <div>
                                     <label class="block text-sm font-semibold text-gray-700 mb-2">{{ t('onboarding.page.first_tenant.deposit') }}</label>
@@ -1244,6 +1277,7 @@ function completeOnboarding() {
                                         min="0"
                                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                     />
+                                    <InputError class="mt-1" :message="form.errors.deposit_amount" />
                                 </div>
                             </div>
 
@@ -1255,6 +1289,7 @@ function completeOnboarding() {
                                     required
                                     class="w-full md:w-64 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                 />
+                                <InputError class="mt-1" :message="form.errors.start_date" />
                             </div>
                         </template>
 
