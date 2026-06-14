@@ -34,6 +34,11 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->web(append: [
             \App\Http\Middleware\BlockArchivedUsers::class,
+            // Platform consent gate (Slice 1): force acceptance of the current
+            // terms/privacy before operating. Self-skips when unauthenticated or
+            // when no active LegalDocument is published, so it stays inert until the
+            // documents are seeded (prod) — keeping the existing suite unaffected.
+            \App\Http\Middleware\EnsureLegalAcceptance::class,
             // Phase-24 I18N-INFRA-2: resolve + apply the request locale.
             // MUST come before HandleInertiaRequests so the Inertia
             // share() sees the resolved App::getLocale().

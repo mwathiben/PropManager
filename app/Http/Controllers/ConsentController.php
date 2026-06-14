@@ -54,7 +54,7 @@ class ConsentController extends Controller
             'consents.*' => [
                 'required',
                 'string',
-                'regex:/^(privacy_policy|terms_of_service|marketing|cookies):\d+\.\d+$/',
+                'regex:/^(terms|privacy|marketing|data_processing|third_party_sharing):\d+\.\d+$/',
             ],
         ]);
 
@@ -63,9 +63,17 @@ class ConsentController extends Controller
         foreach ($validated['consents'] as $consentKey) {
             [$type, $version] = explode(':', $consentKey);
 
+            // Bind the consent to the exact document content it accepted, so the
+            // record stays tamper-evident even if a later version edits the text.
+            $document = LegalDocument::where('type', $type)
+                ->where('version', $version)
+                ->first();
+
             Consent::record($user, $type, $version, [
                 'accepted_via' => 'web',
                 'page' => 'consent_required',
+                'document_id' => $document?->id,
+                'document_hash' => $document ? hash('sha256', (string) $document->content) : null,
             ]);
         }
 
