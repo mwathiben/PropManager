@@ -56,14 +56,11 @@ class ConsentController extends Controller
         foreach ($validated['consents'] as $consentKey) {
             [$type, $version] = explode(':', $consentKey);
 
-            // Only accept consents for documents that are currently active — guards against
-            // recording a consent against a stale/draft version that was never published.
-            $document = LegalDocument::where('type', $type)
-                ->where('version', $version)
-                ->where('is_active', true)
-                ->first();
+            // Route through getActive() so the active + effective_date check is the SAME
+            // single source the gate uses; reject a stale / future-dated / forged version.
+            $document = LegalDocument::getActive($type);
 
-            if ($document === null) {
+            if ($document === null || $document->version !== $version) {
                 abort(422, "No active document found for type '{$type}' version '{$version}'.");
             }
 

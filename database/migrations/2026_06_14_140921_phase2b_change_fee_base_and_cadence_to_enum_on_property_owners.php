@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -13,6 +14,18 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // Defensive: normalize any out-of-set / null values BEFORE the ENUM ->change(),
+        // so the migration can never hard-fail on pre-existing data (these were string
+        // columns until now). Dormant columns should already be all-defaults, but we
+        // do not rely on that assumption.
+        DB::table('property_owners')
+            ->where(fn ($q) => $q->whereNotIn('management_fee_base', ['collected', 'billed', 'scheduled'])->orWhereNull('management_fee_base'))
+            ->update(['management_fee_base' => 'collected']);
+
+        DB::table('property_owners')
+            ->where(fn ($q) => $q->whereNotIn('management_fee_flat_cadence', ['per_period', 'per_unit'])->orWhereNull('management_fee_flat_cadence'))
+            ->update(['management_fee_flat_cadence' => 'per_period']);
+
         Schema::table('property_owners', function (Blueprint $table) {
             $table->enum('management_fee_base', ['collected', 'billed', 'scheduled'])
                 ->default('collected')
