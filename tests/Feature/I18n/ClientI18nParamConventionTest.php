@@ -47,6 +47,8 @@ class ClientI18nParamConventionTest extends TestCase
             'legal_holds.bulk.release' => ['count'],
             'legal_holds.bulk.cap_hint' => ['max'],
             'vendor_portal.dashboard.title' => ['name'],
+            'water.client_finances.how_to_pay' => ['supplier'],
+            'water.client_pay.pay_button' => ['amount'],
         ];
 
         foreach (['en', 'sw'] as $locale) {
