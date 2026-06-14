@@ -38,10 +38,11 @@ use Illuminate\Support\Facades\Hash;
  *
  * --- Dev logins (all password: "password") ---
  *   admin@propmanager.test      super_admin
- *   landlord@propmanager.test   landlord     (the main dev login)
- *   caretaker@propmanager.test  caretaker    (under the landlord above)
+ *   manager@propmanager.test    manager      (firm — manages the owner below; has the demo data)
+ *   landlord@propmanager.test   landlord     (self-managing owner — fresh, lands on onboarding)
+ *   caretaker@propmanager.test  caretaker    (under the manager above)
  *   tenant@propmanager.test     tenant       (+ tenant2, tenant3)
- *   owner@propmanager.test      owner        (PM-company owner portal — Phase 101-104)
+ *   owner@propmanager.test      owner        (delegating owner portal — Phase 101-104)
  *
  * This is DEV data, distinct from LoadTestSeeder (which seeds the
  * dedicated k6 load-test landlord — keep the two separate).
@@ -54,7 +55,13 @@ class DevelopmentSeeder extends Seeder
     {
         $this->ensureUser('admin@propmanager.test', 'Demo Admin', 'super_admin');
 
-        $landlord = $this->ensureUser('landlord@propmanager.test', 'Demo Landlord', 'landlord');
+        // Manages the demo owner's property for a fee — i.e. a management firm, not a
+        // self-manager. Kept as $landlord locally since it is the scope owner downstream.
+        $landlord = $this->ensureUser('manager@propmanager.test', 'Demo Manager (firm)', 'manager');
+
+        // A self-managing landlord (no owner delegation → stays `landlord`). Covers the role
+        // the manager split would otherwise leave empty.
+        $this->ensureUser('landlord@propmanager.test', 'Demo Landlord (self-managing)', 'landlord');
 
         $this->ensureUser('caretaker@propmanager.test', 'Demo Caretaker', 'caretaker', $landlord->id);
 
@@ -75,7 +82,7 @@ class DevelopmentSeeder extends Seeder
         $this->ensureOwnerDemo($landlord, $ownerUser, $property);
 
         $this->command?->info(
-            'DevelopmentSeeder: dev accounts ensured (admin/landlord/caretaker/3 tenants/owner) + Demo Property '
+            'DevelopmentSeeder: dev accounts ensured (admin/manager/self-managing landlord/caretaker/3 tenants/owner) + Demo Property '
             .'with an owner portal demo (assigned property, 10% fee, payouts, notifications). Logins use password "'.self::PASSWORD.'".'
         );
     }
