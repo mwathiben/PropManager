@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Consent\AcceptConsentRequest;
+use App\Http\Requests\Consent\ObjectToProcessingRequest;
+use App\Http\Requests\Consent\WithdrawConsentRequest;
 use App\Models\Consent;
 use App\Models\LegalDocument;
 use Illuminate\Http\Request;
@@ -21,6 +24,7 @@ class ConsentController extends Controller
         foreach ($missingConsents as $missing) {
             $doc = LegalDocument::where('type', $missing['type'])
                 ->where('version', $missing['version'])
+                ->where('is_active', true)
                 ->first();
 
             if ($doc) {
@@ -43,37 +47,30 @@ class ConsentController extends Controller
     /**
      * Accept required consents.
      */
-    public function accept(Request $request)
+    public function accept(AcceptConsentRequest $request)
     {
-        // VALID-11: enforce the type:version contract at the validator. Without
-        // the regex, attackers could pass arbitrary strings — the explode()
-        // below would silently destructure into null/garbage and we'd record
-        // a Consent row with a null type.
-        $validated = $request->validate([
-            'consents' => 'required|array',
-            'consents.*' => [
-                'required',
-                'string',
-                'regex:/^(terms|privacy|marketing|data_processing|third_party_sharing):\d+\.\d+$/',
-            ],
-        ]);
+        $validated = $request->validated();
 
         $user = $request->user();
 
         foreach ($validated['consents'] as $consentKey) {
             [$type, $version] = explode(':', $consentKey);
 
+            // Route through getActive() so the active + effective_date check is the SAME
+            // single source the gate uses; reject a stale / future-dated / forged version.
+            $document = LegalDocument::getActive($type);
+
+            if ($document === null || $document->version !== $version) {
+                abort(422, "No active document found for type '{$type}' version '{$version}'.");
+            }
+
             // Bind the consent to the exact document content it accepted, so the
             // record stays tamper-evident even if a later version edits the text.
-            $document = LegalDocument::where('type', $type)
-                ->where('version', $version)
-                ->first();
-
             Consent::record($user, $type, $version, [
                 'accepted_via' => 'web',
                 'page' => 'consent_required',
-                'document_id' => $document?->id,
-                'document_hash' => $document ? hash('sha256', (string) $document->content) : null,
+                'document_id' => $document->id,
+                'document_hash' => hash('sha256', (string) $document->content),
             ]);
         }
 
@@ -152,15 +149,9 @@ class ConsentController extends Controller
      * deletion instead. The validator pins this so a stray client
      * cannot reach into a blocking consent via this endpoint.
      */
-    public function withdrawConsent(Request $request)
+    public function withdrawConsent(WithdrawConsentRequest $request)
     {
-        $validated = $request->validate([
-            'type' => [
-                'required',
-                'string',
-                'in:'.implode(',', self::WITHDRAWABLE_CONSENT_TYPES),
-            ],
-        ]);
+        $validated = $request->validated();
 
         $consent = Consent::where('user_id', $request->user()->id)
             ->where('consent_type', $validated['type'])
@@ -188,16 +179,9 @@ class ConsentController extends Controller
      * objection: prefix so it shows up in the user's consent history
      * and can be enumerated by the operator + ODPC during audit.
      */
-    public function objectToProcessing(Request $request)
+    public function objectToProcessing(ObjectToProcessingRequest $request)
     {
-        $validated = $request->validate([
-            'category' => [
-                'required',
-                'string',
-                'in:'.implode(',', self::OBJECTABLE_CATEGORIES),
-            ],
-            'reason' => 'required|string|max:1000',
-        ]);
+        $validated = $request->validated();
 
         $consentType = 'objection:'.$validated['category'];
         $user = $request->user();

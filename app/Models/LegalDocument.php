@@ -44,13 +44,17 @@ class LegalDocument extends Model
 
     /**
      * Get the active version of a document type.
+     *
+     * Ordered by effective_date desc then id desc — deterministic, and immune to
+     * lexicographic version comparisons (e.g. '10.0' < '9.0' alphabetically).
      */
     public static function getActive(string $type): ?self
     {
         return self::where('type', $type)
             ->where('is_active', true)
             ->where('effective_date', '<=', now())
-            ->latest('version')
+            ->orderByDesc('effective_date')
+            ->orderByDesc('id')
             ->first();
     }
 

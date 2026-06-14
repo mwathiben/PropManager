@@ -88,7 +88,7 @@ class OwnerStatementService
             'expenses' => $agg['expenses'],
             'total_expenses' => $agg['total_expenses'],
             'management_fee' => $managementFee,
-            'fee_type' => (string) $owner->management_fee_type,
+            'fee_type' => $owner->management_fee_type?->value,
             'fee_value' => (float) $owner->management_fee_value,
             'net' => round($agg['collected'] - $agg['total_expenses'] - $managementFee, 2),
             'properties' => $breakdown,

@@ -119,7 +119,7 @@ class PropertyOwnerController extends Controller
                 'email' => $owner->email,
                 'phone' => $owner->phone,
                 'has_login' => $owner->user_id !== null,
-                'management_fee_type' => $owner->management_fee_type,
+                'management_fee_type' => $owner->management_fee_type?->value,
                 'management_fee_value' => (float) $owner->management_fee_value,
             ],
             'summary' => $ledger->summary($landlordId, $owner->id),

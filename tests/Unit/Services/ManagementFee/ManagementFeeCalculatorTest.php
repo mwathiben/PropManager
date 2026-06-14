@@ -41,6 +41,37 @@ class ManagementFeeCalculatorTest extends TestCase
         return $relationship;
     }
 
+    public function test_shortcut_and_calculator_agree_on_the_collected_base_default(): void
+    {
+        // managementFeeOn() (the live statement path) and the calculator must never
+        // diverge for the default collected base — guards the only path reachable
+        // until the calculator is wired into the statement (Slice 2).
+        $relationship = $this->relationship([
+            'management_fee_type' => 'percentage',
+            'management_fee_value' => 12.5,
+            'management_fee_base' => 'collected',
+        ]);
+
+        $collected = 84000.0;
+
+        $this->assertSame(
+            $relationship->managementFeeOn($collected),
+            $this->calculator->calculate($relationship, new FeePeriodContext(collected: $collected)),
+        );
+    }
+
+    public function test_a_negative_rate_cannot_produce_a_negative_fee_on_either_path(): void
+    {
+        $relationship = $this->relationship([
+            'management_fee_type' => 'percentage',
+            'management_fee_value' => -10,
+            'management_fee_base' => 'collected',
+        ]);
+
+        $this->assertSame(0.0, $relationship->managementFeeOn(5000));
+        $this->assertSame(0.0, $this->calculator->calculate($relationship, new FeePeriodContext(collected: 5000)));
+    }
+
     public function test_percentage_on_collected_is_the_default_base(): void
     {
         $relationship = $this->relationship([
