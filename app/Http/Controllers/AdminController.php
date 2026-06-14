@@ -158,7 +158,7 @@ class AdminController extends Controller implements HasMiddleware
                 ->sum('amount'),
             'total_invoiced' => Invoice::withoutGlobalScope('landlord')
                 ->where('landlord_id', $user->id)
-                ->sum('total_amount'),
+                ->sum('total_due'),
         ];
 
         $caretakers = User::where('landlord_id', $user->id)
