@@ -52,6 +52,11 @@ rule (zero tolerance for known issues): a problem is a problem regardless of how
 - **Pre-existing / out-of-scope is NOT an exemption.** A flagged flaw is solved regardless of who
   introduced it or when — same two options (this PR, or an immediate follow-up PR). Do **not**
   perpetuate a bad pattern because it is the existing convention; fix it where you touch it.
+- **Never report a loophole as optional.** If review (or your own walk-through) surfaces a real
+  defect / silent-failure path / robustness gap, FIX IT — do not write "I can harden X if you
+  want", "optional follow-up", or "known limitation". Handing a correctness/robustness decision
+  back to the user is the same sin as deferring it. Only genuine product/UX preferences stay
+  optional. (See `~/.claude/rules/no-loopholes.md`.)
 - Re-run Step 1 after fixing. For a material fix, re-run the relevant panel agent.
 
 ## Step 4 — Merge
@@ -65,3 +70,5 @@ failure is non-required — merge past it).
 - Merging on "Tests pass" while the CodeRabbit GitHub review is still running / unread.
 - Treating a SUGGESTION as auto-ignorable. Decide and record.
 - Spawning the panel but not actually applying its findings (review theatre).
+- **Reporting a found defect/loophole as "I can fix it if you want."** Fixing it is the job, not a
+  menu option. Find it → fix it → then report it as done.
