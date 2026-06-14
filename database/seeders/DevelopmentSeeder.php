@@ -38,8 +38,8 @@ use Illuminate\Support\Facades\Hash;
  *
  * --- Dev logins (all password: "password") ---
  *   admin@propmanager.test      super_admin
- *   landlord@propmanager.test   manager      (firm — manages the owner below; main dev login, has the demo data)
- *   test@example.com            landlord     (self-managing owner — fresh, lands on onboarding)
+ *   manager@propmanager.test    manager      (firm — manages the owner below; has the demo data)
+ *   landlord@propmanager.test   landlord     (self-managing owner — fresh, lands on onboarding)
  *   caretaker@propmanager.test  caretaker    (under the manager above)
  *   tenant@propmanager.test     tenant       (+ tenant2, tenant3)
  *   owner@propmanager.test      owner        (delegating owner portal — Phase 101-104)
@@ -57,11 +57,11 @@ class DevelopmentSeeder extends Seeder
 
         // Manages the demo owner's property for a fee — i.e. a management firm, not a
         // self-manager. Kept as $landlord locally since it is the scope owner downstream.
-        $landlord = $this->ensureUser('landlord@propmanager.test', 'Demo Manager (firm)', 'manager');
+        $landlord = $this->ensureUser('manager@propmanager.test', 'Demo Manager (firm)', 'manager');
 
-        // A self-managing landlord (no owner delegation → stays `landlord`). Restores the
-        // familiar test login and covers the role the manager split would otherwise leave empty.
-        $this->ensureUser('test@example.com', 'Test Landlord', 'landlord');
+        // A self-managing landlord (no owner delegation → stays `landlord`). Covers the role
+        // the manager split would otherwise leave empty.
+        $this->ensureUser('landlord@propmanager.test', 'Demo Landlord (self-managing)', 'landlord');
 
         $this->ensureUser('caretaker@propmanager.test', 'Demo Caretaker', 'caretaker', $landlord->id);
 
