@@ -14,8 +14,11 @@ use App\Services\Onboarding\OnboardingSessionService;
 use App\Services\Onboarding\OnboardingStepProcessor;
 use App\Services\Onboarding\TenantOnboardingService;
 use App\Services\OnboardingService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Throwable;
 
@@ -187,7 +190,7 @@ class OnboardingController extends Controller
                 $result = $this->sessionService->writeAt($session, $writer);
             }
         } catch (Throwable $e) {
-            return back()->withErrors(['error' => 'Failed to save step data.']);
+            return $this->handleStepWriteFailure($step, $user, $e);
         }
 
         if ($result === false) {
@@ -212,6 +215,30 @@ class OnboardingController extends Controller
         }
 
         return redirect()->route('onboarding.step', ['step' => $nextStep ?? $step + 1]);
+    }
+
+    /**
+     * A processor that refuses for a business reason (e.g. a structure rebuild
+     * blocked by existing tenancy) throws a ValidationException with an
+     * actionable message — let that surface as field errors. Any other failure
+     * is logged with structured context (no secrets/PII); this write path used
+     * to swallow such failures silently, leaving broken saves invisible.
+     */
+    private function handleStepWriteFailure(int $step, User $user, Throwable $e): RedirectResponse
+    {
+        if ($e instanceof ValidationException) {
+            throw $e;
+        }
+
+        Log::error('Onboarding step save failed', [
+            'step' => $step,
+            'user_id' => $user->id,
+            'role' => $user->role,
+            'exception' => $e::class,
+            'message' => $e->getMessage(),
+        ]);
+
+        return back()->withErrors(['error' => 'Failed to save step data.']);
     }
 
     public function skip(int $step)
@@ -352,6 +379,9 @@ class OnboardingController extends Controller
             ],
             5 => [
                 'default_rent' => 'required|numeric|min:0',
+                // Opt-in for propagating default_rent onto existing units; absent
+                // means leave per-unit target_rent untouched (no silent reprice).
+                'apply_default_to_existing' => 'nullable|boolean',
                 'water_billing_type' => 'required|in:consumption,flat_rate,none',
                 'flat_water_rate' => 'nullable|numeric|min:0',
                 'water_unit_rate' => 'nullable|numeric|min:0',

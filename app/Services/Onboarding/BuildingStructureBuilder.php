@@ -5,9 +5,14 @@ declare(strict_types=1);
 namespace App\Services\Onboarding;
 
 use App\Models\Building;
+use App\Models\Lease;
 use App\Models\Property;
 use App\Models\Unit;
+use App\Models\WaterReading;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Persists the building/unit structure for a property from a BuildingStructureSpec.
@@ -33,16 +38,83 @@ final class BuildingStructureBuilder
     /**
      * Replace the property's structure in place: a re-submitted structure step
      * force-deletes the existing buildings/units and rebuilds from the spec.
-     * Owns its transaction; returns true once the rebuild commits.
+     *
+     * Fail-closed — when those units already carry leases or water readings the
+     * rebuild is refused with a ValidationException carrying an actionable
+     * message (and a logged warning) so a re-edit can never silently destroy
+     * tenancy or billing history. Returns true once the rebuild commits; the
+     * deleted-unit count is logged. Owns its transaction so the guard rejects
+     * before any write begins.
      */
     public function replaceForProperty(BuildingStructureSpec $spec): bool
     {
-        return DB::transaction(function () use ($spec): bool {
-            $this->clearExistingBuildings($spec->property);
+        $property = $spec->property;
+        $existingUnitIds = $this->existingUnitIds($property);
+
+        $this->guardAgainstHistoryLoss($property, $existingUnitIds);
+
+        return DB::transaction(function () use ($spec, $property, $existingUnitIds): bool {
+            $this->clearExistingBuildings($property);
             $this->build($spec);
+
+            if ($existingUnitIds->isNotEmpty()) {
+                Log::info('Onboarding structure replaced', [
+                    'landlord_id' => $property->landlord_id,
+                    'property_id' => $property->id,
+                    'units_deleted' => $existingUnitIds->count(),
+                ]);
+            }
 
             return true;
         });
+    }
+
+    /**
+     * @return Collection<int, int>
+     */
+    private function existingUnitIds(Property $property): Collection
+    {
+        return Unit::where('landlord_id', $property->landlord_id)
+            ->whereHas('building', fn ($query) => $query->where('property_id', $property->id))
+            ->pluck('id');
+    }
+
+    /**
+     * Refuse a rebuild when the property's existing units carry irreplaceable
+     * history. Scope is deliberately leases + water readings: those are the
+     * canonical tenancy and billing records, and invoices/payments hang off a
+     * lease (so a leased unit is already caught). Loosely-attached records
+     * (unit documents, building tickets) are intentionally NOT gated here, to
+     * avoid false-positive blocks on an otherwise-empty structure.
+     *
+     * @param  Collection<int, int>  $unitIds
+     *
+     * @throws ValidationException when those records exist.
+     */
+    private function guardAgainstHistoryLoss(Property $property, Collection $unitIds): void
+    {
+        if ($unitIds->isEmpty()) {
+            return;
+        }
+
+        $leaseCount = Lease::whereIn('unit_id', $unitIds)->count();
+        $readingCount = WaterReading::whereIn('unit_id', $unitIds)->count();
+
+        if ($leaseCount === 0 && $readingCount === 0) {
+            return;
+        }
+
+        Log::warning('Onboarding structure replace blocked: units have leases or water readings', [
+            'landlord_id' => $property->landlord_id,
+            'property_id' => $property->id,
+            'units' => $unitIds->count(),
+            'leases' => $leaseCount,
+            'water_readings' => $readingCount,
+        ]);
+
+        throw ValidationException::withMessages([
+            'error' => __('onboarding.page.structure.rebuild_blocked'),
+        ]);
     }
 
     private function clearExistingBuildings(Property $property): void

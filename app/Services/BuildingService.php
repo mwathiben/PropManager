@@ -16,6 +16,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class BuildingService
 {
@@ -419,14 +420,59 @@ class BuildingService
 
     public function bulkUpdateUnits(Building $building, array $unitIds, string $action, $value = null): void
     {
+        if ($action === 'delete') {
+            $this->bulkDeleteUnits($building, $unitIds);
+
+            return;
+        }
+
         $query = Unit::whereIn('id', $unitIds)->where('building_id', $building->id);
 
         match ($action) {
-            'delete' => $query->delete(),
             'update_rent' => $query->update(['target_rent' => $value]),
             'update_type' => $query->update(['unit_type' => $value]),
             default => null,
         };
+    }
+
+    /**
+     * Fail-closed bulk unit delete: refuse the whole batch when any selected
+     * unit (scoped to this building) still has an active lease or water readings,
+     * mirroring deleteBuilding()'s guard. Without this, a bulk "delete" silently
+     * soft-deletes occupied/metered units and orphans tenancy + billing history.
+     *
+     * @param  array<int, int|string>  $unitIds
+     *
+     * @throws \InvalidArgumentException when dependent rows would be orphaned
+     */
+    private function bulkDeleteUnits(Building $building, array $unitIds): void
+    {
+        $scopedUnitIds = Unit::whereIn('id', $unitIds)
+            ->where('building_id', $building->id)
+            ->pluck('id');
+
+        if ($scopedUnitIds->isEmpty()) {
+            return;
+        }
+
+        $activeLeaseCount = Lease::whereIn('unit_id', $scopedUnitIds)->where('is_active', true)->count();
+        $readingCount = WaterReading::whereIn('unit_id', $scopedUnitIds)->count();
+
+        if ($activeLeaseCount > 0 || $readingCount > 0) {
+            Log::warning('Bulk unit delete blocked: units have active leases or water readings', [
+                'landlord_id' => $building->landlord_id,
+                'building_id' => $building->id,
+                'units' => $scopedUnitIds->count(),
+                'active_leases' => $activeLeaseCount,
+                'water_readings' => $readingCount,
+            ]);
+
+            throw new \InvalidArgumentException(
+                "Cannot delete the selected unit(s): {$activeLeaseCount} active lease(s) and {$readingCount} water reading(s) would be orphaned. Move out tenants and clear billing history first."
+            );
+        }
+
+        Unit::whereIn('id', $scopedUnitIds)->delete();
     }
 
     public function addUnit(Building $building, array $data, int $landlordId): Unit

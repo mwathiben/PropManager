@@ -15,6 +15,7 @@ use App\Services\Onboarding\BuildingStructureBuilder;
 use App\Services\Onboarding\BuildingStructureSpec;
 use App\Services\Onboarding\OnboardingStepProcessor;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class OnboardingService implements OnboardingStepProcessor
@@ -329,9 +330,22 @@ class OnboardingService implements OnboardingStepProcessor
             ]
         );
 
-        Unit::where('landlord_id', $user->id)
-            ->where('target_rent', $oldRent)
-            ->update(['target_rent' => $data['default_rent']]);
+        // Opt-in only, skipped when the default is unchanged, and only vacant
+        // never-leased units — an occupied/previously-leased unit's rent is deliberate.
+        if (($data['apply_default_to_existing'] ?? false) && (float) $oldRent !== (float) $data['default_rent']) {
+            $unitsUpdated = Unit::where('landlord_id', $user->id)
+                ->where('target_rent', $oldRent)
+                ->where('status', 'vacant')
+                ->whereDoesntHave('leases')
+                ->update(['target_rent' => $data['default_rent']]);
+
+            Log::info('Onboarding bulk rent update', [
+                'landlord_id' => $user->id,
+                'old_rent' => $oldRent,
+                'new_rent' => $data['default_rent'],
+                'units_updated' => $unitsUpdated,
+            ]);
+        }
 
         // Phase-79 WATER-GATE: onboarding is where the landlord first chooses
         // whether to charge for water — bust the module-access cache.

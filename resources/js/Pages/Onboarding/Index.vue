@@ -148,6 +148,9 @@ const form = useForm({
     wings: props.stepData?.wings || [],
     // Step 5: Financial
     default_rent: props.paymentConfig?.default_rent || props.stepData?.default_rent || 20000,
+    // Default on only for the first pass (no PaymentConfiguration yet); on a
+    // re-entry the landlord must deliberately opt in to re-price existing units.
+    apply_default_to_existing: !props.paymentConfig,
     water_billing_type: props.paymentConfig?.water_billing_type || props.stepData?.water_billing_type || 'consumption',
     flat_water_rate: props.paymentConfig?.flat_water_rate || props.stepData?.flat_water_rate || 500,
     water_unit_rate: props.paymentConfig?.water_unit_rate || props.stepData?.water_unit_rate || '',
@@ -392,6 +395,15 @@ function completeOnboarding() {
 
         <!-- Main Content -->
         <div class="max-w-3xl mx-auto px-4 py-8">
+            <!-- Save errors the server returns under the generic 'error' key:
+                 the swallowed-failure fallback and the structure-rebuild block. -->
+            <div
+                v-if="$page.props.errors?.error"
+                role="alert"
+                class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+            >
+                {{ $page.props.errors.error }}
+            </div>
             <div class="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
 
                 <!-- ==================== STEP 1: WELCOME ==================== -->
@@ -900,6 +912,17 @@ function completeOnboarding() {
                                 />
                             </div>
                             <p class="text-xs text-gray-500 mt-1">{{ t('onboarding.page.financial.default_rent_hint') }}</p>
+                            <div class="flex items-start gap-2 mt-3">
+                                <input
+                                    id="apply_default_to_existing"
+                                    v-model="form.apply_default_to_existing"
+                                    type="checkbox"
+                                    class="mt-0.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                />
+                                <label for="apply_default_to_existing" class="text-xs text-gray-600">
+                                    {{ t('onboarding.page.financial.apply_default_to_existing') }}
+                                </label>
+                            </div>
                         </div>
 
                         <!-- Water Billing -->
@@ -985,24 +1008,30 @@ function completeOnboarding() {
                         <div v-if="form.accepted_payment_methods.includes('bank_transfer')" class="bg-gray-50 p-4 rounded-lg">
                             <h4 class="text-sm font-medium text-gray-700 mb-3">{{ t('onboarding.page.financial.bank_details') }}</h4>
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                <input
-                                    v-model="form.bank_name"
-                                    type="text"
-                                    :placeholder="t('onboarding.page.financial.bank_name')"
-                                    class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                />
-                                <input
-                                    v-model="form.bank_account_name"
-                                    type="text"
-                                    :placeholder="t('onboarding.page.financial.account_name')"
-                                    class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                />
-                                <input
-                                    v-model="form.bank_account_number"
-                                    type="text"
-                                    :placeholder="t('onboarding.page.financial.account_number')"
-                                    class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                />
+                                <div>
+                                    <input
+                                        v-model="form.bank_name"
+                                        type="text"
+                                        :placeholder="t('onboarding.page.financial.bank_name')"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                    />
+                                </div>
+                                <div>
+                                    <input
+                                        v-model="form.bank_account_name"
+                                        type="text"
+                                        :placeholder="t('onboarding.page.financial.account_name')"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                    />
+                                </div>
+                                <div>
+                                    <input
+                                        v-model="form.bank_account_number"
+                                        type="text"
+                                        :placeholder="t('onboarding.page.financial.account_number')"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                    />
+                                </div>
                             </div>
                         </div>
 
@@ -1066,22 +1095,23 @@ function completeOnboarding() {
                             <div
                                 v-for="(invitation, index) in form.invitations"
                                 :key="index"
-                                class="flex items-center gap-3"
                             >
-                                <EnvelopeIcon class="w-5 h-5 text-gray-400 shrink-0" />
-                                <input
-                                    v-model="invitation.email"
-                                    type="email"
-                                    :placeholder="t('onboarding.page.team.email_placeholder')"
-                                    class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                />
-                                <button
-                                    type="button"
-                                    @click="removeTeamInvitation(index)"
-                                    class="p-2 text-red-500 hover:text-red-700"
-                                >
-                                    <TrashIcon class="w-5 h-5" />
-                                </button>
+                                <div class="flex items-center gap-3">
+                                    <EnvelopeIcon class="w-5 h-5 text-gray-400 shrink-0" />
+                                    <input
+                                        v-model="invitation.email"
+                                        type="email"
+                                        :placeholder="t('onboarding.page.team.email_placeholder')"
+                                        class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                    />
+                                    <button
+                                        type="button"
+                                        @click="removeTeamInvitation(index)"
+                                        class="p-2 text-red-500 hover:text-red-700"
+                                    >
+                                        <TrashIcon class="w-5 h-5" />
+                                    </button>
+                                </div>
                             </div>
 
                             <button
