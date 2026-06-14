@@ -31,6 +31,7 @@ C:UsersbensonAppDataLocalTemp*
 /playwright-report
 /blob-report
 /playwright/.cache
+/.playwright-mcp
 /ci-result*.txt
 _ide_helper.php
 _ide_helper_models.php
