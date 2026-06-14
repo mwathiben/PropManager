@@ -166,6 +166,14 @@ return [
             'duration_prefix' => 'This usually takes about',
             'duration_value' => '5 minutes',
             'cta' => "Let's Get Started",
+            'context' => [
+                'heading' => 'How will you use PropManager?',
+                'subheading' => 'This shapes your setup. You can change it later.',
+                'self_title' => 'I manage my own properties',
+                'self_desc' => 'You own and run your own rentals, and keep the rent you collect.',
+                'manager_title' => 'I manage properties for owners',
+                'manager_desc' => "You run properties on owners' behalf — as a firm or an individual.",
+            ],
         ],
         'profile' => [
             'title' => 'Your Profile',

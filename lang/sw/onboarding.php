@@ -166,6 +166,14 @@ return [
             'duration_prefix' => 'Hii kwa kawaida huchukua takriban',
             'duration_value' => 'dakika 5',
             'cta' => 'Hebu Tuanze',
+            'context' => [
+                'heading' => 'Utatumiaje PropManager?',
+                'subheading' => 'Hii inaunda usanidi wako. Unaweza kuibadilisha baadaye.',
+                'self_title' => 'Ninasimamia mali zangu mwenyewe',
+                'self_desc' => 'Unamiliki na kuendesha nyumba zako za kupanga, na unabaki na kodi unayokusanya.',
+                'manager_title' => 'Ninasimamia mali kwa niaba ya wamiliki',
+                'manager_desc' => 'Unaendesha mali kwa niaba ya wamiliki — kama kampuni au mtu binafsi.',
+            ],
         ],
         'profile' => [
             'title' => 'Wasifu Wako',

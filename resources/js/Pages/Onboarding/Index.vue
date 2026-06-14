@@ -128,6 +128,7 @@ const steps = computed(() => [
 const form = useForm({
     // Step 1: Welcome
     acknowledged: false,
+    management_context: 'self_manage',
     // Step 2: Profile
     name: props.user?.name || '',
     mobile_number: props.user?.mobile_number || '',
@@ -394,6 +395,44 @@ function completeOnboarding() {
                         <h1 class="text-3xl font-bold text-gray-900 mb-2">{{ t('onboarding.page.welcome.title') }}</h1>
                         <p class="text-lg text-gray-600">{{ t('onboarding.page.welcome.subtitle') }}</p>
                     </div>
+
+                    <!-- Phase-2a: management-context chooser. Provisions landlord
+                         vs manager based on how the user runs PropManager. -->
+                    <fieldset class="mb-8">
+                        <legend class="text-lg font-semibold text-gray-900 mb-1">{{ t('onboarding.page.welcome.context.heading') }}</legend>
+                        <p class="text-sm text-gray-500 mb-4">{{ t('onboarding.page.welcome.context.subheading') }}</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <button
+                                type="button"
+                                @click="form.management_context = 'self_manage'"
+                                :aria-pressed="form.management_context === 'self_manage'"
+                                :class="form.management_context === 'self_manage' ? 'ring-2 ring-indigo-600 bg-indigo-50 border-transparent' : 'border-gray-200 hover:border-indigo-300 hover:shadow-md'"
+                                class="relative rounded-xl border p-5 cursor-pointer flex items-start gap-4 text-start transition-all duration-200"
+                            >
+                                <HomeModernIcon class="h-8 w-8 shrink-0" :class="form.management_context === 'self_manage' ? 'text-indigo-600' : 'text-gray-400'" />
+                                <div>
+                                    <span class="block text-sm font-bold text-gray-900">{{ t('onboarding.page.welcome.context.self_title') }}</span>
+                                    <span class="block text-xs text-gray-500 mt-1">{{ t('onboarding.page.welcome.context.self_desc') }}</span>
+                                </div>
+                                <CheckCircleIcon v-if="form.management_context === 'self_manage'" class="absolute top-4 end-4 h-5 w-5 text-indigo-600" />
+                            </button>
+
+                            <button
+                                type="button"
+                                @click="form.management_context = 'manage_for_owners'"
+                                :aria-pressed="form.management_context === 'manage_for_owners'"
+                                :class="form.management_context === 'manage_for_owners' ? 'ring-2 ring-indigo-600 bg-indigo-50 border-transparent' : 'border-gray-200 hover:border-indigo-300 hover:shadow-md'"
+                                class="relative rounded-xl border p-5 cursor-pointer flex items-start gap-4 text-start transition-all duration-200"
+                            >
+                                <BuildingOffice2Icon class="h-8 w-8 shrink-0" :class="form.management_context === 'manage_for_owners' ? 'text-indigo-600' : 'text-gray-400'" />
+                                <div>
+                                    <span class="block text-sm font-bold text-gray-900">{{ t('onboarding.page.welcome.context.manager_title') }}</span>
+                                    <span class="block text-xs text-gray-500 mt-1">{{ t('onboarding.page.welcome.context.manager_desc') }}</span>
+                                </div>
+                                <CheckCircleIcon v-if="form.management_context === 'manage_for_owners'" class="absolute top-4 end-4 h-5 w-5 text-indigo-600" />
+                            </button>
+                        </div>
+                    </fieldset>
 
                     <div class="space-y-4 mb-8">
                         <div class="flex items-start gap-4 p-4 bg-indigo-50 rounded-xl">
