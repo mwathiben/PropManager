@@ -35,10 +35,10 @@ class AdminLandlordShowTest extends TestCase
         $admin = User::factory()->create(['role' => 'super_admin']);
         $setup = $this->createLandlordWithFullSetup();
         $landlord = $setup['landlord'];
-        $lease = $this->createTenantWithActiveLease($landlord, $setup['units'][0]);
+        $leaseData = $this->createTenantWithActiveLease($landlord, $setup['units'][0]);
 
         Invoice::factory()->create([
-            'lease_id' => $lease->id,
+            'lease_id' => $leaseData['lease']->id,
             'landlord_id' => $landlord->id,
             'total_due' => 7500,
         ]);
