@@ -37,6 +37,9 @@ class OnboardingController extends Controller
             'tenant' => $this->tenantOnboardingService,
             'caretaker' => $this->caretakerOnboardingService,
             'water_client' => $this->waterClientOnboardingService,
+            // A manager onboards like a landlord — explicit so a future match
+            // reorder can't accidentally route it to a non-landlord branch.
+            'manager' => $this->onboardingService,
             default => $this->onboardingService,
         };
     }
@@ -318,6 +321,11 @@ class OnboardingController extends Controller
         }
 
         $rules = match ($step) {
+            1 => [
+                // Phase-2a: management-context capture. self_manage keeps the
+                // landlord role; manage_for_owners upgrades to manager.
+                'management_context' => ['required', 'in:self_manage,manage_for_owners'],
+            ],
             2 => [
                 'name' => 'required|string|max:255',
                 'mobile_number' => 'nullable|string|max:20',

@@ -47,6 +47,24 @@ final class OnboardingFlow
                     8 => 'Done',
                 ],
             ),
+            // A manager onboards exactly like a landlord — same 8-step
+            // sequence and labels. The only divergence is the step-1
+            // management-context capture that provisions the role; the flow
+            // engine itself is identical.
+            'manager' => new self(
+                role: 'manager',
+                steps: [1, 2, 3, 4, 5, 6, 7, 8],
+                labels: [
+                    1 => 'Welcome',
+                    2 => 'Profile',
+                    3 => 'First property',
+                    4 => 'Units + building',
+                    5 => 'Payment configuration',
+                    6 => 'Invite team',
+                    7 => 'First tenant',
+                    8 => 'Done',
+                ],
+            ),
             'caretaker' => new self(
                 role: 'caretaker',
                 steps: [1, 2, 3, 4, 5],

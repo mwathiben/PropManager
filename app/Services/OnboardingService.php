@@ -68,7 +68,7 @@ class OnboardingService implements OnboardingStepProcessor
     public function processStep(int $step, array $data, User $user, OnboardingProgress $progress): bool
     {
         return match ($step) {
-            1 => $this->processWelcome($progress),
+            1 => $this->processWelcome($data, $user),
             2 => $this->processProfile($data, $user, $progress),
             3 => $this->processProperty($data, $user, $progress),
             4 => $this->processStructure($data, $user, $progress),
@@ -253,11 +253,30 @@ class OnboardingService implements OnboardingStepProcessor
         return $props;
     }
 
-    private function processWelcome(OnboardingProgress $progress): bool
+    /**
+     * Phase-2a MANAGEMENT-CONTEXT: capture how the user runs PropManager and
+     * provision the matching scope-owner role. manage_for_owners upgrades to
+     * manager (the saved-hook stamps landlord_id = self); self_manage keeps
+     * landlord. Idempotent — re-submitting never corrupts a settled role, and
+     * only landlord/manager are ever touched.
+     *
+     * Runs inside OnboardingSessionService's transactional write path, so a
+     * failed save never half-applies the role change.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function processWelcome(array $data, User $user): bool
     {
-        // Phase-47 LANDLORD-MIGRATE-5: no-op writer. The step is "acknowledged"
-        // by virtue of OnboardingSessionService::advance moving the session
-        // forward + OnboardingProgress::completeStep recording it.
+        $context = $data['management_context'] ?? null;
+
+        if ($context === 'manage_for_owners' && $user->role !== 'manager') {
+            $user->role = 'manager';
+            $user->save();
+        } elseif ($context === 'self_manage' && in_array($user->role, ['landlord', 'manager'], true)) {
+            $user->role = 'landlord';
+            $user->save();
+        }
+
         return true;
     }
 
