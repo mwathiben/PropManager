@@ -81,10 +81,10 @@ class Phase45PayPlanModTest extends TestCase
         $response = $this->actingAs($this->tenant)
             ->post(route('tenant.payment-plans.modifications.store', $this->plan), [
                 'installments' => [
-                    ['due_date' => '2026-06-15', 'amount_cents' => 15_000_00],
-                    ['due_date' => '2026-07-15', 'amount_cents' => 15_000_00],
-                    ['due_date' => '2026-08-15', 'amount_cents' => 15_000_00],
-                    ['due_date' => '2026-09-15', 'amount_cents' => 15_000_00],
+                    ['due_date' => now()->addMonths(1)->toDateString(), 'amount_cents' => 15_000_00],
+                    ['due_date' => now()->addMonths(2)->toDateString(), 'amount_cents' => 15_000_00],
+                    ['due_date' => now()->addMonths(3)->toDateString(), 'amount_cents' => 15_000_00],
+                    ['due_date' => now()->addMonths(4)->toDateString(), 'amount_cents' => 15_000_00],
                 ],
             ]);
 
@@ -107,8 +107,8 @@ class Phase45PayPlanModTest extends TestCase
         app(PaymentPlanModificationService::class)->propose(
             $this->plan,
             [
-                ['due_date' => '2026-06-15', 'amount_cents' => 10_000_00],
-                ['due_date' => '2026-07-15', 'amount_cents' => 10_000_00],
+                ['due_date' => now()->addMonths(1)->toDateString(), 'amount_cents' => 10_000_00],
+                ['due_date' => now()->addMonths(2)->toDateString(), 'amount_cents' => 10_000_00],
             ],
             $this->tenant,
         );
@@ -127,8 +127,8 @@ class Phase45PayPlanModTest extends TestCase
         $mod = app(PaymentPlanModificationService::class)->propose(
             $this->plan,
             [
-                ['due_date' => '2026-07-15', 'amount_cents' => 20_000_00],
-                ['due_date' => '2026-08-15', 'amount_cents' => 20_000_00],
+                ['due_date' => now()->addMonths(2)->toDateString(), 'amount_cents' => 20_000_00],
+                ['due_date' => now()->addMonths(3)->toDateString(), 'amount_cents' => 20_000_00],
             ],
             $this->tenant,
         );
@@ -143,8 +143,8 @@ class Phase45PayPlanModTest extends TestCase
         $mod = app(PaymentPlanModificationService::class)->propose(
             $this->plan,
             [
-                ['due_date' => '2026-06-15', 'amount_cents' => 30_000_00],
-                ['due_date' => '2026-07-15', 'amount_cents' => 30_000_00],
+                ['due_date' => now()->addMonths(1)->toDateString(), 'amount_cents' => 30_000_00],
+                ['due_date' => now()->addMonths(2)->toDateString(), 'amount_cents' => 30_000_00],
             ],
             $this->tenant,
         );
@@ -171,8 +171,8 @@ class Phase45PayPlanModTest extends TestCase
         $mod = app(PaymentPlanModificationService::class)->propose(
             $this->plan,
             [
-                ['due_date' => '2026-06-15', 'amount_cents' => 30_000_00],
-                ['due_date' => '2026-07-15', 'amount_cents' => 30_000_00],
+                ['due_date' => now()->addMonths(1)->toDateString(), 'amount_cents' => 30_000_00],
+                ['due_date' => now()->addMonths(2)->toDateString(), 'amount_cents' => 30_000_00],
             ],
             $this->tenant,
         );
@@ -200,7 +200,7 @@ class Phase45PayPlanModTest extends TestCase
         app(PaymentPlanModificationService::class)->propose(
             $this->plan,
             [
-                ['due_date' => '2026-06-15', 'amount_cents' => 60_000_00],
+                ['due_date' => now()->addMonths(1)->toDateString(), 'amount_cents' => 60_000_00],
             ],
             $this->tenant,
         );
@@ -215,8 +215,8 @@ class Phase45PayPlanModTest extends TestCase
         app(PaymentPlanModificationService::class)->propose(
             $this->plan,
             [
-                ['due_date' => '2026-06-15', 'amount_cents' => 30_000_00],
-                ['due_date' => '2026-07-15', 'amount_cents' => 30_000_00],
+                ['due_date' => now()->addMonths(1)->toDateString(), 'amount_cents' => 30_000_00],
+                ['due_date' => now()->addMonths(2)->toDateString(), 'amount_cents' => 30_000_00],
             ],
             $this->tenant,
         );
@@ -227,8 +227,8 @@ class Phase45PayPlanModTest extends TestCase
         $mod = app(PaymentPlanModificationService::class)->propose(
             $this->plan,
             [
-                ['due_date' => '2026-06-15', 'amount_cents' => 30_000_00],
-                ['due_date' => '2026-07-15', 'amount_cents' => 30_000_00],
+                ['due_date' => now()->addMonths(1)->toDateString(), 'amount_cents' => 30_000_00],
+                ['due_date' => now()->addMonths(2)->toDateString(), 'amount_cents' => 30_000_00],
             ],
             $this->tenant,
         );
