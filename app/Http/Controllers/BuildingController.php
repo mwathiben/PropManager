@@ -173,12 +173,16 @@ class BuildingController extends Controller
     {
         $validated = $request->validated();
 
-        $this->buildingService->bulkUpdateUnits(
-            $building,
-            $validated['selectedUnitIds'],
-            $validated['action'],
-            $validated['value'] ?? null
-        );
+        try {
+            $this->buildingService->bulkUpdateUnits(
+                $building,
+                $validated['selectedUnitIds'],
+                $validated['action'],
+                $validated['value'] ?? null
+            );
+        } catch (\InvalidArgumentException $e) {
+            return redirect()->back()->withErrors(['units' => $e->getMessage()]);
+        }
 
         return redirect()->back();
     }
