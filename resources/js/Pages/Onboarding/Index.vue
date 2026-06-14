@@ -278,17 +278,25 @@ function togglePaymentMethod(methodId) {
     }
 }
 
-// Submit current step
+// Submit current step.
+// preserveState: 'errors' — Inertia defaults POST visits to preserveState:true,
+// which keeps this component mounted across the success redirect so useForm's
+// once-evaluated defaults stay frozen, and the next step renders with the
+// previous step's values instead of its own server props. Preserving only on
+// validation errors lets a successful save remount and re-hydrate from the new
+// step's props, while still keeping the user's input + errors on a 422.
 function submitStep() {
     form.post(route('onboarding.step.save', { step: props.currentStep }), {
         preserveScroll: true,
+        preserveState: 'errors',
     });
 }
 
-// Skip optional step
+// Skip optional step (same preserveState rationale as submitStep).
 function skipStep() {
     router.post(route('onboarding.step.skip', { step: props.currentStep }), {}, {
         preserveScroll: true,
+        preserveState: 'errors',
     });
 }
 
