@@ -15,8 +15,9 @@ use Tests\TestCase;
  * Two shapes the manager negotiates per relationship:
  *  - percentage of a base (collected / billed / scheduled) — who carries the
  *    arrears risk is exactly the choice of base;
- *  - flat — either a fixed amount for the whole period, or per unit weighted by
- *    how much of the period each unit was actually occupied.
+ *  - flat — either a fixed amount for the whole period, or per occupied unit
+ *    (each charged in full, since the manager's work — move-out included — does
+ *    not shrink for a unit occupied only part of the period).
  */
 class ManagementFeeCalculatorTest extends TestCase
 {
@@ -130,13 +131,13 @@ class ManagementFeeCalculatorTest extends TestCase
 
         $fee = $this->calculator->calculate(
             $relationship,
-            new FeePeriodContext(collected: 80000, occupancyWeightedUnits: 9),
+            new FeePeriodContext(collected: 80000, occupiedUnits: 9),
         );
 
         $this->assertSame(5000.0, $fee);
     }
 
-    public function test_flat_per_unit_is_weighted_by_period_occupancy(): void
+    public function test_flat_per_unit_charges_each_occupied_unit_in_full(): void
     {
         $relationship = $this->relationship([
             'management_fee_type' => 'flat',
@@ -144,13 +145,14 @@ class ManagementFeeCalculatorTest extends TestCase
             'management_fee_flat_cadence' => 'per_unit',
         ]);
 
-        // 3 units occupied the whole period + 1 unit occupied half of it = 3.5.
+        // 4 units were occupied at some point in the period; each is charged in
+        // full regardless of how long it was occupied (move-out is still work).
         $fee = $this->calculator->calculate(
             $relationship,
-            new FeePeriodContext(occupancyWeightedUnits: 3.5),
+            new FeePeriodContext(occupiedUnits: 4),
         );
 
-        $this->assertSame(3500.0, $fee);
+        $this->assertSame(4000.0, $fee);
     }
 
     public function test_flat_defaults_to_per_period_when_cadence_is_null(): void
@@ -163,7 +165,7 @@ class ManagementFeeCalculatorTest extends TestCase
 
         $fee = $this->calculator->calculate(
             $relationship,
-            new FeePeriodContext(occupancyWeightedUnits: 10),
+            new FeePeriodContext(occupiedUnits: 10),
         );
 
         $this->assertSame(4200.0, $fee);
