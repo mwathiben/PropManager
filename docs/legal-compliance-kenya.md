@@ -114,6 +114,11 @@ s78A/s106B (admissibility); Land Registration Act 2012 s54 + LN 130/2020.
   hand off — a click-assent flow does **not** produce a registrable instrument.
 - Self-hosted **Documenso/DocuSeal** PKCS#12 = strong tamper-evidence integrity
   layer for everything, but **not** a Kenyan-licensed-CSP advanced signature.
+  *Selected tool: **Documenso*** — run unmodified as a separate self-hosted service
+  (its own Postgres) via the v2 API + signed webhooks + embedded Vue signing; we
+  supply the `.p12`. AGPL stays off PropManager's code (separate service). It is the
+  Track-A integrity layer, **not** a substitute for Track-B registrable-lease
+  formalities. (See the tooling-decisions record.)
 - **Always capture the evidentiary bundle:** intent affirmation, consent to transact
   electronically, OTP-bound identity, server timestamp, IP/device, **SHA-256
   document hash**, append-only audit trail, completion certificate; be **s106B(4)**-ready.
@@ -130,7 +135,9 @@ confirm the registrable-lease threshold section + current CA-licensed CSP roster
 **Binding law:** Rent Restriction Act (Cap 296, controlled premises only — old
 KES 2,500/mo ⚠️ threshold means most modern lets are *uncontrolled*); Land Act 2012
 (§57 periodic-tenancy notice, §58 short-term leases, §152A–H eviction/relief);
-Distress for Rent Act (Cap 293); Law of Contract Act s3(3).
+Distress for Rent Act (Cap 293); Law of Contract Act s3(3); Civil Procedure Rules
+Order 5 r22B/r22C (service via email / mobile messaging incl. WhatsApp); Evidence
+Act s106B (electronic-record admissibility certificate).
 
 **Design requirements**
 - **Self-help is criminal (Cap 296 s.29)** — never build lock-out / goods-seizure /
@@ -139,6 +146,13 @@ Distress for Rent Act (Cap 293); Law of Contract Act s3(3).
 - Notice engine: periodic monthly tenancy → **≥1 month ending on a rent day**
   (Land Act §57(3)); store **served-notice proof** (content snapshot, channel,
   recipient, timestamp, delivery/read evidence, computed effective date).
+- **Proof of service** (Civil Procedure Rules Order 5 **r22B** email / **r22C**
+  WhatsApp/messaging): service is **deemed effected on the delivery receipt**, so the
+  notice engine must persist the **delivery receipt** (SMS/email/WhatsApp — already
+  available via Africa's Talking + mail + the official WhatsApp BSP) as an
+  **affidavit-of-service-ready** record. The legal test is provable **delivery**, not
+  that the recipient *opened/read* it — so view-tracking adds no legal weight (and the
+  electronic record needs an **Evidence Act s106B** certificate to be admissible).
 - Rent change = a **versioned amendment** requiring notice + tenant **re-assent**;
   never mutate `Lease.rent_amount` in place.
 - Deposit cap (1–2 months) and return window (14–30 days) are **contractual norms,
@@ -216,4 +230,6 @@ Rent Restriction Act Cap 296 — https://new.kenyalaw.org/akn/ke/act/1959/35 ·
 Data Protection Act 2019 — https://new.kenyalaw.org/akn/ke/act/2019/24 ·
 DPA General Regs LN 263/2021 — https://new.kenyalaw.org/akn/ke/act/ln/2021/263 ·
 DPA Registration Regs LN 265/2021 — https://new.kenyalaw.org/akn/ke/act/ln/2021/265 ·
-ODPC — https://www.odpc.go.ke/
+ODPC — https://www.odpc.go.ke/ ·
+Civil Procedure Rules (Order 5 service incl. r22B/r22C) — https://new.kenyalaw.org/akn/ke/act/ln/2010/151 ·
+Evidence Act Cap 80 (s106B) — https://new.kenyalaw.org/akn/ke/act/1963/46
