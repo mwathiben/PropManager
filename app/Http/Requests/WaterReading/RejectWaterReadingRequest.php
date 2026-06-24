@@ -9,7 +9,7 @@ class RejectWaterReadingRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return Auth::check() && Auth::user()->role === 'landlord';
+        return Auth::check() && Auth::user()->isScopeOwner();
     }
 
     public function rules(): array

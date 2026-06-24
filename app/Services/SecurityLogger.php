@@ -417,7 +417,7 @@ class SecurityLogger
             return null;
         }
 
-        if ($user->role === 'landlord') {
+        if ($user->isScopeOwner()) {
             return $user->id;
         }
 

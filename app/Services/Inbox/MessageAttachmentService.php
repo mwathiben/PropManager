@@ -170,7 +170,7 @@ class MessageAttachmentService
 
     private function landlordIdFor(User $sender): int
     {
-        if ($sender->role === 'landlord') {
+        if ($sender->isScopeOwner()) {
             return (int) $sender->id;
         }
 

@@ -152,7 +152,7 @@ trait Auditable
 
         // Otherwise, get from the user
         if ($user) {
-            if ($user->role === 'landlord') {
+            if ($user->isScopeOwner()) {
                 return $user->id;
             }
             if (isset($user->landlord_id)) {

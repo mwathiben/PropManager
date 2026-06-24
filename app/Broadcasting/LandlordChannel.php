@@ -19,7 +19,7 @@ class LandlordChannel
             return true;
         }
 
-        if ($user->role === 'landlord' && $user->id === $landlordId) {
+        if ($user->isScopeOwner() && $user->id === $landlordId) {
             return true;
         }
 
