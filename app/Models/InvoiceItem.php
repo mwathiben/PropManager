@@ -3,11 +3,14 @@
 namespace App\Models;
 
 use App\ValueObjects\Money;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class InvoiceItem extends Model
 {
+    use HasFactory;
+
     public const TYPE_RENT = 'rent';
 
     public const TYPE_DEPOSIT = 'deposit';

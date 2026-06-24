@@ -4,11 +4,12 @@ namespace App\Models;
 
 use App\Enums\NotificationStatus;
 use App\Traits\TenantScope;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Notification extends Model
 {
-    use TenantScope;
+    use HasFactory, TenantScope;
 
     // Notification type constants
     public const TYPE_RENT_REMINDER = 'rent_reminder';

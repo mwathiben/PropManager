@@ -4,11 +4,12 @@ namespace App\Models;
 
 use App\Enums\ImportStatus;
 use App\Traits\TenantScope;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Import extends Model
 {
-    use TenantScope;
+    use HasFactory, TenantScope;
 
     protected $fillable = [
         'landlord_id',

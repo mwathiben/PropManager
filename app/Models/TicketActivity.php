@@ -3,11 +3,12 @@
 namespace App\Models;
 
 use App\Traits\TenantScope;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class TicketActivity extends Model
 {
-    use TenantScope;
+    use HasFactory, TenantScope;
 
     public $timestamps = false;
 

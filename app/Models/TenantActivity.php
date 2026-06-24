@@ -3,12 +3,13 @@
 namespace App\Models;
 
 use App\Traits\TenantScope;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class TenantActivity extends Model
 {
-    use TenantScope;
+    use HasFactory, TenantScope;
 
     protected $fillable = [
         'landlord_id',
