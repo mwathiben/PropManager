@@ -305,7 +305,7 @@ class VerificationController extends Controller
                 'landlord_id' => $landlordId,
                 'tenant_id' => $lease->tenant_id,
                 'performed_by' => $user->id,
-                'action' => 'verification_started',
+                'type' => 'verification_started',
                 'description' => "Verification started using template: {$template->name}",
                 'metadata' => ['template_id' => $template->id, 'lease_id' => $lease->id],
             ]);
@@ -339,7 +339,7 @@ class VerificationController extends Controller
 
         $verification->update([
             'status' => $validated['status'],
-            'notes' => $validated['notes'],
+            'notes' => $validated['notes'] ?? null,
             'verified_by' => $user->id,
             'verified_at' => in_array($validated['status'], ['verified', 'rejected', 'waived']) ? now() : null,
         ]);
@@ -352,7 +352,7 @@ class VerificationController extends Controller
             'landlord_id' => $landlordId,
             'tenant_id' => $lease->tenant_id,
             'performed_by' => $user->id,
-            'action' => 'verification_updated',
+            'type' => 'verification_updated',
             'description' => "Verification item '{$itemName}' marked as {$validated['status']}",
             'metadata' => [
                 'verification_id' => $verification->id,
@@ -405,7 +405,7 @@ class VerificationController extends Controller
                 'landlord_id' => $landlordId,
                 'tenant_id' => $lease->tenant_id,
                 'performed_by' => $user->id,
-                'action' => 'verification_bulk_update',
+                'type' => 'verification_bulk_update',
                 'description' => 'Bulk verification update performed',
                 'metadata' => ['lease_id' => $lease->id, 'count' => count($validated['verifications'])],
             ]);
@@ -440,7 +440,7 @@ class VerificationController extends Controller
             'landlord_id' => $landlordId,
             'tenant_id' => $lease->tenant_id,
             'performed_by' => $user->id,
-            'action' => 'verification_reset',
+            'type' => 'verification_reset',
             'description' => 'Verification process was reset',
             'metadata' => ['lease_id' => $lease->id],
         ]);
@@ -472,15 +472,15 @@ class VerificationController extends Controller
             return Redirect::back()->withErrors(['verification' => 'All required items must be verified or waived before completing.']);
         }
 
-        // Mark lease as verified
-        $lease->update(['is_verified' => true, 'verified_at' => now()]);
+        // No lease.is_verified column exists; verified status is derived from
+        // the verification records (TenantController::show -> lease_verified).
 
         // Log activity
         TenantActivity::create([
             'landlord_id' => $landlordId,
             'tenant_id' => $lease->tenant_id,
             'performed_by' => $user->id,
-            'action' => 'verification_completed',
+            'type' => 'verification_completed',
             'description' => 'Tenant verification completed successfully',
             'metadata' => ['lease_id' => $lease->id],
         ]);
