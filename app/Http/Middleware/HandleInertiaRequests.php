@@ -429,7 +429,7 @@ class HandleInertiaRequests extends Middleware
         // TenantScope. If TenantScope ever fails to apply (impersonation
         // edge, future refactor, queue context), counts stay scoped instead
         // of leaking system-wide totals into the navigation chrome.
-        $landlordId = $user->isScopeOwner() ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeIdOrNull();
 
         return match ($user->role) {
             // A manager runs properties on owners' behalf with landlord-equal

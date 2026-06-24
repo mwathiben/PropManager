@@ -31,7 +31,7 @@ class LeaseChannel
         }
 
         if ($user->isScopeOwner() || $user->isCaretaker()) {
-            $landlordId = $user->isScopeOwner() ? $user->id : $user->landlord_id;
+            $landlordId = $user->effectiveScopeIdOrNull();
 
             return $lease->landlord_id === $landlordId;
         }

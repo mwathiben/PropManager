@@ -740,7 +740,7 @@ class FinanceExportService
             return Currency::default();
         }
 
-        $landlordId = $user->isScopeOwner() ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
         $config = PaymentConfiguration::where('landlord_id', $landlordId)->first();
 
         return $config?->default_currency ?? Currency::default();

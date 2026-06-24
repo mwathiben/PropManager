@@ -33,7 +33,7 @@ class AuditLogController extends Controller
         // matches the other sites (show/export/forModel) for consistency.
         $user = $request->user();
         if (! $user->canAccessAllAuditLogs()) {
-            $landlordId = $user->isLandlord() ? $user->id : $user->landlord_id;
+            $landlordId = $user->effectiveScopeIdOrNull();
             $query->where('landlord_id', $landlordId);
         }
 
@@ -100,7 +100,7 @@ class AuditLogController extends Controller
         // Get filter options
         $eventTypes = AuditLog::query()
             ->when(! $user->canAccessAllAuditLogs(), function ($q) use ($user) {
-                $q->where('landlord_id', $user->isLandlord() ? $user->id : $user->landlord_id);
+                $q->where('landlord_id', $user->effectiveScopeIdOrNull());
             })
             ->distinct()
             ->pluck('event_type')
@@ -108,7 +108,7 @@ class AuditLogController extends Controller
 
         $modelTypes = AuditLog::query()
             ->when(! $user->canAccessAllAuditLogs(), function ($q) use ($user) {
-                $q->where('landlord_id', $user->isLandlord() ? $user->id : $user->landlord_id);
+                $q->where('landlord_id', $user->effectiveScopeIdOrNull());
             })
             ->distinct()
             ->pluck('auditable_type')
@@ -143,7 +143,7 @@ class AuditLogController extends Controller
 
         // Check access for non-super-admins
         if (! $user->canAccessAllAuditLogs()) {
-            $landlordId = $user->isLandlord() ? $user->id : $user->landlord_id;
+            $landlordId = $user->effectiveScopeIdOrNull();
             if ($auditLog->landlord_id !== $landlordId) {
                 abort(403);
             }
@@ -202,7 +202,7 @@ class AuditLogController extends Controller
         // Without this, a landlord could enumerate model ids belonging to
         // other tenants by inspecting empty-vs-populated responses.
         if (! $user->canAccessAllAuditLogs()) {
-            $landlordId = $user->isLandlord() ? $user->id : $user->landlord_id;
+            $landlordId = $user->effectiveScopeIdOrNull();
 
             if (! $this->modelBelongsToLandlord($modelType, $modelId, (int) $landlordId)) {
                 abort(404);
@@ -274,7 +274,7 @@ class AuditLogController extends Controller
 
         // Apply landlord scope for non-super-admins
         if (! $user->canAccessAllAuditLogs()) {
-            $landlordId = $user->isLandlord() ? $user->id : $user->landlord_id;
+            $landlordId = $user->effectiveScopeIdOrNull();
             $query->where('landlord_id', $landlordId);
         }
 

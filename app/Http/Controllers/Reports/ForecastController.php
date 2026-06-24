@@ -21,7 +21,7 @@ class ForecastController extends Controller
     public function index(Request $request): Response
     {
         $user = $request->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : (int) $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         $months = (int) $request->query('months', 12);
         $months = max(1, min(24, $months));

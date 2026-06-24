@@ -25,7 +25,7 @@ class NotificationTemplateController extends Controller
     public function templates(Request $request): Response
     {
         $user = auth()->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         $templates = NotificationTemplate::where('landlord_id', $landlordId)
             ->orderBy('type')
@@ -55,7 +55,7 @@ class NotificationTemplateController extends Controller
         $validated = $request->validated();
 
         $user = auth()->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         NotificationTemplate::create([
             'landlord_id' => $landlordId,
@@ -130,7 +130,7 @@ class NotificationTemplateController extends Controller
     private function authorizeTemplate(NotificationTemplate $template): void
     {
         $user = auth()->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         if ($template->landlord_id !== $landlordId) {
             abort(403, 'Unauthorized');

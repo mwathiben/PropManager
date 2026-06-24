@@ -25,7 +25,7 @@ class NotificationPushController extends Controller
     public function generateVapidKeys(): JsonResponse
     {
         $user = auth()->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         $keys = $this->pushService->generateVapidKeys();
         $this->pushService->saveVapidKeys($landlordId, $keys);
@@ -73,7 +73,7 @@ class NotificationPushController extends Controller
     public function getVapidPublicKey(): JsonResponse
     {
         $user = auth()->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         $publicKey = $this->pushService->getPublicKey($landlordId);
 
