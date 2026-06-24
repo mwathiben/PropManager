@@ -29,7 +29,7 @@ class LandlordGrowthController extends Controller
     public function index(Request $request): Response
     {
         $user = $request->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         $engagement = LandlordEngagementScore::query()
             ->withoutGlobalScopes()

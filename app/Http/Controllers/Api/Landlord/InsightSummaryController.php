@@ -27,7 +27,7 @@ class InsightSummaryController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
-        $landlordId = $user->role === 'landlord' ? (int) $user->id : (int) $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         $payload = Cache::remember(
             "insight:summary:{$landlordId}",

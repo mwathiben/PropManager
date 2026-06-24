@@ -23,7 +23,7 @@ class ProductEventTracker
         try {
             $landlordId = null;
             if ($user !== null) {
-                $landlordId = $user->isScopeOwner() ? $user->id : $user->landlord_id;
+                $landlordId = $user->effectiveScopeIdOrNull();
             }
 
             ProductEvent::query()->withoutGlobalScopes()->create([

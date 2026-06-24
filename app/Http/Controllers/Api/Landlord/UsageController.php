@@ -21,7 +21,7 @@ class UsageController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
-        $landlordId = $user->role === 'landlord' ? (int) $user->id : (int) $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
         $landlord = User::find($landlordId);
 
         $features = [];

@@ -68,7 +68,7 @@ class TrackQueryCost
             $landlordId = null;
             if ($userId !== null) {
                 $user = Auth::user();
-                $landlordId = $user?->role === 'landlord' ? $user->id : $user?->landlord_id;
+                $landlordId = $user?->effectiveScopeIdOrNull();
             }
 
             QueryCostLog::create([

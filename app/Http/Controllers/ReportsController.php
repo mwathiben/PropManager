@@ -33,7 +33,7 @@ class ReportsController extends Controller
     public function index(Request $request)
     {
         $user = auth()->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
         $period = $request->query('period', 'month');
 
         $analytics = $this->reportService->getDashboardAnalytics($landlordId, $period);
@@ -60,7 +60,7 @@ class ReportsController extends Controller
         ]);
 
         $user = auth()->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
         $period = $validated['period'] ?? 'month';
 
         $data = $this->reportService->exportData($landlordId, $validated['report_type'], $period);
@@ -68,7 +68,7 @@ class ReportsController extends Controller
 
         $pdf = Pdf::loadView('reports.'.$validated['report_type'], [
             'data' => $data,
-            'landlord' => $user->role === 'landlord' ? $user : $user->landlord,
+            'landlord' => $user->isScopeOwner() ? $user : $user->landlord,
             'generated_at' => now()->format('F j, Y g:i A'),
             'currency_symbol' => $currency->symbol(),
             'currency_code' => $currency->value,
@@ -93,7 +93,7 @@ class ReportsController extends Controller
         ]);
 
         $user = auth()->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
         $period = $validated['period'] ?? 'month';
         $format = $validated['format'] ?? 'xlsx';
 
@@ -274,7 +274,7 @@ class ReportsController extends Controller
     public function getMetrics(Request $request)
     {
         $user = auth()->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
         $period = $request->query('period', 'month');
 
         $analytics = $this->reportService->getDashboardAnalytics($landlordId, $period);

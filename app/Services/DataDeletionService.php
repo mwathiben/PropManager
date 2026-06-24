@@ -36,7 +36,7 @@ class DataDeletionService
 
             AuditLog::create([
                 'user_id' => $user->id,
-                'landlord_id' => $user->isScopeOwner() ? $user->id : $user->landlord_id,
+                'landlord_id' => $user->effectiveScopeIdOrNull(),
                 'event_type' => 'deletion_requested',
                 'auditable_type' => User::class,
                 'auditable_id' => $user->id,

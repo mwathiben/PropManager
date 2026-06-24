@@ -177,7 +177,7 @@ class GdprController extends Controller
 
         AuditLog::create([
             'user_id' => $user->id,
-            'landlord_id' => $user->isLandlord() ? $user->id : $user->landlord_id,
+            'landlord_id' => $user->effectiveScopeIdOrNull(),
             'event_type' => 'processing_restricted',
             'auditable_type' => $user::class,
             'auditable_id' => $user->id,
@@ -213,7 +213,7 @@ class GdprController extends Controller
 
         AuditLog::create([
             'user_id' => $user->id,
-            'landlord_id' => $user->isLandlord() ? $user->id : $user->landlord_id,
+            'landlord_id' => $user->effectiveScopeIdOrNull(),
             'event_type' => 'processing_restriction_released',
             'auditable_type' => $user::class,
             'auditable_id' => $user->id,
