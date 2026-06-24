@@ -16,7 +16,6 @@ use App\Models\MoveOut;
 use App\Models\MoveOutDeduction;
 use App\Models\MoveOutDeductionCategory;
 use App\Models\TenantActivity;
-use App\Models\Unit;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -120,38 +119,40 @@ class MoveOutController extends Controller
         $validated = $request->validated();
 
         try {
-            DB::beginTransaction();
+            $moveOut = DB::transaction(function () use ($landlordId, $lease, $validated, $user) {
+                $moveOut = MoveOut::create([
+                    'landlord_id' => $landlordId,
+                    'lease_id' => $lease->id,
+                    'notice_date' => $validated['notice_date'],
+                    'intended_move_out_date' => $validated['intended_move_out_date'],
+                    'status' => 'notice_given',
+                    'deposit_held' => $lease->deposit_amount,
+                    'arrears_balance' => $lease->arrears ?? 0,
+                    'total_deductions' => 0,
+                    'refund_amount' => $lease->deposit_amount - ($lease->arrears ?? 0),
+                ]);
 
-            $moveOut = MoveOut::create([
-                'landlord_id' => $landlordId,
-                'lease_id' => $lease->id,
-                'notice_date' => $validated['notice_date'],
-                'intended_move_out_date' => $validated['intended_move_out_date'],
-                'status' => 'notice_given',
-                'deposit_held' => $lease->deposit_amount,
-                'arrears_balance' => $lease->arrears ?? 0,
-                'total_deductions' => 0,
-                'refund_amount' => $lease->deposit_amount - ($lease->arrears ?? 0),
-            ]);
+                TenantActivity::create([
+                    'landlord_id' => $landlordId,
+                    'tenant_id' => $lease->tenant_id,
+                    'performed_by' => $user->id,
+                    'type' => 'move_out_initiated',
+                    'description' => 'Move-out notice given. Expected move-out: '.$validated['intended_move_out_date'],
+                    'metadata' => [
+                        'move_out_id' => $moveOut->id,
+                        'reason' => $validated['reason'] ?? null,
+                    ],
+                ]);
 
-            // Log activity
-            TenantActivity::create([
-                'landlord_id' => $landlordId,
-                'tenant_id' => $lease->tenant_id,
-                'performed_by' => $user->id,
-                'type' => 'move_out_initiated',
-                'description' => 'Move-out notice given. Expected move-out: '.$validated['intended_move_out_date'],
-                'metadata' => [
-                    'move_out_id' => $moveOut->id,
-                    'reason' => $validated['reason'] ?? null,
-                ],
-            ]);
-
-            DB::commit();
+                return $moveOut;
+            });
 
             return Redirect::route('move-outs.show', $moveOut)->with('success', 'Move-out process initiated.');
-        } catch (\Exception $e) {
-            DB::rollBack();
+        } catch (\Throwable $e) {
+            Log::error('Failed to initiate move-out', [
+                'lease_id' => $lease->id,
+                'error' => $e->getMessage(),
+            ]);
 
             return Redirect::back()->withErrors(['move_out' => 'Failed to initiate move-out.']);
         }
@@ -441,61 +442,57 @@ class MoveOutController extends Controller
         $validated = $request->validated();
 
         try {
-            DB::beginTransaction();
+            DB::transaction(function () use ($moveOut, $validated, $landlordId, $user) {
+                $moveOut->calculateRefund();
 
-            // Final calculations
-            $moveOut->calculateRefund();
-
-            $moveOut->update([
-                'status' => 'completed',
-                'settlement_method' => $validated['settlement_method'],
-                'settlement_reference' => $validated['settlement_reference'] ?? null,
-                'settled_at' => now(),
-                'processed_by' => $user->id,
-            ]);
-
-            // Deactivate the lease
-            $lease = $moveOut->lease;
-            $lease->update([
-                'is_active' => false,
-                'end_date' => $moveOut->actual_move_out_date ?? now(),
-            ]);
-
-            // Mark unit as vacant
-            $lease->unit->update(['status' => 'vacant']);
-
-            // Phase-81 DEPOSIT-SETTLEMENT-2: journal the deposit to the ledger
-            // (deductions + arrears offset + refund) and flip lease.deposit_status
-            // atomically as part of completing the move-out.
-            app(\App\Services\Finance\DepositSettlementService::class)->settle($moveOut, $user);
-
-            // Phase-83 GUARANTOR-2: the lease has ended — release any guarantors
-            // standing behind it (their obligation no longer applies).
-            app(\App\Services\Lease\LeaseGuarantorService::class)
-                ->releaseAllForLease($lease, __('lease.guarantor.released_move_out'));
-
-            // Log activity
-            TenantActivity::create([
-                'landlord_id' => $landlordId,
-                'tenant_id' => $lease->tenant_id,
-                'performed_by' => $user->id,
-                // Phase-81: was 'action' (not a column) → NOT-NULL 'type' violation
-                // silently rolled back every completion. Use the real column.
-                'type' => 'move_out_completed',
-                'description' => 'Move-out completed. Deposit settled via '.$validated['settlement_method'].'. Refund: KES '.number_format($moveOut->refund_amount, 2),
-                'metadata' => [
-                    'move_out_id' => $moveOut->id,
-                    'refund_amount' => $moveOut->refund_amount,
+                $moveOut->update([
+                    'status' => 'completed',
                     'settlement_method' => $validated['settlement_method'],
-                ],
-            ]);
+                    'settlement_reference' => $validated['settlement_reference'] ?? null,
+                    'settled_at' => now(),
+                    'processed_by' => $user->id,
+                ]);
 
-            DB::commit();
+                $lease = $moveOut->lease;
+                $lease->update([
+                    'is_active' => false,
+                    'end_date' => $moveOut->actual_move_out_date ?? now(),
+                ]);
+
+                $lease->unit->update(['status' => 'vacant']);
+
+                // Phase-81 DEPOSIT-SETTLEMENT-2: journal the deposit to the ledger
+                // (deductions + arrears offset + refund) and flip lease.deposit_status
+                // atomically as part of completing the move-out.
+                app(\App\Services\Finance\DepositSettlementService::class)->settle($moveOut, $user);
+
+                // Phase-83 GUARANTOR-2: the lease has ended — release any guarantors
+                // standing behind it (their obligation no longer applies).
+                app(\App\Services\Lease\LeaseGuarantorService::class)
+                    ->releaseAllForLease($lease, __('lease.guarantor.released_move_out'));
+
+                // Phase-81: 'action' is not a column → using it caused a NOT-NULL
+                // 'type' violation that silently rolled back every completion.
+                TenantActivity::create([
+                    'landlord_id' => $landlordId,
+                    'tenant_id' => $lease->tenant_id,
+                    'performed_by' => $user->id,
+                    'type' => 'move_out_completed',
+                    'description' => 'Move-out completed. Deposit settled via '.$validated['settlement_method'].'. Refund: KES '.number_format($moveOut->refund_amount, 2),
+                    'metadata' => [
+                        'move_out_id' => $moveOut->id,
+                        'refund_amount' => $moveOut->refund_amount,
+                        'settlement_method' => $validated['settlement_method'],
+                    ],
+                ]);
+            });
 
             return Redirect::route('move-outs.show', $moveOut)->with('success', 'Move-out completed successfully.');
-        } catch (\Exception $e) {
-            DB::rollBack();
-            \Illuminate\Support\Facades\Log::error('move-out complete failed', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+        } catch (\Throwable $e) {
+            Log::error('move-out complete failed', [
+                'move_out_id' => $moveOut->id,
+                'error' => $e->getMessage(),
+            ]);
 
             return Redirect::back()->withErrors(['move_out' => 'Failed to complete move-out.']);
         }
