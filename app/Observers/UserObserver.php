@@ -67,47 +67,42 @@ class UserObserver
     /**
      * Create default notification schedules for a new landlord.
      */
+    /**
+     * Seed the scope owner's starter notification schedules. Idempotent via
+     * firstOrCreate on each default's natural key (landlord_id + type + trigger
+     * + days_offset), so a second call (a future signup/promotion path) can't
+     * duplicate them. Keyed on the offset — NOT just (landlord_id, type) — so a
+     * landlord running several schedules of the same type at different offsets
+     * (a supported feature; see NotificationScheduleController::storeSchedule)
+     * is preserved; a DB unique index on (landlord_id, type) would break it.
+     *
+     * @var list<array{name: string, type: string, trigger: string, days_offset: int}>
+     */
+    private const DEFAULT_SCHEDULES = [
+        ['name' => 'Rent Reminder (7 days before)', 'type' => 'rent_reminder', 'trigger' => 'days_before_due', 'days_offset' => 7],
+        ['name' => 'Arrears Notice (3 days overdue)', 'type' => 'arrears_notice', 'trigger' => 'days_after_overdue', 'days_offset' => 3],
+        ['name' => 'Lease Expiry Reminder', 'type' => 'lease_expiry', 'trigger' => 'days_before_expiry', 'days_offset' => 30],
+    ];
+
     private function createDefaultSchedules(User $landlord): void
     {
         DB::transaction(function () use ($landlord) {
-            NotificationSchedule::insert([
-                [
-                    'landlord_id' => $landlord->id,
-                    'name' => 'Rent Reminder (7 days before)',
-                    'type' => 'rent_reminder',
-                    'trigger' => 'days_before_due',
-                    'days_offset' => 7,
-                    'send_time' => '09:00',
-                    'channels' => json_encode(['email']),
-                    'is_active' => true,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ],
-                [
-                    'landlord_id' => $landlord->id,
-                    'name' => 'Arrears Notice (3 days overdue)',
-                    'type' => 'arrears_notice',
-                    'trigger' => 'days_after_overdue',
-                    'days_offset' => 3,
-                    'send_time' => '09:00',
-                    'channels' => json_encode(['email']),
-                    'is_active' => true,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ],
-                [
-                    'landlord_id' => $landlord->id,
-                    'name' => 'Lease Expiry Reminder',
-                    'type' => 'lease_expiry',
-                    'trigger' => 'days_before_expiry',
-                    'days_offset' => 30,
-                    'send_time' => '09:00',
-                    'channels' => json_encode(['email']),
-                    'is_active' => true,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ],
-            ]);
+            foreach (self::DEFAULT_SCHEDULES as $schedule) {
+                NotificationSchedule::firstOrCreate(
+                    [
+                        'landlord_id' => $landlord->id,
+                        'type' => $schedule['type'],
+                        'trigger' => $schedule['trigger'],
+                        'days_offset' => $schedule['days_offset'],
+                    ],
+                    [
+                        'name' => $schedule['name'],
+                        'send_time' => '09:00',
+                        'channels' => ['email'],
+                        'is_active' => true,
+                    ],
+                );
+            }
         });
     }
 }
