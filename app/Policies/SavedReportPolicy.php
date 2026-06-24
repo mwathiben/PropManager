@@ -17,7 +17,7 @@ class SavedReportPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->isLandlord() || $user->isCaretaker();
+        return $user->isScopeOwner() || $user->isCaretaker();
     }
 
     public function view(User $user, SavedReport $report): bool
@@ -27,27 +27,27 @@ class SavedReportPolicy
 
     public function create(User $user): bool
     {
-        return $user->isLandlord();
+        return $user->isScopeOwner();
     }
 
     public function update(User $user, SavedReport $report): bool
     {
-        return $user->isLandlord() && (int) $report->landlord_id === (int) $user->id;
+        return $user->isScopeOwner() && (int) $report->landlord_id === (int) $user->id;
     }
 
     public function delete(User $user, SavedReport $report): bool
     {
-        return $user->isLandlord() && (int) $report->landlord_id === (int) $user->id;
+        return $user->isScopeOwner() && (int) $report->landlord_id === (int) $user->id;
     }
 
     /**
-     * For a caretaker the "owner" is their landlord; for a landlord
+     * For a caretaker the "owner" is their landlord; for a scope owner
      * it's themselves. Tenants are never granted access (viewAny
      * already filters at the gate).
      */
     private function landlordIdOf(User $user): int
     {
-        return $user->isLandlord()
+        return $user->isScopeOwner()
             ? (int) $user->id
             : (int) ($user->landlord_id ?? 0);
     }

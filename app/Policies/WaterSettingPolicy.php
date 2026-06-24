@@ -18,7 +18,7 @@ class WaterSettingPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->isLandlord() || $user->isCaretaker();
+        return $user->isScopeOwner() || $user->isCaretaker();
     }
 
     public function view(User $user, WaterSetting $waterSetting): bool
@@ -28,22 +28,22 @@ class WaterSettingPolicy
 
     public function create(User $user): bool
     {
-        return $user->isLandlord();
+        return $user->isScopeOwner();
     }
 
     public function update(User $user, WaterSetting $waterSetting): bool
     {
-        return $user->isLandlord() && $waterSetting->landlord_id === $user->id;
+        return $user->isScopeOwner() && $waterSetting->landlord_id === $user->id;
     }
 
     public function delete(User $user, WaterSetting $waterSetting): bool
     {
-        return $user->isLandlord() && $waterSetting->landlord_id === $user->id;
+        return $user->isScopeOwner() && $waterSetting->landlord_id === $user->id;
     }
 
     private function ownsSetting(User $user, WaterSetting $waterSetting): bool
     {
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return $waterSetting->landlord_id === $user->id;
         }
 

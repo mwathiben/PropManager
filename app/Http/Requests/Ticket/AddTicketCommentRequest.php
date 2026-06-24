@@ -23,7 +23,7 @@ class AddTicketCommentRequest extends FormRequest
         // tenant's ticket. Pre-fix, returning true for any landlord
         // role meant landlord A could comment on landlord B's tickets
         // by guessing the route id.
-        if ($user->isLandlord() || $user->isCaretaker()) {
+        if ($user->isScopeOwner() || $user->isCaretaker()) {
             $landlordId = $user->isCaretaker() ? (int) $user->landlord_id : (int) $user->id;
 
             return (int) $ticket->landlord_id === $landlordId;

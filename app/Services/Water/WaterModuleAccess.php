@@ -35,12 +35,12 @@ class WaterModuleAccess
             return true;
         }
 
-        $landlordId = $user->isLandlord() ? (int) $user->id : (int) ($user->landlord_id ?? 0);
+        $landlordId = $user->isScopeOwner() ? (int) $user->id : (int) ($user->landlord_id ?? 0);
         if ($landlordId === 0) {
             return false;
         }
 
-        return self::enabledForLandlord($landlordId, $user->isLandlord() ? $user : $user->landlord);
+        return self::enabledForLandlord($landlordId, $user->isScopeOwner() ? $user : $user->landlord);
     }
 
     public static function enabledForLandlord(int $landlordId, ?User $landlord = null): bool

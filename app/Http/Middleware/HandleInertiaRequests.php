@@ -91,7 +91,7 @@ class HandleInertiaRequests extends Middleware
                 // Phase-65 HOLD-UI-3: active legal-hold count for the
                 // landlord's own subjects — drives the sidebar badge.
                 // Cache::remember 60s bounds the polymorphic count cost.
-                'legal_holds_active_count' => $user && $user->isLandlord()
+                'legal_holds_active_count' => $user && $user->isScopeOwner()
                     ? \Illuminate\Support\Facades\Cache::remember(
                         'legal_holds:active:'.$user->id,
                         60,
@@ -327,7 +327,7 @@ class HandleInertiaRequests extends Middleware
     {
         $user = $request->user();
 
-        if (! $user || ! $user->isLandlord()) {
+        if (! $user || ! $user->isScopeOwner()) {
             return null;
         }
 
@@ -363,7 +363,7 @@ class HandleInertiaRequests extends Middleware
         }
 
         $landlordId = match (true) {
-            $user->isLandlord() => $user->id,
+            $user->isScopeOwner() => $user->id,
             $user->isCaretaker(), $user->isTenant(), $user->isWaterClient() => $user->landlord_id,
             default => null,
         };
@@ -429,10 +429,12 @@ class HandleInertiaRequests extends Middleware
         // TenantScope. If TenantScope ever fails to apply (impersonation
         // edge, future refactor, queue context), counts stay scoped instead
         // of leaking system-wide totals into the navigation chrome.
-        $landlordId = $user->isLandlord() ? $user->id : $user->landlord_id;
+        $landlordId = $user->isScopeOwner() ? $user->id : $user->landlord_id;
 
         return match ($user->role) {
-            'landlord' => array_filter([
+            // A manager runs properties on owners' behalf with landlord-equal
+            // access (scope keyed on its own id), so it gets the same hub badges.
+            'landlord', 'manager' => array_filter([
                 // Aggregated hub badges
                 'tenants' => TenantPaymentVerification::where('landlord_id', $landlordId)->where('status', 'pending')->count()
                     + MoveOut::where('landlord_id', $landlordId)->active()->count()

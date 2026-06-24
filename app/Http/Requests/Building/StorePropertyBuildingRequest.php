@@ -11,7 +11,7 @@ class StorePropertyBuildingRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return Auth::check() && Auth::user()->isLandlord();
+        return Auth::check() && Auth::user()->isScopeOwner();
     }
 
     public function rules(): array

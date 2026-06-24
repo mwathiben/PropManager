@@ -32,7 +32,7 @@ class TicketPolicy
      */
     public function view(User $user, Ticket $ticket): bool
     {
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return $ticket->landlord_id === $user->id;
         }
 
@@ -61,7 +61,7 @@ class TicketPolicy
      */
     public function update(User $user, Ticket $ticket): bool
     {
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return $ticket->landlord_id === $user->id;
         }
 
@@ -84,7 +84,7 @@ class TicketPolicy
      */
     public function delete(User $user, Ticket $ticket): bool
     {
-        return $user->isLandlord() && $ticket->landlord_id === $user->id;
+        return $user->isScopeOwner() && $ticket->landlord_id === $user->id;
     }
 
     /**
@@ -92,7 +92,7 @@ class TicketPolicy
      */
     public function assign(User $user, Ticket $ticket): bool
     {
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return $ticket->landlord_id === $user->id;
         }
 
@@ -106,7 +106,7 @@ class TicketPolicy
      */
     public function createCost(User $user, Ticket $ticket): bool
     {
-        return $user->isLandlord() && $ticket->landlord_id === $user->id;
+        return $user->isScopeOwner() && $ticket->landlord_id === $user->id;
     }
 
     /**
@@ -114,7 +114,7 @@ class TicketPolicy
      */
     public function resolve(User $user, Ticket $ticket): bool
     {
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return $ticket->landlord_id === $user->id;
         }
 
@@ -130,7 +130,7 @@ class TicketPolicy
      */
     public function close(User $user, Ticket $ticket): bool
     {
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return $ticket->landlord_id === $user->id;
         }
 

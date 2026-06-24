@@ -18,7 +18,7 @@ class VendorPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->isLandlord() || $user->isCaretaker();
+        return $user->isScopeOwner() || $user->isCaretaker();
     }
 
     public function view(User $user, Vendor $vendor): bool
@@ -28,7 +28,7 @@ class VendorPolicy
 
     public function create(User $user): bool
     {
-        return $user->isLandlord() || $user->isCaretaker();
+        return $user->isScopeOwner() || $user->isCaretaker();
     }
 
     public function update(User $user, Vendor $vendor): bool
@@ -38,12 +38,12 @@ class VendorPolicy
 
     public function delete(User $user, Vendor $vendor): bool
     {
-        return $user->isLandlord() && $vendor->landlord_id === $user->id;
+        return $user->isScopeOwner() && $vendor->landlord_id === $user->id;
     }
 
     private function ownsVendor(User $user, Vendor $vendor): bool
     {
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return $vendor->landlord_id === $user->id;
         }
 

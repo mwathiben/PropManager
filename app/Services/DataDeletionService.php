@@ -36,7 +36,7 @@ class DataDeletionService
 
             AuditLog::create([
                 'user_id' => $user->id,
-                'landlord_id' => $user->isLandlord() ? $user->id : $user->landlord_id,
+                'landlord_id' => $user->isScopeOwner() ? $user->id : $user->landlord_id,
                 'event_type' => 'deletion_requested',
                 'auditable_type' => User::class,
                 'auditable_id' => $user->id,
@@ -368,8 +368,8 @@ class DataDeletionService
     {
         $blockers = [];
 
-        // Landlords with active properties cannot be deleted
-        if ($user->isLandlord()) {
+        // Scope owners (landlords + managers) with active properties cannot be deleted
+        if ($user->isScopeOwner()) {
             $activeLeases = Lease::where('landlord_id', $user->id)
                 ->where('is_active', true)
                 ->count();

@@ -29,6 +29,6 @@ class NpsResponsePolicy
 
     public function create(User $user): bool
     {
-        return $user->isLandlord() || $user->isCaretaker() || $user->isTenant();
+        return $user->isScopeOwner() || $user->isCaretaker() || $user->isTenant();
     }
 }

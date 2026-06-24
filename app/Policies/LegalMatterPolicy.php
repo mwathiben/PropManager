@@ -26,7 +26,7 @@ class LegalMatterPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->isLandlord();
+        return $user->isScopeOwner();
     }
 
     public function view(User $user, LegalMatter $matter): bool
@@ -36,7 +36,7 @@ class LegalMatterPolicy
 
     public function create(User $user): bool
     {
-        return $user->isLandlord();
+        return $user->isScopeOwner();
     }
 
     public function release(User $user, LegalMatter $matter): bool
@@ -56,6 +56,6 @@ class LegalMatterPolicy
 
     private function owns(User $user, LegalMatter $matter): bool
     {
-        return $user->isLandlord() && (int) $matter->landlord_id === (int) $user->id;
+        return $user->isScopeOwner() && (int) $matter->landlord_id === (int) $user->id;
     }
 }

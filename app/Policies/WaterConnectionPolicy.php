@@ -25,12 +25,12 @@ class WaterConnectionPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->isLandlord() || $user->isCaretaker();
+        return $user->isScopeOwner() || $user->isCaretaker();
     }
 
     public function view(User $user, WaterConnection $connection): bool
     {
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return $connection->landlord_id === $user->id;
         }
         if ($user->isCaretaker()) {
@@ -45,12 +45,12 @@ class WaterConnectionPolicy
 
     public function create(User $user): bool
     {
-        return $user->isLandlord();
+        return $user->isScopeOwner();
     }
 
     public function update(User $user, WaterConnection $connection): bool
     {
-        return $user->isLandlord() && $connection->landlord_id === $user->id;
+        return $user->isScopeOwner() && $connection->landlord_id === $user->id;
     }
 
     public function delete(User $user, WaterConnection $connection): bool

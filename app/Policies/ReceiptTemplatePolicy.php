@@ -18,7 +18,7 @@ class ReceiptTemplatePolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->isLandlord() || $user->isCaretaker();
+        return $user->isScopeOwner() || $user->isCaretaker();
     }
 
     public function view(User $user, ReceiptTemplate $template): bool
@@ -28,22 +28,22 @@ class ReceiptTemplatePolicy
 
     public function create(User $user): bool
     {
-        return $user->isLandlord();
+        return $user->isScopeOwner();
     }
 
     public function update(User $user, ReceiptTemplate $template): bool
     {
-        return $user->isLandlord() && $template->landlord_id === $user->id;
+        return $user->isScopeOwner() && $template->landlord_id === $user->id;
     }
 
     public function delete(User $user, ReceiptTemplate $template): bool
     {
-        return $user->isLandlord() && $template->landlord_id === $user->id;
+        return $user->isScopeOwner() && $template->landlord_id === $user->id;
     }
 
     protected function canManage(User $user, ReceiptTemplate $template): bool
     {
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return $template->landlord_id === $user->id;
         }
 

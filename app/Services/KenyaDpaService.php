@@ -121,7 +121,7 @@ class KenyaDpaService
     ): void {
         AuditLog::create([
             'user_id' => auth()->id(),
-            'landlord_id' => $dataSubject->isLandlord() ? $dataSubject->id : $dataSubject->landlord_id,
+            'landlord_id' => $dataSubject->isScopeOwner() ? $dataSubject->id : $dataSubject->landlord_id,
             'event_type' => 'data_processing',
             'auditable_type' => User::class,
             'auditable_id' => $dataSubject->id,

@@ -106,7 +106,7 @@ class MessageThreadController extends Controller
             ]);
 
             $thread->participants()->attach($landlord->id, [
-                'role' => $landlord->isLandlord()
+                'role' => $landlord->isScopeOwner()
                     ? MessageThread::ROLE_LANDLORD
                     : MessageThread::ROLE_CARETAKER,
             ]);
@@ -179,7 +179,7 @@ class MessageThreadController extends Controller
     private function roleFor(User $user): string
     {
         return match (true) {
-            $user->isLandlord() => MessageThread::ROLE_LANDLORD,
+            $user->isScopeOwner() => MessageThread::ROLE_LANDLORD,
             $user->isCaretaker() => MessageThread::ROLE_CARETAKER,
             default => MessageThread::ROLE_TENANT,
         };

@@ -25,7 +25,7 @@ class PaymentPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->isLandlord() || $user->isCaretaker() || $user->isTenant();
+        return $user->isScopeOwner() || $user->isCaretaker() || $user->isTenant();
     }
 
     /**
@@ -33,7 +33,7 @@ class PaymentPolicy
      */
     public function view(User $user, Payment $payment): bool
     {
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return $payment->landlord_id === $user->id;
         }
 
@@ -53,7 +53,7 @@ class PaymentPolicy
      */
     public function create(User $user, ?Invoice $invoice = null): bool
     {
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return $invoice === null || $invoice->landlord_id === $user->id;
         }
 
@@ -73,8 +73,8 @@ class PaymentPolicy
      */
     public function update(User $user, Payment $payment): bool
     {
-        // Only landlords can update payments
-        return $user->isLandlord() && $payment->landlord_id === $user->id;
+        // Only scope owners (landlords/managers) can update payments
+        return $user->isScopeOwner() && $payment->landlord_id === $user->id;
     }
 
     /**
@@ -82,7 +82,7 @@ class PaymentPolicy
      */
     public function delete(User $user, Payment $payment): bool
     {
-        return $user->isLandlord() && $payment->landlord_id === $user->id;
+        return $user->isScopeOwner() && $payment->landlord_id === $user->id;
     }
 
     /**
@@ -90,7 +90,7 @@ class PaymentPolicy
      */
     public function void(User $user, Payment $payment): bool
     {
-        return $user->isLandlord() && $payment->landlord_id === $user->id;
+        return $user->isScopeOwner() && $payment->landlord_id === $user->id;
     }
 
     /**

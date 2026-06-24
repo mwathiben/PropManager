@@ -34,7 +34,7 @@ class FinanceReportController extends Controller
 
         $dateRange = $this->reportService->getReportDateRange($period, $dateFrom, $dateTo, $landlordId);
 
-        $hasWaterAccess = $user->isLandlord()
+        $hasWaterAccess = $user->isScopeOwner()
             ? $user->canAccessFeature('water_billing')
             : $user->landlord?->canAccessFeature('water_billing') ?? false;
 
@@ -120,7 +120,7 @@ class FinanceReportController extends Controller
 
             return \Barryvdh\DomPDF\Facade\Pdf::loadView('reports.rent-roll', [
                 'data' => $data,
-                'landlord' => $user->isLandlord() ? $user : $user->landlord,
+                'landlord' => $user->isScopeOwner() ? $user : $user->landlord,
                 'generated_at' => now()->format('F j, Y g:i A'),
                 'currency_symbol' => $currency->symbol(),
                 'currency_code' => $currency->value,
@@ -179,7 +179,7 @@ class FinanceReportController extends Controller
 
             return \Barryvdh\DomPDF\Facade\Pdf::loadView('reports.property-pnl', [
                 'data' => $data,
-                'landlord' => $user->isLandlord() ? $user : $user->landlord,
+                'landlord' => $user->isScopeOwner() ? $user : $user->landlord,
                 'generated_at' => now()->format('F j, Y g:i A'),
                 'currency_symbol' => $currency->symbol(),
                 'currency_code' => $currency->value,

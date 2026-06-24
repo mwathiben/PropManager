@@ -25,12 +25,12 @@ class MeterPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->isLandlord() || $user->isCaretaker();
+        return $user->isScopeOwner() || $user->isCaretaker();
     }
 
     public function view(User $user, Meter $meter): bool
     {
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return $meter->landlord_id === $user->id;
         }
 
@@ -43,12 +43,12 @@ class MeterPolicy
 
     public function create(User $user): bool
     {
-        return $user->isLandlord();
+        return $user->isScopeOwner();
     }
 
     public function update(User $user, Meter $meter): bool
     {
-        return $user->isLandlord() && $meter->landlord_id === $user->id;
+        return $user->isScopeOwner() && $meter->landlord_id === $user->id;
     }
 
     public function replace(User $user, Meter $meter): bool

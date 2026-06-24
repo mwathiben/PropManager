@@ -18,36 +18,36 @@ class LandlordPayoutAccountPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->isLandlord();
+        return $user->isScopeOwner();
     }
 
     public function view(User $user, LandlordPayoutAccount $account): bool
     {
-        return $user->isLandlord() && $account->landlord_id === $user->id;
+        return $user->isScopeOwner() && $account->landlord_id === $user->id;
     }
 
     public function create(User $user): bool
     {
-        return $user->isLandlord();
+        return $user->isScopeOwner();
     }
 
     public function update(User $user, LandlordPayoutAccount $account): bool
     {
-        return $user->isLandlord() && $account->landlord_id === $user->id;
+        return $user->isScopeOwner() && $account->landlord_id === $user->id;
     }
 
     public function setPrimary(User $user, LandlordPayoutAccount $account): bool
     {
-        return $user->isLandlord() && $account->landlord_id === $user->id;
+        return $user->isScopeOwner() && $account->landlord_id === $user->id;
     }
 
     public function sync(User $user, LandlordPayoutAccount $account): bool
     {
-        return $user->isLandlord() && $account->landlord_id === $user->id;
+        return $user->isScopeOwner() && $account->landlord_id === $user->id;
     }
 
     public function delete(User $user, LandlordPayoutAccount $account): bool
     {
-        return $user->isLandlord() && $account->landlord_id === $user->id;
+        return $user->isScopeOwner() && $account->landlord_id === $user->id;
     }
 }

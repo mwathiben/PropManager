@@ -11,13 +11,13 @@ class ValidateBulkImportRequest extends FormRequest
     {
         $user = $this->user();
 
-        return $user && ($user->isLandlord() || $user->isCaretaker());
+        return $user && ($user->isScopeOwner() || $user->isCaretaker());
     }
 
     public function rules(): array
     {
         $user = $this->user();
-        $landlordId = $user->isLandlord() ? $user->id : $user->landlord_id;
+        $landlordId = $user->isScopeOwner() ? $user->id : $user->landlord_id;
 
         return [
             'file' => 'required|file|mimes:csv,txt|max:5120',

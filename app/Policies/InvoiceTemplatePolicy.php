@@ -18,7 +18,7 @@ class InvoiceTemplatePolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->isLandlord() || $user->isCaretaker();
+        return $user->isScopeOwner() || $user->isCaretaker();
     }
 
     public function view(User $user, InvoiceTemplate $template): bool
@@ -28,22 +28,22 @@ class InvoiceTemplatePolicy
 
     public function create(User $user): bool
     {
-        return $user->isLandlord();
+        return $user->isScopeOwner();
     }
 
     public function update(User $user, InvoiceTemplate $template): bool
     {
-        return $user->isLandlord() && $template->landlord_id === $user->id;
+        return $user->isScopeOwner() && $template->landlord_id === $user->id;
     }
 
     public function delete(User $user, InvoiceTemplate $template): bool
     {
-        return $user->isLandlord() && $template->landlord_id === $user->id;
+        return $user->isScopeOwner() && $template->landlord_id === $user->id;
     }
 
     protected function canManage(User $user, InvoiceTemplate $template): bool
     {
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return $template->landlord_id === $user->id;
         }
 

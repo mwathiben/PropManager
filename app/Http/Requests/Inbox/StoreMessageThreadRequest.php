@@ -34,7 +34,7 @@ class StoreMessageThreadRequest extends FormRequest
     public function rules(): array
     {
         $user = $this->user();
-        $landlordId = $user?->isLandlord() ? $user->id : $user?->landlord_id;
+        $landlordId = $user?->isScopeOwner() ? $user->id : $user?->landlord_id;
 
         return [
             'subject_type' => ['nullable', Rule::in(['lease', 'ticket'])],
@@ -71,7 +71,7 @@ class StoreMessageThreadRequest extends FormRequest
     public function landlordId(): int
     {
         $user = $this->user();
-        if ($user instanceof User && $user->isLandlord()) {
+        if ($user instanceof User && $user->isScopeOwner()) {
             return (int) $user->id;
         }
 

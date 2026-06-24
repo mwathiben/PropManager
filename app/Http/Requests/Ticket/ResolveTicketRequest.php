@@ -19,7 +19,7 @@ class ResolveTicketRequest extends FormRequest
             return false;
         }
 
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return (int) $ticket->landlord_id === (int) $user->id;
         }
 

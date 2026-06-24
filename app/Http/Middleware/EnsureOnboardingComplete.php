@@ -26,8 +26,8 @@ class EnsureOnboardingComplete
     {
         $user = auth()->user();
 
-        // Only check for authenticated landlords
-        if (! $user || ! $user->isLandlord()) {
+        // Only check for authenticated scope owners (landlords + managers)
+        if (! $user || ! $user->isScopeOwner()) {
             return $next($request);
         }
 

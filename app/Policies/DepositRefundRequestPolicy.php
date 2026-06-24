@@ -15,6 +15,6 @@ class DepositRefundRequestPolicy
 {
     public function manage(User $user, DepositRefundRequest $refund): bool
     {
-        return $user->isLandlord() && $refund->landlord_id === $user->id;
+        return $user->isScopeOwner() && $refund->landlord_id === $user->id;
     }
 }

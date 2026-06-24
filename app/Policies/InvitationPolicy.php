@@ -25,7 +25,7 @@ class InvitationPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->isLandlord();
+        return $user->isScopeOwner();
     }
 
     /**
@@ -33,7 +33,7 @@ class InvitationPolicy
      */
     public function view(User $user, Invitation $invitation): bool
     {
-        return $user->isLandlord() && $invitation->landlord_id === $user->id;
+        return $user->isScopeOwner() && $invitation->landlord_id === $user->id;
     }
 
     /**
@@ -41,7 +41,7 @@ class InvitationPolicy
      */
     public function create(User $user, ?Property $property = null): bool
     {
-        if (! $user->isLandlord()) {
+        if (! $user->isScopeOwner()) {
             return false;
         }
 
@@ -57,7 +57,7 @@ class InvitationPolicy
      */
     public function update(User $user, Invitation $invitation): bool
     {
-        return $user->isLandlord() && $invitation->landlord_id === $user->id;
+        return $user->isScopeOwner() && $invitation->landlord_id === $user->id;
     }
 
     /**
@@ -65,7 +65,7 @@ class InvitationPolicy
      */
     public function delete(User $user, Invitation $invitation): bool
     {
-        return $user->isLandlord() && $invitation->landlord_id === $user->id;
+        return $user->isScopeOwner() && $invitation->landlord_id === $user->id;
     }
 
     /**
@@ -73,7 +73,7 @@ class InvitationPolicy
      */
     public function resend(User $user, Invitation $invitation): bool
     {
-        return $user->isLandlord()
+        return $user->isScopeOwner()
             && $invitation->landlord_id === $user->id
             && ! $invitation->isAccepted();
     }

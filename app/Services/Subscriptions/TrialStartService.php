@@ -24,7 +24,7 @@ class TrialStartService
 {
     public function startTrialFor(User $landlord, int $days = 14): ?Subscription
     {
-        if (! $landlord->isLandlord()) {
+        if (! $landlord->isScopeOwner()) {
             return null;
         }
 
