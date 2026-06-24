@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\ClauseBinding;
+use App\Exceptions\DataIntegrityException;
 use App\Services\ManagementFee\FeeClauseParams;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -52,7 +53,11 @@ class AgreementClause extends Model
                 ->exists();
 
             if ($duplicate) {
-                throw new RuntimeException("An agreement may hold only one {$clause->binding->value} clause.");
+                throw new DataIntegrityException(
+                    "An agreement may hold only one {$clause->binding->value} clause.",
+                    'agreement.clause.duplicate_binding',
+                    ['binding' => $clause->binding->value],
+                );
             }
         });
     }

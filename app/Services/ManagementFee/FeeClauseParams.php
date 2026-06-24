@@ -70,7 +70,7 @@ final readonly class FeeClauseParams
     public function describe(): string
     {
         if ($this->type === ManagementFeeType::Percentage) {
-            return $this->trimZeros($this->value).'% of rent '.$this->base->value;
+            return $this->trimZeros($this->value).'% of rent '.($this->base ?? ManagementFeeBase::Collected)->value;
         }
 
         $amount = 'KES '.number_format($this->value, 0);

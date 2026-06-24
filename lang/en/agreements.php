@@ -48,4 +48,10 @@ return [
         'terminated' => 'Terminated',
     ],
     'draft_created' => 'Draft agreement created.',
+    'errors' => [
+        'duplicate_binding' => 'An agreement may include each kind of clause only once.',
+        'invalid_fee' => 'The management-fee terms are invalid — check the type and value.',
+        'missing_param' => 'Fill in the ":field" detail for this clause.',
+        'invalid_option' => 'The ":field" value is not allowed for this clause.',
+    ],
 ];

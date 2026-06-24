@@ -4,8 +4,10 @@ import { reactive, computed } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import { useI18n } from '@/composables/useI18n';
+import { useFormatters } from '@/composables/useFormatters';
 
 const { t } = useI18n();
+const { formatNumber } = useFormatters();
 
 const props = defineProps({
     owners: { type: Array, default: () => [] },
@@ -37,9 +39,12 @@ function defaultParams(clause) {
     return params;
 }
 
+// Best-effort live preview only — the server re-renders authoritatively on save
+// (recomputeRenderedBody) and the Show page displays that canonical body. Number
+// formatting here mirrors the server's so the two don't drift for the reader.
 function feeDescription(params) {
     if (params.type === 'flat') {
-        const amount = 'KES ' + Number(params.value || 0).toLocaleString();
+        const amount = 'KES ' + formatNumber(Number(params.value || 0));
         return params.flat_cadence === 'per_unit'
             ? `a flat ${amount} per occupied unit`
             : `a flat ${amount} per period`;
@@ -137,7 +142,7 @@ function submit() {
                                     </select>
                                 </label>
                                 <label class="text-xs text-gray-600">{{ t('agreements.compose.fee_value') }}
-                                    <input type="number" min="0" step="0.5" v-model="sel[clause.id].params.value" class="w-full rounded border-gray-300 text-sm" />
+                                    <input type="number" min="0" step="0.5" :max="sel[clause.id].params.type === 'percentage' ? 100 : undefined" v-model="sel[clause.id].params.value" class="w-full rounded border-gray-300 text-sm" />
                                 </label>
                             </div>
 

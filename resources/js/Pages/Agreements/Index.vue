@@ -2,8 +2,10 @@
 import { Head, Link } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { useI18n } from '@/composables/useI18n';
+import { useFormatters } from '@/composables/useFormatters';
 
 const { t } = useI18n();
+const { formatDate } = useFormatters();
 
 defineProps({
     agreements: { type: Object, default: () => ({ data: [] }) },
@@ -38,7 +40,7 @@ defineProps({
                 >
                     <span>
                         <span class="block text-sm font-medium text-gray-900">{{ agreement.title }}</span>
-                        <span class="block text-xs text-gray-500">{{ t('agreements.index.owner') }}: {{ agreement.owner_name }} · {{ agreement.created_at }}</span>
+                        <span class="block text-xs text-gray-500">{{ t('agreements.index.owner') }}: {{ agreement.owner_name }} · {{ formatDate(agreement.created_at) }}</span>
                     </span>
                     <span class="text-xs rounded-full bg-gray-100 px-2.5 py-1 text-gray-700">{{ t('agreements.status.' + agreement.status) }}</span>
                 </Link>

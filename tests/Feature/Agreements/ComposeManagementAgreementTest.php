@@ -106,4 +106,60 @@ class ComposeManagementAgreementTest extends TestCase
                 ->has('owners', 1)
                 ->has('clauses'));
     }
+
+    public function test_compose_rejects_a_fee_percentage_over_100(): void
+    {
+        $manager = $this->manager();
+        $owner = PropertyOwner::factory()->create(['landlord_id' => $manager->id]);
+
+        $this->actingAs($manager)
+            ->post(route('agreements.store'), [
+                'property_owner_id' => $owner->id,
+                'clauses' => [
+                    ['clause_id' => Clause::factory()->managementFee()->create()->id, 'params' => ['type' => 'percentage', 'value' => 150, 'base' => 'collected']],
+                ],
+            ])
+            ->assertSessionHasErrors('clauses.0.params');
+
+        $this->assertDatabaseMissing('management_agreements', ['property_owner_id' => $owner->id]);
+    }
+
+    public function test_compose_rejects_a_fee_with_no_type(): void
+    {
+        $manager = $this->manager();
+        $owner = PropertyOwner::factory()->create(['landlord_id' => $manager->id]);
+
+        $this->actingAs($manager)
+            ->post(route('agreements.store'), [
+                'property_owner_id' => $owner->id,
+                'clauses' => [
+                    ['clause_id' => Clause::factory()->managementFee()->create()->id, 'params' => ['value' => 8]],
+                ],
+            ])
+            ->assertSessionHasErrors('clauses.0.params');
+
+        $this->assertDatabaseMissing('management_agreements', ['property_owner_id' => $owner->id]);
+    }
+
+    public function test_compose_rejects_a_clause_with_a_blank_required_param(): void
+    {
+        $manager = $this->manager();
+        $owner = PropertyOwner::factory()->create(['landlord_id' => $manager->id]);
+        $clause = Clause::factory()->create([
+            'binding' => \App\Enums\ClauseBinding::Notice,
+            'params_schema' => [['name' => 'notice_days']],
+            'body_template' => 'Either party may end this agreement on {notice_days} days notice.',
+        ]);
+
+        $this->actingAs($manager)
+            ->post(route('agreements.store'), [
+                'property_owner_id' => $owner->id,
+                'clauses' => [
+                    ['clause_id' => $clause->id, 'params' => []],
+                ],
+            ])
+            ->assertSessionHasErrors('clauses.0.params.notice_days');
+
+        $this->assertDatabaseMissing('management_agreements', ['property_owner_id' => $owner->id]);
+    }
 }

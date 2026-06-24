@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\AgreementStatus;
 use App\Enums\ClauseBinding;
+use App\Exceptions\DataIntegrityException;
 use App\Traits\Auditable;
 use App\Traits\TenantScope;
 use Illuminate\Database\Eloquent\Builder;
@@ -92,7 +93,10 @@ class ManagementAgreement extends Model
     public function recomputeRenderedBody(): void
     {
         if ($this->status->isLocked()) {
-            throw new \RuntimeException('A signed agreement cannot be re-rendered; amend it instead.');
+            throw new DataIntegrityException(
+                'A signed agreement cannot be re-rendered; amend it instead.',
+                'agreement.locked',
+            );
         }
 
         $body = $this->agreementClauses()

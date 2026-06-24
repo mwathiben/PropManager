@@ -48,4 +48,10 @@ return [
         'terminated' => 'Imesitishwa',
     ],
     'draft_created' => 'Rasimu ya mkataba imeundwa.',
+    'errors' => [
+        'duplicate_binding' => 'Mkataba unaweza kujumuisha kila aina ya kifungu mara moja tu.',
+        'invalid_fee' => 'Masharti ya ada ya usimamizi si sahihi — angalia aina na thamani.',
+        'missing_param' => 'Jaza maelezo ya ":field" kwa kifungu hiki.',
+        'invalid_option' => 'Thamani ya ":field" hairuhusiwi kwa kifungu hiki.',
+    ],
 ];
