@@ -229,6 +229,7 @@ Route::middleware('auth')->group(function () {
     require __DIR__.'/web/notifications.php';
     require __DIR__.'/web/finances.php';
     require __DIR__.'/web/settings-access.php';
+    require __DIR__.'/web/agreements.php';
 });
 
 require __DIR__.'/web/admin.php';

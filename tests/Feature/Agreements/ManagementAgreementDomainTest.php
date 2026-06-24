@@ -6,6 +6,7 @@ namespace Tests\Feature\Agreements;
 
 use App\Enums\AgreementStatus;
 use App\Enums\ClauseBinding;
+use App\Exceptions\DataIntegrityException;
 use App\Models\Clause;
 use App\Models\ManagementAgreement;
 use App\Models\PropertyOwner;
@@ -86,7 +87,7 @@ class ManagementAgreementDomainTest extends TestCase
             'params' => ['type' => 'percentage', 'value' => 8, 'base' => 'collected'],
         ]);
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(DataIntegrityException::class);
         $agreement->agreementClauses()->create([
             'clause_id' => Clause::factory()->managementFee()->create()->id,
             'params' => ['type' => 'flat', 'value' => 5000],
@@ -103,7 +104,7 @@ class ManagementAgreementDomainTest extends TestCase
             'status' => AgreementStatus::Signed,
         ]);
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(DataIntegrityException::class);
         $agreement->recomputeRenderedBody();
     }
 
