@@ -14,6 +14,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             SubscriptionPlanSeeder::class,
             LegalDocumentSeeder::class,
+            ManagementClauseSeeder::class,
             KycRequirementSeeder::class,
             MoveOutDeductionCategorySeeder::class,
             HelpContentSeeder::class,
