@@ -11,7 +11,7 @@ class ReplaceMeterRequest extends FormRequest
     public function authorize(): bool
     {
         // The meter is route-bound; the controller authorizes 'replace' against it.
-        return $this->user()->isLandlord();
+        return $this->user()->isScopeOwner();
     }
 
     public function rules(): array

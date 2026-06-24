@@ -33,7 +33,11 @@ class WaterSettingsData
             ->orderBy('name')
             ->get();
 
-        $config = PaymentConfiguration::where('landlord_id', $landlordId)->first();
+        // A scope owner who hasn't configured water yet (common for a fresh
+        // manager) has no PaymentConfiguration row. Fall back to a blank model so
+        // the editor renders with defaults/nulls instead of reading a property
+        // on null — this is the first-time "enable water billing" entry point.
+        $config = PaymentConfiguration::where('landlord_id', $landlordId)->first() ?? new PaymentConfiguration;
         $defaultRate = (float) config('propmanager.water.default_rate', 150);
 
         return [

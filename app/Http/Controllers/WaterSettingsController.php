@@ -17,9 +17,10 @@ class WaterSettingsController extends Controller
     {
         $user = auth()->user();
 
-        // Phase-86 ROLE-SPLIT: water billing configuration is landlord-only.
-        // Caretakers record/review readings but do not set rates or billing type.
-        if (! $user->isLandlord()) {
+        // Phase-86 ROLE-SPLIT: water billing configuration is a scope-owner
+        // concern (landlord OR manager). Caretakers record/review readings but
+        // do not set rates or billing type.
+        if (! $user->isScopeOwner()) {
             abort(403, 'Access denied.');
         }
 

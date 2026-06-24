@@ -11,7 +11,7 @@ class StoreWaterClientInvitationRequest extends FormRequest
     public function authorize(): bool
     {
         // Connection ownership is enforced in the controller (route-bound model).
-        return $this->user()?->isLandlord() ?? false;
+        return $this->user()?->isScopeOwner() ?? false;
     }
 
     public function rules(): array
