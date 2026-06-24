@@ -54,7 +54,10 @@
         "messages": "Ujumbe",
         "inbox": "Sanduku la ujumbe",
         "legal_holds": "[TODO-sw] Legal holds",
-        "payments": "Malipo"
+        "payments": "Malipo",
+        "management_section": "Usimamizi",
+        "agreements": "Mikataba",
+        "owners": "Wamiliki"
     },
     "menu": {
         "account": "Akaunti",

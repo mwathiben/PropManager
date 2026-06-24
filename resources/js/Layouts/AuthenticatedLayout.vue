@@ -195,7 +195,11 @@ const navigationItems = computed(() => {
     }
 
     const role = user.value?.role;
-    if (role === 'landlord') {
+    // A manager runs properties on owners' behalf with landlord-equal access
+    // (isScopeOwner, Phase-1b), so it shares the operational nav and adds its
+    // own Management section. Without this branch a manager fell through to the
+    // empty default below.
+    if (role === 'landlord' || role === 'manager') {
         return [
             { name: t('nav.dashboard'), href: route('dashboard'), icon: HomeIcon, active: route().current('dashboard'), tour: 'nav-dashboard' },
 
@@ -220,6 +224,13 @@ const navigationItems = computed(() => {
             // FINANCES HUB (Already consolidated)
             { name: t('nav.finances'), href: route('finances.index'), icon: BanknotesIcon, active: route().current('finances.*'), badgeKey: 'invoices', badgeColor: 'bg-red-500', tour: 'nav-finances' },
             { name: t('nav.payments'), href: route('payments-hub.overview'), icon: CreditCardIcon, active: route().current('payments-hub.*') },
+
+            // MANAGEMENT (manager-only: agreements + the owners they act for)
+            ...(role === 'manager' ? [
+                { type: 'divider', label: t('nav.management_section') },
+                { name: t('nav.agreements'), href: route('agreements.index'), icon: DocumentTextIcon, active: route().current('agreements.*') },
+                { name: t('nav.owners'), href: route('owners.index'), icon: UsersIcon, active: route().current('owners.*') },
+            ] : []),
 
             // MAINTENANCE HUB (Consolidated)
             {

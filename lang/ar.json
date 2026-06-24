@@ -54,7 +54,10 @@
         "messages": "[TODO-ar] Messages",
         "inbox": "[TODO-ar] Inbox",
         "legal_holds": "[TODO-ar] Legal holds",
-        "payments": "المدفوعات"
+        "payments": "المدفوعات",
+        "management_section": "الإدارة",
+        "agreements": "الاتفاقيات",
+        "owners": "الملاك"
     },
     "menu": {
         "account": "الحساب",
