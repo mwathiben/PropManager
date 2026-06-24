@@ -54,7 +54,10 @@
         "messages": "Messages",
         "inbox": "Inbox",
         "legal_holds": "Legal holds",
-        "payments": "Payments"
+        "payments": "Payments",
+        "management_section": "Management",
+        "agreements": "Agreements",
+        "owners": "Owners"
     },
     "menu": {
         "account": "Account",
