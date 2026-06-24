@@ -9,6 +9,7 @@ use App\Models\MpesaB2cRequest;
 use App\Models\PaymentConfiguration;
 use App\Services\MpesaService;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
@@ -42,34 +43,65 @@ class DepositRefundPayoutService
             throw new \DomainException('Refund has no final_amount_cents.');
         }
 
-        $idempotencyKey = 'mpesa-b2c-refund-'.$refund->id;
+        [$row, $isNew] = $this->reservePayoutRow($refund, $phone, $amountCents);
 
-        $existing = MpesaB2cRequest::query()
-            ->withoutGlobalScopes()
-            ->where('source_type', DepositRefundRequest::class)
-            ->where('source_id', $refund->id)
-            ->whereIn('status', MpesaB2cRequest::OPEN_STATUSES)
-            ->first();
-        if ($existing !== null) {
-            return $existing;
+        // An open payout already exists — the money is already in flight,
+        // so do NOT fire a second B2C call.
+        if (! $isNew) {
+            return $row;
         }
 
-        $originator = (string) Str::uuid();
+        // The payout row is now durably committed. The real money movement is
+        // fired only AFTER commit, so a rolled-back transaction can never
+        // trigger an untracked B2C disbursement.
+        return $this->dispatchB2C($row, $refund, $phone, $amountCents);
+    }
 
-        $row = MpesaB2cRequest::create([
-            'landlord_id' => $refund->landlord_id,
-            'source_type' => DepositRefundRequest::class,
-            'source_id' => $refund->id,
-            'phone' => $phone,
-            'amount_cents' => $amountCents,
-            'reference' => 'DRR-'.$refund->id,
-            'remarks' => 'Deposit refund DRR-'.$refund->id,
-            'status' => MpesaB2cRequest::STATUS_QUEUED,
-            'originator_conversation_id' => $originator,
-        ]);
+    /**
+     * Reserve the durable payout record atomically. The idempotency re-check
+     * is locked inside the transaction so concurrent requests collapse to a
+     * single queued row.
+     *
+     * @return array{0: MpesaB2cRequest, 1: bool}
+     */
+    private function reservePayoutRow(DepositRefundRequest $refund, string $phone, int $amountCents): array
+    {
+        return DB::transaction(function () use ($refund, $phone, $amountCents) {
+            $existing = MpesaB2cRequest::query()
+                ->withoutGlobalScopes()
+                ->where('source_type', DepositRefundRequest::class)
+                ->where('source_id', $refund->id)
+                ->whereIn('status', MpesaB2cRequest::OPEN_STATUSES)
+                ->lockForUpdate()
+                ->first();
+            if ($existing !== null) {
+                return [$existing, false];
+            }
 
-        Cache::add($idempotencyKey, $row->id, now()->addHours(6));
+            $row = MpesaB2cRequest::create([
+                'landlord_id' => $refund->landlord_id,
+                'source_type' => DepositRefundRequest::class,
+                'source_id' => $refund->id,
+                'phone' => $phone,
+                'amount_cents' => $amountCents,
+                'reference' => 'DRR-'.$refund->id,
+                'remarks' => 'Deposit refund DRR-'.$refund->id,
+                'status' => MpesaB2cRequest::STATUS_QUEUED,
+                'originator_conversation_id' => (string) Str::uuid(),
+            ]);
 
+            Cache::add('mpesa-b2c-refund-'.$refund->id, $row->id, now()->addHours(6));
+
+            return [$row, true];
+        });
+    }
+
+    private function dispatchB2C(
+        MpesaB2cRequest $row,
+        DepositRefundRequest $refund,
+        string $phone,
+        int $amountCents,
+    ): MpesaB2cRequest {
         $config = PaymentConfiguration::query()
             ->withoutGlobalScopes()
             ->where('landlord_id', $refund->landlord_id)
@@ -78,11 +110,9 @@ class DepositRefundPayoutService
             $this->mpesa->withConfig($config);
         }
 
-        $amountKsh = (float) ($amountCents / 100);
-
         $response = $this->mpesa->initiateB2C(
             phone: $phone,
-            amount: $amountKsh,
+            amount: (float) ($amountCents / 100),
             reference: $row->reference,
             remarks: $row->remarks,
         );
