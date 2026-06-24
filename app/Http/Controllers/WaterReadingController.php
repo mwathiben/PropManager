@@ -212,7 +212,7 @@ class WaterReadingController extends Controller
         $user = auth()->user();
         $landlordId = $this->waterReadingService->getLandlordId($user);
 
-        if (! in_array($user->role, ['landlord', 'caretaker'])) {
+        if (! in_array($user->role, ['landlord', 'manager', 'caretaker'])) {
             abort(403, 'Unauthorized access to water reading photo.');
         }
 

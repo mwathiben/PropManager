@@ -12,7 +12,7 @@ class UpdateWaterAbstractionLimitRequest extends FormRequest
     {
         $building = $this->route('building');
 
-        return $this->user()->isLandlord()
+        return $this->user()->isScopeOwner()
             && $building !== null
             && (int) $building->landlord_id === (int) $this->user()->id;
     }

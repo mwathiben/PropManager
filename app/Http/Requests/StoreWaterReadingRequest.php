@@ -11,7 +11,7 @@ class StoreWaterReadingRequest extends FormRequest
     {
         $user = auth()->user();
 
-        return $user->isLandlord() || $user->isCaretaker();
+        return $user->isScopeOwner() || $user->isCaretaker();
     }
 
     public function rules(): array

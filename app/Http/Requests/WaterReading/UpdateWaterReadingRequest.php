@@ -19,7 +19,7 @@ class UpdateWaterReadingRequest extends FormRequest
             return false;
         }
 
-        if (! $user->isLandlord() && ! $user->isCaretaker()) {
+        if (! $user->isScopeOwner() && ! $user->isCaretaker()) {
             return false;
         }
 

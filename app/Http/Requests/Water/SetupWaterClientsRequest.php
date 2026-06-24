@@ -10,7 +10,7 @@ class SetupWaterClientsRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()->isLandlord();
+        return $this->user()->isScopeOwner();
     }
 
     public function rules(): array
