@@ -18,12 +18,12 @@ class RefundPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->isLandlord() || $user->isCaretaker();
+        return $user->isScopeOwner() || $user->isCaretaker();
     }
 
     public function view(User $user, Refund $refund): bool
     {
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return $refund->landlord_id === $user->id;
         }
 
@@ -36,7 +36,7 @@ class RefundPolicy
 
     public function create(User $user): bool
     {
-        return $user->isLandlord() || $user->isCaretaker();
+        return $user->isScopeOwner() || $user->isCaretaker();
     }
 
     public function update(User $user, Refund $refund): bool
@@ -66,7 +66,7 @@ class RefundPolicy
 
     private function isOwner(User $user, Refund $refund): bool
     {
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return $refund->landlord_id === $user->id;
         }
 

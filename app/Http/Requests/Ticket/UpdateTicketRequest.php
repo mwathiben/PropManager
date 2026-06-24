@@ -23,7 +23,7 @@ class UpdateTicketRequest extends FormRequest
             return (int) $ticket->reporter_id === (int) $user->id && $ticket->canBeEdited();
         }
 
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return (int) $ticket->landlord_id === (int) $user->id;
         }
 

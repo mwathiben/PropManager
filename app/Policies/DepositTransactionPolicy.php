@@ -18,12 +18,12 @@ class DepositTransactionPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->isLandlord() || $user->isCaretaker() || $user->isTenant();
+        return $user->isScopeOwner() || $user->isCaretaker() || $user->isTenant();
     }
 
     public function view(User $user, DepositTransaction $depositTransaction): bool
     {
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return $depositTransaction->landlord_id === $user->id;
         }
 
@@ -40,16 +40,16 @@ class DepositTransactionPolicy
 
     public function create(User $user): bool
     {
-        return $user->isLandlord() || $user->isCaretaker();
+        return $user->isScopeOwner() || $user->isCaretaker();
     }
 
     public function update(User $user, DepositTransaction $depositTransaction): bool
     {
-        return $user->isLandlord() && $depositTransaction->landlord_id === $user->id;
+        return $user->isScopeOwner() && $depositTransaction->landlord_id === $user->id;
     }
 
     public function delete(User $user, DepositTransaction $depositTransaction): bool
     {
-        return $user->isLandlord() && $depositTransaction->landlord_id === $user->id;
+        return $user->isScopeOwner() && $depositTransaction->landlord_id === $user->id;
     }
 }

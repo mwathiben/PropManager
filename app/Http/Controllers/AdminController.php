@@ -421,7 +421,7 @@ class AdminController extends Controller implements HasMiddleware
         // leases — pre-fix, an admin could accidentally lock out a real
         // landlord's tenants from rent payments by clicking the toggle.
         $isDeactivating = (bool) $user->email_verified_at;
-        if ($isDeactivating && $user->isLandlord()) {
+        if ($isDeactivating && $user->isScopeOwner()) {
             $hasActiveLeases = \App\Models\Lease::where('landlord_id', $user->id)
                 ->where('is_active', true)
                 ->exists();

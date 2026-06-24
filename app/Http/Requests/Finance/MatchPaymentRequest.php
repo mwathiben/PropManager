@@ -8,7 +8,7 @@ class MatchPaymentRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return auth()->user()->isLandlord() || auth()->user()->isCaretaker();
+        return auth()->user()->isScopeOwner() || auth()->user()->isCaretaker();
     }
 
     public function rules(): array

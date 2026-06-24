@@ -55,7 +55,7 @@ class MoveOutDeductionCategoryController extends Controller
         return Inertia::render('MoveOutCategories/Index', [
             'categories' => $categories,
             'buildings' => $buildings,
-            'canCreate' => $user->isLandlord(),
+            'canCreate' => $user->isScopeOwner(),
             'stats' => [
                 'total' => $allCategories->count(),
                 'active' => $allCategories->where('is_active', true)->count(),

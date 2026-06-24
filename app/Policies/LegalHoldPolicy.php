@@ -32,12 +32,12 @@ class LegalHoldPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->isLandlord();
+        return $user->isScopeOwner();
     }
 
     public function create(User $user, ?string $subjectType = null, ?int $subjectId = null): bool
     {
-        if (! $user->isLandlord()) {
+        if (! $user->isScopeOwner()) {
             return false;
         }
 
@@ -54,7 +54,7 @@ class LegalHoldPolicy
 
     public function release(User $user, LegalHold $hold): bool
     {
-        if (! $user->isLandlord()) {
+        if (! $user->isScopeOwner()) {
             return false;
         }
 
@@ -67,12 +67,12 @@ class LegalHoldPolicy
 
     public function auditExport(User $user): bool
     {
-        return $user->isLandlord();
+        return $user->isScopeOwner();
     }
 
     public function viewHistory(User $user, ?string $subjectType = null, ?int $subjectId = null): bool
     {
-        if (! $user->isLandlord()) {
+        if (! $user->isScopeOwner()) {
             return false;
         }
 

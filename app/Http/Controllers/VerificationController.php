@@ -53,7 +53,7 @@ class VerificationController extends Controller
         $user = auth()->user();
         // PRIV-8: pre-fix, a tenant could POST here and create a template
         // (TenantScope hides the read but doesn't gate the write).
-        if (! $user || (! $user->isLandlord() && ! $user->isCaretaker())) {
+        if (! $user || (! $user->isScopeOwner() && ! $user->isCaretaker())) {
             abort(403);
         }
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;

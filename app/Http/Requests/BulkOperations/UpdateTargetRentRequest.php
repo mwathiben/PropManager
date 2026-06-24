@@ -11,7 +11,7 @@ class UpdateTargetRentRequest extends FormRequest
     {
         $user = Auth::user();
 
-        return $user && ($user->isLandlord() || $user->isCaretaker());
+        return $user && ($user->isScopeOwner() || $user->isCaretaker());
     }
 
     public function rules(): array

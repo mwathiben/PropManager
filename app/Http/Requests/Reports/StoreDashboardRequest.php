@@ -16,7 +16,7 @@ class StoreDashboardRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return (bool) $this->user()?->isLandlord();
+        return (bool) $this->user()?->isScopeOwner();
     }
 
     public function rules(): array

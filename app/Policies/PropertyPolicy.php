@@ -24,7 +24,7 @@ class PropertyPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->isLandlord() || $user->isCaretaker();
+        return $user->isScopeOwner() || $user->isCaretaker();
     }
 
     /**
@@ -40,7 +40,7 @@ class PropertyPolicy
      */
     public function create(User $user): bool
     {
-        return $user->isLandlord();
+        return $user->isScopeOwner();
     }
 
     /**
@@ -48,7 +48,7 @@ class PropertyPolicy
      */
     public function update(User $user, Property $property): bool
     {
-        return $user->isLandlord() && $property->landlord_id === $user->id;
+        return $user->isScopeOwner() && $property->landlord_id === $user->id;
     }
 
     /**
@@ -56,7 +56,7 @@ class PropertyPolicy
      */
     public function delete(User $user, Property $property): bool
     {
-        return $user->isLandlord() && $property->landlord_id === $user->id;
+        return $user->isScopeOwner() && $property->landlord_id === $user->id;
     }
 
     /**
@@ -74,7 +74,7 @@ class PropertyPolicy
      */
     public function restore(User $user, Property $property): bool
     {
-        return $user->isLandlord() && $property->landlord_id === $user->id;
+        return $user->isScopeOwner() && $property->landlord_id === $user->id;
     }
 
     /**
@@ -82,7 +82,7 @@ class PropertyPolicy
      */
     protected function ownsOrManages(User $user, Property $property): bool
     {
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return $property->landlord_id === $user->id;
         }
 

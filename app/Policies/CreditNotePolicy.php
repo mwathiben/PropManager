@@ -48,6 +48,6 @@ class CreditNotePolicy
     {
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
 
-        return ($user->isLandlord() || $user->isCaretaker()) && $creditNote->landlord_id === $landlordId;
+        return ($user->isScopeOwner() || $user->isCaretaker()) && $creditNote->landlord_id === $landlordId;
     }
 }

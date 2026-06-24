@@ -18,13 +18,13 @@ class MoveOutDeductionCategoryPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->isLandlord() || $user->isCaretaker();
+        return $user->isScopeOwner() || $user->isCaretaker();
     }
 
     public function view(User $user, MoveOutDeductionCategory $category): bool
     {
         if ($category->isGlobal()) {
-            return $user->isLandlord() || $user->isCaretaker();
+            return $user->isScopeOwner() || $user->isCaretaker();
         }
 
         return $this->ownsCategory($user, $category);
@@ -32,7 +32,7 @@ class MoveOutDeductionCategoryPolicy
 
     public function create(User $user): bool
     {
-        return $user->isLandlord();
+        return $user->isScopeOwner();
     }
 
     public function update(User $user, MoveOutDeductionCategory $category): bool
@@ -41,7 +41,7 @@ class MoveOutDeductionCategoryPolicy
             return false;
         }
 
-        return $user->isLandlord() && $category->landlord_id === $user->id;
+        return $user->isScopeOwner() && $category->landlord_id === $user->id;
     }
 
     public function delete(User $user, MoveOutDeductionCategory $category): bool
@@ -50,12 +50,12 @@ class MoveOutDeductionCategoryPolicy
             return false;
         }
 
-        return $user->isLandlord() && $category->landlord_id === $user->id;
+        return $user->isScopeOwner() && $category->landlord_id === $user->id;
     }
 
     private function ownsCategory(User $user, MoveOutDeductionCategory $category): bool
     {
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return $category->landlord_id === $user->id;
         }
 

@@ -29,7 +29,7 @@ class TenantKycSubmissionPolicy
             return $submission->user_id === $user->id;
         }
 
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return $submission->landlord_id === $user->id;
         }
 
@@ -73,7 +73,7 @@ class TenantKycSubmissionPolicy
             return false;
         }
 
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return $submission->landlord_id === $user->id;
         }
 

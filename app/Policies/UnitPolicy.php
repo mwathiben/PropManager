@@ -24,7 +24,7 @@ class UnitPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->isLandlord() || $user->isCaretaker() || $user->isTenant();
+        return $user->isScopeOwner() || $user->isCaretaker() || $user->isTenant();
     }
 
     /**
@@ -40,7 +40,7 @@ class UnitPolicy
      */
     public function create(User $user): bool
     {
-        return $user->isLandlord() || $user->isCaretaker();
+        return $user->isScopeOwner() || $user->isCaretaker();
     }
 
     /**
@@ -56,7 +56,7 @@ class UnitPolicy
      */
     public function delete(User $user, Unit $unit): bool
     {
-        return $user->isLandlord() && $unit->landlord_id === $user->id;
+        return $user->isScopeOwner() && $unit->landlord_id === $user->id;
     }
 
     /**
@@ -74,7 +74,7 @@ class UnitPolicy
      */
     public function restore(User $user, Unit $unit): bool
     {
-        return $user->isLandlord() && $unit->landlord_id === $user->id;
+        return $user->isScopeOwner() && $unit->landlord_id === $user->id;
     }
 
     /**
@@ -90,7 +90,7 @@ class UnitPolicy
      */
     protected function hasAccess(User $user, Unit $unit): bool
     {
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return $unit->landlord_id === $user->id;
         }
 
@@ -113,7 +113,7 @@ class UnitPolicy
      */
     protected function canManage(User $user, Unit $unit): bool
     {
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return $unit->landlord_id === $user->id;
         }
 

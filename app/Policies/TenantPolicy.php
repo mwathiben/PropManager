@@ -33,7 +33,7 @@ class TenantPolicy
      */
     private function actorManagesTenant(User $actor, User $tenant): bool
     {
-        if (! $actor->isLandlord() && ! $actor->isCaretaker()) {
+        if (! $actor->isScopeOwner() && ! $actor->isCaretaker()) {
             return false;
         }
 
@@ -71,7 +71,7 @@ class TenantPolicy
      */
     public function viewAny(User $actor): bool
     {
-        return $actor->isLandlord() || $actor->isCaretaker();
+        return $actor->isScopeOwner() || $actor->isCaretaker();
     }
 
     /**

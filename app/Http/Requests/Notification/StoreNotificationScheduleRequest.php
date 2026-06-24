@@ -12,7 +12,7 @@ class StoreNotificationScheduleRequest extends FormRequest
     {
         $user = $this->user();
 
-        return $user && ($user->isLandlord() || $user->isCaretaker());
+        return $user && ($user->isScopeOwner() || $user->isCaretaker());
     }
 
     public function rules(): array

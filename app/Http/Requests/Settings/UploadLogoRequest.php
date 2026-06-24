@@ -8,7 +8,7 @@ class UploadLogoRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return auth()->user()->isLandlord();
+        return auth()->user()->isScopeOwner();
     }
 
     public function rules(): array

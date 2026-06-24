@@ -15,8 +15,8 @@ class VoidPaymentRequest extends FormRequest
             return false;
         }
 
-        // Only landlords can void payments (sensitive financial operation)
-        return $user->isLandlord();
+        // Only scope owners (landlords and managers) can void payments (sensitive financial operation)
+        return $user->isScopeOwner();
     }
 
     public function rules(): array

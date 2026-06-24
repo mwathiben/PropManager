@@ -25,7 +25,7 @@ class InvoicePolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->isLandlord() || $user->isCaretaker() || $user->isTenant();
+        return $user->isScopeOwner() || $user->isCaretaker() || $user->isTenant();
     }
 
     /**
@@ -33,7 +33,7 @@ class InvoicePolicy
      */
     public function view(User $user, Invoice $invoice): bool
     {
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return $invoice->landlord_id === $user->id;
         }
 
@@ -53,7 +53,7 @@ class InvoicePolicy
      */
     public function create(User $user): bool
     {
-        return $user->isLandlord() || $user->isCaretaker();
+        return $user->isScopeOwner() || $user->isCaretaker();
     }
 
     /**
@@ -74,7 +74,7 @@ class InvoicePolicy
             return false;
         }
 
-        return $user->isLandlord() && $invoice->landlord_id === $user->id;
+        return $user->isScopeOwner() && $invoice->landlord_id === $user->id;
     }
 
     /**
@@ -132,7 +132,7 @@ class InvoicePolicy
      */
     public function restore(User $user, Invoice $invoice): bool
     {
-        return $user->isLandlord() && $invoice->landlord_id === $user->id;
+        return $user->isScopeOwner() && $invoice->landlord_id === $user->id;
     }
 
     /**
@@ -140,7 +140,7 @@ class InvoicePolicy
      */
     protected function canManage(User $user, Invoice $invoice): bool
     {
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return $invoice->landlord_id === $user->id;
         }
 

@@ -18,7 +18,7 @@ class TenantPaymentVerificationPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->isLandlord() || $user->isCaretaker();
+        return $user->isScopeOwner() || $user->isCaretaker();
     }
 
     public function view(User $user, TenantPaymentVerification $verification): bool
@@ -70,7 +70,7 @@ class TenantPaymentVerificationPolicy
 
     protected function ownsVerification(User $user, TenantPaymentVerification $verification): bool
     {
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return $verification->landlord_id === $user->id;
         }
 
