@@ -21,7 +21,7 @@ class KycRequirementPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->isLandlord();
+        return $user->isScopeOwner();
     }
 
     public function view(User $user, KycRequirement $kycRequirement): bool
@@ -35,7 +35,7 @@ class KycRequirementPolicy
 
     public function create(User $user): bool
     {
-        return $user->isLandlord();
+        return $user->isScopeOwner();
     }
 
     public function update(User $user, KycRequirement $kycRequirement): bool

@@ -42,8 +42,9 @@ class WaterSettingsController extends Controller
     {
         $validated = $request->validated();
 
-        // Phase-86 ROLE-SPLIT: UpdateWaterSettingsRequest::authorize() restricts
-        // this to landlords, so the configured landlord is always the actor.
+        // UpdateWaterSettingsRequest::authorize() restricts this to scope owners
+        // (landlord or manager), so the configured account is always the actor's
+        // own id.
         $landlordId = (int) auth()->id();
 
         $defaultRate = config('propmanager.water.default_rate', 150);

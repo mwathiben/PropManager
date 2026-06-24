@@ -12,7 +12,7 @@ class RefundRequest extends FormRequest
     {
         $user = auth()->user();
 
-        if (! $user->isLandlord() && ! $user->isCaretaker()) {
+        if (! $user->isScopeOwner() && ! $user->isCaretaker()) {
             return false;
         }
 

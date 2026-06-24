@@ -24,7 +24,7 @@ class WaterReadingPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->isLandlord() || $user->isCaretaker() || $user->isTenant();
+        return $user->isScopeOwner() || $user->isCaretaker() || $user->isTenant();
     }
 
     /**
@@ -32,7 +32,7 @@ class WaterReadingPolicy
      */
     public function view(User $user, WaterReading $waterReading): bool
     {
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return $waterReading->landlord_id === $user->id;
         }
 
@@ -55,7 +55,7 @@ class WaterReadingPolicy
      */
     public function create(User $user): bool
     {
-        return $user->isLandlord() || $user->isCaretaker();
+        return $user->isScopeOwner() || $user->isCaretaker();
     }
 
     /**
@@ -89,8 +89,8 @@ class WaterReadingPolicy
      */
     public function approve(User $user, WaterReading $waterReading): bool
     {
-        // Only landlords can approve readings submitted by caretakers
-        return $user->isLandlord() && $waterReading->landlord_id === $user->id;
+        // Only scope-owners (landlords/managers) can approve readings submitted by caretakers
+        return $user->isScopeOwner() && $waterReading->landlord_id === $user->id;
     }
 
     /**
@@ -106,7 +106,7 @@ class WaterReadingPolicy
      */
     protected function canManage(User $user, WaterReading $waterReading): bool
     {
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return $waterReading->landlord_id === $user->id;
         }
 

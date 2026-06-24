@@ -24,7 +24,7 @@ class UserObserver
         // also call it from `updated` so the factory's post-insert role-set
         // pattern is covered. The recorder is idempotent.
         $user->refresh();
-        if ($user->role === 'landlord') {
+        if ($user->isScopeOwner()) {
             $this->createDefaultSchedules($user);
             // Phase-34 GROWTH-REFERRAL-1: assign a viral-loop code to
             // landlords on signup. Idempotent — service returns the
@@ -47,7 +47,7 @@ class UserObserver
     {
         $recorder = app(\App\Services\Onboarding\OnboardingMilestoneRecorder::class);
 
-        if ($user->role === 'landlord') {
+        if ($user->isScopeOwner()) {
             $recorder->record(
                 landlordId: (int) $user->id,
                 milestone: \App\Models\OnboardingMilestone::SIGNED_UP,

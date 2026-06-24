@@ -18,7 +18,7 @@ class ExpensePolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->isLandlord() || $user->isCaretaker();
+        return $user->isScopeOwner() || $user->isCaretaker();
     }
 
     public function view(User $user, Expense $expense): bool
@@ -28,7 +28,7 @@ class ExpensePolicy
 
     public function create(User $user): bool
     {
-        return $user->isLandlord() || $user->isCaretaker();
+        return $user->isScopeOwner() || $user->isCaretaker();
     }
 
     public function update(User $user, Expense $expense): bool
@@ -38,12 +38,12 @@ class ExpensePolicy
 
     public function delete(User $user, Expense $expense): bool
     {
-        return $user->isLandlord() && $expense->landlord_id === $user->id;
+        return $user->isScopeOwner() && $expense->landlord_id === $user->id;
     }
 
     private function ownsExpense(User $user, Expense $expense): bool
     {
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return $expense->landlord_id === $user->id;
         }
 

@@ -24,7 +24,7 @@ class BuildingPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->isLandlord() || $user->isCaretaker() || $user->isTenant();
+        return $user->isScopeOwner() || $user->isCaretaker() || $user->isTenant();
     }
 
     /**
@@ -40,7 +40,7 @@ class BuildingPolicy
      */
     public function create(User $user): bool
     {
-        return $user->isLandlord();
+        return $user->isScopeOwner();
     }
 
     /**
@@ -48,7 +48,7 @@ class BuildingPolicy
      */
     public function update(User $user, Building $building): bool
     {
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return $building->landlord_id === $user->id;
         }
 
@@ -69,7 +69,7 @@ class BuildingPolicy
             return false;
         }
 
-        return $user->isLandlord() && $building->landlord_id === $user->id;
+        return $user->isScopeOwner() && $building->landlord_id === $user->id;
     }
 
     /**
@@ -87,7 +87,7 @@ class BuildingPolicy
      */
     public function restore(User $user, Building $building): bool
     {
-        return $user->isLandlord() && $building->landlord_id === $user->id;
+        return $user->isScopeOwner() && $building->landlord_id === $user->id;
     }
 
     /**
@@ -95,7 +95,7 @@ class BuildingPolicy
      */
     public function manageUnits(User $user, Building $building): bool
     {
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return $building->landlord_id === $user->id;
         }
 
@@ -111,7 +111,7 @@ class BuildingPolicy
      */
     public function manageWaterSettings(User $user, Building $building): bool
     {
-        return $user->isLandlord() && $building->landlord_id === $user->id;
+        return $user->isScopeOwner() && $building->landlord_id === $user->id;
     }
 
     /**
@@ -119,7 +119,7 @@ class BuildingPolicy
      */
     protected function hasAccess(User $user, Building $building): bool
     {
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return $building->landlord_id === $user->id;
         }
 

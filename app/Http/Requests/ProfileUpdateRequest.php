@@ -38,8 +38,9 @@ class ProfileUpdateRequest extends FormRequest
             'profile_photo' => ['nullable', 'image', 'max:2048'], // 2MB max
         ];
 
-        // Add landlord-specific business profile rules
-        if ($this->user()->isLandlord()) {
+        // Add scope-owner business profile rules (a manager has its own business
+        // profile exactly like a self-managing landlord).
+        if ($this->user()->isScopeOwner()) {
             $rules['business_profile'] = ['nullable', 'array'];
             $rules['business_profile.company_name'] = ['nullable', 'string', 'max:255'];
             $rules['business_profile.business_registration_number'] = ['nullable', 'string', 'max:100'];

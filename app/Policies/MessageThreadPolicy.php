@@ -26,7 +26,7 @@ class MessageThreadPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->isLandlord() || $user->isCaretaker() || $user->isTenant();
+        return $user->isScopeOwner() || $user->isCaretaker() || $user->isTenant();
     }
 
     public function view(User $user, MessageThread $thread): bool
@@ -36,7 +36,7 @@ class MessageThreadPolicy
 
     public function create(User $user): bool
     {
-        return $user->isLandlord() || $user->isCaretaker() || $user->isTenant();
+        return $user->isScopeOwner() || $user->isCaretaker() || $user->isTenant();
     }
 
     public function reply(User $user, MessageThread $thread): bool
@@ -50,7 +50,7 @@ class MessageThreadPolicy
 
     public function archive(User $user, MessageThread $thread): bool
     {
-        if (! $user->isLandlord()) {
+        if (! $user->isScopeOwner()) {
             return false;
         }
 

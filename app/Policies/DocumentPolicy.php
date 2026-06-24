@@ -24,7 +24,7 @@ class DocumentPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->isLandlord() || $user->isCaretaker() || $user->isTenant();
+        return $user->isScopeOwner() || $user->isCaretaker() || $user->isTenant();
     }
 
     /**
@@ -32,7 +32,7 @@ class DocumentPolicy
      */
     public function view(User $user, Document $document): bool
     {
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return $document->landlord_id === $user->id;
         }
 
@@ -60,7 +60,7 @@ class DocumentPolicy
      */
     public function create(User $user): bool
     {
-        return $user->isLandlord() || $user->isCaretaker() || $user->isTenant();
+        return $user->isScopeOwner() || $user->isCaretaker() || $user->isTenant();
     }
 
     /**
@@ -73,7 +73,7 @@ class DocumentPolicy
             return true;
         }
 
-        return $user->isLandlord() && $document->landlord_id === $user->id;
+        return $user->isScopeOwner() && $document->landlord_id === $user->id;
     }
 
     /**
@@ -86,7 +86,7 @@ class DocumentPolicy
             return true;
         }
 
-        return $user->isLandlord() && $document->landlord_id === $user->id;
+        return $user->isScopeOwner() && $document->landlord_id === $user->id;
     }
 
     /**
@@ -116,6 +116,6 @@ class DocumentPolicy
             return true;
         }
 
-        return $user->isLandlord() && $document->landlord_id === $user->id;
+        return $user->isScopeOwner() && $document->landlord_id === $user->id;
     }
 }

@@ -24,16 +24,16 @@ class WaterProductionCostPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->isLandlord();
+        return $user->isScopeOwner();
     }
 
     public function create(User $user): bool
     {
-        return $user->isLandlord();
+        return $user->isScopeOwner();
     }
 
     public function delete(User $user, WaterProductionCost $cost): bool
     {
-        return $user->isLandlord() && $cost->landlord_id === $user->id;
+        return $user->isScopeOwner() && $cost->landlord_id === $user->id;
     }
 }

@@ -29,7 +29,7 @@ class UnsubscribeUrlResolver
             );
         }
 
-        if ($recipient->isLandlord() || $recipient->isCaretaker()) {
+        if ($recipient->isScopeOwner() || $recipient->isCaretaker()) {
             return route('notifications.settings');
         }
 

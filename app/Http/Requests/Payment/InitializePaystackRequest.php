@@ -26,7 +26,7 @@ class InitializePaystackRequest extends FormRequest
             return false;
         }
 
-        if ($user->isLandlord() || $user->isCaretaker()) {
+        if ($user->isScopeOwner() || $user->isCaretaker()) {
             $landlordId = $user->isCaretaker() ? (int) $user->landlord_id : (int) $user->id;
 
             return (int) $invoice->landlord_id === $landlordId;

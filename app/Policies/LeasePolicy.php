@@ -24,7 +24,7 @@ class LeasePolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->isLandlord() || $user->isCaretaker() || $user->isTenant();
+        return $user->isScopeOwner() || $user->isCaretaker() || $user->isTenant();
     }
 
     /**
@@ -32,7 +32,7 @@ class LeasePolicy
      */
     public function view(User $user, Lease $lease): bool
     {
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return $lease->landlord_id === $user->id;
         }
 
@@ -52,7 +52,7 @@ class LeasePolicy
      */
     public function create(User $user): bool
     {
-        return $user->isLandlord() || $user->isCaretaker();
+        return $user->isScopeOwner() || $user->isCaretaker();
     }
 
     /**
@@ -68,7 +68,7 @@ class LeasePolicy
      */
     public function delete(User $user, Lease $lease): bool
     {
-        return $user->isLandlord() && $lease->landlord_id === $user->id;
+        return $user->isScopeOwner() && $lease->landlord_id === $user->id;
     }
 
     /**
@@ -86,7 +86,7 @@ class LeasePolicy
      */
     public function restore(User $user, Lease $lease): bool
     {
-        return $user->isLandlord() && $lease->landlord_id === $user->id;
+        return $user->isScopeOwner() && $lease->landlord_id === $user->id;
     }
 
     /**
@@ -94,7 +94,7 @@ class LeasePolicy
      */
     public function adjustRent(User $user, Lease $lease): bool
     {
-        return $user->isLandlord() && $lease->landlord_id === $user->id;
+        return $user->isScopeOwner() && $lease->landlord_id === $user->id;
     }
 
     /**
@@ -118,7 +118,7 @@ class LeasePolicy
      */
     protected function canManage(User $user, Lease $lease): bool
     {
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return $lease->landlord_id === $user->id;
         }
 

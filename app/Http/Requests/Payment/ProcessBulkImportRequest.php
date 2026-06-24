@@ -11,7 +11,7 @@ class ProcessBulkImportRequest extends FormRequest
     {
         $user = $this->user();
 
-        return $user && ($user->isLandlord() || $user->isCaretaker());
+        return $user && ($user->isScopeOwner() || $user->isCaretaker());
     }
 
     public function rules(): array
@@ -28,7 +28,7 @@ class ProcessBulkImportRequest extends FormRequest
 
         if ($mode === 'historical') {
             $user = $this->user();
-            $landlordId = $user?->isLandlord() ? $user->id : $user?->landlord_id;
+            $landlordId = $user?->isScopeOwner() ? $user->id : $user?->landlord_id;
 
             return array_merge($baseRules, [
                 'payments.*.unit_id' => 'required|integer',

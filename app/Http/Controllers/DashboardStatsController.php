@@ -32,7 +32,7 @@ class DashboardStatsController extends Controller
         }
 
         $landlordId = match (true) {
-            $user->isLandlord() => $user->id,
+            $user->isScopeOwner() => $user->id,
             $user->isCaretaker() => $user->landlord_id,
             default => abort(403, 'You do not have permission to access this resource.'),
         };

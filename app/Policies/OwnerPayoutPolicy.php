@@ -22,12 +22,12 @@ class OwnerPayoutPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->isLandlord() || $user->isCaretaker();
+        return $user->isScopeOwner() || $user->isCaretaker();
     }
 
     public function view(User $user, OwnerPayout $payout): bool
     {
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return $payout->landlord_id === $user->id;
         }
 
@@ -40,11 +40,11 @@ class OwnerPayoutPolicy
 
     public function create(User $user): bool
     {
-        return $user->isLandlord();
+        return $user->isScopeOwner();
     }
 
     public function void(User $user, OwnerPayout $payout): bool
     {
-        return $user->isLandlord() && $payout->landlord_id === $user->id;
+        return $user->isScopeOwner() && $payout->landlord_id === $user->id;
     }
 }

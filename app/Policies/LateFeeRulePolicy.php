@@ -18,7 +18,7 @@ class LateFeeRulePolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->isLandlord() || $user->isCaretaker();
+        return $user->isScopeOwner() || $user->isCaretaker();
     }
 
     public function view(User $user, LateFeePolicy $lateFeePolicy): bool
@@ -28,22 +28,22 @@ class LateFeeRulePolicy
 
     public function create(User $user): bool
     {
-        return $user->isLandlord();
+        return $user->isScopeOwner();
     }
 
     public function update(User $user, LateFeePolicy $lateFeePolicy): bool
     {
-        return $user->isLandlord() && $lateFeePolicy->landlord_id === $user->id;
+        return $user->isScopeOwner() && $lateFeePolicy->landlord_id === $user->id;
     }
 
     public function delete(User $user, LateFeePolicy $lateFeePolicy): bool
     {
-        return $user->isLandlord() && $lateFeePolicy->landlord_id === $user->id;
+        return $user->isScopeOwner() && $lateFeePolicy->landlord_id === $user->id;
     }
 
     private function ownsPolicy(User $user, LateFeePolicy $lateFeePolicy): bool
     {
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return $lateFeePolicy->landlord_id === $user->id;
         }
 

@@ -16,6 +16,6 @@ class PaymentPlanPolicy
 {
     public function manage(User $user, PaymentPlan $plan): bool
     {
-        return $user->isLandlord() && $plan->landlord_id === $user->id;
+        return $user->isScopeOwner() && $plan->landlord_id === $user->id;
     }
 }

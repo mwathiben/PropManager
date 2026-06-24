@@ -18,7 +18,7 @@ class ImportPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->isLandlord() || $user->isCaretaker();
+        return $user->isScopeOwner() || $user->isCaretaker();
     }
 
     public function view(User $user, Import $import): bool
@@ -28,7 +28,7 @@ class ImportPolicy
 
     public function create(User $user): bool
     {
-        return $user->isLandlord() || $user->isCaretaker();
+        return $user->isScopeOwner() || $user->isCaretaker();
     }
 
     public function reprocess(User $user, Import $import): bool
@@ -54,7 +54,7 @@ class ImportPolicy
 
     private function isOwner(User $user, Import $import): bool
     {
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return $import->landlord_id === $user->id;
         }
 

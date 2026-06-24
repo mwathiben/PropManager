@@ -28,29 +28,29 @@ class SlaDefinitionPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->isLandlord();
+        return $user->isScopeOwner();
     }
 
     public function view(User $user, SlaDefinition $sla): bool
     {
-        // Landlords see their own rows + the read-only global cascade.
-        return $user->isLandlord()
+        // Scope owners see their own rows + the read-only global cascade.
+        return $user->isScopeOwner()
             && ($sla->landlord_id === null || $sla->landlord_id === $user->id);
     }
 
     public function create(User $user): bool
     {
-        return $user->isLandlord();
+        return $user->isScopeOwner();
     }
 
     public function update(User $user, SlaDefinition $sla): bool
     {
         // Cannot edit platform defaults — only your own overrides.
-        return $user->isLandlord() && $sla->landlord_id === $user->id;
+        return $user->isScopeOwner() && $sla->landlord_id === $user->id;
     }
 
     public function delete(User $user, SlaDefinition $sla): bool
     {
-        return $user->isLandlord() && $sla->landlord_id === $user->id;
+        return $user->isScopeOwner() && $sla->landlord_id === $user->id;
     }
 }

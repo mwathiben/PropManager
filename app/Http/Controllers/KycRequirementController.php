@@ -43,7 +43,7 @@ class KycRequirementController extends Controller
         return Inertia::render('Settings/KycRequirements', [
             'requirements' => $requirements,
             'buildings' => $buildings,
-            'canCreate' => $user->isLandlord(),
+            'canCreate' => $user->isScopeOwner(),
         ]);
     }
 

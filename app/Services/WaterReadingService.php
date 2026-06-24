@@ -341,6 +341,6 @@ class WaterReadingService
 
     public function getLandlordId(User $user): int
     {
-        return $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        return $user->isScopeOwner() ? $user->id : $user->landlord_id;
     }
 }

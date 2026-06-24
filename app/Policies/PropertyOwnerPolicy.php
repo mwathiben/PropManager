@@ -22,7 +22,7 @@ class PropertyOwnerPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->isLandlord() || $user->isCaretaker();
+        return $user->isScopeOwner() || $user->isCaretaker();
     }
 
     public function view(User $user, PropertyOwner $owner): bool
@@ -32,22 +32,22 @@ class PropertyOwnerPolicy
 
     public function create(User $user): bool
     {
-        return $user->isLandlord();
+        return $user->isScopeOwner();
     }
 
     public function update(User $user, PropertyOwner $owner): bool
     {
-        return $user->isLandlord() && $owner->landlord_id === $user->id;
+        return $user->isScopeOwner() && $owner->landlord_id === $user->id;
     }
 
     public function delete(User $user, PropertyOwner $owner): bool
     {
-        return $user->isLandlord() && $owner->landlord_id === $user->id;
+        return $user->isScopeOwner() && $owner->landlord_id === $user->id;
     }
 
     private function owns(User $user, PropertyOwner $owner): bool
     {
-        if ($user->isLandlord()) {
+        if ($user->isScopeOwner()) {
             return $owner->landlord_id === $user->id;
         }
 
