@@ -21,9 +21,9 @@ class TicketObserver
     {
         $user = Auth::user();
 
-        // Set landlord_id based on user role
+        // Set landlord_id based on user role (a manager is its own scope owner).
         if ($user) {
-            if ($user->isLandlord()) {
+            if ($user->isScopeOwner()) {
                 $ticket->landlord_id = $user->id;
             } elseif ($user->landlord_id) {
                 $ticket->landlord_id = $user->landlord_id;
