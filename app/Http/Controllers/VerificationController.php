@@ -6,10 +6,9 @@ use App\Models\Lease;
 use App\Models\Property;
 use App\Models\TenantActivity;
 use App\Models\TenantVerification;
-use App\Models\VerificationItem;
 use App\Models\VerificationTemplate;
+use App\Services\Verification\VerificationService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
 use Inertia\Inertia;
 
@@ -48,7 +47,7 @@ class VerificationController extends Controller
     /**
      * Store a new verification template
      */
-    public function storeTemplate(Request $request)
+    public function storeTemplate(Request $request, VerificationService $service)
     {
         $user = auth()->user();
         // PRIV-8: pre-fix, a tenant could POST here and create a template
@@ -76,39 +75,10 @@ class VerificationController extends Controller
         ]);
 
         try {
-            DB::beginTransaction();
-
-            // If setting as default, unset other defaults
-            if ($validated['is_default'] ?? false) {
-                VerificationTemplate::where('landlord_id', $landlordId)
-                    ->update(['is_default' => false]);
-            }
-
-            $template = VerificationTemplate::create([
-                'landlord_id' => $landlordId,
-                'property_id' => $validated['property_id'] ?? null,
-                'name' => $validated['name'],
-                'is_default' => $validated['is_default'] ?? false,
-            ]);
-
-            // Create items
-            foreach ($validated['items'] as $index => $item) {
-                VerificationItem::create([
-                    'verification_template_id' => $template->id,
-                    'name' => $item['name'],
-                    'document_type' => $item['document_type'] ?? null,
-                    'description' => $item['description'] ?? null,
-                    'is_required' => $item['is_required'] ?? true,
-                    'sort_order' => $index,
-                ]);
-            }
-
-            DB::commit();
+            $service->createTemplate($landlordId, $validated);
 
             return Redirect::back()->with('success', 'Verification template created successfully.');
         } catch (\Exception $e) {
-            DB::rollBack();
-
             return Redirect::back()->withErrors(['template' => 'Failed to create template.']);
         }
     }
@@ -116,7 +86,7 @@ class VerificationController extends Controller
     /**
      * Update a verification template
      */
-    public function updateTemplate(Request $request, VerificationTemplate $template)
+    public function updateTemplate(Request $request, VerificationTemplate $template, VerificationService $service)
     {
         $user = auth()->user();
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
@@ -138,59 +108,10 @@ class VerificationController extends Controller
         ]);
 
         try {
-            DB::beginTransaction();
-
-            // If setting as default, unset other defaults
-            if ($validated['is_default'] ?? false) {
-                VerificationTemplate::where('landlord_id', $landlordId)
-                    ->where('id', '!=', $template->id)
-                    ->update(['is_default' => false]);
-            }
-
-            $template->update([
-                'name' => $validated['name'],
-                'property_id' => $validated['property_id'] ?? null,
-                'is_default' => $validated['is_default'] ?? false,
-            ]);
-
-            // Get existing item IDs
-            $existingItemIds = $template->items->pluck('id')->toArray();
-            $newItemIds = collect($validated['items'])->pluck('id')->filter()->toArray();
-
-            // Delete removed items
-            $itemsToDelete = array_diff($existingItemIds, $newItemIds);
-            VerificationItem::whereIn('id', $itemsToDelete)->delete();
-
-            // Update/create items
-            foreach ($validated['items'] as $index => $itemData) {
-                if (isset($itemData['id']) && in_array($itemData['id'], $existingItemIds)) {
-                    // Update existing
-                    VerificationItem::where('id', $itemData['id'])->update([
-                        'name' => $itemData['name'],
-                        'document_type' => $itemData['document_type'] ?? null,
-                        'description' => $itemData['description'] ?? null,
-                        'is_required' => $itemData['is_required'] ?? true,
-                        'sort_order' => $index,
-                    ]);
-                } else {
-                    // Create new
-                    VerificationItem::create([
-                        'verification_template_id' => $template->id,
-                        'name' => $itemData['name'],
-                        'document_type' => $itemData['document_type'] ?? null,
-                        'description' => $itemData['description'] ?? null,
-                        'is_required' => $itemData['is_required'] ?? true,
-                        'sort_order' => $index,
-                    ]);
-                }
-            }
-
-            DB::commit();
+            $service->updateTemplate($template, $landlordId, $validated);
 
             return Redirect::back()->with('success', 'Template updated successfully.');
         } catch (\Exception $e) {
-            DB::rollBack();
-
             return Redirect::back()->withErrors(['template' => 'Failed to update template.']);
         }
     }
@@ -263,7 +184,7 @@ class VerificationController extends Controller
     /**
      * Start verification process for a lease using a template
      */
-    public function startVerification(Request $request, Lease $lease)
+    public function startVerification(Request $request, Lease $lease, VerificationService $service)
     {
         $user = auth()->user();
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
@@ -288,34 +209,10 @@ class VerificationController extends Controller
         }
 
         try {
-            DB::beginTransaction();
-
-            // Create verification records for each item in the template
-            foreach ($template->items as $item) {
-                TenantVerification::create([
-                    'landlord_id' => $landlordId,
-                    'lease_id' => $lease->id,
-                    'verification_item_id' => $item->id,
-                    'status' => 'pending',
-                ]);
-            }
-
-            // Log activity
-            TenantActivity::create([
-                'landlord_id' => $landlordId,
-                'tenant_id' => $lease->tenant_id,
-                'performed_by' => $user->id,
-                'type' => 'verification_started',
-                'description' => "Verification started using template: {$template->name}",
-                'metadata' => ['template_id' => $template->id, 'lease_id' => $lease->id],
-            ]);
-
-            DB::commit();
+            $service->startVerification($lease, $landlordId, $template, $user);
 
             return Redirect::back()->with('success', 'Verification process started.');
         } catch (\Exception $e) {
-            DB::rollBack();
-
             return Redirect::back()->withErrors(['template' => 'Failed to start verification.']);
         }
     }
@@ -366,7 +263,7 @@ class VerificationController extends Controller
     /**
      * Bulk update verifications
      */
-    public function bulkUpdateVerifications(Request $request, Lease $lease)
+    public function bulkUpdateVerifications(Request $request, Lease $lease, VerificationService $service)
     {
         $user = auth()->user();
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
@@ -383,39 +280,10 @@ class VerificationController extends Controller
         ]);
 
         try {
-            DB::beginTransaction();
-
-            foreach ($validated['verifications'] as $data) {
-                $verification = TenantVerification::findOrFail($data['id']);
-
-                if ($verification->landlord_id !== $landlordId) {
-                    continue;
-                }
-
-                $verification->update([
-                    'status' => $data['status'],
-                    'notes' => $data['notes'] ?? null,
-                    'verified_by' => $user->id,
-                    'verified_at' => in_array($data['status'], ['verified', 'rejected', 'waived']) ? now() : null,
-                ]);
-            }
-
-            // Log activity
-            TenantActivity::create([
-                'landlord_id' => $landlordId,
-                'tenant_id' => $lease->tenant_id,
-                'performed_by' => $user->id,
-                'type' => 'verification_bulk_update',
-                'description' => 'Bulk verification update performed',
-                'metadata' => ['lease_id' => $lease->id, 'count' => count($validated['verifications'])],
-            ]);
-
-            DB::commit();
+            $service->bulkUpdate($lease, $landlordId, $validated, $user);
 
             return Redirect::back()->with('success', 'Verifications updated.');
         } catch (\Exception $e) {
-            DB::rollBack();
-
             return Redirect::back()->withErrors(['verifications' => 'Failed to update verifications.']);
         }
     }
