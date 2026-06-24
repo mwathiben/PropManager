@@ -15,7 +15,7 @@ class TicketCommentFactory extends Factory
     {
         return [
             'ticket_id' => Ticket::factory(),
-            'landlord_id' => fn (array $attrs) => $attrs['ticket_id'] instanceof Ticket ? $attrs['ticket_id']->landlord_id : Ticket::factory()->make()->landlord_id,
+            'landlord_id' => fn (array $attrs) => $attrs['ticket_id'] instanceof Ticket ? $attrs['ticket_id']->landlord_id : Ticket::findOrFail($attrs['ticket_id'])->landlord_id,
             'user_id' => User::factory()->state(['role' => 'landlord']),
             'comment' => fake()->paragraph(),
             'is_internal' => false,

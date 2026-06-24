@@ -16,10 +16,9 @@ class MoveOutFactory extends Factory
         $depositHeld = fake()->numberBetween(15000, 50000);
 
         return [
-            'landlord_id' => fn (array $attrs) => isset($attrs['lease_id'])
-                ? Lease::find($attrs['lease_id'])?->landlord_id ?? User::factory()->state(['role' => 'landlord'])
-                : User::factory()->state(['role' => 'landlord']),
             'lease_id' => Lease::factory(),
+            'landlord_id' => fn (array $attrs) => Lease::find($attrs['lease_id'])?->landlord_id
+                ?? User::factory()->state(['role' => 'landlord']),
             'notice_date' => now(),
             'intended_move_out_date' => now()->addDays(30),
             'actual_move_out_date' => null,

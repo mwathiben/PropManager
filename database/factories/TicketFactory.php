@@ -21,9 +21,9 @@ class TicketFactory extends Factory
 
         return [
             'building_id' => Building::factory(),
-            'landlord_id' => fn (array $attrs) => $attrs['building_id'] instanceof Building ? $attrs['building_id']->landlord_id : Building::factory()->make()->landlord_id,
+            'landlord_id' => fn (array $attrs) => $attrs['building_id'] instanceof Building ? $attrs['building_id']->landlord_id : Building::findOrFail($attrs['building_id'])->landlord_id,
             'unit_id' => null,
-            'reporter_id' => null,
+            'reporter_id' => User::factory(),
             'assigned_to' => null,
             'category' => $category,
             'subcategory' => fake()->randomElement($subcategories),
