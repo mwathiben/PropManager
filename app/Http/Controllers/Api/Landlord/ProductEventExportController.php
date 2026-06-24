@@ -20,7 +20,7 @@ class ProductEventExportController extends Controller
     public function export(Request $request, XlsxExportService $xlsx): BinaryFileResponse
     {
         $user = $request->user();
-        $landlordId = $user->role === 'landlord' ? (int) $user->id : (int) $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         $events = ProductEvent::query()
             ->withoutGlobalScopes()

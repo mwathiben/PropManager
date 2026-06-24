@@ -15,11 +15,13 @@ use Tests\TestCase;
  * cannot regress.
  *
  * Two patterns are banned in scope-owner code:
- *  - Authorization GATES on isLandlord() (FormRequests, Policies) — silently
- *    403 the manager role.
- *  - Scope RESOLUTION by isLandlord() / role === 'landlord' (services,
- *    observers, broadcast channels) — must use isScopeOwner() so a manager
- *    resolves to its own scope rather than being mis-scoped or denied.
+ *  - Authorization GATES on isLandlord() (FormRequests, Policies, Controllers,
+ *    Providers' Gate::define resolvers, API Resource field-visibility checks)
+ *    — silently 403 the manager role or hide its in-scope data.
+ *  - Scope RESOLUTION by isLandlord() / role === 'landlord' (controllers,
+ *    services, observers, broadcast channels) — must use isScopeOwner() /
+ *    effectiveScopeId() so a manager resolves to its own scope rather than
+ *    being mis-scoped or denied.
  *
  * The ONLY escape hatch is INTENTIONALLY_LANDLORD_ONLY, which requires a
  * concrete justification and is reviewed.
@@ -34,8 +36,27 @@ class ManagerAuthzGateTest extends TestCase
      * @var list<string>
      */
     private const INTENTIONALLY_LANDLORD_ONLY = [
-        // (none) — managers are full scope owners; every landlord gate admits them.
+        // /register only ever mints landlord/caretaker/tenant — managers are
+        // provisioned through the admin flow, never self-registration — and the
+        // role check guards LandlordWelcome, which is landlord-specific
+        // onboarding copy. A manager reaching it must NOT receive that mail.
+        'Auth/RegisteredUserController.php',
+
+        // AuthServiceProvider defines the `manage-subscription` Gate as
+        // isLandlord()-only BY DESIGN (Phase-19 POLICY-5): a manager runs
+        // properties on the owners' behalf but does NOT own the platform
+        // subscription/billing relationship — only the account-owner landlord
+        // may manage it. EVERY other gate in this provider (the $manageGates
+        // set + view-audit-logs + viewApiDocs) admits managers via
+        // isScopeOwner(); this single landlord-only gate is pinned by
+        // ManagerProviderGatesTest::test_manager_is_denied_manage_subscription_gate.
+        'AuthServiceProvider.php',
     ];
+
+    public function test_no_controller_gates_on_landlord_role(): void
+    {
+        $this->assertNoLandlordOnlyIn(app_path('Http/Controllers'), 'Controller');
+    }
 
     public function test_no_form_request_gates_on_landlord_role(): void
     {
@@ -60,6 +81,22 @@ class ManagerAuthzGateTest extends TestCase
     public function test_no_broadcast_channel_resolves_scope_by_landlord_role(): void
     {
         $this->assertNoLandlordOnlyIn(app_path('Broadcasting'), 'Broadcast channel');
+    }
+
+    public function test_no_provider_gates_on_landlord_role(): void
+    {
+        // Cross-cutting Gate::define() resolvers live here (AuthServiceProvider).
+        // A manager is a scope owner and must pass every scope-owner ability —
+        // the only landlord-only exception (manage-subscription) is hatched in
+        // INTENTIONALLY_LANDLORD_ONLY with justification.
+        $this->assertNoLandlordOnlyIn(app_path('Providers'), 'Provider');
+    }
+
+    public function test_no_resource_gates_on_landlord_role(): void
+    {
+        // API Resources gate PII/field visibility by role (e.g. TenantResource).
+        // A manager must see tenant data in its own scope, same as a landlord.
+        $this->assertNoLandlordOnlyIn(app_path('Http/Resources'), 'API Resource');
     }
 
     private function assertNoLandlordOnlyIn(string $dir, string $kind): void

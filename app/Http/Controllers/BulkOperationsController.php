@@ -33,7 +33,7 @@ class BulkOperationsController extends Controller
     public function index(Request $request): Response
     {
         $user = auth()->user();
-        $landlordId = $user->isScopeOwner() ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         // Get properties and buildings for filters (including wings)
         $properties = Property::where('landlord_id', $landlordId)
@@ -85,7 +85,7 @@ class BulkOperationsController extends Controller
         // chain so a future data desync between lease.landlord_id and
         // unit.building.property.landlord_id can't sneak past the validator.
         $user = auth()->user();
-        $landlordId = $user->isScopeOwner() ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         $count = Lease::whereIn('id', $leaseIds)
             ->where('landlord_id', $landlordId)
@@ -126,7 +126,7 @@ class BulkOperationsController extends Controller
         }
 
         $user = auth()->user();
-        $landlordId = $user->isScopeOwner() ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         // RATE-4: serialize concurrent bulk-rent-adjust requests per
         // landlord so a double-click can't race on the same lease set.
@@ -170,7 +170,7 @@ class BulkOperationsController extends Controller
         }
 
         $user = auth()->user();
-        $landlordId = $user->isScopeOwner() ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         $results = [
             'total' => count($validated['unit_ids']),
@@ -233,7 +233,7 @@ class BulkOperationsController extends Controller
         }
 
         $user = auth()->user();
-        $landlordId = $user->isScopeOwner() ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         $results = [
             'total' => count($validated['lease_ids']),
@@ -343,7 +343,7 @@ class BulkOperationsController extends Controller
         }
 
         $user = auth()->user();
-        $landlordId = $user->isScopeOwner() ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         $results = [
             'total' => count($validated['lease_ids']),
@@ -450,7 +450,7 @@ class BulkOperationsController extends Controller
         }
 
         $user = auth()->user();
-        $landlordId = $user->isScopeOwner() ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         $results = [
             'total' => count($validated['lease_ids']),
@@ -544,7 +544,7 @@ class BulkOperationsController extends Controller
         }
 
         $user = auth()->user();
-        $landlordId = $user->isScopeOwner() ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         $results = [
             'total' => count($validated['unit_ids']),
@@ -619,7 +619,7 @@ class BulkOperationsController extends Controller
         }
 
         $user = auth()->user();
-        $landlordId = $user->isScopeOwner() ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         $results = [
             'total' => count($validated['updates']),

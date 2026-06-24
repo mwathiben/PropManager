@@ -15,10 +15,9 @@ class TenantVerificationFactory extends Factory
     public function definition(): array
     {
         return [
-            'landlord_id' => fn (array $attrs) => isset($attrs['lease_id'])
-                ? Lease::find($attrs['lease_id'])?->landlord_id ?? User::factory()->state(['role' => 'landlord'])
-                : User::factory()->state(['role' => 'landlord']),
             'lease_id' => Lease::factory(),
+            'landlord_id' => fn (array $attrs) => Lease::find($attrs['lease_id'])?->landlord_id
+                ?? User::factory()->state(['role' => 'landlord']),
             'verification_item_id' => VerificationItem::factory(),
             'status' => 'pending',
             'notes' => null,

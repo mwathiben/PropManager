@@ -198,9 +198,10 @@ class AuthServiceProvider extends ServiceProvider
             return $user->isSuperAdmin();
         });
 
-        // Gate for viewing audit logs
+        // Gate for viewing audit logs. MANAGER-AUTHZ-2: a manager is a scope
+        // owner and must see its own scope's audit trail, same as a landlord.
         Gate::define('view-audit-logs', function ($user) {
-            return $user->isSuperAdmin() || $user->isLandlord();
+            return $user->isSuperAdmin() || $user->isScopeOwner();
         });
 
         // Phase-18 AUTHZ-1: removed 5 dead Gates that had zero call
@@ -219,19 +220,25 @@ class AuthServiceProvider extends ServiceProvider
         // inline `$user->role !== 'landlord'` checks that bypassed the
         // Gate layer (and therefore bypassed Phase-13 DPA-4 restriction
         // enforcement; a restricted landlord could previously still
-        // initiate a paid subscription). Landlord-only by design;
-        // restricted landlord blocked by DPA-4 hook above.
+        // initiate a paid subscription). Landlord-only BY DESIGN — this is
+        // the one gate in this provider that must NOT widen to managers:
+        // a manager runs properties on owners' behalf but does NOT own the
+        // platform billing relationship. This is why AuthServiceProvider.php
+        // is hatched in ManagerAuthzGateTest::INTENTIONALLY_LANDLORD_ONLY and
+        // pinned by ManagerProviderGatesTest::test_manager_is_denied_manage_subscription_gate.
+        // Restricted landlord blocked by DPA-4 hook above.
         Gate::define('manage-subscription', function ($user) {
             return $user->isLandlord();
         });
 
         // Phase-25 API-DOC-2: Scramble's `/docs/api` UI is gated by
         // its RestrictedDocsAccess middleware which calls
-        // Gate::allows('viewApiDocs'). Allow landlords + super-admins
-        // — tenants don't need API docs and the docs surface our
-        // server routes which should not be browsable by tenants.
+        // Gate::allows('viewApiDocs'). Allow scope owners (landlord +
+        // manager) + super-admins — tenants don't need API docs and the
+        // docs surface our server routes which should not be browsable
+        // by tenants. MANAGER-AUTHZ-2: managers see their own scope's docs.
         Gate::define('viewApiDocs', function ($user) {
-            return $user->isLandlord() || $user->isSuperAdmin();
+            return $user->isScopeOwner() || $user->isSuperAdmin();
         });
 
         // Phase-19 POLICY-7 + Phase-20 AUTHZ-FRONT-8: every Sanctum
@@ -284,19 +291,23 @@ class AuthServiceProvider extends ServiceProvider
         // DPA-4 restriction applies automatically via the Gate::before
         // hook above — restricted landlords/caretakers/super-admins
         // see false for any of these abilities.
+        //
+        // MANAGER-AUTHZ-2: the resolver is isScopeOwner() (landlord + manager),
+        // not isLandlord() — a manager is a full scope owner and these *:manage
+        // abilities are its core job. The `|| isCaretaker()` grant is unchanged.
         $manageGates = [
-            'tenants:manage' => fn ($user) => $user->isLandlord() || $user->isCaretaker(),
-            'invoices:manage' => fn ($user) => $user->isLandlord() || $user->isCaretaker(),
-            'payments:manage' => fn ($user) => $user->isLandlord() || $user->isCaretaker(),
-            'properties:manage' => fn ($user) => $user->isLandlord(),
-            'buildings:manage' => fn ($user) => $user->isLandlord(),
-            'units:manage' => fn ($user) => $user->isLandlord(),
-            'documents:manage' => fn ($user) => $user->isLandlord() || $user->isCaretaker(),
-            'settings:manage' => fn ($user) => $user->isLandlord(),
-            'team:manage' => fn ($user) => $user->isLandlord(),
-            'templates:manage' => fn ($user) => $user->isLandlord(),
-            'finances:manage' => fn ($user) => $user->isLandlord(),
-            'imports:manage' => fn ($user) => $user->isLandlord(),
+            'tenants:manage' => fn ($user) => $user->isScopeOwner() || $user->isCaretaker(),
+            'invoices:manage' => fn ($user) => $user->isScopeOwner() || $user->isCaretaker(),
+            'payments:manage' => fn ($user) => $user->isScopeOwner() || $user->isCaretaker(),
+            'properties:manage' => fn ($user) => $user->isScopeOwner(),
+            'buildings:manage' => fn ($user) => $user->isScopeOwner(),
+            'units:manage' => fn ($user) => $user->isScopeOwner(),
+            'documents:manage' => fn ($user) => $user->isScopeOwner() || $user->isCaretaker(),
+            'settings:manage' => fn ($user) => $user->isScopeOwner(),
+            'team:manage' => fn ($user) => $user->isScopeOwner(),
+            'templates:manage' => fn ($user) => $user->isScopeOwner(),
+            'finances:manage' => fn ($user) => $user->isScopeOwner(),
+            'imports:manage' => fn ($user) => $user->isScopeOwner(),
         ];
         foreach ($manageGates as $ability => $resolver) {
             Gate::define($ability, $resolver);

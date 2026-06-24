@@ -5,13 +5,14 @@ namespace App\Models;
 use App\Traits\Auditable;
 use App\Traits\TenantScope;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class LandlordPayoutAccount extends Model
 {
-    use Auditable, TenantScope;
+    use Auditable, HasFactory, TenantScope;
 
     /**
      * AUDIT-4: never write the full account number to the AuditLog —

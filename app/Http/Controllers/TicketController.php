@@ -204,7 +204,7 @@ class TicketController extends Controller
         }
 
         // Additional security: ensure ticket belongs to user's landlord context
-        $landlordId = $user->isLandlord() ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
         if ($ticket->landlord_id !== $landlordId) {
             abort(404);
         }

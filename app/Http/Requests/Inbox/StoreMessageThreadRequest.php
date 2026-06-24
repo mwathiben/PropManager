@@ -34,7 +34,7 @@ class StoreMessageThreadRequest extends FormRequest
     public function rules(): array
     {
         $user = $this->user();
-        $landlordId = $user?->isScopeOwner() ? $user->id : $user?->landlord_id;
+        $landlordId = $user?->effectiveScopeIdOrNull();
 
         return [
             'subject_type' => ['nullable', Rule::in(['lease', 'ticket'])],

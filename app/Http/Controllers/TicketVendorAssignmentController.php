@@ -27,7 +27,7 @@ class TicketVendorAssignmentController extends Controller
 
     public function store(Request $request, Ticket $ticket): RedirectResponse
     {
-        $landlordId = Auth::user()->isLandlord() ? Auth::id() : Auth::user()->landlord_id;
+        $landlordId = Auth::user()->effectiveScopeId();
 
         $validated = $request->validate([
             'vendor_id' => [
@@ -53,7 +53,7 @@ class TicketVendorAssignmentController extends Controller
      */
     public function suggest(Request $request, Ticket $ticket): JsonResponse
     {
-        $landlordId = Auth::user()->isLandlord() ? Auth::id() : Auth::user()->landlord_id;
+        $landlordId = Auth::user()->effectiveScopeId();
         if ((int) $ticket->landlord_id !== (int) $landlordId) {
             abort(403);
         }

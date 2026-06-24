@@ -66,7 +66,7 @@ class NotificationsController extends Controller
     public function index(Request $request): Response
     {
         $user = auth()->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         // Building/Wing filter
         $buildingId = $request->filled('building_id') ? (int) $request->building_id : null;
@@ -142,7 +142,7 @@ class NotificationsController extends Controller
         $validated = $request->validated();
 
         $user = auth()->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         if ($validated['send_immediately'] ?? false) {
             // Send immediately
@@ -176,7 +176,7 @@ class NotificationsController extends Controller
         $validated = $request->validated();
 
         $user = auth()->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         $channels = $validated['channels'] ?? ['email', 'sms', 'whatsapp'];
 
@@ -200,7 +200,7 @@ class NotificationsController extends Controller
     public function sendRentReminders(Request $request): RedirectResponse
     {
         $user = auth()->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         $sent = $this->bulkReminderDispatcher->dispatchRentReminders($landlordId);
 
@@ -210,7 +210,7 @@ class NotificationsController extends Controller
     public function sendArrearsNotices(Request $request): RedirectResponse
     {
         $user = auth()->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         $sent = $this->bulkReminderDispatcher->dispatchArrearsNotices($landlordId);
 
@@ -304,7 +304,7 @@ class NotificationsController extends Controller
     {
         // Authorization check
         $user = auth()->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         if ($notification->landlord_id !== $landlordId) {
             abort(403, 'Unauthorized');
@@ -319,7 +319,7 @@ class NotificationsController extends Controller
     {
         // Authorization check
         $user = auth()->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         if ($notification->landlord_id !== $landlordId) {
             abort(403, 'Unauthorized');
@@ -345,7 +345,7 @@ class NotificationsController extends Controller
     {
         // Authorization check
         $user = auth()->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         if ($notification->landlord_id !== $landlordId) {
             abort(403, 'Unauthorized');
@@ -366,7 +366,7 @@ class NotificationsController extends Controller
     public function settings(Request $request): Response
     {
         $user = auth()->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         $providerCollector = app(ProviderStatusCollector::class);
 
@@ -388,7 +388,7 @@ class NotificationsController extends Controller
     public function updateProviderSettings(Request $request, string $provider): RedirectResponse
     {
         $user = auth()->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         $this->settingsService->updateProvider($request, $provider, $landlordId);
 
@@ -400,7 +400,7 @@ class NotificationsController extends Controller
         $validated = $request->validated();
 
         $user = auth()->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         foreach ($validated['templates'] as $template) {
             if (! empty($template['sid'])) {
@@ -422,7 +422,7 @@ class NotificationsController extends Controller
     public function testProvider(Request $request, string $provider): JsonResponse
     {
         $user = auth()->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         try {
             $result = match ($provider) {
@@ -446,7 +446,7 @@ class NotificationsController extends Controller
     public function checkSetupStatus(): JsonResponse
     {
         $user = auth()->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         return response()->json([
             'complete' => $this->settingsService->isSetupComplete($landlordId),
@@ -469,7 +469,7 @@ class NotificationsController extends Controller
     public function overview(Request $request): Response
     {
         $user = auth()->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         // Get statistics
         $stats = [
@@ -523,7 +523,7 @@ class NotificationsController extends Controller
     public function completeSetup(Request $request): RedirectResponse
     {
         $user = auth()->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         $this->configRepository->markSetupComplete($landlordId);
 
@@ -536,7 +536,7 @@ class NotificationsController extends Controller
     public function getGlobalPreferences(): JsonResponse
     {
         $user = auth()->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         return response()->json([
             'preferences' => $this->settingsService->loadGlobalPreferences($landlordId),
@@ -546,7 +546,7 @@ class NotificationsController extends Controller
     public function updateGlobalPreferences(UpdateGlobalPreferencesRequest $request): RedirectResponse
     {
         $user = auth()->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         $this->settingsService->updateGlobalDefaults($request->validated(), $landlordId);
 

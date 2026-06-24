@@ -4,12 +4,12 @@ namespace App\Models;
 
 use App\Models\Concerns\RowVersion;
 use App\Traits\TenantScope;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class TicketComment extends Model
 {
-    use RowVersion;
-    use TenantScope;
+    use HasFactory, RowVersion, TenantScope;
 
     protected $fillable = [
         'version',

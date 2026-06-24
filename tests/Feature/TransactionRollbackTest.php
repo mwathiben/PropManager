@@ -3,15 +3,27 @@
 namespace Tests\Feature;
 
 use App\Enums\InvoiceStatus;
+use App\Enums\MoveOutStatus;
 use App\Mail\PaymentReceived;
+use App\Models\DepositRefundRequest;
 use App\Models\Invoice;
 use App\Models\LateFee;
 use App\Models\LateFeePolicy;
+use App\Models\MoveOut;
+use App\Models\MpesaB2cRequest;
 use App\Models\Payment;
+use App\Models\Subscription;
+use App\Models\SubscriptionPlan;
+use App\Models\TenantActivity;
+use App\Services\Finance\DepositSettlementService;
 use App\Services\LateFeeService;
+use App\Services\Mpesa\DepositRefundPayoutService;
+use App\Services\MpesaService;
+use App\Services\SubscriptionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Mockery;
 use Tests\TestCase;
 use Tests\Traits\CreatesTestData;
 
@@ -248,5 +260,172 @@ class TransactionRollbackTest extends TestCase
 
         Mail::assertQueued(PaymentReceived::class);
         $this->assertEquals(1, Payment::where('reference', 'TEST-COMMIT-REF')->count());
+    }
+
+    public function test_subscription_record_payment_rolls_back_payment_when_extension_fails(): void
+    {
+        $setup = $this->createLandlordWithFullSetup();
+        $landlord = $setup['landlord'];
+
+        $plan = SubscriptionPlan::factory()->create();
+        $subscription = Subscription::factory()->forUser($landlord)->forPlan($plan)->monthly()->create();
+
+        // Force the second write (period extension) to fail mid-sequence.
+        Subscription::updating(function () {
+            throw new \RuntimeException('forced extension failure');
+        });
+
+        $reference = 'SUB-ROLLBACK-001';
+
+        try {
+            app(SubscriptionService::class)->recordPayment($subscription, [
+                'amount' => 2500,
+                'currency' => 'KES',
+                'payment_method' => 'paystack',
+                'reference' => $reference,
+            ]);
+            $this->fail('Expected the forced extension failure to bubble up.');
+        } catch (\RuntimeException $e) {
+            $this->assertSame('forced extension failure', $e->getMessage());
+        }
+
+        $this->assertDatabaseMissing('subscription_payments', ['reference' => $reference]);
+    }
+
+    public function test_b2c_payout_money_movement_fires_only_after_commit(): void
+    {
+        $refund = $this->approvedRefundForB2c();
+
+        // RefreshDatabase wraps each test in an outer transaction, so the
+        // baseline nesting level is not necessarily 0. The money movement
+        // must fire back at THIS baseline — i.e. outside the payout's own
+        // (one-level-deeper) row-write transaction.
+        $baselineLevel = DB::transactionLevel();
+
+        $mpesa = Mockery::mock(MpesaService::class);
+        $mpesa->shouldReceive('withConfig')->andReturnSelf();
+        $mpesa->shouldReceive('initiateB2C')->once()->andReturnUsing(function () use ($baselineLevel) {
+            $this->assertSame(
+                $baselineLevel,
+                DB::transactionLevel(),
+                'initiateB2C must fire after the payout transaction commits, not nested inside it.',
+            );
+
+            return ['ConversationID' => 'AG_AFTERCOMMIT'];
+        });
+        $this->app->instance(MpesaService::class, $mpesa);
+
+        $row = app(DepositRefundPayoutService::class)->payout($refund, '+254712345678');
+
+        $this->assertSame(MpesaB2cRequest::STATUS_SENT, $row->status);
+    }
+
+    public function test_b2c_payout_does_not_move_money_when_row_write_rolls_back(): void
+    {
+        $refund = $this->approvedRefundForB2c();
+
+        $mpesa = Mockery::mock(MpesaService::class);
+        $mpesa->shouldReceive('withConfig')->andReturnSelf();
+        $mpesa->shouldReceive('initiateB2C')->never();
+        $this->app->instance(MpesaService::class, $mpesa);
+
+        // Force the durable payout row write to fail inside the transaction.
+        MpesaB2cRequest::creating(function () {
+            throw new \RuntimeException('forced row failure');
+        });
+
+        try {
+            app(DepositRefundPayoutService::class)->payout($refund, '+254712345678');
+            $this->fail('Expected the forced row failure to bubble up.');
+        } catch (\RuntimeException $e) {
+            $this->assertSame('forced row failure', $e->getMessage());
+        }
+
+        $this->assertDatabaseMissing('mpesa_b2c_requests', ['source_id' => $refund->id]);
+    }
+
+    public function test_move_out_completion_is_atomic_when_settlement_fails(): void
+    {
+        $setup = $this->createLandlordWithFullSetup();
+        $landlord = $setup['landlord'];
+        $unit = $setup['units']->first();
+
+        ['lease' => $lease] = $this->createTenantWithActiveLease($landlord, $unit);
+        $unit->update(['status' => 'occupied']);
+
+        $moveOut = MoveOut::factory()->settlementPending()->forLease($lease)->create();
+
+        // A downstream ledger-settlement failure must roll back the whole
+        // completion: move-out, lease deactivation, and unit vacancy.
+        $this->app->bind(DepositSettlementService::class, function () {
+            $mock = Mockery::mock(DepositSettlementService::class);
+            $mock->shouldReceive('settle')->andThrow(new \RuntimeException('forced settle failure'));
+
+            return $mock;
+        });
+
+        $this->actingAs($landlord)
+            ->post(route('move-outs.complete', $moveOut), [
+                'settlement_method' => 'bank_transfer',
+                'settlement_reference' => 'SETTLE-ROLLBACK-001',
+            ])
+            ->assertRedirect();
+
+        $this->assertSame(MoveOutStatus::SettlementPending, $moveOut->fresh()->status);
+        $this->assertTrue($lease->fresh()->is_active, 'Lease must stay active when settlement fails.');
+        $this->assertSame('occupied', $unit->fresh()->status, 'Unit must not be vacated when settlement fails.');
+        $this->assertDatabaseMissing('tenant_activities', [
+            'tenant_id' => $lease->tenant_id,
+            'type' => 'move_out_completed',
+        ]);
+    }
+
+    public function test_move_out_store_is_atomic_when_activity_log_fails(): void
+    {
+        $setup = $this->createLandlordWithFullSetup();
+        $landlord = $setup['landlord'];
+        $unit = $setup['units']->first();
+
+        ['lease' => $lease] = $this->createTenantWithActiveLease($landlord, $unit);
+
+        // Force the second write (activity log) to fail; the move-out row
+        // created first must roll back.
+        TenantActivity::creating(function () {
+            throw new \RuntimeException('forced activity failure');
+        });
+
+        $this->actingAs($landlord)
+            ->post(route('move-outs.store', $lease), [
+                'notice_date' => now()->format('Y-m-d'),
+                'intended_move_out_date' => now()->addDays(30)->format('Y-m-d'),
+                'reason' => 'Relocating',
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseMissing('move_outs', ['lease_id' => $lease->id]);
+    }
+
+    private function approvedRefundForB2c(): DepositRefundRequest
+    {
+        $setup = $this->createLandlordWithFullSetup();
+        $landlord = $setup['landlord'];
+
+        ['lease' => $lease, 'tenant' => $tenant] = $this->createTenantWithActiveLease(
+            $landlord,
+            $setup['units']->first(),
+        );
+
+        return DepositRefundRequest::create([
+            'landlord_id' => $landlord->id,
+            'tenant_id' => $tenant->id,
+            'lease_id' => $lease->id,
+            'requested_amount_cents' => 2_500_000,
+            'final_amount_cents' => 2_500_000,
+            'payment_method' => 'mpesa',
+            'payment_details' => ['phone' => '+254712345678'],
+            'status' => DepositRefundRequest::STATUS_APPROVED,
+            'submitted_at' => now(),
+            'reviewed_at' => now(),
+        ]);
     }
 }

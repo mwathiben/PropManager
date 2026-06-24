@@ -222,34 +222,35 @@ class SubscriptionService
      */
     public function recordPayment(Subscription $subscription, array $paymentData): SubscriptionPayment
     {
-        $payment = SubscriptionPayment::create([
-            'subscription_id' => $subscription->id,
-            'user_id' => $subscription->user_id,
-            'amount' => $paymentData['amount'],
-            'currency' => $paymentData['currency'] ?? 'KES',
-            'status' => 'successful',
-            'payment_method' => $paymentData['payment_method'],
-            'reference' => $paymentData['reference'] ?? $this->generateReference(),
-            'paystack_reference' => $paymentData['paystack_reference'] ?? null,
-            'paystack_response' => $paymentData['paystack_response'] ?? null,
-            'paid_at' => now(),
-        ]);
+        return \DB::transaction(function () use ($subscription, $paymentData) {
+            $payment = SubscriptionPayment::create([
+                'subscription_id' => $subscription->id,
+                'user_id' => $subscription->user_id,
+                'amount' => $paymentData['amount'],
+                'currency' => $paymentData['currency'] ?? 'KES',
+                'status' => 'successful',
+                'payment_method' => $paymentData['payment_method'],
+                'reference' => $paymentData['reference'] ?? $this->generateReference(),
+                'paystack_reference' => $paymentData['paystack_reference'] ?? null,
+                'paystack_response' => $paymentData['paystack_response'] ?? null,
+                'paid_at' => now(),
+            ]);
 
-        // Extend subscription period
-        $now = now();
-        $periodEnd = $subscription->billing_cycle === 'yearly'
-            ? $now->copy()->addYear()
-            : $now->copy()->addMonth();
+            $now = now();
+            $periodEnd = $subscription->billing_cycle === 'yearly'
+                ? $now->copy()->addYear()
+                : $now->copy()->addMonth();
 
-        $subscription->update([
-            'status' => 'active',
-            'current_period_start' => $now,
-            'current_period_end' => $periodEnd,
-            'cancelled_at' => null,
-            'ends_at' => null,
-        ]);
+            $subscription->update([
+                'status' => 'active',
+                'current_period_start' => $now,
+                'current_period_end' => $periodEnd,
+                'cancelled_at' => null,
+                'ends_at' => null,
+            ]);
 
-        return $payment;
+            return $payment;
+        });
     }
 
     /**

@@ -26,7 +26,7 @@ class NoiController extends Controller
     public function index(Request $request): Response
     {
         $user = $request->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : (int) $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         $window = (string) $request->query('window', '12m');
         [$start, $end] = $this->resolveWindow($window);

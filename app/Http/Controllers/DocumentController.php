@@ -240,7 +240,7 @@ class DocumentController extends Controller
         // Authorization check
         $user = auth()->user();
 
-        if ($user->role === 'landlord' && $document->landlord_id !== $user->id) {
+        if ($user->isScopeOwner() && $document->landlord_id !== $user->id) {
             abort(403, 'Unauthorized to download this document');
         }
 
@@ -325,7 +325,7 @@ class DocumentController extends Controller
         // Same authorization as download
         $user = auth()->user();
 
-        if ($user->role === 'landlord' && $document->landlord_id !== $user->id) {
+        if ($user->isScopeOwner() && $document->landlord_id !== $user->id) {
             abort(403, 'Unauthorized to view this document');
         }
 

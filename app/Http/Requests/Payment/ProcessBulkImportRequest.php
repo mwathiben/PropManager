@@ -28,7 +28,7 @@ class ProcessBulkImportRequest extends FormRequest
 
         if ($mode === 'historical') {
             $user = $this->user();
-            $landlordId = $user?->isScopeOwner() ? $user->id : $user?->landlord_id;
+            $landlordId = $user?->effectiveScopeIdOrNull();
 
             return array_merge($baseRules, [
                 'payments.*.unit_id' => 'required|integer',
