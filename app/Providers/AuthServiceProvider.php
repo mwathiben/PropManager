@@ -85,6 +85,7 @@ class AuthServiceProvider extends ServiceProvider
         \App\Models\WaterConnection::class => \App\Policies\WaterConnectionPolicy::class,
         \App\Models\PropertyOwner::class => \App\Policies\PropertyOwnerPolicy::class,
         \App\Models\OwnerPayout::class => \App\Policies\OwnerPayoutPolicy::class,
+        \App\Models\ManagementAgreement::class => \App\Policies\ManagementAgreementPolicy::class,
         Invitation::class => InvitationPolicy::class,
         Expense::class => ExpensePolicy::class,
         ExpenseCategory::class => ExpenseCategoryPolicy::class,
