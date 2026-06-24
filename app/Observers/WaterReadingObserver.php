@@ -22,7 +22,7 @@ class WaterReadingObserver
         // 1. Set landlord_id based on user role
         if (Auth::check()) {
             $user = Auth::user();
-            $waterReading->landlord_id = $user->role === 'landlord'
+            $waterReading->landlord_id = $user->isScopeOwner()
                 ? $user->id
                 : $user->landlord_id;
 

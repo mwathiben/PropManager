@@ -212,7 +212,7 @@ class TourService
      */
     private function reachedMilestones(User $user): array
     {
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        $landlordId = $user->isScopeOwner() ? $user->id : $user->landlord_id;
         if ($landlordId === null) {
             return [];
         }

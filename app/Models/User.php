@@ -600,8 +600,8 @@ class User extends Authenticatable implements HasLocalePreference
      */
     public function hasCompletedOnboarding(): bool
     {
-        if (! $this->isLandlord()) {
-            return true; // Non-landlords don't need onboarding
+        if (! $this->isScopeOwner()) {
+            return true; // Only scope owners (landlord/manager) onboard
         }
 
         return $this->onboardingProgress?->is_complete ?? false;
@@ -680,8 +680,8 @@ class User extends Authenticatable implements HasLocalePreference
             return true;
         }
 
-        // Only landlords have subscription limits
-        if (! $this->isLandlord()) {
+        // Only scope owners (landlord/manager) have subscription limits
+        if (! $this->isScopeOwner()) {
             return true;
         }
 
@@ -714,8 +714,8 @@ class User extends Authenticatable implements HasLocalePreference
             return true;
         }
 
-        // Only landlords have subscription limits
-        if (! $this->isLandlord()) {
+        // Only scope owners (landlord/manager) have subscription limits
+        if (! $this->isScopeOwner()) {
             return true;
         }
 

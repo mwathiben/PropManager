@@ -8,7 +8,7 @@ class ApproveWaterReadingRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return auth()->user()->role === 'landlord';
+        return (bool) auth()->user()?->isScopeOwner();
     }
 
     public function rules(): array

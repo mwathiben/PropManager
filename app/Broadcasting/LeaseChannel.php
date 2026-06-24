@@ -30,8 +30,8 @@ class LeaseChannel
             return true;
         }
 
-        if (in_array($user->role, ['landlord', 'caretaker'])) {
-            $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        if ($user->isScopeOwner() || $user->isCaretaker()) {
+            $landlordId = $user->isScopeOwner() ? $user->id : $user->landlord_id;
 
             return $lease->landlord_id === $landlordId;
         }

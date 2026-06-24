@@ -249,7 +249,7 @@ class AuditLog extends Model
         if (isset($model->landlord_id)) {
             $landlordId = (int) $model->landlord_id;
         } elseif ($user) {
-            $landlordId = $user->role === 'landlord'
+            $landlordId = $user->isScopeOwner()
                 ? (int) $user->id
                 : ($user->landlord_id ? (int) $user->landlord_id : null);
         }
