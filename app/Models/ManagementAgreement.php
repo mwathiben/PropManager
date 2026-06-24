@@ -79,15 +79,22 @@ class ManagementAgreement extends Model
         return $this->agreementClauses()
             ->whereHas('clause', fn (Builder $query) => $query->where('binding', ClauseBinding::ManagementFee))
             ->with('clause')
+            ->orderBy('id')
             ->first();
     }
 
     /**
      * Snapshot the composed clauses into the canonical signed text and bind it
      * with a SHA-256 content hash (tamper-evidence for the assent record).
+     * Refuses once signed — the snapshot a signature points at is immutable;
+     * changes go through an amendment (PR 2.3).
      */
     public function recomputeRenderedBody(): void
     {
+        if ($this->status->isLocked()) {
+            throw new \RuntimeException('A signed agreement cannot be re-rendered; amend it instead.');
+        }
+
         $body = $this->agreementClauses()
             ->with('clause')
             ->get()

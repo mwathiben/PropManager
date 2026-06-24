@@ -20,9 +20,13 @@ enum ClauseBinding: string
     case Notice = 'notice';
     case Neutrality = 'neutrality';
 
-    /** Whether assenting to this clause writes + locks a governed config field. */
+    /**
+     * Whether assenting to this clause writes + locks a governed config field.
+     * List-based so adding a second governing binding (money-flow/payout in
+     * Slices 4–5) is a one-line change that can't silently fall through.
+     */
     public function governsConfig(): bool
     {
-        return $this === self::ManagementFee;
+        return in_array($this, [self::ManagementFee], true);
     }
 }

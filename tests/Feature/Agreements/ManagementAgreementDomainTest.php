@@ -56,7 +56,7 @@ class ManagementAgreementDomainTest extends TestCase
 
         $agreement->agreementClauses()->create([
             'clause_id' => $feeClause->id,
-            'params' => ['fee_description' => '8% of rent collected'],
+            'params' => ['type' => 'percentage', 'value' => 8, 'base' => 'collected'],
             'position' => 0,
         ]);
         $agreement->agreementClauses()->create([
@@ -70,6 +70,41 @@ class ManagementAgreementDomainTest extends TestCase
         $this->assertStringContainsString('8% of rent collected', $agreement->rendered_body);
         $this->assertStringContainsString('30 days notice', $agreement->rendered_body);
         $this->assertSame(hash('sha256', $agreement->rendered_body), $agreement->content_hash);
+    }
+
+    public function test_an_exclusive_clause_cannot_be_added_twice(): void
+    {
+        $manager = $this->manager();
+        $this->actingAs($manager);
+        $agreement = ManagementAgreement::factory()->create([
+            'landlord_id' => $manager->id,
+            'property_owner_id' => $this->ownerFor($manager)->id,
+        ]);
+
+        $agreement->agreementClauses()->create([
+            'clause_id' => Clause::factory()->managementFee()->create()->id,
+            'params' => ['type' => 'percentage', 'value' => 8, 'base' => 'collected'],
+        ]);
+
+        $this->expectException(\RuntimeException::class);
+        $agreement->agreementClauses()->create([
+            'clause_id' => Clause::factory()->managementFee()->create()->id,
+            'params' => ['type' => 'flat', 'value' => 5000],
+        ]);
+    }
+
+    public function test_a_signed_snapshot_cannot_be_re_rendered(): void
+    {
+        $manager = $this->manager();
+        $this->actingAs($manager);
+        $agreement = ManagementAgreement::factory()->create([
+            'landlord_id' => $manager->id,
+            'property_owner_id' => $this->ownerFor($manager)->id,
+            'status' => AgreementStatus::Signed,
+        ]);
+
+        $this->expectException(\RuntimeException::class);
+        $agreement->recomputeRenderedBody();
     }
 
     public function test_fee_clause_is_identifiable_for_the_applicator(): void
