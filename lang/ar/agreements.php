@@ -31,6 +31,15 @@ return [
         'preview_empty' => 'اختر البنود لعرض الاتفاقية.',
         'submit' => 'حفظ المسودة',
         'cancel' => 'إلغاء',
+        'fee_options' => [
+            'percentage' => 'نسبة مئوية',
+            'flat' => 'مبلغ ثابت',
+            'collected' => 'المحصّل',
+            'billed' => 'المفوتر',
+            'scheduled' => 'المجدول',
+            'per_period' => 'لكل فترة',
+            'per_unit' => 'لكل وحدة',
+        ],
     ],
     'show' => [
         'owner' => 'المالك',

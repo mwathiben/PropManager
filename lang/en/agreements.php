@@ -31,6 +31,15 @@ return [
         'preview_empty' => 'Select clauses to see the agreement.',
         'submit' => 'Save draft',
         'cancel' => 'Cancel',
+        'fee_options' => [
+            'percentage' => 'Percentage',
+            'flat' => 'Flat',
+            'collected' => 'Collected',
+            'billed' => 'Billed',
+            'scheduled' => 'Scheduled',
+            'per_period' => 'Per period',
+            'per_unit' => 'Per unit',
+        ],
     ],
     'show' => [
         'owner' => 'Owner',

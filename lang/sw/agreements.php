@@ -31,6 +31,15 @@ return [
         'preview_empty' => 'Chagua vifungu kuona mkataba.',
         'submit' => 'Hifadhi rasimu',
         'cancel' => 'Ghairi',
+        'fee_options' => [
+            'percentage' => 'Asilimia',
+            'flat' => 'Kiwango maalum',
+            'collected' => 'Iliyokusanywa',
+            'billed' => 'Iliyotozwa',
+            'scheduled' => 'Iliyopangwa',
+            'per_period' => 'Kwa kipindi',
+            'per_unit' => 'Kwa kila nyumba',
+        ],
     ],
     'show' => [
         'owner' => 'Mmiliki',

@@ -115,30 +115,30 @@ function submit() {
                                 <span class="flex-1">
                                     <span class="block text-sm font-medium text-gray-900">
                                         {{ clause.title }}
-                                        <span v-if="clause.binding === 'neutrality'" class="ml-2 text-xs text-red-600">{{ t('agreements.compose.required_clause') }}</span>
+                                        <span v-if="clause.binding === 'neutrality'" class="ms-2 text-xs text-red-600">{{ t('agreements.compose.required_clause') }}</span>
                                     </span>
                                     <span class="block text-xs text-gray-500">{{ clause.explanation }}</span>
                                 </span>
                             </label>
 
-                            <div v-if="sel[clause.id].included && clause.binding === 'management_fee'" class="mt-3 grid grid-cols-3 gap-2 pl-7">
+                            <div v-if="sel[clause.id].included && clause.binding === 'management_fee'" class="mt-3 grid grid-cols-3 gap-2 ps-7">
                                 <label class="text-xs text-gray-600">{{ t('agreements.compose.fee_type') }}
                                     <select v-model="sel[clause.id].params.type" class="w-full rounded border-gray-300 text-sm">
-                                        <option value="percentage">percentage</option>
-                                        <option value="flat">flat</option>
+                                        <option value="percentage">{{ t('agreements.compose.fee_options.percentage') }}</option>
+                                        <option value="flat">{{ t('agreements.compose.fee_options.flat') }}</option>
                                     </select>
                                 </label>
                                 <label v-if="sel[clause.id].params.type === 'percentage'" class="text-xs text-gray-600">{{ t('agreements.compose.fee_base') }}
                                     <select v-model="sel[clause.id].params.base" class="w-full rounded border-gray-300 text-sm">
-                                        <option value="collected">collected</option>
-                                        <option value="billed">billed</option>
-                                        <option value="scheduled">scheduled</option>
+                                        <option value="collected">{{ t('agreements.compose.fee_options.collected') }}</option>
+                                        <option value="billed">{{ t('agreements.compose.fee_options.billed') }}</option>
+                                        <option value="scheduled">{{ t('agreements.compose.fee_options.scheduled') }}</option>
                                     </select>
                                 </label>
                                 <label v-else class="text-xs text-gray-600">{{ t('agreements.compose.fee_cadence') }}
                                     <select v-model="sel[clause.id].params.flat_cadence" class="w-full rounded border-gray-300 text-sm">
-                                        <option value="per_period">per_period</option>
-                                        <option value="per_unit">per_unit</option>
+                                        <option value="per_period">{{ t('agreements.compose.fee_options.per_period') }}</option>
+                                        <option value="per_unit">{{ t('agreements.compose.fee_options.per_unit') }}</option>
                                     </select>
                                 </label>
                                 <label class="text-xs text-gray-600">{{ t('agreements.compose.fee_value') }}
@@ -146,7 +146,7 @@ function submit() {
                                 </label>
                             </div>
 
-                            <div v-else-if="sel[clause.id].included && (clause.params_schema || []).length" class="mt-3 grid grid-cols-2 gap-2 pl-7">
+                            <div v-else-if="sel[clause.id].included && (clause.params_schema || []).length" class="mt-3 grid grid-cols-2 gap-2 ps-7">
                                 <label v-for="field in clause.params_schema" :key="field.name" class="text-xs text-gray-600">{{ field.name }}
                                     <input type="text" v-model="sel[clause.id].params[field.name]" class="w-full rounded border-gray-300 text-sm" />
                                 </label>
