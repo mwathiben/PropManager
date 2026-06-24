@@ -86,7 +86,7 @@ class MaintenancePhotoGalleryController extends Controller
 
         $pdf = Pdf::loadView('pdf.maintenance-photos', [
             'images' => $images,
-            'landlord' => $user->isLandlord() ? $user : $user->landlord,
+            'landlord' => $user->isScopeOwner() ? $user : $user->landlord,
             'generated_at' => now()->format('F j, Y g:i A'),
         ]);
 

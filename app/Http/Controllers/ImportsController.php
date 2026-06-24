@@ -29,7 +29,7 @@ class ImportsController extends Controller
         $this->authorize('viewAny', Import::class);
 
         $user = auth()->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         // Building/Wing filter
         $buildingId = $request->filled('building_id') ? (int) $request->building_id : null;
@@ -99,7 +99,7 @@ class ImportsController extends Controller
         $this->authorize('create', Import::class);
 
         $user = auth()->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         $validated = $request->validate([
             'file' => 'required|file|mimes:csv,txt,xlsx,xls|max:10240', // 10MB max (Phase-89: Excel)

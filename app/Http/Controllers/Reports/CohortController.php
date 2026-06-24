@@ -28,7 +28,7 @@ class CohortController extends Controller
     public function index(Request $request): Response
     {
         $user = $request->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : (int) $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         $lookback = (int) $request->query('lookback', 12);
         $lookback = max(1, min(36, $lookback));

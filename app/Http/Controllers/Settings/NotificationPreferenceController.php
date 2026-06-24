@@ -53,7 +53,7 @@ class NotificationPreferenceController extends Controller
     public function page(Request $request): InertiaResponse
     {
         $user = $request->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
         $pref = NotificationPreference::getOrCreate($user->id, (int) $landlordId);
 
         return Inertia::render('Settings/Notifications', [
@@ -70,7 +70,7 @@ class NotificationPreferenceController extends Controller
     public function show(Request $request): JsonResponse
     {
         $user = $request->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
         $pref = NotificationPreference::getOrCreate($user->id, (int) $landlordId);
 
         return response()->json([
@@ -116,7 +116,7 @@ class NotificationPreferenceController extends Controller
         }
 
         $user = $request->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
         $pref = NotificationPreference::getOrCreate($user->id, (int) $landlordId);
 
         if ($channel === null) {

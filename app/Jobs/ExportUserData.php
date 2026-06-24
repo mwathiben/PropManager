@@ -78,7 +78,7 @@ class ExportUserData implements ShouldQueue
 
             AuditLog::create([
                 'user_id' => $this->user->id,
-                'landlord_id' => $this->user->isLandlord() ? $this->user->id : $this->user->landlord_id,
+                'landlord_id' => $this->user->effectiveScopeIdOrNull(),
                 'event_type' => 'data_exported',
                 'auditable_type' => User::class,
                 'auditable_id' => $this->user->id,

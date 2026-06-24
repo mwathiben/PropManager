@@ -15,11 +15,12 @@ use Tests\TestCase;
  * cannot regress.
  *
  * Two patterns are banned in scope-owner code:
- *  - Authorization GATES on isLandlord() (FormRequests, Policies) — silently
- *    403 the manager role.
- *  - Scope RESOLUTION by isLandlord() / role === 'landlord' (services,
- *    observers, broadcast channels) — must use isScopeOwner() so a manager
- *    resolves to its own scope rather than being mis-scoped or denied.
+ *  - Authorization GATES on isLandlord() (FormRequests, Policies, Controllers)
+ *    — silently 403 the manager role.
+ *  - Scope RESOLUTION by isLandlord() / role === 'landlord' (controllers,
+ *    services, observers, broadcast channels) — must use isScopeOwner() /
+ *    effectiveScopeId() so a manager resolves to its own scope rather than
+ *    being mis-scoped or denied.
  *
  * The ONLY escape hatch is INTENTIONALLY_LANDLORD_ONLY, which requires a
  * concrete justification and is reviewed.
@@ -34,8 +35,17 @@ class ManagerAuthzGateTest extends TestCase
      * @var list<string>
      */
     private const INTENTIONALLY_LANDLORD_ONLY = [
-        // (none) — managers are full scope owners; every landlord gate admits them.
+        // /register only ever mints landlord/caretaker/tenant — managers are
+        // provisioned through the admin flow, never self-registration — and the
+        // role check guards LandlordWelcome, which is landlord-specific
+        // onboarding copy. A manager reaching it must NOT receive that mail.
+        'Auth/RegisteredUserController.php',
     ];
+
+    public function test_no_controller_gates_on_landlord_role(): void
+    {
+        $this->assertNoLandlordOnlyIn(app_path('Http/Controllers'), 'Controller');
+    }
 
     public function test_no_form_request_gates_on_landlord_role(): void
     {

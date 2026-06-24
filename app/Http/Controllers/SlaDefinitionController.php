@@ -103,7 +103,7 @@ class SlaDefinitionController extends Controller
     {
         $user = $request->user();
 
-        return $user->role === 'landlord' ? (int) $user->id : (int) $user->landlord_id;
+        return $user->effectiveScopeId();
     }
 
     /**

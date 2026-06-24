@@ -226,7 +226,7 @@ class FinanceReportController extends Controller
 
         return \Barryvdh\DomPDF\Facade\Pdf::loadView('reports.owner-statement', [
             'data' => $data,
-            'landlord' => $user->isLandlord() ? $user : $user->landlord,
+            'landlord' => $user->isScopeOwner() ? $user : $user->landlord,
             'generated_at' => now()->format('F j, Y g:i A'),
             'currency_symbol' => $currency->symbol(),
             'currency_code' => $currency->value,

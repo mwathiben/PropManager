@@ -17,7 +17,7 @@ class ValidateBulkImportRequest extends FormRequest
     public function rules(): array
     {
         $user = $this->user();
-        $landlordId = $user->isScopeOwner() ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         return [
             'file' => 'required|file|mimes:csv,txt|max:5120',

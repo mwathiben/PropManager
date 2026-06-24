@@ -203,6 +203,42 @@ class User extends Authenticatable implements HasLocalePreference
         return in_array($this->role, ['landlord', 'manager'], true);
     }
 
+    /**
+     * The tenancy scope id this user belongs to: its own id for a scope owner
+     * (landlord/manager), otherwise the landlord_id of the account it is
+     * attached to (caretaker/tenant/owner/water_client).
+     *
+     * Canonical replacement for the `isScopeOwner() ? id : landlord_id`
+     * expression that was duplicated across the controller/service layer.
+     * It is fail-closed: a user with no resolvable scope (super-admin, or an
+     * unattached/not-yet-assigned account) resolves to 0 — an id that belongs
+     * to no landlord, so a scoped query matches nothing and a written
+     * landlord_id can never silently inherit another tenant's scope, instead
+     * of the old expression's null (which read as `IS NULL` and could orphan a
+     * write). Callers that must tell "no scope" apart from "scope 0" — super-
+     * admin audit/self-service, cross-cutting middleware, fail-open analytics —
+     * use {@see effectiveScopeIdOrNull()}.
+     */
+    public function effectiveScopeId(): int
+    {
+        return $this->effectiveScopeIdOrNull() ?? 0;
+    }
+
+    /**
+     * The tenancy scope id, or null when the user has no single scope — a
+     * super-admin (spans all scopes) or an unattached account. Only for
+     * callers that intentionally tolerate the no-scope case (cross-cutting
+     * middleware, GDPR/audit self-service, fail-open analytics).
+     */
+    public function effectiveScopeIdOrNull(): ?int
+    {
+        if ($this->isScopeOwner()) {
+            return (int) $this->id;
+        }
+
+        return $this->landlord_id !== null ? (int) $this->landlord_id : null;
+    }
+
     public function isCaretaker(): bool
     {
         return $this->role === 'caretaker';

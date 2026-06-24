@@ -35,7 +35,7 @@ class WaterModuleAccess
             return true;
         }
 
-        $landlordId = $user->isScopeOwner() ? (int) $user->id : (int) ($user->landlord_id ?? 0);
+        $landlordId = $user->effectiveScopeIdOrNull() ?? 0;
         if ($landlordId === 0) {
             return false;
         }

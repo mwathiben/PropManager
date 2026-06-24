@@ -30,7 +30,7 @@ class NotificationScheduleController extends Controller
     public function schedules(Request $request): Response
     {
         $user = auth()->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         $schedules = NotificationSchedule::where('landlord_id', $landlordId)
             ->with('template:id,name')
@@ -70,7 +70,7 @@ class NotificationScheduleController extends Controller
         $validated = $request->validated();
 
         $user = auth()->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         NotificationSchedule::create([
             'landlord_id' => $landlordId,
@@ -130,7 +130,7 @@ class NotificationScheduleController extends Controller
     private function authorizeSchedule(NotificationSchedule $schedule): void
     {
         $user = auth()->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        $landlordId = $user->effectiveScopeId();
 
         if ($schedule->landlord_id !== $landlordId) {
             abort(403, 'Unauthorized');
