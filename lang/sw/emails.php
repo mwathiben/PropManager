@@ -149,6 +149,15 @@ return [
         'caretaker_invitation' => 'Mwaliko wa Kujiunga kama Mlinzi wa Jengo',
         'water_client_invitation' => 'Mwaliko wa Kuanzisha Akaunti Yako ya Maji',
         'owner_invitation' => 'Mwaliko wa Kuanzisha Akaunti Yako ya Umiliki',
+        'agreement_signature_request' => 'Tafadhali Kagua na Usaini Mkataba Wako wa Usimamizi',
+    ],
+
+    'signature_request' => [
+        'greeting' => 'Habari :name,',
+        'intro' => 'Msimamizi wa mali yako ametayarisha mkataba wa usimamizi ":title" kwa ukaguzi na sahihi yako. Tafadhali uufungue hapa chini, uusome kwa ukamilifu, na usaini kielektroniki.',
+        'button' => 'Kagua na Usaini Mkataba',
+        'note' => 'Kwa usalama wako, kusaini kunahitaji msimbo wa mara moja tutakaotuma kwa SMS kwenye simu yako. Kiungo hiki ni chako pekee — tafadhali usikitume kwa wengine.',
+        'closing' => 'Asante,',
     ],
 
 ];
