@@ -1,8 +1,17 @@
 {
-    "_comment": "Phase-53 ESLINT-RATCHET-1 shrink-only baseline. The two propmanager-scoped rules (no-hardcoded-english-strings + no-ltr-class) are now severity=error in eslint.config.js. The watchdog (scripts/lint-baseline.mjs) runs ESLint, counts violations per rule, and exits non-zero if any current count exceeds its baseline below. Lower a value here ONLY after fixing real violations; never raise.",
+    "_comment": "Phase-53 ESLINT-RATCHET-1 shrink-only baseline. The two propmanager-scoped rules (no-hardcoded-english-strings + no-ltr-class) are severity=error in eslint.config.js; the vuejs-accessibility rules stay severity=warn (dev-friendly) but are gated here. The watchdog (scripts/lint-baseline.mjs) runs ESLint, counts violations per rule, and exits non-zero if any current count exceeds its baseline below. Lower a value here ONLY after fixing real violations; never raise.",
     "rules": {
         "propmanager/no-hardcoded-english-strings": 3751,
-        "propmanager/no-ltr-class": 0
+        "propmanager/no-ltr-class": 0,
+        "vuejs-accessibility/label-has-for": 743,
+        "vuejs-accessibility/form-control-has-label": 593,
+        "vuejs-accessibility/no-static-element-interactions": 91,
+        "vuejs-accessibility/click-events-have-key-events": 85,
+        "vuejs-accessibility/anchor-has-content": 12,
+        "vuejs-accessibility/no-autofocus": 11,
+        "vuejs-accessibility/mouse-events-have-key-events": 7,
+        "vuejs-accessibility/no-redundant-roles": 3,
+        "vuejs-accessibility/alt-text": 1
     },
     "phase_history": {
         "phase-53": {
@@ -10,6 +19,12 @@
             "rule_severity": "warn",
             "gate_severity": "error_via_baseline",
             "rationale": "Phase 44 codemod cleared bulk LTR-class residue (906 → 0). Hardcoded-English bulk remains in Vue templates; the baseline captures the residual + ratchets downward as Phase-43 + Phase-44 + Phase-52 i18n backfill commits land. Severity stays at warn so `npm run lint` is dev-workflow-friendly; the contract is enforced by `npm run lint:baseline` in CI — new violations grow the count past the baseline and fail the gate."
+        },
+        "a11y-ratchet": {
+            "set_at": "2026-06-25",
+            "rule_severity": "warn",
+            "gate_severity": "error_via_baseline",
+            "rationale": "The 9 vuejs-accessibility rules were severity=warn but UNGATED, so a11y warnings accumulated unchecked (1546 at lock time, led by label-has-for 743 + form-control-has-label 593). Locking them shrink-only here: CI's lint:baseline now fails on any NEW a11y warning (new code must associate labels / label controls / key-handle interactive elements), and the existing debt can only ratchet down as files are touched. Counts captured fresh on main, no eslintcache. This is the enforced answer to 'don't leave a11y warnings just because they're pre-existing' — new ones are blocked, old ones must shrink."
         }
     }
 }
