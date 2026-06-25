@@ -130,6 +130,7 @@ const statusLabel = (status) => {
                 <FunnelIcon class="w-5 h-5 text-gray-400" />
                 <select
                     v-model="statusFilter"
+                    :aria-label="t('operations_inbox.filter.status')"
                     class="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500"
                 >
                     <option value="all">{{ t('operations_inbox.filter.all') }}</option>

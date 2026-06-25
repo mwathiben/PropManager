@@ -345,6 +345,7 @@ onMounted(() => {
                             >
                                 <select
                                     v-model="filter.field"
+                                    :aria-label="t('reports_builder.filter_field')"
                                     class="col-span-5 rounded-md border-gray-300 text-xs"
                                 >
                                     <option value="">— pick —</option>
@@ -358,6 +359,7 @@ onMounted(() => {
                                 </select>
                                 <select
                                     v-model="filter.op"
+                                    :aria-label="t('reports_builder.filter_operator')"
                                     class="col-span-3 rounded-md border-gray-300 text-xs"
                                 >
                                     <option
@@ -371,6 +373,7 @@ onMounted(() => {
                                 <input
                                     v-model="filter.value"
                                     type="text"
+                                    :aria-label="t('reports_builder.filter_value')"
                                     class="col-span-3 rounded-md border-gray-300 text-xs"
                                     placeholder="value"
                                 />

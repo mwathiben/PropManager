@@ -6,9 +6,14 @@
  * source — colour/symbol is never the sole cue. Pass :required in
  * sync with the input's own native `required` attribute.
  */
-defineProps({
+const props = defineProps({
     value: {
         type: String,
+    },
+    // A11Y-FORM: associate this label with its control (satisfies label-has-for).
+    for: {
+        type: String,
+        default: undefined,
     },
     required: {
         type: Boolean,
@@ -18,7 +23,7 @@ defineProps({
 </script>
 
 <template>
-    <label class="block text-sm font-medium text-gray-700">
+    <label :for="props.for" class="block text-sm font-medium text-gray-700">
         <span v-if="value">{{ value }}</span>
         <span v-else><slot /></span>
         <span v-if="required">

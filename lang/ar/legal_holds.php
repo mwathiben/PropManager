@@ -196,4 +196,5 @@ return [
         'no_activity' => '[TODO-ar] No recent activity.',
         'empty' => '[TODO-ar] No legal holds yet. Start the wizard to preserve records for a matter.',
     ],
+    'filter_subject_type' => 'تصفية حسب نوع الموضوع',
 ];

@@ -16,6 +16,7 @@ return [
         'all' => 'Zote',
         'unread' => 'Hazijasomwa',
         'read' => 'Zimesomwa',
+        'status' => 'Chuja kwa hali',
     ],
     'ticket' => 'Tikiti #{id}',
     'empty' => [

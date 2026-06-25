@@ -197,4 +197,5 @@ return [
         'no_activity' => 'No recent activity.',
         'empty' => 'No legal holds yet. Start the wizard to preserve records for a matter.',
     ],
+    'filter_subject_type' => 'Filter by subject type',
 ];
