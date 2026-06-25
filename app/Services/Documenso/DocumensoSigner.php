@@ -14,5 +14,9 @@ final readonly class DocumensoSigner
     public function __construct(
         public string $name,
         public string $email,
-    ) {}
+    ) {
+        if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            throw new \InvalidArgumentException('DocumensoSigner requires a valid email address.');
+        }
+    }
 }

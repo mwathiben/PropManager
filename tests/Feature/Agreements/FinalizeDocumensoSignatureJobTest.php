@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Agreements;
 
+use App\Enums\AgreementSignatureMethod;
 use App\Enums\AgreementSignatureStatus;
 use App\Enums\AgreementStatus;
 use App\Enums\ManagementFeeType;
@@ -93,7 +94,7 @@ class FinalizeDocumensoSignatureJobTest extends TestCase
 
         $signature->refresh();
         $this->assertSame(AgreementSignatureStatus::Signed, $signature->status);
-        $this->assertSame('documenso', $signature->signing_method);
+        $this->assertSame(AgreementSignatureMethod::Documenso, $signature->signing_method);
         $this->assertSame(hash('sha256', 'SEALED-PDF'), $signature->sealed_pdf_sha256);
         $this->assertNotNull($signature->documenso_completed_at);
         $this->assertSame('env_abc', $signature->documenso_envelope_id);
@@ -183,5 +184,72 @@ class FinalizeDocumensoSignatureJobTest extends TestCase
         (new FinalizeDocumensoSignatureJob(123, 42, 'env_abc'))->failed(new \RuntimeException('boom'));
 
         Log::shouldHaveReceived('critical')->once();
+    }
+
+    public function test_does_not_activate_a_terminated_agreement(): void
+    {
+        $manager = User::factory()->create(['role' => 'manager']);
+        $owner = PropertyOwner::factory()->create([
+            'landlord_id' => $manager->id,
+            'management_fee_type' => ManagementFeeType::None,
+        ]);
+        $agreement = ManagementAgreement::factory()->create([
+            'landlord_id' => $manager->id,
+            'property_owner_id' => $owner->id,
+            'status' => AgreementStatus::Terminated,
+        ]);
+        $signature = AgreementSignature::factory()->create([
+            'management_agreement_id' => $agreement->id,
+            'landlord_id' => $manager->id,
+            'status' => AgreementSignatureStatus::Pending,
+            'documenso_document_id' => 42,
+        ]);
+        $this->fakeDownloads();
+
+        $this->runJob($signature->id);
+
+        // Refused: no resurrection, no download, no fee.
+        $this->assertSame(AgreementSignatureStatus::Pending, $signature->fresh()->status);
+        $this->assertSame(AgreementStatus::Terminated, $agreement->fresh()->status);
+        $this->assertNull($owner->fresh()->management_fee_locked_at);
+        Http::assertNothingSent();
+    }
+
+    public function test_already_active_agreement_records_signature_without_reactivating(): void
+    {
+        [$signature, $agreement, $owner] = $this->makeSignable(42);
+        $agreement->forceFill(['status' => AgreementStatus::Active])->save();
+        $this->fakeDownloads();
+
+        $this->runJob($signature->id);
+
+        // Signature evidence is recorded, but the fee is NOT (re)activated/locked.
+        $this->assertSame(AgreementSignatureStatus::Signed, $signature->fresh()->status);
+        $this->assertSame(ManagementFeeType::None, $owner->fresh()->management_fee_type);
+        $this->assertNull($owner->fresh()->management_fee_locked_at);
+        $this->assertSame(AgreementStatus::Active, $agreement->fresh()->status);
+    }
+
+    public function test_declined_signature_is_a_noop(): void
+    {
+        [$signature, $agreement, $owner] = $this->makeSignable(42);
+        $signature->forceFill(['status' => AgreementSignatureStatus::Declined])->save();
+        $this->fakeDownloads();
+
+        $this->runJob($signature->id);
+
+        $this->assertSame(AgreementSignatureStatus::Declined, $signature->fresh()->status);
+        $this->assertSame(AgreementStatus::Sent, $agreement->fresh()->status);
+        $this->assertNull($owner->fresh()->management_fee_locked_at);
+        Http::assertNothingSent();
+    }
+
+    public function test_in_house_signature_reads_back_as_method_enum(): void
+    {
+        [$signature] = $this->makeSignable(77);
+
+        // The in-house path never sets signing_method — it relies on the DB default,
+        // which the enum cast must hydrate back to InHouse.
+        $this->assertSame(AgreementSignatureMethod::InHouse, $signature->fresh()->signing_method);
     }
 }

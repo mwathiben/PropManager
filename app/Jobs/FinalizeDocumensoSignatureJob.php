@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
+use App\Enums\AgreementSignatureMethod;
 use App\Enums\AgreementSignatureStatus;
 use App\Enums\AgreementStatus;
+use App\Enums\DocumensoDocumentStatus;
 use App\Exceptions\DataIntegrityException;
 use App\Exceptions\DocumensoException;
 use App\Jobs\Concerns\TracksFailures;
@@ -61,10 +63,24 @@ class FinalizeDocumensoSignatureJob implements ShouldQueue
     public function handle(DocumensoService $documenso, AgreementApplicator $applicator): void
     {
         $signature = AgreementSignature::with('agreement')->find($this->signatureId);
-        if ($signature === null || $signature->status === AgreementSignatureStatus::Signed) {
+        if ($signature === null || $signature->status->isTerminal()) {
             return;
         }
-        if ($signature->agreement === null) {
+
+        $agreement = $signature->agreement;
+        if ($agreement === null) {
+            return;
+        }
+
+        // Refuse to resurrect a non-activatable agreement (terminated/draft/amending):
+        // don't even download artifacts. Surface the conflict for manual review.
+        if (! $this->isActivatableState($agreement->status)) {
+            Log::warning('Documenso completion for a non-activatable agreement; not activating', [
+                'signature_id' => $this->signatureId,
+                'agreement_id' => $agreement->id,
+                'status' => $agreement->status->value,
+            ]);
+
             return;
         }
 
@@ -74,8 +90,9 @@ class FinalizeDocumensoSignatureJob implements ShouldQueue
             $this->sealAndActivate($applicator, $artifacts);
         } catch (DataIntegrityException $e) {
             // A missing/malformed fee clause is terminal — retrying cannot fix it.
-            // Fail fast straight to failed() so the money-integrity alert fires now
-            // instead of after burning every retry on a guaranteed failure.
+            // Drop the orphaned artifacts and fail fast so the money-integrity alert
+            // fires now instead of after burning every retry on a guaranteed failure.
+            $this->discardArtifacts($artifacts);
             $this->fail($e);
         }
     }
@@ -115,38 +132,70 @@ class FinalizeDocumensoSignatureJob implements ShouldQueue
         DB::transaction(function () use ($applicator, $artifacts): void {
             // Re-read under a row lock: the database queue driver runs concurrent
             // workers and a webhook can deliver more than once, so two finalizers
-            // may race. The loser sees Signed and no-ops — the fee activates once.
+            // may race. The loser sees a terminal signature and no-ops.
             $signature = AgreementSignature::whereKey($this->signatureId)->lockForUpdate()->first();
-            if ($signature === null || $signature->status === AgreementSignatureStatus::Signed) {
+            if ($signature === null || $signature->status->isTerminal()) {
                 return;
             }
 
+            // Re-check the lifecycle under the lock — the agreement may have been
+            // terminated between the pre-check and acquiring the lock (TOCTOU).
             $agreement = ManagementAgreement::whereKey($signature->management_agreement_id)->lockForUpdate()->first();
-            if ($agreement === null) {
+            if ($agreement === null || ! $this->isActivatableState($agreement->status)) {
                 return;
             }
 
-            $signature->forceFill([
-                'status' => AgreementSignatureStatus::Signed,
-                'signing_method' => 'documenso',
-                'documenso_status' => 'completed',
-                'documenso_envelope_id' => $this->envelopeId,
-                'documenso_completed_at' => now(),
-                'signed_at' => $signature->signed_at ?? now(),
-                'signed_pdf_path' => $artifacts->signedPdfPath,
-                'certificate_path' => $artifacts->certificatePath,
-                'sealed_pdf_sha256' => $artifacts->sha256,
-            ])->save();
+            $this->recordSignature($signature, $artifacts);
 
+            // Activate only from a signable state. If already Active, a prior
+            // delivery activated it — the signature evidence is recorded above,
+            // but the fee is NOT re-locked.
             if ($agreement->status !== AgreementStatus::Active) {
-                $agreement->forceFill([
-                    'status' => AgreementStatus::Signed,
-                    'signed_at' => $agreement->signed_at ?? now(),
-                ])->save();
-
+                $this->markAgreementSigned($agreement);
                 $applicator->activate($agreement);
             }
         });
+    }
+
+    private function recordSignature(AgreementSignature $signature, SealedAgreementArtifacts $artifacts): void
+    {
+        $signature->forceFill([
+            'status' => AgreementSignatureStatus::Signed,
+            'signing_method' => AgreementSignatureMethod::Documenso,
+            'documenso_status' => DocumensoDocumentStatus::Completed,
+            'documenso_envelope_id' => $this->envelopeId,
+            'documenso_completed_at' => now(),
+            'signed_at' => $signature->signed_at ?? now(),
+            'signed_pdf_path' => $artifacts->signedPdfPath,
+            'certificate_path' => $artifacts->certificatePath,
+            'sealed_pdf_sha256' => $artifacts->sha256,
+        ])->save();
+    }
+
+    private function markAgreementSigned(ManagementAgreement $agreement): void
+    {
+        $agreement->forceFill([
+            'status' => AgreementStatus::Signed,
+            'signed_at' => $agreement->signed_at ?? now(),
+        ])->save();
+    }
+
+    /**
+     * Sent/Signed are signable; Active means a prior delivery already activated
+     * (a no-op seal). Draft/Amending/Terminated must never be force-activated.
+     */
+    private function isActivatableState(AgreementStatus $status): bool
+    {
+        return in_array($status, [AgreementStatus::Sent, AgreementStatus::Signed, AgreementStatus::Active], true);
+    }
+
+    private function discardArtifacts(SealedAgreementArtifacts $artifacts): void
+    {
+        $disk = (string) config('documenso.storage_disk', 'private');
+        Storage::disk($disk)->delete(array_values(array_filter([
+            $artifacts->signedPdfPath,
+            $artifacts->certificatePath,
+        ])));
     }
 
     public function failed(Throwable $exception): void

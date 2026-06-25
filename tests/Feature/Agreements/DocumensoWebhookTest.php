@@ -127,4 +127,26 @@ class DocumensoWebhookTest extends TestCase
 
         Bus::assertNotDispatched(FinalizeDocumensoSignatureJob::class);
     }
+
+    public function test_declined_signature_is_not_reprocessed(): void
+    {
+        Bus::fake();
+        $signature = $this->pendingSignature(42);
+        $signature->update(['status' => AgreementSignatureStatus::Declined]);
+
+        // A late completion must not resurrect a declined signature.
+        $this->postWebhook(['event' => 'DOCUMENT_COMPLETED', 'payload' => ['id' => 42]])->assertOk();
+
+        Bus::assertNotDispatched(FinalizeDocumensoSignatureJob::class);
+    }
+
+    public function test_webhook_route_is_rate_limited(): void
+    {
+        // The shared secret is the sole auth gate; a throttle caps brute-force.
+        $route = collect(app('router')->getRoutes()->getRoutes())
+            ->first(fn ($r) => $r->uri() === 'api/webhooks/documenso');
+
+        $this->assertNotNull($route, 'the documenso webhook route must exist');
+        $this->assertContains('throttle:60,1', $route->middleware());
+    }
 }

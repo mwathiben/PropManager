@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
-use App\Enums\AgreementSignatureStatus;
 use App\Http\Controllers\Controller;
 use App\Jobs\FinalizeDocumensoSignatureJob;
 use App\Models\AgreementSignature;
@@ -49,8 +48,9 @@ class DocumensoWebhookController extends Controller
             return response()->json(['status' => 'unknown']);
         }
 
-        if ($signature->status === AgreementSignatureStatus::Signed) {
-            return response()->json(['status' => 'already_completed']);
+        if ($signature->status->isTerminal()) {
+            // Signed or declined — a late/duplicate completion must not re-process it.
+            return response()->json(['status' => 'already_resolved']);
         }
 
         $envelopeId = $request->input('payload.envelopeId');
