@@ -41,6 +41,15 @@ class AgreementSignature extends Model
         'signed_at',
         'signed_ip',
         'signed_user_agent',
+        'signing_method',
+        'documenso_document_id',
+        'documenso_envelope_id',
+        'documenso_recipient_token',
+        'documenso_status',
+        'documenso_completed_at',
+        'signed_pdf_path',
+        'certificate_path',
+        'sealed_pdf_sha256',
     ];
 
     protected function casts(): array
@@ -49,6 +58,8 @@ class AgreementSignature extends Model
             'status' => AgreementSignatureStatus::class,
             'otp_verified_at' => 'datetime',
             'signed_at' => 'datetime',
+            'documenso_completed_at' => 'datetime',
+            'documenso_document_id' => 'integer',
         ];
     }
 
