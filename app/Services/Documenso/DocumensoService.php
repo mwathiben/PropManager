@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Documenso;
 
 use App\Exceptions\DocumensoException;
+use App\Exceptions\Resilience\CircuitOpenException;
 use App\Traits\LogsExternalRequests;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
@@ -136,7 +137,10 @@ class DocumensoService
     {
         try {
             return $this->timedHttpRequest('documenso', $endpoint, $call);
-        } catch (ConnectionException $e) {
+        } catch (ConnectionException|CircuitOpenException $e) {
+            // CircuitOpenException is thrown by the (opt-in) breaker inside
+            // timedHttpRequest when OPEN; it is not a ConnectionException, so it
+            // must be caught explicitly or it would leak past the signing path.
             Log::error('Documenso request unreachable', [
                 'endpoint' => $endpoint,
                 'error' => $e->getMessage(),

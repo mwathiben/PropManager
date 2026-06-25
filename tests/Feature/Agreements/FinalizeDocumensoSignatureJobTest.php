@@ -17,6 +17,7 @@ use App\Services\Agreements\AgreementApplicator;
 use App\Services\Documenso\DocumensoService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -129,5 +130,58 @@ class FinalizeDocumensoSignatureJobTest extends TestCase
         $this->runJob(999_999);
 
         Http::assertNothingSent();
+    }
+
+    public function test_certificate_download_failure_still_seals_and_activates(): void
+    {
+        [$signature, $agreement, $owner] = $this->makeSignable(42);
+        Http::fake([
+            'docs.example.test/api/v2-beta/document/*/download*' => Http::response('SEALED-PDF', 200),
+            'docs.example.test/api/v2-beta/envelope/*/certificate/pdf' => Http::response('', 500),
+        ]);
+
+        $this->runJob($signature->id);
+
+        $signature->refresh();
+        $this->assertSame(AgreementSignatureStatus::Signed, $signature->status);
+        $this->assertNull($signature->certificate_path, 'certificate is supplementary — its failure must not block');
+        $this->assertNotNull($signature->signed_pdf_path);
+        $this->assertSame(AgreementStatus::Active, $agreement->fresh()->status);
+        $this->assertNotNull($owner->fresh()->management_fee_locked_at);
+    }
+
+    public function test_terminal_fee_clause_error_leaves_signature_unsigned(): void
+    {
+        // An agreement with NO fee clause: AgreementApplicator fails closed
+        // (DataIntegrityException). The signing must roll back — never a
+        // half-signed signature whose fee was never applied.
+        $manager = User::factory()->create(['role' => 'manager']);
+        $owner = PropertyOwner::factory()->create(['landlord_id' => $manager->id]);
+        $agreement = ManagementAgreement::factory()->create([
+            'landlord_id' => $manager->id,
+            'property_owner_id' => $owner->id,
+            'status' => AgreementStatus::Sent,
+        ]);
+        $signature = AgreementSignature::factory()->create([
+            'management_agreement_id' => $agreement->id,
+            'landlord_id' => $manager->id,
+            'status' => AgreementSignatureStatus::Pending,
+            'documenso_document_id' => 42,
+        ]);
+        $this->fakeDownloads();
+
+        $this->runJob($signature->id);
+
+        $this->assertSame(AgreementSignatureStatus::Pending, $signature->fresh()->status);
+        $this->assertSame(AgreementStatus::Sent, $agreement->fresh()->status);
+    }
+
+    public function test_permanent_failure_raises_a_critical_alert(): void
+    {
+        Log::spy();
+
+        (new FinalizeDocumensoSignatureJob(123, 42, 'env_abc'))->failed(new \RuntimeException('boom'));
+
+        Log::shouldHaveReceived('critical')->once();
     }
 }

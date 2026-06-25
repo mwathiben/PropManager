@@ -25,8 +25,11 @@ return new class extends Migration
             $table->string('certificate_path')->nullable()->after('signed_pdf_path');
             $table->string('sealed_pdf_sha256', 64)->nullable()->after('certificate_path');
 
-            // The webhook matches the inbound document id back to its signature.
-            $table->index('documenso_document_id');
+            // The webhook matches the inbound document id back to its signature,
+            // and it is the SOLE correlation key for an unauthenticated, money-
+            // activating callback — so it must be unique. Nullable-unique in MySQL
+            // permits many NULLs, so the in-house path (never sets it) is unaffected.
+            $table->unique('documenso_document_id');
         });
     }
 

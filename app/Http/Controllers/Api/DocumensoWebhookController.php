@@ -33,6 +33,9 @@ class DocumensoWebhookController extends Controller
 
         $documentId = (int) $request->input('payload.id');
         if ($documentId === 0) {
+            // A completion event we cannot correlate is abnormal — never drop it silently.
+            Log::warning('Documenso completion event missing document id', ['payload' => $request->input('payload')]);
+
             return response()->json(['status' => 'ignored']);
         }
 
