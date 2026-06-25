@@ -16,6 +16,7 @@ return [
         'all' => 'All',
         'unread' => 'Unread',
         'read' => 'Read',
+        'status' => 'Filter by status',
     ],
     'ticket' => 'Ticket #{id}',
     'empty' => [

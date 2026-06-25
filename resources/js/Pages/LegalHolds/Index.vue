@@ -110,6 +110,7 @@ const isActiveTab = computed(() => props.filters.status !== 'released');
                             </div>
                             <select
                                 :value="filters.subject_type"
+                                :aria-label="t('legal_holds.filter_subject_type')"
                                 @change="(e) => filterSubject((e.target as HTMLSelectElement).value)"
                                 class="rounded-lg border-gray-200 text-sm focus:border-indigo-500 focus:ring-indigo-500"
                                 data-testid="filter-subject-type"

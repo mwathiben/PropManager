@@ -3,8 +3,8 @@
     "rules": {
         "propmanager/no-hardcoded-english-strings": 3751,
         "propmanager/no-ltr-class": 0,
-        "vuejs-accessibility/label-has-for": 1,
-        "vuejs-accessibility/form-control-has-label": 6,
+        "vuejs-accessibility/label-has-for": 0,
+        "vuejs-accessibility/form-control-has-label": 0,
         "vuejs-accessibility/no-static-element-interactions": 91,
         "vuejs-accessibility/click-events-have-key-events": 85,
         "vuejs-accessibility/anchor-has-content": 12,
@@ -37,6 +37,10 @@
         "a11y-paydown-3": {
             "set_at": "2026-06-25",
             "rationale": "label-has-for 27 -> 1, form-control-has-label 45 -> 6 (65 sites). Triage swarm classified the 72 into 5 strategies; a fixer swarm (1 agent/file, 41 files) applied the routed fixes — existing-key sr-only <label>/aria-label (every key grep-confirmed in lang/en, the guard added after PR #121's hallucinated-key failure), dynamic :id for v-for fields, and group-aria (mis-used <label> -> <span id> + role=group aria-labelledby) for button/div-grid/custom-component groups. Verified: lang:coverage missing=0, green build, diff-scan clean. The final 7 (5 needing brand-new i18n keys, 2 shared headless components Checkbox/InputLabel needing a for/id/aria prop) are gated here and finished in batch 4 with the full test suite."
+        },
+        "a11y-paydown-4": {
+            "set_at": "2026-06-25",
+            "rationale": "label-has-for 1 -> 0, form-control-has-label 6 -> 0 — DONE. The final 7 done by hand (precision over a swarm): 5 controls (Reports/Builder filter field/op/value, LegalHolds subject-type, InboxTab status) got :aria-label backed by 5 NEW i18n keys added to en+sw+ar at matching positions (parity held, lang:coverage missing=0); the 2 shared headless components got an additive optional prop — Checkbox an :aria-label (callers pass the name), InputLabel a `for` prop bound :for (member-accessed as props.for to dodge the JS reserved word). Build compiles every caller. Both rules now permanently locked at 0 — the ratchet blocks any new label/control-association warning across the app. Net over 4 batches: label-has-for 743 -> 0, form-control-has-label 593 -> 0."
         }
     }
 }

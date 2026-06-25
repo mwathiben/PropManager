@@ -196,4 +196,5 @@ return [
         'no_activity' => '[TODO-sw] No recent activity.',
         'empty' => '[TODO-sw] No legal holds yet. Start the wizard to preserve records for a matter.',
     ],
+    'filter_subject_type' => 'Chuja kwa aina ya mhusika',
 ];
