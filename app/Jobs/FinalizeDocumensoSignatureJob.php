@@ -191,11 +191,16 @@ class FinalizeDocumensoSignatureJob implements ShouldQueue
 
     private function discardArtifacts(SealedAgreementArtifacts $artifacts): void
     {
-        $disk = (string) config('documenso.storage_disk', 'private');
-        Storage::disk($disk)->delete(array_values(array_filter([
-            $artifacts->signedPdfPath,
-            $artifacts->certificatePath,
-        ])));
+        try {
+            $disk = (string) config('documenso.storage_disk', 'private');
+            Storage::disk($disk)->delete(array_values(array_filter([
+                $artifacts->signedPdfPath,
+                $artifacts->certificatePath,
+            ])));
+        } catch (Throwable) {
+            // Best-effort cleanup — it must never mask the terminal failure we are
+            // failing the job on (that exception carries the money-integrity alert).
+        }
     }
 
     public function failed(Throwable $exception): void
