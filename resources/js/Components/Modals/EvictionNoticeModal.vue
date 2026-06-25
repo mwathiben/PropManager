@@ -73,7 +73,7 @@ const close = () => {
             <form @submit.prevent="submit" class="space-y-4">
                 <div>
                     <div class="flex justify-between items-center mb-2">
-                        <label class="block text-sm font-medium text-gray-700">{{ t('eviction_notice_modal.select_tenants') }}</label>
+                        <span id="eviction-tenants-group-label" class="block text-sm font-medium text-gray-700">{{ t('eviction_notice_modal.select_tenants') }}</span>
                         <div class="flex gap-2">
                             <button
                                 type="button"
@@ -91,7 +91,7 @@ const close = () => {
                             </button>
                         </div>
                     </div>
-                    <div class="border border-gray-300 rounded-md p-3 max-h-48 overflow-y-auto">
+                    <div role="group" aria-labelledby="eviction-tenants-group-label" class="border border-gray-300 rounded-md p-3 max-h-48 overflow-y-auto">
                         <div v-if="tenants.length === 0" class="text-sm text-gray-500 text-center py-4">
                             {{ t('eviction_notice_modal.no_tenants') }}
                         </div>
@@ -114,8 +114,8 @@ const close = () => {
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('eviction_notice_modal.channels') }}</label>
-                    <div class="flex gap-4">
+                    <span id="eviction-channels-group-label" class="block text-sm font-medium text-gray-700 mb-1">{{ t('eviction_notice_modal.channels') }}</span>
+                    <div role="group" aria-labelledby="eviction-channels-group-label" class="flex gap-4">
                         <div v-for="channel in channels" :key="channel.value" class="flex items-center gap-2">
                             <input
                                 v-model="form.channels"

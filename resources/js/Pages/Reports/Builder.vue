@@ -398,13 +398,17 @@ onMounted(() => {
 
                     <div class="rounded-lg border border-gray-200 bg-white p-4">
                         <h2 class="text-sm font-semibold text-gray-900">Save</h2>
+                        <label for="report-name" class="sr-only">{{ t('common.name') }}</label>
                         <input
+                            id="report-name"
                             v-model="name"
                             type="text"
                             placeholder="Name"
                             class="mt-1 w-full rounded-md border-gray-300 text-sm"
                         />
+                        <label for="report-description" class="sr-only">{{ t('buildings_show.description') }}</label>
                         <input
+                            id="report-description"
                             v-model="description"
                             type="text"
                             placeholder="Description (optional)"

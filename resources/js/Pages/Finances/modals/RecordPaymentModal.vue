@@ -186,7 +186,7 @@ const setFullAmount = () => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_record_payment.payment_method') }}</label>
+                                    <label for="payment-method-select" class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_record_payment.payment_method') }}</label>
                                     <PaymentMethodSelector
                                         v-model="form.payment_method"
                                         :methods="paymentMethodOptions"

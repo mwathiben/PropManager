@@ -200,7 +200,7 @@ const emptyStateActionLabel = computed(() => isTenant.value ? t('tickets.index.e
 
                         <!-- Building/Wing Filter (for landlords/caretakers only) -->
                         <div v-if="!isTenant && buildings?.length > 0">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tickets.index.filter_building_wing') }}</label>
+                            <span class="block text-sm font-medium text-gray-700 mb-1">{{ t('tickets.index.filter_building_wing') }}</span>
                             <BuildingWingFilter
                                 :buildings="buildings"
                                 v-model:buildingId="buildingId"

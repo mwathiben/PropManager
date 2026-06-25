@@ -120,8 +120,8 @@ onMounted(async () => {
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="md:col-span-2">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ $t('water_settings_form.billing_method') }}</label>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <span id="water-billing-method-label" class="block text-sm font-medium text-gray-700 mb-2">{{ $t('water_settings_form.billing_method') }}</span>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4" role="group" aria-labelledby="water-billing-method-label">
                         <label
                             v-for="opt in [
                                 { value: 'consumption', title: $t('water_settings_form.type_consumption'), desc: $t('water_settings_form.type_consumption_hint') },
@@ -160,9 +160,9 @@ onMounted(async () => {
             </div>
 
             <!-- Phase-87: tiered bands (consumption only) -->
-            <div v-if="form.water_billing_type === 'consumption'" class="mt-6 border-t border-gray-100 pt-6">
+            <div v-if="form.water_billing_type === 'consumption'" class="mt-6 border-t border-gray-100 pt-6" role="group" aria-labelledby="water-tiers-label">
                 <div class="flex items-center justify-between mb-2">
-                    <label class="block text-sm font-medium text-gray-700">{{ $t('water_settings_form.tiers_title') }}</label>
+                    <span id="water-tiers-label" class="block text-sm font-medium text-gray-700">{{ $t('water_settings_form.tiers_title') }}</span>
                     <button type="button" class="inline-flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800" @click="addBand">
                         <PlusIcon class="w-4 h-4" /> {{ $t('water_settings_form.tiers_add') }}
                     </button>

@@ -191,8 +191,8 @@ const close = () => {
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('add_building_modal.building_type_required') }}</label>
-                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        <span id="building-type-group-label" class="block text-sm font-medium text-gray-700 mb-2">{{ t('add_building_modal.building_type_required') }}</span>
+                        <div role="group" aria-labelledby="building-type-group-label" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
                             <button
                                 v-for="(label, key) in buildingTypes"
                                 :key="key"

@@ -77,8 +77,10 @@ const getOccupancyRate = (occupied, total) => {
                 <div class="bg-white rounded-lg shadow-sm border p-4 mb-6">
                     <form @submit.prevent="search" class="flex gap-4">
                         <div class="relative flex-1">
+                            <label for="landlord-search" class="sr-only">{{ t('admin_landlords.search_placeholder') }}</label>
                             <MagnifyingGlassIcon class="absolute start-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                             <input type="text"
+                                   id="landlord-search"
                                    v-model="searchQuery"
                                    :placeholder="t('admin_landlords.search_placeholder')"
                                    class="w-full ps-10 pe-4 py-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500" />

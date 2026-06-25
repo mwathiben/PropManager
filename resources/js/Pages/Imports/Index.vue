@@ -131,26 +131,28 @@ const { formatDateTime: formatDate } = useFormatters();
 
                         <!-- Building/Wing Scope (for imports that require it) -->
                         <div v-if="buildings?.length > 0" class="mb-6 p-4 bg-gray-50 rounded-lg">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <span id="scope-group-label" class="block text-sm font-medium text-gray-700 mb-2">
                                 {{ t('imports.target_scope_label') }}
-                            </label>
-                            <BuildingWingFilter
-                                :buildings="buildings"
-                                v-model:buildingId="buildingId"
-                                v-model:wingId="wingId"
-                                :showBadge="true"
-                                :buildingPlaceholder="t('imports.all_buildings')"
-                                :wingPlaceholder="t('imports.all_wings')"
-                            />
-                            <p class="mt-2 text-xs text-gray-500">
-                                {{ t('imports.scope_hint') }}
-                            </p>
+                            </span>
+                            <div role="group" aria-labelledby="scope-group-label">
+                                <BuildingWingFilter
+                                    :buildings="buildings"
+                                    v-model:buildingId="buildingId"
+                                    v-model:wingId="wingId"
+                                    :showBadge="true"
+                                    :buildingPlaceholder="t('imports.all_buildings')"
+                                    :wingPlaceholder="t('imports.all_wings')"
+                                />
+                                <p class="mt-2 text-xs text-gray-500">
+                                    {{ t('imports.scope_hint') }}
+                                </p>
+                            </div>
                         </div>
 
                         <!-- Import Type Selection -->
                         <div class="mb-6">
-                            <label class="block text-sm font-medium text-gray-700 mb-3">{{ t('imports.select_type_label') }}</label>
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <span id="import-type-group-label" class="block text-sm font-medium text-gray-700 mb-3">{{ t('imports.select_type_label') }}</span>
+                            <div role="group" aria-labelledby="import-type-group-label" class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div
                                     v-for="(typeInfo, key) in importTypes"
                                     :key="key"

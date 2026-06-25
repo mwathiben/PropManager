@@ -174,9 +174,18 @@ const documents = computed(() => props.lease.documents ?? []);
                     <p v-else class="text-sm text-gray-500 mb-4">{{ $t('lease.co_tenant.empty') }}</p>
 
                     <form @submit.prevent="submitCoTenant" class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
-                        <input v-model="coTenantForm.name" type="text" required :placeholder="$t('lease.co_tenant.name')" class="w-full border-gray-300 rounded-lg text-sm" />
-                        <input v-model="coTenantForm.email" type="email" :placeholder="$t('lease.co_tenant.email')" class="w-full border-gray-300 rounded-lg text-sm" />
-                        <input v-model="coTenantForm.relationship" type="text" :placeholder="$t('lease.co_tenant.relationship')" class="w-full border-gray-300 rounded-lg text-sm" />
+                        <div>
+                            <label for="co-tenant-name" class="sr-only">{{ $t('lease.co_tenant.name') }}</label>
+                            <input id="co-tenant-name" v-model="coTenantForm.name" type="text" required :placeholder="$t('lease.co_tenant.name')" class="w-full border-gray-300 rounded-lg text-sm" />
+                        </div>
+                        <div>
+                            <label for="co-tenant-email" class="sr-only">{{ $t('lease.co_tenant.email') }}</label>
+                            <input id="co-tenant-email" v-model="coTenantForm.email" type="email" :placeholder="$t('lease.co_tenant.email')" class="w-full border-gray-300 rounded-lg text-sm" />
+                        </div>
+                        <div>
+                            <label for="co-tenant-relationship" class="sr-only">{{ $t('lease.co_tenant.relationship') }}</label>
+                            <input id="co-tenant-relationship" v-model="coTenantForm.relationship" type="text" :placeholder="$t('lease.co_tenant.relationship')" class="w-full border-gray-300 rounded-lg text-sm" />
+                        </div>
                         <button type="submit" :disabled="coTenantForm.processing" class="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 text-sm">
                             {{ $t('lease.co_tenant.add') }}
                         </button>
@@ -195,9 +204,18 @@ const documents = computed(() => props.lease.documents ?? []);
                     <p v-else class="text-sm text-gray-500 mb-4">{{ $t('lease.guarantor.empty') }}</p>
 
                     <form @submit.prevent="submitGuarantor" class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
-                        <input v-model="guarantorForm.name" type="text" required :placeholder="$t('lease.guarantor.name')" class="w-full border-gray-300 rounded-lg text-sm" />
-                        <input v-model="guarantorForm.relationship" type="text" :placeholder="$t('lease.guarantor.relationship')" class="w-full border-gray-300 rounded-lg text-sm" />
-                        <input v-model="guarantorForm.guaranteed_amount" type="number" step="0.01" min="0" :placeholder="$t('lease.guarantor.guaranteed_amount')" class="w-full border-gray-300 rounded-lg text-sm" />
+                        <div>
+                            <label for="guarantor-name" class="sr-only">{{ $t('lease.guarantor.name') }}</label>
+                            <input id="guarantor-name" v-model="guarantorForm.name" type="text" required :placeholder="$t('lease.guarantor.name')" class="w-full border-gray-300 rounded-lg text-sm" />
+                        </div>
+                        <div>
+                            <label for="guarantor-relationship" class="sr-only">{{ $t('lease.guarantor.relationship') }}</label>
+                            <input id="guarantor-relationship" v-model="guarantorForm.relationship" type="text" :placeholder="$t('lease.guarantor.relationship')" class="w-full border-gray-300 rounded-lg text-sm" />
+                        </div>
+                        <div>
+                            <label for="guarantor-guaranteed-amount" class="sr-only">{{ $t('lease.guarantor.guaranteed_amount') }}</label>
+                            <input id="guarantor-guaranteed-amount" v-model="guarantorForm.guaranteed_amount" type="number" step="0.01" min="0" :placeholder="$t('lease.guarantor.guaranteed_amount')" class="w-full border-gray-300 rounded-lg text-sm" />
+                        </div>
                         <button type="submit" :disabled="guarantorForm.processing" class="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 text-sm">
                             {{ $t('lease.guarantor.add') }}
                         </button>

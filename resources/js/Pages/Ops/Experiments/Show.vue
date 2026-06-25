@@ -74,6 +74,7 @@ function conclude(): void {
                         <input
                             v-model="winningKeyInput"
                             type="text"
+                            aria-label="Winning variant key (optional)"
                             placeholder="winning variant key (optional)"
                             class="block w-64 rounded-md border-gray-300 text-sm"
                         />

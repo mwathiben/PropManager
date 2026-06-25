@@ -729,8 +729,8 @@ const executeDelete = () => {
                             </div>
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-2">{{ t('finances_expenses.categories.color') }}</label>
-                            <div class="flex flex-wrap gap-2">
+                            <span id="cat-color-group-label" class="block text-xs font-medium text-gray-700 mb-2">{{ t('finances_expenses.categories.color') }}</span>
+                            <div role="group" aria-labelledby="cat-color-group-label" class="flex flex-wrap gap-2">
                                 <button
                                     v-for="color in categoryColors"
                                     :key="color"
@@ -894,8 +894,8 @@ const executeDelete = () => {
                             ></textarea>
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_expenses.vendors.specialties') }}</label>
-                            <div class="grid grid-cols-2 gap-2 sm:grid-cols-4" data-testid="vendor-specialties">
+                            <span id="vendor-specialties-group-label" class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_expenses.vendors.specialties') }}</span>
+                            <div role="group" aria-labelledby="vendor-specialties-group-label" class="grid grid-cols-2 gap-2 sm:grid-cols-4" data-testid="vendor-specialties">
                                 <label v-for="s in VENDOR_SPECIALTIES" :key="s.value" class="flex items-center gap-2 text-xs text-gray-700">
                                     <input v-model="vendorForm.specialties" :value="s.value" type="checkbox" class="rounded border-gray-300 text-emerald-600" />
                                     {{ s.label }}

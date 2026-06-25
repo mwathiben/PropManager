@@ -113,6 +113,7 @@ const getStatusColor = (status) => {
                             :checked="selectedLeaseIds.includes(unit.active_lease.id)"
                             @change="updateSelection(unit.active_lease.id, $event.target.checked)"
                             class="rounded border-gray-300"
+                            :aria-label="unit.unit_number"
                         >
                         <div class="flex-1">
                             <div class="font-medium">{{ unit.unit_number }}</div>

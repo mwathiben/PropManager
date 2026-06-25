@@ -366,6 +366,7 @@ const designStyles = computed(() => {
                                                     :value="previewState.primary_color"
                                                     @input="updateField('primary_color', $event.target.value)"
                                                     type="text"
+                                                    aria-label="Primary color hex value"
                                                     class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
                                                     placeholder="#4F46E5"
                                                 />
@@ -385,6 +386,7 @@ const designStyles = computed(() => {
                                                     :value="previewState.secondary_color"
                                                     @input="updateField('secondary_color', $event.target.value)"
                                                     type="text"
+                                                    aria-label="Secondary color hex value"
                                                     class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
                                                     placeholder="#6366F1"
                                                 />

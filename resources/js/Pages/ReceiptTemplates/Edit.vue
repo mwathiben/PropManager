@@ -353,6 +353,7 @@ const toggleGroups = props.toggleGroups || [
                                                     :value="previewState.primary_color"
                                                     @input="updateField('primary_color', $event.target.value)"
                                                     type="text"
+                                                    aria-label="Primary color hex value"
                                                     class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
                                                     placeholder="#059669"
                                                 />
@@ -372,6 +373,7 @@ const toggleGroups = props.toggleGroups || [
                                                     :value="previewState.secondary_color"
                                                     @input="updateField('secondary_color', $event.target.value)"
                                                     type="text"
+                                                    aria-label="Secondary color hex value"
                                                     class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
                                                     placeholder="#10B981"
                                                 />

@@ -91,8 +91,8 @@ const providerChanged = (provider) => {
 
             <!-- Provider Selection -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-3">{{ t('integrations.ocr.select_provider') }}</label>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <span id="ocr-provider-group-label" class="block text-sm font-medium text-gray-700 mb-3">{{ t('integrations.ocr.select_provider') }}</span>
+                <div role="group" aria-labelledby="ocr-provider-group-label" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div
                         v-for="(provider, key) in ocrProviders"
                         :key="key"

@@ -103,8 +103,8 @@ const submit = () => {
                     <form @submit.prevent="submit" class="p-6 space-y-6">
                         <!-- Category Selection -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-3">{{ t('tickets.create.report_type_label') }}</label>
-                            <div class="grid grid-cols-2 gap-4">
+                            <span id="category-group-label" class="block text-sm font-medium text-gray-700 mb-3">{{ t('tickets.create.report_type_label') }}</span>
+                            <div class="grid grid-cols-2 gap-4" role="group" aria-labelledby="category-group-label">
                                 <button
                                     type="button"
                                     @click="form.category = 'issue'"

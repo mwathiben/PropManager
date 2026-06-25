@@ -811,7 +811,8 @@ const confirmDeleteBuilding = () => {
                                 </div>
                                 <div class="p-4 sm:p-6">
                                     <div class="flex gap-2 mb-4">
-                                        <input v-model="customAmenityInput" type="text"
+                                        <label for="custom-amenity-input" class="sr-only">{{ t('buildings_edit.amenities.custom_placeholder') }}</label>
+                                        <input id="custom-amenity-input" v-model="customAmenityInput" type="text"
                                             :placeholder="t('buildings_edit.amenities.custom_placeholder')"
                                             @keyup.enter="addCustomAmenity"
                                             class="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
@@ -845,10 +846,14 @@ const confirmDeleteBuilding = () => {
                                 <div class="p-4 sm:p-6 space-y-3">
                                     <div v-for="a in selectedAmenityList" :key="a.key" class="grid grid-cols-1 sm:grid-cols-5 gap-2 items-center">
                                         <span class="text-sm font-medium text-gray-700">{{ a.label }}</span>
-                                        <input v-model.number="amenityDetailFor(a.key).quantity" type="number" min="0" :placeholder="$t('building.amenity_detail.quantity')" class="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
-                                        <input v-model="amenityDetailFor(a.key).provider" type="text" :placeholder="$t('building.amenity_detail.provider')" class="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
-                                        <input v-model="amenityDetailFor(a.key).account_ref" type="text" :placeholder="$t('building.amenity_detail.account_ref')" class="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
-                                        <input v-model.number="amenityDetailFor(a.key).monthly_cost" type="number" min="0" step="0.01" :placeholder="$t('building.amenity_detail.monthly_cost')" class="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+                                        <label :for="`amenity-qty-${a.key}`" class="sr-only">{{ $t('building.amenity_detail.quantity') }} {{ a.label }}</label>
+                                        <input :id="`amenity-qty-${a.key}`" v-model.number="amenityDetailFor(a.key).quantity" type="number" min="0" :placeholder="$t('building.amenity_detail.quantity')" class="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+                                        <label :for="`amenity-provider-${a.key}`" class="sr-only">{{ $t('building.amenity_detail.provider') }} {{ a.label }}</label>
+                                        <input :id="`amenity-provider-${a.key}`" v-model="amenityDetailFor(a.key).provider" type="text" :placeholder="$t('building.amenity_detail.provider')" class="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+                                        <label :for="`amenity-ref-${a.key}`" class="sr-only">{{ $t('building.amenity_detail.account_ref') }} {{ a.label }}</label>
+                                        <input :id="`amenity-ref-${a.key}`" v-model="amenityDetailFor(a.key).account_ref" type="text" :placeholder="$t('building.amenity_detail.account_ref')" class="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+                                        <label :for="`amenity-cost-${a.key}`" class="sr-only">{{ $t('building.amenity_detail.monthly_cost') }} {{ a.label }}</label>
+                                        <input :id="`amenity-cost-${a.key}`" v-model.number="amenityDetailFor(a.key).monthly_cost" type="number" min="0" step="0.01" :placeholder="$t('building.amenity_detail.monthly_cost')" class="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
                                     </div>
                                 </div>
                             </div>

@@ -1072,8 +1072,8 @@ const getActivityIcon = (action) => {
 
                     <form @submit.prevent="submitWalletAdjustment" class="space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('tenants.show.wallet_modal.adjustment_type') }}</label>
-                            <div class="flex gap-2">
+                            <span id="wallet-adjustment-type-label" class="block text-sm font-medium text-gray-700 mb-2">{{ t('tenants.show.wallet_modal.adjustment_type') }}</span>
+                            <div class="flex gap-2" role="group" aria-labelledby="wallet-adjustment-type-label">
                                 <button
                                     type="button"
                                     @click="walletForm.type = 'credit'"

@@ -408,8 +408,8 @@ const getChannelBadges = (channelList) => {
                                 </div>
                             </div>
 
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('notifications_scheduled.form.channels') }}</label>
+                            <div role="group" aria-labelledby="sched-channels-label">
+                                <span id="sched-channels-label" class="block text-sm font-medium text-gray-700 mb-2">{{ t('notifications_scheduled.form.channels') }}</span>
                                 <div class="flex flex-wrap gap-2">
                                     <button
                                         v-for="channel in channels"

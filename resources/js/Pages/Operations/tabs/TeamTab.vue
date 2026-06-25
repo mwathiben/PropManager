@@ -277,8 +277,8 @@ const getStatusColor = (status) => {
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('operations_team.modal.assign_buildings') }}</label>
-                            <div class="space-y-2 max-h-40 overflow-y-auto">
+                            <span id="assign-buildings-label" class="block text-sm font-medium text-gray-700 mb-1">{{ t('operations_team.modal.assign_buildings') }}</span>
+                            <div role="group" aria-labelledby="assign-buildings-label" class="space-y-2 max-h-40 overflow-y-auto">
                                 <label
                                     v-for="building in buildings"
                                     :key="building.id"

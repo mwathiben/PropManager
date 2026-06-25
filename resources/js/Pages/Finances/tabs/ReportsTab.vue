@@ -391,6 +391,7 @@ watch(() => localFilters.value.period, (newVal) => {
             <div class="flex flex-wrap items-center gap-3">
                 <select
                     v-model="localFilters.period"
+                    :aria-label="t('gateway_reconciliation.period')"
                     class="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500"
                 >
                     <option v-for="opt in periodOptions" :key="opt.value" :value="opt.value">

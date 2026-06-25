@@ -262,8 +262,8 @@ const getFileIcon = (document) => {
                         </div>
 
                         <!-- Building/Wing Filter -->
-                        <div v-if="!isTenant && buildings?.length > 0">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('documents.filters.building_wing') }}</label>
+                        <div v-if="!isTenant && buildings?.length > 0" role="group" aria-labelledby="doc-building-wing-label">
+                            <span id="doc-building-wing-label" class="block text-sm font-medium text-gray-700 mb-1">{{ t('documents.filters.building_wing') }}</span>
                             <BuildingWingFilter
                                 :buildings="buildings"
                                 v-model:buildingId="buildingId"

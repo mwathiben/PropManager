@@ -102,7 +102,7 @@ watch(() => props.show, (newVal) => {
                         <!-- Recipients -->
                         <div>
                             <div class="flex justify-between items-center mb-2">
-                                <label class="block text-sm font-medium text-gray-700">{{ t('bulk_send_notification.recipients') }}</label>
+                                <span id="bsn-recipients-label" class="block text-sm font-medium text-gray-700">{{ t('bulk_send_notification.recipients') }}</span>
                                 <div class="flex gap-3">
                                     <button
                                         type="button"
@@ -120,7 +120,7 @@ watch(() => props.show, (newVal) => {
                                     </button>
                                 </div>
                             </div>
-                            <div class="border border-gray-200 rounded-xl p-3 max-h-48 overflow-y-auto bg-gray-50">
+                            <div role="group" aria-labelledby="bsn-recipients-label" class="border border-gray-200 rounded-xl p-3 max-h-48 overflow-y-auto bg-gray-50">
                                 <div v-if="tenants.length === 0" class="text-center py-4 text-gray-500 text-sm">
                                     {{ t('bulk_send_notification.no_tenants') }}
                                 </div>
@@ -160,8 +160,8 @@ watch(() => props.show, (newVal) => {
 
                         <!-- Channels -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('bulk_send_notification.channels_label') }}</label>
-                            <div class="flex flex-wrap gap-2">
+                            <span id="bsn-channels-label" class="block text-sm font-medium text-gray-700 mb-2">{{ t('bulk_send_notification.channels_label') }}</span>
+                            <div role="group" aria-labelledby="bsn-channels-label" class="flex flex-wrap gap-2">
                                 <button
                                     v-for="channel in channels"
                                     :key="channel.value"

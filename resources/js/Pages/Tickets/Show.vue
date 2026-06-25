@@ -359,7 +359,9 @@ const canEdit = computed(() => {
                             <!-- Add Comment Form -->
                             <form @submit.prevent="submitComment" class="border-t pt-4">
                                 <div class="mb-3">
+                                    <label for="ticket-comment-textarea" class="sr-only">{{ t('tickets.show.add_comment_placeholder') }}</label>
                                     <textarea
+                                        id="ticket-comment-textarea"
                                         v-model="commentForm.comment"
                                         rows="3"
                                         :placeholder="t('tickets.show.add_comment_placeholder')"
