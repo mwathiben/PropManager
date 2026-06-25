@@ -445,6 +445,7 @@ const designOptionsLocalized = computed<Record<string, string>>(() => props.desi
                                 :key="tab.id"
                                 @click="navigateToTab(tab)"
                                 @mouseenter="prefetchTab(tab)"
+                                @focus="prefetchTab(tab)"
                                 :class="[
                                     'flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors',
                                     effectiveGroup === tab.id
@@ -472,6 +473,7 @@ const designOptionsLocalized = computed<Record<string, string>>(() => props.desi
                                 :key="subtab.id"
                                 @click="navigateToTab(subtab)"
                                 @mouseenter="prefetchTab(subtab)"
+                                @focus="prefetchTab(subtab)"
                                 :class="[
                                     'px-3 py-1.5 text-sm font-medium rounded-full transition-colors',
                                     store.activeTab === subtab.id

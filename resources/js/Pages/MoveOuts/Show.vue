@@ -446,7 +446,7 @@ const progressSteps = computed(() => [
         <!-- Deduction Modal -->
         <div v-if="showDeductionModal" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
-                <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" @click="showDeductionModal = false"></div>
+                <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" role="button" tabindex="0" @click="showDeductionModal = false" @keydown.enter="showDeductionModal = false" @keydown.space.prevent="showDeductionModal = false"></div>
 
                 <div class="relative z-50 inline-block w-full max-w-md my-8 overflow-hidden text-start align-middle transition-all transform bg-white rounded-xl shadow-xl">
                     <div class="px-6 py-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
@@ -533,7 +533,7 @@ const progressSteps = computed(() => [
         <!-- Settlement Modal -->
         <div v-if="showSettlementModal" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
-                <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" @click="showSettlementModal = false"></div>
+                <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" role="button" tabindex="0" @click="showSettlementModal = false" @keydown.enter="showSettlementModal = false" @keydown.space.prevent="showSettlementModal = false"></div>
 
                 <div class="relative z-50 inline-block w-full max-w-md my-8 overflow-hidden text-start align-middle transition-all transform bg-white rounded-xl shadow-xl">
                     <div class="px-6 py-4 bg-gray-50 border-b border-gray-200">

@@ -191,6 +191,7 @@ const downloadReceipt = (payment) => {
                                         :href="route('tenant.invoices.download', row.id)"
                                         class="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800"
                                         :title="$t('tenant_finances.download_invoice')"
+                                        :aria-label="t('tenant_finances.download_invoice')"
                                     >
                                         <ArrowDownTrayIcon class="w-4 h-4" />
                                     </a>

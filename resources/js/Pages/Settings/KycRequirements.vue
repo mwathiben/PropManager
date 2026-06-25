@@ -355,7 +355,7 @@ const toggleActive = (req: KycRequirement) => {
                 v-if="showModal"
                 class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto"
             >
-                <div class="fixed inset-0 bg-black bg-opacity-50" @click="closeModal"></div>
+                <div class="fixed inset-0 bg-black bg-opacity-50" @click="closeModal" role="button" tabindex="0" @keydown.enter="closeModal" @keydown.space.prevent="closeModal"></div>
                 <div class="relative w-full max-w-md p-6 mx-4 bg-white rounded-lg shadow-xl">
                     <h3 class="mb-4 text-lg font-medium text-gray-900">
                         {{ modalTitle }}

@@ -97,6 +97,10 @@ const providerChanged = (provider) => {
                         v-for="(provider, key) in ocrProviders"
                         :key="key"
                         @click="providerChanged(key)"
+                        @keydown.enter="providerChanged(key)"
+                        @keydown.space.prevent="providerChanged(key)"
+                        role="button"
+                        tabindex="0"
                         :class="['relative border-2 rounded-xl p-4 cursor-pointer transition-all', ocrForm.provider === key ? 'border-indigo-600 bg-indigo-50 ring-1 ring-indigo-600' : 'border-gray-200 hover:border-indigo-300']"
                     >
                         <div class="flex items-start">
@@ -132,6 +136,10 @@ const providerChanged = (provider) => {
                     <!-- No OCR Option -->
                     <div
                         @click="providerChanged('none')"
+                        @keydown.enter="providerChanged('none')"
+                        @keydown.space.prevent="providerChanged('none')"
+                        role="button"
+                        tabindex="0"
                         :class="['relative border-2 rounded-xl p-4 cursor-pointer transition-all', ocrForm.provider === 'none' ? 'border-gray-400 bg-gray-100 ring-1 ring-gray-400' : 'border-gray-200 hover:border-gray-300']"
                     >
                         <div class="flex items-start">

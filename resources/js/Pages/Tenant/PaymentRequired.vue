@@ -301,7 +301,11 @@ const canPayOnline = computed(() => {
                         <form @submit.prevent="submitProof">
                             <!-- Drop Zone -->
                             <div
+                                role="button"
+                                tabindex="0"
                                 @click="selectFiles"
+                                @keydown.enter="selectFiles"
+                                @keydown.space.prevent="selectFiles"
                                 @dragover.prevent="dragOver = true"
                                 @dragleave="dragOver = false"
                                 @drop="handleDrop"

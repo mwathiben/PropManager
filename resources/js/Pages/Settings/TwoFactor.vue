@@ -224,7 +224,7 @@ const disableTwoFactor = () => {
         <!-- Password Confirmation Modal -->
         <div v-if="showPasswordModal" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex min-h-full items-center justify-center p-4">
-                <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showPasswordModal = false"></div>
+                <div class="fixed inset-0 bg-gray-900/50 z-40" role="button" tabindex="0" @click="showPasswordModal = false" @keydown.enter="showPasswordModal = false" @keydown.space.prevent="showPasswordModal = false"></div>
                 <div class="relative z-50 bg-white rounded-lg shadow-xl max-w-md w-full p-6">
                     <h3 class="text-lg font-semibold text-gray-900 mb-4">{{ t('two_factor.password_modal.title') }}</h3>
                     <p class="text-sm text-gray-600 mb-4">{{ t('two_factor.password_modal.body') }}</p>
@@ -265,7 +265,7 @@ const disableTwoFactor = () => {
         <!-- Disable 2FA Modal -->
         <div v-if="showDisableModal" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex min-h-full items-center justify-center p-4">
-                <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showDisableModal = false"></div>
+                <div class="fixed inset-0 bg-gray-900/50 z-40" role="button" tabindex="0" @click="showDisableModal = false" @keydown.enter="showDisableModal = false" @keydown.space.prevent="showDisableModal = false"></div>
                 <div class="relative z-50 bg-white rounded-lg shadow-xl max-w-md w-full p-6">
                     <h3 class="text-lg font-semibold text-gray-900 mb-4">{{ t('two_factor.disable_modal.title') }}</h3>
                     <p class="text-sm text-gray-600 mb-4">

@@ -592,7 +592,7 @@ const breadcrumbs = computed(() => [
             >
                 <div v-if="showModal" class="fixed inset-0 z-50 overflow-y-auto">
                     <div class="flex min-h-full items-center justify-center p-4">
-                        <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm" @click="closeModal" />
+                        <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm" role="button" tabindex="0" @click="closeModal" @keydown.enter="closeModal" @keydown.space.prevent="closeModal" />
 
                         <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
                             <form @submit.prevent="submitForm">
@@ -727,7 +727,7 @@ const breadcrumbs = computed(() => [
             >
                 <div v-if="showDeleteModal" class="fixed inset-0 z-50 overflow-y-auto">
                     <div class="flex min-h-full items-center justify-center p-4">
-                        <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm" @click="showDeleteModal = false" />
+                        <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm" role="button" tabindex="0" @click="showDeleteModal = false" @keydown.enter="showDeleteModal = false" @keydown.space.prevent="showDeleteModal = false" />
 
                         <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
                             <div class="p-6 text-center">

@@ -110,6 +110,7 @@ const prefetchTab = (tab: HubTab): void => {
                                 type="button"
                                 @click="navigateToTab(tab)"
                                 @mouseenter="prefetchTab(tab)"
+                                @focus="prefetchTab(tab)"
                                 :class="[
                                     'flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors',
                                     currentTab === tab.id

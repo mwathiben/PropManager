@@ -102,7 +102,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
       role="dialog"
       :aria-label="t('onboarding.help.drawer_title')"
     >
-      <div class="fixed inset-0 bg-black/40" @click="close" />
+      <div class="fixed inset-0 bg-black/40" role="button" tabindex="0" @click="close" @keydown.enter="close" @keydown.space.prevent="close" />
       <aside class="relative w-full max-w-md bg-white shadow-xl h-full flex flex-col">
         <header class="border-b px-4 py-3 flex items-center justify-between">
           <h2 class="text-sm font-semibold">{{ t('onboarding.help.drawer_title') }}</h2>

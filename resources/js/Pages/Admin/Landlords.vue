@@ -182,7 +182,7 @@ const getOccupancyRate = (occupied, total) => {
         <!-- Create Modal -->
         <div v-if="showCreateModal" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex items-center justify-center min-h-screen px-4">
-                <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showCreateModal = false"></div>
+                <div class="fixed inset-0 bg-gray-900/50 z-40" role="button" tabindex="0" @click="showCreateModal = false" @keydown.enter="showCreateModal = false" @keydown.space.prevent="showCreateModal = false"></div>
                 <div class="relative z-50 bg-white rounded-lg shadow-xl max-w-md w-full p-6">
                     <h3 class="text-lg font-semibold text-gray-900 mb-4">{{ t('admin_landlords.modal.title') }}</h3>
                     <form @submit.prevent="createLandlord" class="space-y-4">

@@ -199,10 +199,10 @@ const submitRenew = () => {
                                 >
                                     <ArrowPathIcon class="w-5 h-5" />
                                 </button>
-                                <a :href="route('documents.view', doc.id)" target="_blank" rel="noopener" class="text-gray-600 hover:text-gray-900">
+                                <a :href="route('documents.view', doc.id)" target="_blank" rel="noopener" :aria-label="$t('documents.actions.view')" class="text-gray-600 hover:text-gray-900">
                                     <EyeIcon class="w-5 h-5" />
                                 </a>
-                                <a :href="route('documents.download', doc.id)" class="text-gray-600 hover:text-gray-900">
+                                <a :href="route('documents.download', doc.id)" :aria-label="$t('documents.actions.download')" class="text-gray-600 hover:text-gray-900">
                                     <ArrowDownTrayIcon class="w-5 h-5" />
                                 </a>
                             </div>

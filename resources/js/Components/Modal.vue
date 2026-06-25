@@ -81,7 +81,11 @@ const maxWidthClass = computed(() => {
                 <div
                     v-show="show"
                     class="fixed inset-0 z-40 bg-gray-900/50 transition-opacity"
+                    role="button"
+                    tabindex="0"
                     @click="close"
+                    @keydown.enter="close"
+                    @keydown.space.prevent="close"
                 />
             </Transition>
 

@@ -344,7 +344,11 @@ const handleSubmit = () => {
                                         <div
                                             v-for="invoice in tenantInvoices"
                                             :key="invoice.id"
+                                            role="button"
+                                            tabindex="0"
                                             @click="form.invoice_id = invoice.id"
+                                            @keydown.enter="form.invoice_id = invoice.id"
+                                            @keydown.space.prevent="form.invoice_id = invoice.id"
                                             :class="['p-3 border rounded-lg cursor-pointer transition-colors', form.invoice_id === invoice.id ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 hover:border-gray-300']"
                                         >
                                             <div class="flex items-center justify-between">

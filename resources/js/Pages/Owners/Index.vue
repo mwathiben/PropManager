@@ -210,7 +210,7 @@ const invite = (owner: Owner) => {
         </div>
 
         <!-- Add/Edit modal -->
-        <div v-if="showForm" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" @click.self="showForm = false">
+        <div v-if="showForm" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="button" tabindex="0" @click.self="showForm = false" @keydown.enter="showForm = false" @keydown.space.prevent="showForm = false">
             <div class="w-full max-w-md rounded-xl bg-white p-5 shadow-xl">
                 <h3 class="mb-4 text-lg font-semibold text-gray-900">{{ editing ? t('owners.edit') : t('owners.add') }}</h3>
                 <form class="space-y-3" @submit.prevent="submit">

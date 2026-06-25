@@ -123,7 +123,7 @@ function requestReread(reading: ReadingRow): void {
         </div>
 
         <div v-if="mode" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div class="fixed inset-0 bg-gray-900/50" @click="close"></div>
+            <div class="fixed inset-0 bg-gray-900/50" role="button" tabindex="0" @click="close" @keydown.enter="close" @keydown.space.prevent="close"></div>
             <div class="relative z-10 w-full max-w-md rounded-lg bg-white p-6">
                 <h3 class="mb-4 text-lg font-semibold text-gray-900">
                     {{ mode === 'approve' ? t('water_review_tab.modal.title_approve') : t('water_review_tab.modal.title_reject') }}

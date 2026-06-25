@@ -5,13 +5,13 @@
         "propmanager/no-ltr-class": 0,
         "vuejs-accessibility/label-has-for": 0,
         "vuejs-accessibility/form-control-has-label": 0,
-        "vuejs-accessibility/no-static-element-interactions": 91,
-        "vuejs-accessibility/click-events-have-key-events": 85,
-        "vuejs-accessibility/anchor-has-content": 12,
-        "vuejs-accessibility/no-autofocus": 11,
-        "vuejs-accessibility/mouse-events-have-key-events": 7,
-        "vuejs-accessibility/no-redundant-roles": 3,
-        "vuejs-accessibility/alt-text": 1
+        "vuejs-accessibility/no-static-element-interactions": 0,
+        "vuejs-accessibility/click-events-have-key-events": 0,
+        "vuejs-accessibility/anchor-has-content": 0,
+        "vuejs-accessibility/no-autofocus": 0,
+        "vuejs-accessibility/mouse-events-have-key-events": 0,
+        "vuejs-accessibility/no-redundant-roles": 0,
+        "vuejs-accessibility/alt-text": 0
     },
     "phase_history": {
         "phase-53": {
@@ -41,6 +41,10 @@
         "a11y-paydown-4": {
             "set_at": "2026-06-25",
             "rationale": "label-has-for 1 -> 0, form-control-has-label 6 -> 0 — DONE. The final 7 done by hand (precision over a swarm): 5 controls (Reports/Builder filter field/op/value, LegalHolds subject-type, InboxTab status) got :aria-label backed by 5 NEW i18n keys added to en+sw+ar at matching positions (parity held, lang:coverage missing=0); the 2 shared headless components got an additive optional prop — Checkbox an :aria-label (callers pass the name), InputLabel a `for` prop bound :for (member-accessed as props.for to dodge the JS reserved word). Build compiles every caller. Both rules now permanently locked at 0 — the ratchet blocks any new label/control-association warning across the app. Net over 4 batches: label-has-for 743 -> 0, form-control-has-label 593 -> 0."
+        },
+        "a11y-interaction": {
+            "set_at": "2026-06-25",
+            "rationale": "The remaining 7 vuejs-accessibility rules -> 0 (no-static-element-interactions 91, click-events 85, anchor-has-content 12, no-autofocus 11, mouse-events 7, no-redundant-roles 3, alt-text 1). A triage swarm (79 files, re-run for 5 the session limit dropped) classified every site; a fixer swarm in 5 capped waves added role=button+tabindex+@keydown (byte-identical to the @click), @focus/@blur mirroring mouse events, anchor :aria-label (grep-confirmed keys), and decorative alt. The ~20 residual were resolved deliberately: a documented eslint.config.js per-file override (inline eslint-disable is NOT honoured by vue-eslint-parser here) for genuine false positives (native-interactive <label> drag-drop, drag containers with interactive children, role=dialog backdrop, paginator v-html anchors) and the team's deliberate auth/2FA/profile autofocus policy. CAUGHT + reverted a swarm regression: it had removed 3 intentional role=list Safari workarounds — restored them and scoped no-redundant-roles off for those 3. ALL 9 vuejs-accessibility rules now locked at 0. Verified: eslint sweep 0/0/.../0, lang:coverage missing=0, green build."
         }
     }
 }

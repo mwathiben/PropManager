@@ -352,7 +352,7 @@ const reissueInvoice = () => {
         <Teleport to="body">
             <div v-if="showPaymentModal" class="fixed inset-0 z-50 overflow-y-auto">
                 <div class="flex items-center justify-center min-h-screen px-4">
-                    <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showPaymentModal = false"></div>
+                    <div class="fixed inset-0 bg-gray-900/50 z-40" role="button" tabindex="0" @click="showPaymentModal = false" @keydown.enter="showPaymentModal = false" @keydown.space.prevent="showPaymentModal = false"></div>
                     <div class="relative z-50 bg-white rounded-lg shadow-xl max-w-md w-full p-6">
                         <h3 class="text-lg font-semibold text-gray-900 mb-4">{{ t('invoices_show.payment_modal.title') }}</h3>
 
@@ -423,7 +423,7 @@ const reissueInvoice = () => {
 
             <div v-if="showVoidModal" class="fixed inset-0 z-50 overflow-y-auto">
                 <div class="flex items-center justify-center min-h-screen px-4">
-                    <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showVoidModal = false"></div>
+                    <div class="fixed inset-0 bg-gray-900/50 z-40" role="button" tabindex="0" @click="showVoidModal = false" @keydown.enter="showVoidModal = false" @keydown.space.prevent="showVoidModal = false"></div>
                     <div class="relative z-50 bg-white rounded-lg shadow-xl max-w-md w-full p-6">
                         <h3 class="text-lg font-semibold text-gray-900 mb-4">{{ t('invoices_show.void_modal.title') }}</h3>
                         <p class="text-sm text-gray-600 mb-4">

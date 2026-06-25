@@ -84,6 +84,7 @@ const printCodes = () => {
                             <a
                                 :href="route('two-factor.index')"
                                 class="text-gray-400 hover:text-gray-600 print:hidden"
+                                :aria-label="t('two_factor_recovery.back_to_2fa')"
                             >
                                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -170,7 +171,7 @@ const printCodes = () => {
         <!-- Regenerate Modal -->
         <div v-if="showRegenerateModal" class="fixed inset-0 z-50 overflow-y-auto print:hidden">
             <div class="flex min-h-full items-center justify-center p-4">
-                <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showRegenerateModal = false"></div>
+                <div class="fixed inset-0 bg-gray-900/50 z-40" role="button" tabindex="0" @click="showRegenerateModal = false" @keydown.enter="showRegenerateModal = false" @keydown.space.prevent="showRegenerateModal = false"></div>
                 <div class="relative z-50 bg-white rounded-lg shadow-xl max-w-md w-full p-6">
                     <h3 class="text-lg font-semibold text-gray-900 mb-2">{{ t('two_factor_recovery.regenerate.title') }}</h3>
                     <p class="text-sm text-gray-600 mb-4">

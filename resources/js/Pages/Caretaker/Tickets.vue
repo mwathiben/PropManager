@@ -318,7 +318,7 @@ const getTimeAgo = (dateString) => {
         <Teleport to="body">
             <div v-if="showResolveModal" class="fixed inset-0 z-50 overflow-y-auto">
                 <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-                    <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" @click="showResolveModal = false"></div>
+                    <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" role="button" tabindex="0" @click="showResolveModal = false" @keydown.enter="showResolveModal = false" @keydown.space.prevent="showResolveModal = false"></div>
 
                     <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
 

@@ -64,7 +64,7 @@ defineExpose({ open: openModal });
             data-testid="hold-create-modal"
         >
             <div class="flex min-h-full items-center justify-center p-4">
-                <div class="fixed inset-0 bg-gray-500/75 transition-opacity" @click="closeModal"></div>
+                <div class="fixed inset-0 bg-gray-500/75 transition-opacity" role="button" tabindex="0" @click="closeModal" @keydown.enter="closeModal" @keydown.space.prevent="closeModal"></div>
 
                 <div class="relative bg-white rounded-2xl shadow-xl ring-1 ring-gray-100 w-full max-w-lg p-6">
                     <button

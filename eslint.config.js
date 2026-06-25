@@ -189,4 +189,45 @@ export default [
             'propmanager/no-ltr-class': 'warn',
         },
     },
+
+    // A11Y-PAYDOWN-INTERACTION: documented per-file resolutions where the rule
+    // is a deliberate UX policy or a genuine false positive. Inline
+    // eslint-disable comments are NOT honoured by vue-eslint-parser in this
+    // flat config, so these are scoped here instead — each with its reason.
+    {
+        // Deliberate sole-primary-field autofocus on auth / 2FA / profile entry
+        // forms (good UX on single-purpose pages; the team's documented policy).
+        files: [
+            '**/Auth/ConfirmPassword.vue', '**/Auth/ForgotPassword.vue', '**/Auth/Login.vue',
+            '**/Auth/Register.vue', '**/Auth/ResetPassword.vue', '**/Auth/TwoFactorChallenge.vue',
+            '**/Settings/TwoFactor.vue', '**/Settings/TwoFactorRecoveryCodes.vue', '**/Settings/TwoFactorSetup.vue',
+            '**/Profile/Partials/UpdateProfileInformationForm.vue',
+        ],
+        rules: { 'vuejs-accessibility/no-autofocus': 'off' },
+    },
+    {
+        // False positive: <label> is natively interactive (HTML 4.10.18) and the
+        // drag-and-drop containers wrap interactive children, so role="button"
+        // would be semantically wrong / invalid nested-interactive HTML.
+        files: [
+            '**/Pages/Dashboard.vue', '**/Finances/Payments/BulkImport.vue',
+            '**/Tenant/CompleteKyc.vue', '**/Components/Inbox/InitiateThreadDialog.vue',
+        ],
+        rules: { 'vuejs-accessibility/no-static-element-interactions': 'off' },
+    },
+    {
+        // False positive: Laravel paginator anchors render link.label (incl. HTML
+        // entities for prev/next) at runtime; eslint cannot see the content.
+        files: ['**/Pages/Water/tabs/ReviewTab.vue', '**/Pages/Imports/Index.vue'],
+        rules: { 'vuejs-accessibility/anchor-has-content': 'off' },
+    },
+    {
+        // Intentional role="list" — the documented Safari workaround (VoiceOver
+        // drops list semantics under list-style:none). Keep it; the rule's
+        // "redundant" call does not apply on these lists.
+        files: [
+            '**/Components/TicketActivityTimeline.vue', '**/Pages/ActivityLogs/Index.vue', '**/Pages/Tenants/Show.vue',
+        ],
+        rules: { 'vuejs-accessibility/no-redundant-roles': 'off' },
+    },
 ];

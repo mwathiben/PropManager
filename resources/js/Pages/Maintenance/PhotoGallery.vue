@@ -167,7 +167,7 @@ function close(): void {
             <Pagination :links="photos.links" color="indigo" />
         </div>
 
-        <div v-if="active" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" @click.self="close">
+        <div v-if="active" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" role="button" tabindex="0" @click.self="close" @keydown.enter="close" @keydown.space.prevent="close">
             <div class="max-h-full w-full max-w-3xl overflow-auto rounded-lg bg-white">
                 <div class="flex items-center justify-between border-b border-gray-100 px-4 py-3">
                     <div class="min-w-0">

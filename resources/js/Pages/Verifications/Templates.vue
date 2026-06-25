@@ -257,7 +257,7 @@ const defaultTemplate = computed(() => props.templates.find(tpl => tpl.is_defaul
         <!-- Create Modal -->
         <div v-if="showCreateModal" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
-                <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" @click="closeModals"></div>
+                <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" role="button" tabindex="0" @click="closeModals" @keydown.enter="closeModals" @keydown.space.prevent="closeModals"></div>
 
                 <div class="relative z-50 inline-block w-full max-w-3xl my-8 overflow-hidden text-start align-middle transition-all transform bg-white rounded-xl shadow-xl">
                     <div class="px-6 py-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
@@ -433,7 +433,7 @@ const defaultTemplate = computed(() => props.templates.find(tpl => tpl.is_defaul
         <!-- Edit Modal -->
         <div v-if="showEditModal && editingTemplate" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
-                <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" @click="closeModals"></div>
+                <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" role="button" tabindex="0" @click="closeModals" @keydown.enter="closeModals" @keydown.space.prevent="closeModals"></div>
 
                 <div class="relative z-50 inline-block w-full max-w-3xl my-8 overflow-hidden text-start align-middle transition-all transform bg-white rounded-xl shadow-xl">
                     <div class="px-6 py-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">

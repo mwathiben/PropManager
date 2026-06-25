@@ -145,8 +145,12 @@ const statusLabel = (status) => {
             <div
                 v-for="message in inbox.data"
                 :key="message.id"
+                role="button"
+                tabindex="0"
                 :class="['p-4 hover:bg-gray-50 cursor-pointer transition-colors', message.status === 'received' ? 'bg-indigo-50/50' : '']"
                 @click="router.get(route('inbox.show', message.id))"
+                @keydown.enter="router.get(route('inbox.show', message.id))"
+                @keydown.space.prevent="router.get(route('inbox.show', message.id))"
             >
                 <div class="flex items-start gap-4">
                     <div class="flex-shrink-0 h-10 w-10 bg-gray-100 rounded-full flex items-center justify-center">

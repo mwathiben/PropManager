@@ -275,7 +275,7 @@ const getTypeColor = (type) => {
         <Teleport to="body">
             <div v-if="showCreateModal" class="fixed inset-0 z-50 overflow-y-auto">
                 <div class="flex min-h-full items-center justify-center p-4">
-                    <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" @click="closeModal"></div>
+                    <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" role="button" tabindex="0" @click="closeModal" @keydown.enter="closeModal" @keydown.space.prevent="closeModal"></div>
 
                     <div class="relative z-50 bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                         <div class="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 rounded-t-2xl">
@@ -401,7 +401,7 @@ const getTypeColor = (type) => {
         <Teleport to="body">
             <div v-if="showPreviewModal && previewTemplate" class="fixed inset-0 z-50 overflow-y-auto">
                 <div class="flex min-h-full items-center justify-center p-4">
-                    <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" @click="showPreviewModal = false"></div>
+                    <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" role="button" tabindex="0" @click="showPreviewModal = false" @keydown.enter="showPreviewModal = false" @keydown.space.prevent="showPreviewModal = false"></div>
 
                     <div class="relative z-50 bg-white rounded-2xl shadow-xl max-w-lg w-full">
                         <div class="border-b border-gray-100 px-6 py-4 rounded-t-2xl">

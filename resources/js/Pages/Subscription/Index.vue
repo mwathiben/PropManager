@@ -261,6 +261,7 @@ const isAtLimit = (current, limit) => {
                                     :href="route('subscription.invoice', payment.id)"
                                     class="p-2 text-gray-400 hover:text-gray-600"
                                     :title="t('subscription.payments.download')"
+                                    :aria-label="t('subscription.payments.download')"
                                 >
                                     <DocumentArrowDownIcon class="h-5 w-5" />
                                 </a>
@@ -276,7 +277,7 @@ const isAtLimit = (current, limit) => {
 
         <!-- Cancel Modal -->
         <div v-if="showCancelModal" class="fixed inset-0 z-50 flex items-center justify-center">
-            <div class="fixed inset-0 bg-gray-900/50" @click="showCancelModal = false"></div>
+            <div class="fixed inset-0 bg-gray-900/50" role="button" tabindex="0" @click="showCancelModal = false" @keydown.enter="showCancelModal = false" @keydown.space.prevent="showCancelModal = false"></div>
             <div class="relative bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
                 <h3 class="text-lg font-semibold text-gray-900 mb-2">{{ t('subscription.cancel_modal.title') }}</h3>
                 <p class="text-gray-600 mb-4">

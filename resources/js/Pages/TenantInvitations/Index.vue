@@ -397,7 +397,7 @@ const closeEditModal = () => {
         <!-- Create Modal -->
         <div v-if="showCreateModal" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
-                <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" @click="showCreateModal = false"></div>
+                <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" role="button" tabindex="0" @click="showCreateModal = false" @keydown.enter="showCreateModal = false" @keydown.space.prevent="showCreateModal = false"></div>
 
                 <div class="relative z-50 inline-block w-full max-w-2xl my-8 overflow-hidden text-start align-middle transition-all transform bg-white rounded-xl shadow-xl">
                     <!-- Header -->
@@ -598,7 +598,7 @@ const closeEditModal = () => {
         <!-- Edit Modal -->
         <div v-if="showEditModal && editingInvitation" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
-                <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" @click="closeEditModal"></div>
+                <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" role="button" tabindex="0" @click="closeEditModal" @keydown.enter="closeEditModal" @keydown.space.prevent="closeEditModal"></div>
 
                 <div class="relative z-50 inline-block w-full max-w-2xl my-8 overflow-hidden text-start align-middle transition-all transform bg-white rounded-xl shadow-xl">
                     <!-- Header -->
