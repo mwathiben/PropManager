@@ -143,7 +143,15 @@ export default [
             'vuejs-accessibility/no-autofocus': 'warn',
             // label/control association — A11Y-FORM-2 (required-field)
             // + the broader form sweep tighten these.
-            'vuejs-accessibility/label-has-for': 'warn',
+            //
+            // A11Y-PAYDOWN-1: `some` (associated by for/id OR nesting) is the
+            // WCAG 1.3.1 / HTML-spec standard — either method is a valid,
+            // screen-reader-recognised association. The plugin default `every`
+            // (BOTH nesting AND for/id) over-flags 260 already-accessible
+            // labels as false positives. `some` flags only genuinely
+            // unassociated labels — the real debt the baseline now ratchets
+            // down, fixable by adding for/id without restructuring the DOM.
+            'vuejs-accessibility/label-has-for': ['warn', { required: { some: ['nesting', 'id'] } }],
             'vuejs-accessibility/form-control-has-label': 'warn',
             // div@click without keyboard handlers — A11Y-KBD-2
             // (Dropdown) + A11Y-KBD-3 (mobile sidebar) own the
