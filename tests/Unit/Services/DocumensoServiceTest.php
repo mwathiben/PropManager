@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace Tests\Unit\Services;
 
 use App\Exceptions\DocumensoException;
+use App\Exceptions\Resilience\CircuitOpenException;
 use App\Services\Documenso\DocumensoService;
 use App\Services\Documenso\DocumensoSigner;
+use App\Services\Resilience\CircuitBreaker;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -134,5 +137,48 @@ class DocumensoServiceTest extends TestCase
             'https://docs.example.test/embed/sign/recipient-token-xyz',
             app(DocumensoService::class)->embedSigningUrl('recipient-token-xyz'),
         );
+    }
+
+    public function test_connection_failure_surfaces_as_documenso_exception(): void
+    {
+        Http::fake(fn () => throw new ConnectionException('unreachable'));
+
+        $this->expectException(DocumensoException::class);
+
+        app(DocumensoService::class)->downloadSignedPdf(42);
+    }
+
+    public function test_circuit_open_surfaces_as_documenso_exception(): void
+    {
+        // If the (opt-in) breaker is OPEN it throws CircuitOpenException, which is
+        // NOT a ConnectionException — the service must still wrap it so it can't
+        // leak past the signing path.
+        $this->mock(CircuitBreaker::class, function ($mock): void {
+            $mock->shouldReceive('guard')->andThrow(new CircuitOpenException('documenso', '/document/download', 30));
+        });
+
+        $this->expectException(DocumensoException::class);
+
+        app(DocumensoService::class)->downloadSignedPdf(42);
+    }
+
+    public function test_create_throws_and_halts_before_send_when_upload_fails(): void
+    {
+        Http::fake([
+            'docs.example.test/api/v1/documents' => Http::response([
+                'uploadUrl' => 'https://s3.example.test/upload?sig=abc',
+                'documentId' => 42,
+                'recipients' => [['token' => 'rtok', 'signingUrl' => 'https://docs.example.test/sign/rtok', 'role' => 'SIGNER']],
+            ], 200),
+            's3.example.test/*' => Http::response('', 500),
+            'docs.example.test/api/v1/documents/*/send' => Http::response([], 200),
+        ]);
+
+        try {
+            app(DocumensoService::class)->createSigningEnvelope('pdf', new DocumensoSigner('n', 'e@e.test'), 't', 'ext');
+            $this->fail('Expected DocumensoException when the upload fails.');
+        } catch (DocumensoException) {
+            Http::assertNotSent(fn (Request $r) => str_ends_with($r->url(), '/send'));
+        }
     }
 }

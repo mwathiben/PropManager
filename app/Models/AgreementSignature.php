@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\AgreementSignatureMethod;
 use App\Enums\AgreementSignatureStatus;
+use App\Enums\DocumensoDocumentStatus;
 use App\Traits\Auditable;
 use App\Traits\TenantScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -56,6 +58,8 @@ class AgreementSignature extends Model
     {
         return [
             'status' => AgreementSignatureStatus::class,
+            'signing_method' => AgreementSignatureMethod::class,
+            'documenso_status' => DocumensoDocumentStatus::class,
             'otp_verified_at' => 'datetime',
             'signed_at' => 'datetime',
             'documenso_completed_at' => 'datetime',

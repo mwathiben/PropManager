@@ -205,8 +205,10 @@ Route::prefix('webhooks')->group(function () {
 
     // Documenso e-signature completion (Slice 2, PR 2.4b). Shared-secret
     // validated via middleware; DOCUMENT_COMPLETED seals the evidence + activates.
+    // throttle BEFORE the secret check: the shared secret is the sole gate, so cap
+    // brute-force throughput per IP (a real Documenso instance sends far fewer).
     Route::post('/documenso', [\App\Http\Controllers\Api\DocumensoWebhookController::class, 'handle'])
-        ->middleware('webhook.documenso');
+        ->middleware(['throttle:60,1', 'webhook.documenso']);
 
     // M-Pesa webhooks (IP + timestamp validated via middleware)
     Route::middleware('webhook.mpesa')->group(function () {
