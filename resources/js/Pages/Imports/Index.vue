@@ -156,7 +156,11 @@ const { formatDateTime: formatDate } = useFormatters();
                                 <div
                                     v-for="(typeInfo, key) in importTypes"
                                     :key="key"
+                                    role="button"
+                                    tabindex="0"
                                     @click="selectedType = key"
+                                    @keydown.enter="selectedType = key"
+                                    @keydown.space.prevent="selectedType = key"
                                     :class="['border rounded-lg p-4 cursor-pointer transition-all', selectedType === key ? 'border-indigo-600 bg-indigo-50 ring-2 ring-indigo-600' : 'border-gray-200 hover:border-indigo-300']"
                                 >
                                     <div class="flex items-start gap-3">

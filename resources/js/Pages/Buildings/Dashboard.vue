@@ -759,7 +759,10 @@ const clearAllFilters = () => {
 
                     <div v-if="recentPayments && recentPayments.length > 0" class="space-y-3">
                         <div v-for="payment in recentPayments" :key="payment.id"
+                             role="button" tabindex="0"
                              @click="viewPayment(payment)"
+                             @keydown.enter="viewPayment(payment)"
+                             @keydown.space.prevent="viewPayment(payment)"
                              class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors">
                             <div class="flex items-center gap-3">
                                 <div class="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center text-green-600">
@@ -871,7 +874,7 @@ const clearAllFilters = () => {
         <!-- ADD WING MODAL -->
         <div v-if="showAddWingModal" class="fixed inset-0 z-50 overflow-y-auto">
              <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-                <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity backdrop-blur-sm" @click="showAddWingModal = false"></div>
+                <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity backdrop-blur-sm" role="button" tabindex="0" @click="showAddWingModal = false" @keydown.enter="showAddWingModal = false" @keydown.space.prevent="showAddWingModal = false"></div>
                 <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
                 <div class="relative z-50 inline-block align-bottom bg-white rounded-xl text-start overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-gray-100">
                     <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">

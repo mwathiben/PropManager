@@ -261,7 +261,7 @@ const typeLabel = (type: string) => t(`document.types.${type}`);
 
         <!-- Upload / renew modal -->
         <div v-if="modalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div class="fixed inset-0 bg-gray-900/50" @click="modalOpen = false"></div>
+            <div class="fixed inset-0 bg-gray-900/50" role="button" tabindex="0" @click="modalOpen = false" @keydown.enter="modalOpen = false" @keydown.space.prevent="modalOpen = false"></div>
             <div class="relative z-10 w-full max-w-md rounded-lg bg-white p-6">
                 <h3 class="mb-1 text-lg font-semibold text-gray-900">
                     {{ modalMode === 'renew' ? t('document.renewal.title') : t('water.compliance.upload_title') }}

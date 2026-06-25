@@ -171,7 +171,7 @@ const cancelDeletion = () => {
         <!-- Export Modal -->
         <div v-if="showExportModal" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex items-center justify-center min-h-screen p-4">
-                <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showExportModal = false"></div>
+                <div class="fixed inset-0 bg-gray-900/50 z-40" role="button" tabindex="0" @click="showExportModal = false" @keydown.enter="showExportModal = false" @keydown.space.prevent="showExportModal = false"></div>
                 <div class="relative z-50 bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
                 <h3 class="text-lg font-medium text-gray-900 mb-4">{{ t('privacy.export.modal_heading') }}</h3>
                 <p class="text-sm text-gray-600 mb-4">
@@ -200,7 +200,7 @@ const cancelDeletion = () => {
         <!-- Delete Modal -->
         <div v-if="showDeleteModal" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex items-center justify-center min-h-screen p-4">
-                <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showDeleteModal = false"></div>
+                <div class="fixed inset-0 bg-gray-900/50 z-40" role="button" tabindex="0" @click="showDeleteModal = false" @keydown.enter="showDeleteModal = false" @keydown.space.prevent="showDeleteModal = false"></div>
                 <div class="relative z-50 bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
                 <h3 class="text-lg font-medium text-red-600 mb-4">{{ t('privacy.delete.modal_heading') }}</h3>
                 <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">

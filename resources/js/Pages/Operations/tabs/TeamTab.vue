@@ -248,7 +248,7 @@ const getStatusColor = (status) => {
 
         <div v-if="showInviteModal" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex items-center justify-center min-h-screen p-4">
-                <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showInviteModal = false"></div>
+                <div class="fixed inset-0 bg-gray-900/50 z-40" role="button" tabindex="0" @click="showInviteModal = false" @keydown.enter="showInviteModal = false" @keydown.space.prevent="showInviteModal = false"></div>
 
                 <div class="relative z-50 bg-white rounded-lg shadow-xl max-w-md w-full p-6">
                     <h3 class="text-lg font-semibold text-gray-900 mb-4">{{ t('operations_team.modal.title') }}</h3>

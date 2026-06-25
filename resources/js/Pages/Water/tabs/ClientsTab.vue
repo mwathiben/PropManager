@@ -221,7 +221,7 @@ const modeLabel = (m: string) => t(`water.clients.mode_${m}`);
 
         <!-- Connection create/edit modal -->
         <div v-if="modalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div class="fixed inset-0 bg-gray-900/50" @click="modalOpen = false"></div>
+            <div class="fixed inset-0 bg-gray-900/50" role="button" tabindex="0" @click="modalOpen = false" @keydown.enter="modalOpen = false" @keydown.space.prevent="modalOpen = false"></div>
             <div class="relative z-10 w-full max-w-md rounded-lg bg-white p-6">
                 <h3 class="mb-4 text-lg font-semibold text-gray-900">{{ editingId ? t('water.clients.form_title_edit') : t('water.clients.form_title_new') }}</h3>
                 <form class="space-y-3" @submit.prevent="submit">
@@ -280,7 +280,7 @@ const modeLabel = (m: string) => t(`water.clients.mode_${m}`);
 
         <!-- Invite client modal -->
         <div v-if="inviteOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div class="fixed inset-0 bg-gray-900/50" @click="inviteOpen = false"></div>
+            <div class="fixed inset-0 bg-gray-900/50" role="button" tabindex="0" @click="inviteOpen = false" @keydown.enter="inviteOpen = false" @keydown.space.prevent="inviteOpen = false"></div>
             <div class="relative z-10 w-full max-w-sm rounded-lg bg-white p-6">
                 <h3 class="mb-1 text-lg font-semibold text-gray-900">{{ t('water.clients.invite_title') }}</h3>
                 <p class="mb-4 text-sm text-gray-500">{{ inviteConnection?.identifier }}</p>

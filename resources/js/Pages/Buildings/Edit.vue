@@ -622,7 +622,9 @@ const confirmDeleteBuilding = () => {
                                                 :key="unit.id"
                                                 @click="toggleSelection(unit.id)"
                                                 @mouseenter="hoveredUnit = unit.id"
+                                                @focus="hoveredUnit = unit.id"
                                                 @mouseleave="hoveredUnit = null"
+                                                @blur="hoveredUnit = null"
                                                 :class="getUnitClasses(unit, selectedIds.includes(unit.id))"
                                                 class="relative aspect-square rounded-lg border p-2 flex flex-col items-center justify-center transition-all text-center cursor-pointer">
                                                 <!-- Selection check -->
@@ -1046,7 +1048,7 @@ const confirmDeleteBuilding = () => {
                 leave-to-class="opacity-0">
                 <div v-if="showActionModal" class="fixed inset-0 z-50 overflow-y-auto">
                     <div class="flex min-h-full items-center justify-center p-4">
-                        <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm" @click="showActionModal = false"></div>
+                        <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm" role="button" tabindex="0" @click="showActionModal = false" @keydown.enter="showActionModal = false" @keydown.space.prevent="showActionModal = false"></div>
 
                         <Transition
                             enter-active-class="duration-200 ease-out"
@@ -1146,7 +1148,7 @@ const confirmDeleteBuilding = () => {
                 leave-to-class="opacity-0">
                 <div v-if="showDeleteConfirm" class="fixed inset-0 z-50 overflow-y-auto">
                     <div class="flex min-h-full items-center justify-center p-4">
-                        <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm" @click="showDeleteConfirm = false"></div>
+                        <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm" role="button" tabindex="0" @click="showDeleteConfirm = false" @keydown.enter="showDeleteConfirm = false" @keydown.space.prevent="showDeleteConfirm = false"></div>
 
                         <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
                             <div class="p-6 text-center">
@@ -1186,7 +1188,7 @@ const confirmDeleteBuilding = () => {
                 leave-to-class="opacity-0">
                 <div v-if="showAddUnitModal" class="fixed inset-0 z-50 overflow-y-auto">
                     <div class="flex min-h-full items-center justify-center p-4">
-                        <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm" @click="showAddUnitModal = false"></div>
+                        <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm" role="button" tabindex="0" @click="showAddUnitModal = false" @keydown.enter="showAddUnitModal = false" @keydown.space.prevent="showAddUnitModal = false"></div>
 
                         <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
                             <div class="px-6 py-4 border-b border-gray-100">
@@ -1287,7 +1289,7 @@ const confirmDeleteBuilding = () => {
                 leave-to-class="opacity-0">
                 <div v-if="showDeleteBuildingModal" class="fixed inset-0 z-50 overflow-y-auto">
                     <div class="flex min-h-full items-center justify-center p-4">
-                        <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm" @click="showDeleteBuildingModal = false"></div>
+                        <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm" role="button" tabindex="0" @click="showDeleteBuildingModal = false" @keydown.enter="showDeleteBuildingModal = false" @keydown.space.prevent="showDeleteBuildingModal = false"></div>
 
                         <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
                             <div class="p-6 text-center">

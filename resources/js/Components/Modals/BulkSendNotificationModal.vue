@@ -127,7 +127,11 @@ watch(() => props.show, (newVal) => {
                                 <div
                                     v-for="tenant in tenants"
                                     :key="tenant.id"
+                                    role="button"
+                                    tabindex="0"
                                     @click="form.recipient_ids.includes(tenant.id) ? form.recipient_ids.splice(form.recipient_ids.indexOf(tenant.id), 1) : form.recipient_ids.push(tenant.id)"
+                                    @keydown.enter="form.recipient_ids.includes(tenant.id) ? form.recipient_ids.splice(form.recipient_ids.indexOf(tenant.id), 1) : form.recipient_ids.push(tenant.id)"
+                                    @keydown.space.prevent="form.recipient_ids.includes(tenant.id) ? form.recipient_ids.splice(form.recipient_ids.indexOf(tenant.id), 1) : form.recipient_ids.push(tenant.id)"
                                     :class="['flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors mb-1', form.recipient_ids.includes(tenant.id) ? 'bg-indigo-100 border border-indigo-200' : 'hover:bg-gray-100']"
                                 >
                                     <div :class="['w-5 h-5 rounded flex items-center justify-center border-2 transition-colors', form.recipient_ids.includes(tenant.id) ? 'bg-indigo-600 border-indigo-600' : 'border-gray-300 bg-white']">

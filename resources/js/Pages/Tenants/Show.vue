@@ -712,6 +712,7 @@ const getActivityIcon = (action) => {
                                                 target="_blank"
                                                 class="p-2 text-gray-400 hover:text-indigo-600"
                                                 :title="t('tenants.show.documents.view')"
+                                                :aria-label="t('tenants.show.documents.view')"
                                             >
                                                 <EyeIcon class="w-5 h-5" />
                                             </a>
@@ -719,6 +720,7 @@ const getActivityIcon = (action) => {
                                                 :href="route('documents.download', doc.id)"
                                                 class="p-2 text-gray-400 hover:text-green-600"
                                                 :title="t('tenants.show.documents.download')"
+                                                :aria-label="t('tenants.show.documents.download')"
                                             >
                                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -872,7 +874,7 @@ const getActivityIcon = (action) => {
         <!-- EDIT TENANT MODAL -->
         <div v-if="showEditModal" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex items-center justify-center min-h-screen px-4">
-                <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showEditModal = false"></div>
+                <div class="fixed inset-0 bg-gray-900/50 z-40" role="button" tabindex="0" @click="showEditModal = false" @keydown.enter="showEditModal = false" @keydown.space.prevent="showEditModal = false"></div>
                 <div class="relative z-50 bg-white rounded-xl shadow-xl max-w-md w-full p-6">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-semibold text-gray-900">{{ t('tenants.show.edit_modal.title') }}</h3>
@@ -980,7 +982,7 @@ const getActivityIcon = (action) => {
         <!-- NOTE MODAL -->
         <div v-if="showNoteModal" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex items-center justify-center min-h-screen px-4">
-                <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showNoteModal = false"></div>
+                <div class="fixed inset-0 bg-gray-900/50 z-40" role="button" tabindex="0" @click="showNoteModal = false" @keydown.enter="showNoteModal = false" @keydown.space.prevent="showNoteModal = false"></div>
                 <div class="relative z-50 bg-white rounded-xl shadow-xl max-w-md w-full p-6">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-semibold text-gray-900">{{ editingNote ? t('tenants.show.note_modal.edit_title') : t('tenants.show.note_modal.add_title') }}</h3>
@@ -1011,7 +1013,7 @@ const getActivityIcon = (action) => {
         <!-- EMERGENCY CONTACT MODAL -->
         <div v-if="showContactModal" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex items-center justify-center min-h-screen px-4">
-                <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showContactModal = false"></div>
+                <div class="fixed inset-0 bg-gray-900/50 z-40" role="button" tabindex="0" @click="showContactModal = false" @keydown.enter="showContactModal = false" @keydown.space.prevent="showContactModal = false"></div>
                 <div class="relative z-50 bg-white rounded-xl shadow-xl max-w-md w-full p-6">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-semibold text-gray-900">{{ editingContact ? t('tenants.show.contact_modal.edit_title') : t('tenants.show.contact_modal.add_title') }}</h3>
@@ -1054,7 +1056,7 @@ const getActivityIcon = (action) => {
         <!-- WALLET ADJUSTMENT MODAL -->
         <div v-if="showWalletModal" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex items-center justify-center min-h-screen px-4">
-                <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showWalletModal = false"></div>
+                <div class="fixed inset-0 bg-gray-900/50 z-40" role="button" tabindex="0" @click="showWalletModal = false" @keydown.enter="showWalletModal = false" @keydown.space.prevent="showWalletModal = false"></div>
                 <div class="relative z-50 bg-white rounded-xl shadow-xl max-w-md w-full p-6">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-semibold text-gray-900">{{ t('tenants.show.wallet_modal.title') }}</h3>
@@ -1145,7 +1147,7 @@ const getActivityIcon = (action) => {
         <!-- Phase-82 NOTICE-GEN-2: generate a notice PDF for the active lease. -->
         <div v-if="showNoticeModal" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex items-center justify-center min-h-screen px-4">
-                <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showNoticeModal = false"></div>
+                <div class="fixed inset-0 bg-gray-900/50 z-40" role="button" tabindex="0" @click="showNoticeModal = false" @keydown.enter="showNoticeModal = false" @keydown.space.prevent="showNoticeModal = false"></div>
                 <div class="relative z-50 bg-white rounded-xl shadow-xl max-w-md w-full p-6">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-semibold text-gray-900">{{ $t('document.notice.generate') }}</h3>

@@ -535,7 +535,7 @@ const navigationItems = computed(() => {
 
             <!-- MOBILE SIDEBAR -->
             <div v-if="showMobileSidebar" class="fixed inset-0 z-50 lg:hidden">
-                <div class="fixed inset-0 bg-gray-900/50" @click="closeMobileSidebar"></div>
+                <div class="fixed inset-0 bg-gray-900/50" role="button" tabindex="0" @click="closeMobileSidebar" @keydown.enter="closeMobileSidebar" @keydown.space.prevent="closeMobileSidebar"></div>
                 <aside
                     ref="mobileSidebarRef"
                     id="mobile-sidebar"

@@ -365,7 +365,7 @@ const hasActiveFilters = () => {
         <Teleport to="body">
             <div v-if="showDetailModal && selectedNotification" class="fixed inset-0 z-50 overflow-y-auto">
                 <div class="flex min-h-full items-center justify-center p-4">
-                    <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" @click="showDetailModal = false"></div>
+                    <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" role="button" tabindex="0" @click="showDetailModal = false" @keydown.enter="showDetailModal = false" @keydown.space.prevent="showDetailModal = false"></div>
 
                     <div class="relative z-50 bg-white rounded-2xl shadow-xl max-w-lg w-full">
                         <div class="border-b border-gray-100 px-6 py-4 rounded-t-2xl">

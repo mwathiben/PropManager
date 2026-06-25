@@ -343,7 +343,11 @@ const paymentMethodLabels = computed(() => ({
                                     <div
                                         v-for="payment in tenantPayments"
                                         :key="payment.id"
+                                        role="button"
+                                        tabindex="0"
                                         @click="form.payment_id = payment.id"
+                                        @keydown.enter="form.payment_id = payment.id"
+                                        @keydown.space.prevent="form.payment_id = payment.id"
                                         :class="[
                                             /* i18n-ignore */ 'p-3 border rounded-lg cursor-pointer transition-colors',
                                             form.payment_id === payment.id

@@ -167,6 +167,7 @@ const hasActiveFilters = computed(() => {
                                 <a
                                     v-if="lease.document_path"
                                     :href="route('leases.download', lease.id)"
+                                    :aria-label="t('lease.lifecycle.download')"
                                     class="text-gray-600 hover:text-gray-900"
                                 >
                                     <ArrowDownTrayIcon class="w-5 h-5" />

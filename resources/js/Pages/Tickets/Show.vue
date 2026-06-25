@@ -570,7 +570,7 @@ const canEdit = computed(() => {
         <!-- Resolve Modal -->
         <div v-if="showResolveModal" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex items-center justify-center min-h-screen px-4">
-                <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showResolveModal = false"></div>
+                <div class="fixed inset-0 bg-gray-900/50 z-40" role="button" tabindex="0" @click="showResolveModal = false" @keydown.enter="showResolveModal = false" @keydown.space.prevent="showResolveModal = false"></div>
                 <div class="relative z-50 bg-white rounded-lg shadow-xl max-w-md w-full p-6">
                     <h3 class="text-lg font-medium text-gray-900 mb-4">{{ t('tickets.show.resolve_ticket') }}</h3>
                     <form @submit.prevent="resolveTicket">
@@ -608,7 +608,7 @@ const canEdit = computed(() => {
         <!-- Assign Modal -->
         <div v-if="showAssignModal" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex items-center justify-center min-h-screen px-4">
-                <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showAssignModal = false"></div>
+                <div class="fixed inset-0 bg-gray-900/50 z-40" role="button" tabindex="0" @click="showAssignModal = false" @keydown.enter="showAssignModal = false" @keydown.space.prevent="showAssignModal = false"></div>
                 <div class="relative z-50 bg-white rounded-lg shadow-xl max-w-md w-full p-6">
                     <h3 class="text-lg font-medium text-gray-900 mb-4">{{ t('tickets.show.assign_ticket') }}</h3>
                     <form @submit.prevent="assignTicket">

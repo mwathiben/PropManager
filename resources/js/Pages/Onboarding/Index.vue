@@ -368,7 +368,11 @@ function completeOnboarding() {
                     <div
                         v-for="step in steps"
                         :key="step.number"
+                        role="button"
+                        tabindex="0"
                         @click="goToStep(step.number)"
+                        @keydown.enter="goToStep(step.number)"
+                        @keydown.space.prevent="goToStep(step.number)"
                         :class="['flex items-center gap-2 px-3 py-2 rounded-lg transition-all cursor-pointer', currentStep === step.number ? 'bg-indigo-100 text-indigo-700' : '', isStepComplete(step.number) ? 'text-green-600' : 'text-gray-400', !canAccessStep(step.number) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-100']"
                     >
                         <div
@@ -658,7 +662,11 @@ function completeOnboarding() {
                             <div role="group" aria-labelledby="property-type-group-label" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <!-- Residential -->
                                 <div
+                                    role="button"
+                                    tabindex="0"
                                     @click="selectPropertyType('residential')"
+                                    @keydown.enter="selectPropertyType('residential')"
+                                    @keydown.space.prevent="selectPropertyType('residential')"
                                     :class="form.property_type === 'residential' ? 'ring-2 ring-indigo-600 bg-indigo-50 border-transparent' : 'border-gray-200 hover:border-indigo-300 hover:shadow-md'"
                                     class="relative rounded-xl border p-4 cursor-pointer flex items-start space-x-4 transition-all duration-200"
                                 >
@@ -672,7 +680,11 @@ function completeOnboarding() {
 
                                 <!-- Estate -->
                                 <div
+                                    role="button"
+                                    tabindex="0"
                                     @click="selectPropertyType('estate')"
+                                    @keydown.enter="selectPropertyType('estate')"
+                                    @keydown.space.prevent="selectPropertyType('estate')"
                                     :class="form.property_type === 'estate' ? 'ring-2 ring-indigo-600 bg-indigo-50 border-transparent' : 'border-gray-200 hover:border-indigo-300 hover:shadow-md'"
                                     class="relative rounded-xl border p-4 cursor-pointer flex items-start space-x-4 transition-all duration-200"
                                 >
@@ -686,7 +698,11 @@ function completeOnboarding() {
 
                                 <!-- Commercial -->
                                 <div
+                                    role="button"
+                                    tabindex="0"
                                     @click="selectPropertyType('commercial')"
+                                    @keydown.enter="selectPropertyType('commercial')"
+                                    @keydown.space.prevent="selectPropertyType('commercial')"
                                     :class="form.property_type === 'commercial' ? 'ring-2 ring-indigo-600 bg-indigo-50 border-transparent' : 'border-gray-200 hover:border-indigo-300 hover:shadow-md'"
                                     class="relative rounded-xl border p-4 cursor-pointer flex items-start space-x-4 transition-all duration-200"
                                 >
@@ -700,7 +716,11 @@ function completeOnboarding() {
 
                                 <!-- Mixed -->
                                 <div
+                                    role="button"
+                                    tabindex="0"
                                     @click="selectPropertyType('mixed')"
+                                    @keydown.enter="selectPropertyType('mixed')"
+                                    @keydown.space.prevent="selectPropertyType('mixed')"
                                     :class="form.property_type === 'mixed' ? 'ring-2 ring-indigo-600 bg-indigo-50 border-transparent' : 'border-gray-200 hover:border-indigo-300 hover:shadow-md'"
                                     class="relative rounded-xl border p-4 cursor-pointer flex items-start space-x-4 transition-all duration-200"
                                 >

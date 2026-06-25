@@ -977,7 +977,7 @@ const executeDelete = () => {
 
         <div v-if="showDeleteConfirm" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex min-h-screen items-center justify-center px-4">
-                <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showDeleteConfirm = false"></div>
+                <div class="fixed inset-0 bg-gray-900/50 z-40" role="button" tabindex="0" @click="showDeleteConfirm = false" @keydown.enter="showDeleteConfirm = false" @keydown.space.prevent="showDeleteConfirm = false"></div>
                 <div class="relative z-50 bg-white rounded-xl shadow-xl max-w-md w-full p-6">
                     <h3 class="text-lg font-semibold text-gray-900">{{ t('finances_expenses.delete_confirm.title', { type: deleteTypeLabel }) }}</h3>
                     <p class="mt-2 text-sm text-gray-500">

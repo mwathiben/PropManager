@@ -56,7 +56,10 @@ defineExpose({ open });
             aria-modal="true"
             :aria-label="`Message ${tenantName}`"
             data-testid="initiate-thread-dialog"
+            tabindex="0"
             @click.self="close"
+            @keydown.enter="close"
+            @keydown.space.prevent="close"
         >
             <div class="bg-white rounded-t-xl sm:rounded-xl shadow-xl w-full sm:max-w-lg p-6 space-y-4">
                 <header class="flex items-center justify-between">

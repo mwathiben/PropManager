@@ -122,10 +122,14 @@ const activeFilter = ref(props.filter);
                 <li
                     v-for="n in notifications.data"
                     :key="n.id"
+                    role="button"
+                    tabindex="0"
                     class="flex items-start gap-3 rounded-xl border bg-white p-4 shadow-sm"
                     :class="n.read_at ? 'border-gray-200' : 'border-indigo-200 bg-indigo-50/30'"
                     :data-testid="`notification-${n.id}`"
                     @click="markAsRead(n)"
+                    @keydown.enter="markAsRead(n)"
+                    @keydown.space.prevent="markAsRead(n)"
                 >
                     <div class="rounded-lg bg-indigo-100 p-2"><component :is="iconFor(n.type)" class="h-5 w-5 text-indigo-600" /></div>
                     <div class="min-w-0 flex-1">

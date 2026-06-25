@@ -129,6 +129,10 @@ const submit = () => {
                     <div
                         v-else
                         @click="selectLogo"
+                        role="button"
+                        tabindex="0"
+                        @keydown.enter="selectLogo"
+                        @keydown.space.prevent="selectLogo"
                         class="w-48 h-24 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-colors"
                     >
                         <PhotoIcon class="w-8 h-8 text-gray-400" />

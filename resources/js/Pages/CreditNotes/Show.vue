@@ -310,7 +310,7 @@ const applyToWallet = () => {
         <Teleport to="body">
             <div v-if="showApplyModal" class="fixed inset-0 z-50 overflow-y-auto">
                 <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-                    <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" @click="showApplyModal = false"></div>
+                    <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" role="button" tabindex="0" @click="showApplyModal = false" @keydown.enter="showApplyModal = false" @keydown.space.prevent="showApplyModal = false"></div>
 
                     <div class="relative z-50 transform overflow-hidden rounded-xl bg-white text-start shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
                         <div class="bg-white px-6 py-4 border-b border-gray-200">

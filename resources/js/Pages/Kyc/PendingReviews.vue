@@ -151,7 +151,11 @@ function closeModal() {
         <div
             v-if="reviewingSubmission"
             class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50"
+            role="button"
+            tabindex="0"
             @click.self="closeModal"
+            @keydown.enter="closeModal"
+            @keydown.space.prevent="closeModal"
         >
             <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
                 <h3 class="text-lg font-medium text-gray-900 mb-4">

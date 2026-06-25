@@ -228,7 +228,7 @@ const submitGenerate = () => {
         <Teleport to="body">
             <div v-if="showGenerateModal" class="fixed inset-0 z-50 overflow-y-auto">
                 <div class="flex items-center justify-center min-h-screen px-4">
-                    <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showGenerateModal = false"></div>
+                    <div class="fixed inset-0 bg-gray-900/50 z-40" role="button" tabindex="0" @click="showGenerateModal = false" @keydown.enter="showGenerateModal = false" @keydown.space.prevent="showGenerateModal = false"></div>
                     <div class="relative z-50 bg-white rounded-lg shadow-xl max-w-md w-full p-6">
                         <h3 class="text-lg font-semibold text-gray-900 mb-4">Generate Invoices</h3>
                         <p class="text-sm text-gray-600 mb-4">

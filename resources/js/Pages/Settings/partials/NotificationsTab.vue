@@ -91,7 +91,11 @@ const submit = () => {
                     <div
                         v-for="channel in channels"
                         :key="channel.key"
+                        role="button"
+                        tabindex="0"
                         @click="form[channel.key] = !form[channel.key]"
+                        @keydown.enter="form[channel.key] = !form[channel.key]"
+                        @keydown.space.prevent="form[channel.key] = !form[channel.key]"
                         :class="['relative border-2 rounded-xl p-4 cursor-pointer transition-all', form[channel.key] ? 'border-indigo-600 bg-indigo-50' : 'border-gray-200 hover:border-gray-300']"
                     >
                         <div class="flex items-center gap-3">

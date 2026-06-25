@@ -50,7 +50,11 @@ useBodyScrollLock(showRef);
             <div
                 v-if="show"
                 class="fixed inset-0 bg-gray-900/50 z-40"
+                role="button"
+                tabindex="0"
                 @click="close"
+                @keydown.enter="close"
+                @keydown.space.prevent="close"
             />
         </Transition>
 

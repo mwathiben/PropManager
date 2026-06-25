@@ -159,7 +159,11 @@ const getPhotoUrl = (reading) => {
                                             :src="getPhotoUrl(reading)"
                                             :alt="t('readings_review.card.meter_photo_alt')"
                                             class="w-full h-48 object-cover rounded-lg border border-gray-300 cursor-pointer hover:opacity-90"
+                                            role="button"
+                                            tabindex="0"
                                             @click="window.open(getPhotoUrl(reading), '_blank')"
+                                            @keydown.enter="window.open(getPhotoUrl(reading), '_blank')"
+                                            @keydown.space.prevent="window.open(getPhotoUrl(reading), '_blank')"
                                         >
                                         <div v-else class="w-full h-48 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400">
                                             {{ t('readings_review.card.no_photo') }}
@@ -259,6 +263,7 @@ const getPhotoUrl = (reading) => {
                                     v-for="link in pendingReadings.links"
                                     :key="link.label"
                                     :href="link.url"
+                                    :aria-label="link.label"
                                     :class="[
                                         'px-3 py-1 rounded-md text-sm', /* i18n-ignore */
                                         link.active ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -278,7 +283,7 @@ const getPhotoUrl = (reading) => {
         <!-- Approve Modal -->
         <div v-if="showApproveModal" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex items-center justify-center min-h-screen p-4">
-                <div class="fixed inset-0 bg-gray-900/50 z-40" @click="closeModals"></div>
+                <div class="fixed inset-0 bg-gray-900/50 z-40" role="button" tabindex="0" @click="closeModals" @keydown.enter="closeModals" @keydown.space.prevent="closeModals"></div>
                 <div class="relative z-50 bg-white rounded-lg p-6 max-w-md w-full mx-4">
                 <h3 class="text-lg font-bold text-gray-900 mb-4">{{ t('readings_review.approve.title') }}</h3>
 
@@ -328,7 +333,7 @@ const getPhotoUrl = (reading) => {
         <!-- Reject Modal -->
         <div v-if="showRejectModal" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex items-center justify-center min-h-screen p-4">
-                <div class="fixed inset-0 bg-gray-900/50 z-40" @click="closeModals"></div>
+                <div class="fixed inset-0 bg-gray-900/50 z-40" role="button" tabindex="0" @click="closeModals" @keydown.enter="closeModals" @keydown.space.prevent="closeModals"></div>
                 <div class="relative z-50 bg-white rounded-lg p-6 max-w-md w-full mx-4">
                 <h3 class="text-lg font-bold text-gray-900 mb-4">{{ t('readings_review.reject.title') }}</h3>
 

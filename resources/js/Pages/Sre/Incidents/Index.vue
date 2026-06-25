@@ -108,7 +108,7 @@ const statusColor = (s: string): string => ({
                             <td class="px-6 py-4">
                                 <div class="text-sm font-medium text-gray-900 flex items-center gap-2">
                                     {{ incident.title }}
-                                    <a v-if="incident.post_mortem_url" :href="incident.post_mortem_url" target="_blank" rel="noopener" class="text-indigo-500 hover:text-indigo-700">
+                                    <a v-if="incident.post_mortem_url" :href="incident.post_mortem_url" target="_blank" rel="noopener" :aria-label="t('sre.post_mortem.heading')" class="text-indigo-500 hover:text-indigo-700">
                                         <ArrowTopRightOnSquareIcon class="w-4 h-4" />
                                     </a>
                                 </div>

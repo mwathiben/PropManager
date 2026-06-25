@@ -61,6 +61,8 @@ const submit = () => {
                     @click="setRating(star)"
                     @mouseenter="hoveredRating = star"
                     @mouseleave="hoveredRating = 0"
+                    @focus="hoveredRating = star"
+                    @blur="hoveredRating = 0"
                     :aria-label="starAriaLabel(star)"
                     :aria-pressed="star <= form.rating"
                     class="rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"

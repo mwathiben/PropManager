@@ -283,7 +283,11 @@ const groupedNotifications = computed(() => {
                                 <div
                                     v-for="notification in items"
                                     :key="notification.id"
+                                    role="button"
+                                    tabindex="0"
                                     @click="markAsRead(notification)"
+                                    @keydown.enter="markAsRead(notification)"
+                                    @keydown.space.prevent="markAsRead(notification)"
                                     :class="['p-4 hover:bg-gray-50 cursor-pointer transition-colors', !notification.read_at ? 'bg-indigo-50/30' : '']"
                                 >
                                     <div class="flex gap-4">
