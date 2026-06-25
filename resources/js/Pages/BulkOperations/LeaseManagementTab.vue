@@ -147,6 +147,7 @@ const submitDepositAdjustment = () => {
                     >
                         <input
                             type="checkbox"
+                            :aria-label="unit.unit_number"
                             :checked="selectedLeaseIds.includes(unit.active_lease.id)"
                             @change="updateSelection(unit.active_lease.id, $event.target.checked)"
                             class="rounded border-gray-300"

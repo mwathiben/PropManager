@@ -372,7 +372,8 @@ const clearAllFilters = () => {
                 </div>
 
                 <!-- Period Filter -->
-                <select v-model="currentPeriod" @change="applyFilters"
+                <label for="buildings-dashboard-period-filter" class="sr-only">{{ t('gateway_reconciliation.period') }}</label>
+                <select id="buildings-dashboard-period-filter" v-model="currentPeriod" @change="applyFilters"
                     class="text-sm border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 py-1.5">
                     <option value="this_month">{{ t('buildings_dashboard.filter.period.this_month') }}</option>
                     <option value="last_month">{{ t('buildings_dashboard.filter.period.last_month') }}</option>
@@ -393,7 +394,8 @@ const clearAllFilters = () => {
                 </div>
 
                 <!-- Type Filter -->
-                <select v-if="availableUnitTypes?.length" v-model="currentUnitType" @change="applyFilters"
+                <label for="buildings-dashboard-type-filter" class="sr-only">{{ t('buildings_edit.add_unit.unit_type') }}</label>
+                <select id="buildings-dashboard-type-filter" v-if="availableUnitTypes?.length" v-model="currentUnitType" @change="applyFilters"
                     class="text-sm border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 py-1.5">
                     <option value="">{{ t('buildings_dashboard.filter.all_types') }}</option>
                     <option v-for="type in availableUnitTypes" :key="type" :value="type">{{ type }}</option>

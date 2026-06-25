@@ -303,7 +303,7 @@ const occupancyColor = computed(() => {
 
                                 <!-- Location Map Preview -->
                                 <div v-if="!isEditing">
-                                    <label class="block text-sm font-medium text-gray-500 mb-2">{{ t('buildings_show.location_on_map') }}</label>
+                                    <span class="block text-sm font-medium text-gray-500 mb-2">{{ t('buildings_show.location_on_map') }}</span>
                                     <BuildingMap
                                         :coordinates="building.coordinates"
                                         :address="building.address"
@@ -314,7 +314,7 @@ const occupancyColor = computed(() => {
 
                                 <!-- Editable Map -->
                                 <div v-if="isEditing">
-                                    <label class="block text-sm font-medium text-gray-500 mb-2">{{ t('buildings_show.set_location') }}</label>
+                                    <span class="block text-sm font-medium text-gray-500 mb-2">{{ t('buildings_show.set_location') }}</span>
                                     <BuildingMap
                                         :coordinates="form.coordinates"
                                         :address="form.address"

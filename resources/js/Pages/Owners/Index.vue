@@ -193,7 +193,9 @@ const invite = (owner: Owner) => {
                 <div class="space-y-2">
                     <div v-for="property in properties" :key="property.id" class="flex items-center justify-between gap-3">
                         <span class="text-sm text-gray-800">{{ property.name }}</span>
+                        <label :for="`assign-owner-${property.id}`" class="sr-only">{{ t('owners.assign.owner') }}</label>
                         <select
+                            :id="`assign-owner-${property.id}`"
                             class="rounded-lg border border-gray-300 px-2 py-1.5 text-sm"
                             :value="property.owner_id ?? ''"
                             :data-testid="`assign-${property.id}`"

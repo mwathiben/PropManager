@@ -279,8 +279,10 @@ const paymentMethodLabels = computed(() => ({
 
                             <div v-else class="relative">
                                 <div class="relative">
+                                    <label for="refund-tenant-search" class="sr-only">{{ t('finances_refunds_create.tenant_selection') }}</label>
                                     <MagnifyingGlassIcon class="absolute start-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                                     <input
+                                        id="refund-tenant-search"
                                         v-model="searchQuery"
                                         type="text"
                                         class="w-full ps-10 pe-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 transition-colors"

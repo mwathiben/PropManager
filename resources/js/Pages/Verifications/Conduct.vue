@@ -417,7 +417,9 @@ const completeVerification = () => {
                     </div>
 
                     <div class="p-6">
+                        <label for="conduct-note-textarea" class="sr-only">{{ t('verifications_conduct.note_modal.title') }}</label>
                         <textarea
+                            id="conduct-note-textarea"
                             v-model="noteText"
                             rows="4"
                             class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"

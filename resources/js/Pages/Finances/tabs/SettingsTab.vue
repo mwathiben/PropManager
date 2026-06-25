@@ -427,8 +427,8 @@ const channelButtonBaseClass = 'px-4 py-2 text-sm rounded-lg border-2 transition
                     </p>
                     <div class="space-y-6">
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-2">{{ t('finances_settings.fiscal_year.type_label') }}</label>
-                            <div class="flex gap-4">
+                            <span id="fiscal-type-group-label" class="block text-xs font-medium text-gray-700 mb-2">{{ t('finances_settings.fiscal_year.type_label') }}</span>
+                            <div class="flex gap-4" role="group" aria-labelledby="fiscal-type-group-label">
                                 <button
                                     type="button"
                                     @click="fiscalYearForm.fiscal_year_type = 'calendar'"
@@ -534,8 +534,8 @@ const channelButtonBaseClass = 'px-4 py-2 text-sm rounded-lg border-2 transition
                             </select>
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-2">{{ t('finances_settings.reminders.channels_label') }}</label>
-                            <div class="flex gap-4">
+                            <span id="reminder-channels-group-label" class="block text-xs font-medium text-gray-700 mb-2">{{ t('finances_settings.reminders.channels_label') }}</span>
+                            <div class="flex gap-4" role="group" aria-labelledby="reminder-channels-group-label">
                                 <button
                                     type="button"
                                     @click="toggleReminderChannel('email')"

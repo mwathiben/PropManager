@@ -302,8 +302,8 @@ const totalValidAmount = computed(() => {
                 <div class="p-6 space-y-6">
                     <!-- Import Mode Toggle -->
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('bulk_import.mode.label') }}</label>
-                        <div class="flex gap-2 p-1 bg-gray-100 rounded-lg w-fit">
+                        <span id="import-mode-label" class="block text-sm font-medium text-gray-700 mb-2">{{ t('bulk_import.mode.label') }}</span>
+                        <div role="group" aria-labelledby="import-mode-label" class="flex gap-2 p-1 bg-gray-100 rounded-lg w-fit">
                             <button
                                 @click="importMode = 'current'"
                                 :class="[

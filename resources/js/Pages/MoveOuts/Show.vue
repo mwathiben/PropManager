@@ -320,7 +320,9 @@ const progressSteps = computed(() => [
                         <!-- Inspection Notes -->
                         <div v-if="isInspectionPending" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                             <h3 class="text-lg font-semibold text-gray-900 mb-4">{{ t('moveouts.show.inspection_notes.heading') }}</h3>
+                            <label for="inspection-notes-field" class="sr-only">{{ t('moveouts.show.inspection_notes.heading') }}</label>
                             <textarea
+                                id="inspection-notes-field"
                                 v-model="inspectionNotesForm.inspection_notes"
                                 rows="4"
                                 class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"

@@ -101,6 +101,7 @@ const getStatusColor = (status) => {
                             type="checkbox"
                             :checked="selectedUnitIds.includes(unit.id)"
                             @change="updateSelection(unit.id, $event.target.checked)"
+                            :aria-label="unit.unit_number"
                             class="rounded border-gray-300"
                         >
                         <div class="flex-1">

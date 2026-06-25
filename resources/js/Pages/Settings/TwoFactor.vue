@@ -230,7 +230,9 @@ const disableTwoFactor = () => {
                     <p class="text-sm text-gray-600 mb-4">{{ t('two_factor.password_modal.body') }}</p>
 
                     <form @submit.prevent="confirmPassword">
+                        <label for="confirm-password-input" class="sr-only">{{ t('two_factor.password_modal.placeholder') }}</label>
                         <input
+                            id="confirm-password-input"
                             v-model="passwordForm.password"
                             type="password"
                             :placeholder="t('two_factor.password_modal.placeholder')"

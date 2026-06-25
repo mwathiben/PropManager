@@ -117,7 +117,9 @@ const statusColor = (s: string): string => ({
                             <td class="px-6 py-4 text-center"><span :class="[sevColor(incident.severity), 'px-2 py-1 text-xs font-medium rounded-full uppercase']">{{ incident.severity }}</span></td>
                             <td class="px-6 py-4 text-sm text-gray-500">{{ formatDateTime(incident.opened_at) }}</td>
                             <td class="px-6 py-4 text-center">
+                                <label :for="`status-${incident.id}`" class="sr-only">Status for {{ incident.title }}</label>
                                 <select
+                                    :id="`status-${incident.id}`"
                                     :value="incident.status"
                                     @change="setStatus(incident, ($event.target as HTMLSelectElement).value)"
                                     :class="[statusColor(incident.status), 'rounded-full border-0 px-2 py-1 text-xs font-medium capitalize focus:ring-2 focus:ring-rose-400']"

@@ -654,8 +654,8 @@ function completeOnboarding() {
                         </div>
 
                         <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-3">{{ t('onboarding.page.property.type') }}</label>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <span id="property-type-group-label" class="block text-sm font-semibold text-gray-700 mb-3">{{ t('onboarding.page.property.type') }}</span>
+                            <div role="group" aria-labelledby="property-type-group-label" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <!-- Residential -->
                                 <div
                                     @click="selectPropertyType('residential')"
@@ -1050,7 +1050,9 @@ function completeOnboarding() {
                             <h4 class="text-sm font-medium text-gray-700 mb-3">{{ t('onboarding.page.financial.bank_details') }}</h4>
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                                 <div>
+                                    <label for="onboarding-bank-name" class="sr-only">{{ t('onboarding.page.financial.bank_name') }}</label>
                                     <input
+                                        id="onboarding-bank-name"
                                         v-model="form.bank_name"
                                         type="text"
                                         :placeholder="t('onboarding.page.financial.bank_name')"
@@ -1059,7 +1061,9 @@ function completeOnboarding() {
                                     <InputError class="mt-1" :message="form.errors.bank_name" />
                                 </div>
                                 <div>
+                                    <label for="onboarding-account-name" class="sr-only">{{ t('onboarding.page.financial.account_name') }}</label>
                                     <input
+                                        id="onboarding-account-name"
                                         v-model="form.bank_account_name"
                                         type="text"
                                         :placeholder="t('onboarding.page.financial.account_name')"
@@ -1068,7 +1072,9 @@ function completeOnboarding() {
                                     <InputError class="mt-1" :message="form.errors.bank_account_name" />
                                 </div>
                                 <div>
+                                    <label for="onboarding-account-number" class="sr-only">{{ t('onboarding.page.financial.account_number') }}</label>
                                     <input
+                                        id="onboarding-account-number"
                                         v-model="form.bank_account_number"
                                         type="text"
                                         :placeholder="t('onboarding.page.financial.account_number')"
@@ -1082,7 +1088,9 @@ function completeOnboarding() {
                         <!-- M-Pesa Details -->
                         <div v-if="form.accepted_payment_methods.includes('mobile_money')" class="bg-gray-50 p-4 rounded-lg">
                             <h4 class="text-sm font-medium text-gray-700 mb-3">{{ t('onboarding.page.financial.mpesa_details') }}</h4>
+                            <label for="onboarding-mpesa-paybill" class="sr-only">{{ t('onboarding.page.financial.mpesa_details') }}</label>
                             <input
+                                id="onboarding-mpesa-paybill"
                                 v-model="form.mpesa_paybill"
                                 type="text"
                                 :placeholder="t('onboarding.page.financial.paybill_placeholder')"
@@ -1143,7 +1151,9 @@ function completeOnboarding() {
                             >
                                 <div class="flex items-center gap-3">
                                     <EnvelopeIcon class="w-5 h-5 text-gray-400 shrink-0" />
+                                    <label :for="'onboarding-invitation-email-' + index" class="sr-only">{{ t('onboarding.page.team.email_placeholder') }}</label>
                                     <input
+                                        :id="'onboarding-invitation-email-' + index"
                                         v-model="invitation.email"
                                         type="email"
                                         :placeholder="t('onboarding.page.team.email_placeholder')"

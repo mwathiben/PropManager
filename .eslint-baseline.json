@@ -3,8 +3,8 @@
     "rules": {
         "propmanager/no-hardcoded-english-strings": 3751,
         "propmanager/no-ltr-class": 0,
-        "vuejs-accessibility/label-has-for": 27,
-        "vuejs-accessibility/form-control-has-label": 45,
+        "vuejs-accessibility/label-has-for": 1,
+        "vuejs-accessibility/form-control-has-label": 6,
         "vuejs-accessibility/no-static-element-interactions": 91,
         "vuejs-accessibility/click-events-have-key-events": 85,
         "vuejs-accessibility/anchor-has-content": 12,
@@ -33,6 +33,10 @@
         "a11y-paydown-2": {
             "set_at": "2026-06-25",
             "rationale": "label-has-for 474 -> 27, form-control-has-label 584 -> 45 (986 real associations). Multi-agent swarm: one subagent per file across 137 files added matching for/id (or :aria-label when a control had no label element but a clear existing i18n key) — for/id/aria attributes only, no DOM/text/logic changes (verified by a diff scan + green build). The 72 remaining are genuine edge cases the agents correctly refused to force: labels for <button> toggle-groups / @click div-grids / custom components (not labelable via for), v-for fields needing a dynamic :id binding (a logic change), color-picker hex companions, and headless components (Checkbox/InputLabel) with no in-file control or i18n key. Those need targeted structural fixes (fieldset/legend, dynamic :id, component `for` prop) — a deliberate follow-up, not a blanket pass."
+        },
+        "a11y-paydown-3": {
+            "set_at": "2026-06-25",
+            "rationale": "label-has-for 27 -> 1, form-control-has-label 45 -> 6 (65 sites). Triage swarm classified the 72 into 5 strategies; a fixer swarm (1 agent/file, 41 files) applied the routed fixes — existing-key sr-only <label>/aria-label (every key grep-confirmed in lang/en, the guard added after PR #121's hallucinated-key failure), dynamic :id for v-for fields, and group-aria (mis-used <label> -> <span id> + role=group aria-labelledby) for button/div-grid/custom-component groups. Verified: lang:coverage missing=0, green build, diff-scan clean. The final 7 (5 needing brand-new i18n keys, 2 shared headless components Checkbox/InputLabel needing a for/id/aria prop) are gated here and finished in batch 4 with the full test suite."
         }
     }
 }

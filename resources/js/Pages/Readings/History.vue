@@ -168,12 +168,14 @@ const deleteReading = (readingId) => {
                                     <tr v-for="reading in readings.data" :key="reading.id" class="hover:bg-gray-50">
                                         <template v-if="editingReading === reading.id">
                                             <td class="px-4 py-3">
-                                                <input type="date" v-model="editForm.reading_date" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm">
+                                                <label :for="`edit-date-${reading.id}`" class="sr-only">{{ t('readings_history.table.date') }}</label>
+                                                <input :id="`edit-date-${reading.id}`" type="date" v-model="editForm.reading_date" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm">
                                             </td>
                                             <td class="px-4 py-3 text-sm text-gray-900">{{ reading.unit.unit_number }}</td>
                                             <td class="px-4 py-3 text-end text-sm text-gray-900 font-mono">{{ reading.previous_reading }}</td>
                                             <td class="px-4 py-3">
-                                                <input type="number" v-model="editForm.current_reading" class="w-24 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-end font-mono text-sm">
+                                                <label :for="`edit-current-${reading.id}`" class="sr-only">{{ t('readings_history.table.current') }}</label>
+                                                <input :id="`edit-current-${reading.id}`" type="number" v-model="editForm.current_reading" class="w-24 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-end font-mono text-sm">
                                             </td>
                                             <td colspan="4" class="px-4 py-3 text-center">
                                                 <button @click="saveEdit(reading.id)" class="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 me-2">

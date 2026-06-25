@@ -126,8 +126,8 @@ const tabs = computed(() => [
                         <h2 class="text-lg font-bold text-gray-900 mb-4">{{ t('bulk_operations.filters.heading') }}</h2>
                         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <!-- Building/Wing Filter -->
-                            <div v-if="buildings?.length > 0">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_operations.filters.building_wing') }}</label>
+                            <div v-if="buildings?.length > 0" role="group" aria-labelledby="filter-building-wing-label">
+                                <span id="filter-building-wing-label" class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_operations.filters.building_wing') }}</span>
                                 <BuildingWingFilter
                                     :buildings="buildings"
                                     v-model:buildingId="selectedBuildingId"
