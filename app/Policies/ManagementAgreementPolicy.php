@@ -28,4 +28,9 @@ class ManagementAgreementPolicy
     {
         return $user->isManager();
     }
+
+    public function send(User $user, ManagementAgreement $agreement): bool
+    {
+        return $user->isManager() && (int) $agreement->landlord_id === (int) $user->id;
+    }
 }

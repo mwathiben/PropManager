@@ -1,13 +1,16 @@
 <script setup>
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, useForm } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { useI18n } from '@/composables/useI18n';
 
 const { t } = useI18n();
 
-defineProps({
+const props = defineProps({
     agreement: { type: Object, required: true },
 });
+
+const sendForm = useForm({});
+const sendForSignature = () => sendForm.post(route('agreements.send', props.agreement.id));
 </script>
 
 <template>
@@ -38,6 +41,18 @@ defineProps({
             <p v-if="agreement.content_hash" class="mt-3 text-xs text-gray-400 font-mono break-all">
                 {{ t('agreements.show.hash') }}: {{ agreement.content_hash }}
             </p>
+
+            <div v-if="agreement.status === 'draft'" class="mt-6">
+                <button
+                    type="button"
+                    :disabled="sendForm.processing"
+                    @click="sendForSignature"
+                    class="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    {{ sendForm.processing ? t('agreements.sign.sending') : t('agreements.sign.send_button') }}
+                </button>
+                <p v-if="sendForm.errors.agreement" class="mt-2 text-sm text-red-600">{{ sendForm.errors.agreement }}</p>
+            </div>
         </div>
     </AuthenticatedLayout>
 </template>

@@ -148,6 +148,15 @@ return [
         'caretaker_invitation' => 'Invitation to Join as Property Caretaker',
         'water_client_invitation' => 'Invitation to Set Up Your Water Account',
         'owner_invitation' => 'Invitation to Set Up Your Owner Login',
+        'agreement_signature_request' => 'Please Review and Sign Your Management Agreement',
+    ],
+
+    'signature_request' => [
+        'greeting' => 'Hello :name,',
+        'intro' => 'Your property manager has prepared the management agreement ":title" for your review and signature. Please open it below, read it in full, and sign electronically.',
+        'button' => 'Review & Sign Agreement',
+        'note' => 'For your security, signing requires a one-time code we will send by SMS to your phone on file. This link is unique to you — please do not forward it.',
+        'closing' => 'Thank you,',
     ],
 
 ];

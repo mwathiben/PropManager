@@ -86,6 +86,7 @@ class AuthServiceProvider extends ServiceProvider
         \App\Models\PropertyOwner::class => \App\Policies\PropertyOwnerPolicy::class,
         \App\Models\OwnerPayout::class => \App\Policies\OwnerPayoutPolicy::class,
         \App\Models\ManagementAgreement::class => \App\Policies\ManagementAgreementPolicy::class,
+        \App\Models\AgreementSignature::class => \App\Policies\AgreementSignaturePolicy::class,
         Invitation::class => InvitationPolicy::class,
         Expense::class => ExpensePolicy::class,
         ExpenseCategory::class => ExpenseCategoryPolicy::class,
