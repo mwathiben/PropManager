@@ -84,8 +84,9 @@ watch(() => props.show, (newVal) => {
         <form @submit.prevent="submit" class="p-6 space-y-5">
                         <!-- Recipient -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('send_notification_modal.recipient') }}</label>
+                            <label for="snm-recipient" class="block text-sm font-medium text-gray-700 mb-1">{{ t('send_notification_modal.recipient') }}</label>
                             <select
+                                id="snm-recipient"
                                 v-model="form.recipient_id"
                                 class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                                 required
@@ -112,8 +113,9 @@ watch(() => props.show, (newVal) => {
                         <!-- Type & Channel -->
                         <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('send_notification_modal.type') }}</label>
+                                <label for="snm-type" class="block text-sm font-medium text-gray-700 mb-1">{{ t('send_notification_modal.type') }}</label>
                                 <select
+                                    id="snm-type"
                                     v-model="form.type"
                                     class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                                 >
@@ -124,8 +126,9 @@ watch(() => props.show, (newVal) => {
                             </div>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('send_notification_modal.channel') }}</label>
+                                <label for="snm-channel" class="block text-sm font-medium text-gray-700 mb-1">{{ t('send_notification_modal.channel') }}</label>
                                 <select
+                                    id="snm-channel"
                                     v-model="form.channel"
                                     class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                                 >
@@ -138,8 +141,9 @@ watch(() => props.show, (newVal) => {
 
                         <!-- Subject -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('send_notification_modal.subject') }}</label>
+                            <label for="snm-subject" class="block text-sm font-medium text-gray-700 mb-1">{{ t('send_notification_modal.subject') }}</label>
                             <input
+                                id="snm-subject"
                                 v-model="form.subject"
                                 type="text"
                                 class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
@@ -151,8 +155,9 @@ watch(() => props.show, (newVal) => {
 
                         <!-- Message -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('send_notification_modal.message') }}</label>
+                            <label for="snm-message" class="block text-sm font-medium text-gray-700 mb-1">{{ t('send_notification_modal.message') }}</label>
                             <textarea
+                                id="snm-message"
                                 v-model="form.message"
                                 rows="5"
                                 class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"

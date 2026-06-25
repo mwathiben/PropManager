@@ -271,8 +271,9 @@ const defaultTemplate = computed(() => props.templates.find(tpl => tpl.is_defaul
                         <!-- Template Info -->
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('verifications_templates.form.name') }}</label>
+                                <label for="create-template-name" class="block text-sm font-medium text-gray-700 mb-1">{{ t('verifications_templates.form.name') }}</label>
                                 <input
+                                    id="create-template-name"
                                     v-model="createForm.name"
                                     type="text"
                                     required
@@ -281,8 +282,9 @@ const defaultTemplate = computed(() => props.templates.find(tpl => tpl.is_defaul
                                 />
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('verifications_templates.form.property') }}</label>
+                                <label for="create-template-property" class="block text-sm font-medium text-gray-700 mb-1">{{ t('verifications_templates.form.property') }}</label>
                                 <select
+                                    id="create-template-property"
                                     v-model="createForm.property_id"
                                     class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                                 >
@@ -353,6 +355,8 @@ const defaultTemplate = computed(() => props.templates.find(tpl => tpl.is_defaul
                                                     v-model="item.name"
                                                     type="text"
                                                     required
+                                                    :id="`create-item-name-${index}`"
+                                                    :aria-label="t('verifications_templates.form.item_name_placeholder')"
                                                     class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                                                     :placeholder="t('verifications_templates.form.item_name_placeholder')"
                                                 />
@@ -360,6 +364,8 @@ const defaultTemplate = computed(() => props.templates.find(tpl => tpl.is_defaul
                                             <div>
                                                 <select
                                                     v-model="item.document_type"
+                                                    :id="`create-item-doctype-${index}`"
+                                                    :aria-label="t('verifications_templates.form.document_type')"
                                                     class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                                                 >
                                                     <option value="">{{ t('verifications_templates.form.document_type') }}</option>
@@ -391,6 +397,8 @@ const defaultTemplate = computed(() => props.templates.find(tpl => tpl.is_defaul
                                         <input
                                             v-model="item.description"
                                             type="text"
+                                            :id="`create-item-desc-${index}`"
+                                            :aria-label="t('verifications_templates.form.description_placeholder')"
                                             class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                                             :placeholder="t('verifications_templates.form.description_placeholder')"
                                         />
@@ -439,8 +447,9 @@ const defaultTemplate = computed(() => props.templates.find(tpl => tpl.is_defaul
                         <!-- Template Info -->
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('verifications_templates.form.name') }}</label>
+                                <label for="edit-template-name" class="block text-sm font-medium text-gray-700 mb-1">{{ t('verifications_templates.form.name') }}</label>
                                 <input
+                                    id="edit-template-name"
                                     v-model="editForm.name"
                                     type="text"
                                     required
@@ -448,8 +457,9 @@ const defaultTemplate = computed(() => props.templates.find(tpl => tpl.is_defaul
                                 />
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('verifications_templates.form.property') }}</label>
+                                <label for="edit-template-property" class="block text-sm font-medium text-gray-700 mb-1">{{ t('verifications_templates.form.property') }}</label>
                                 <select
+                                    id="edit-template-property"
                                     v-model="editForm.property_id"
                                     class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                                 >
@@ -520,6 +530,8 @@ const defaultTemplate = computed(() => props.templates.find(tpl => tpl.is_defaul
                                                     v-model="item.name"
                                                     type="text"
                                                     required
+                                                    :id="`edit-item-name-${index}`"
+                                                    :aria-label="t('verifications_templates.form.item_name_placeholder')"
                                                     class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                                                     :placeholder="t('verifications_templates.form.item_name_placeholder')"
                                                 />
@@ -527,6 +539,8 @@ const defaultTemplate = computed(() => props.templates.find(tpl => tpl.is_defaul
                                             <div>
                                                 <select
                                                     v-model="item.document_type"
+                                                    :id="`edit-item-doctype-${index}`"
+                                                    :aria-label="t('verifications_templates.form.document_type')"
                                                     class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                                                 >
                                                     <option value="">{{ t('verifications_templates.form.document_type') }}</option>
@@ -558,6 +572,8 @@ const defaultTemplate = computed(() => props.templates.find(tpl => tpl.is_defaul
                                         <input
                                             v-model="item.description"
                                             type="text"
+                                            :id="`edit-item-desc-${index}`"
+                                            :aria-label="t('verifications_templates.form.description_placeholder')"
                                             class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                                             :placeholder="t('verifications_templates.form.description_placeholder')"
                                         />

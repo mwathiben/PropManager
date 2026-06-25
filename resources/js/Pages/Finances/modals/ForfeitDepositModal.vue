@@ -178,10 +178,11 @@ const handleSubmit = async () => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    <label for="forfeit-reason" class="block text-sm font-medium text-gray-700 mb-1">
                                         {{ t('finances_forfeit_deposit.reason_label') }} <span class="text-red-500">*</span>
                                     </label>
                                     <select
+                                        id="forfeit-reason"
                                         v-model="form.reason"
                                         :class="[
                                             /* i18n-ignore */ 'w-full px-3 py-2.5 text-sm border rounded-lg transition-colors',

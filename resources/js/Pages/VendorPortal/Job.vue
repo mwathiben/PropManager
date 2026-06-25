@@ -51,10 +51,10 @@ const submitResolve = () => resolveForm.post(`/v/portal/tickets/${props.ticket.i
         <div v-if="canAct" class="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
             <form @submit.prevent="submitTime" class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100" data-testid="vendor-time-form">
                 <h2 class="font-medium text-gray-900">{{ t('vendor_portal.job.log_time') }}</h2>
-                <label class="mt-3 block text-sm text-gray-600">{{ t('vendor_portal.job.minutes') }}</label>
-                <input v-model.number="timeForm.minutes" type="number" min="1" max="1440" class="mt-1 w-full rounded-lg border-gray-200 text-sm" />
-                <label class="mt-3 block text-sm text-gray-600">{{ t('vendor_portal.job.note') }}</label>
-                <textarea v-model="timeForm.note" rows="2" maxlength="500" class="mt-1 w-full rounded-lg border-gray-200 text-sm"></textarea>
+                <label for="job-log-minutes" class="mt-3 block text-sm text-gray-600">{{ t('vendor_portal.job.minutes') }}</label>
+                <input id="job-log-minutes" v-model.number="timeForm.minutes" type="number" min="1" max="1440" class="mt-1 w-full rounded-lg border-gray-200 text-sm" />
+                <label for="job-log-note" class="mt-3 block text-sm text-gray-600">{{ t('vendor_portal.job.note') }}</label>
+                <textarea id="job-log-note" v-model="timeForm.note" rows="2" maxlength="500" class="mt-1 w-full rounded-lg border-gray-200 text-sm"></textarea>
                 <button type="submit" :disabled="timeForm.processing || !timeForm.minutes" class="mt-3 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
                     {{ t('vendor_portal.job.add_time') }}
                 </button>
@@ -62,8 +62,8 @@ const submitResolve = () => resolveForm.post(`/v/portal/tickets/${props.ticket.i
 
             <form @submit.prevent="submitResolve" class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100" data-testid="vendor-resolve-form">
                 <h2 class="font-medium text-gray-900">{{ t('vendor_portal.job.resolve') }}</h2>
-                <label class="mt-3 block text-sm text-gray-600">{{ t('vendor_portal.job.resolve_notes') }}</label>
-                <textarea v-model="resolveForm.notes" rows="4" maxlength="2000" class="mt-1 w-full rounded-lg border-gray-200 text-sm"></textarea>
+                <label for="job-resolve-notes" class="mt-3 block text-sm text-gray-600">{{ t('vendor_portal.job.resolve_notes') }}</label>
+                <textarea id="job-resolve-notes" v-model="resolveForm.notes" rows="4" maxlength="2000" class="mt-1 w-full rounded-lg border-gray-200 text-sm"></textarea>
                 <button type="submit" :disabled="resolveForm.processing" class="mt-3 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
                     {{ t('vendor_portal.job.mark_resolved') }}
                 </button>

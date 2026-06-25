@@ -199,30 +199,30 @@ const cascadePreview = computed(() => {
 
                     <form class="mt-4 space-y-3" @submit.prevent="submit">
                         <div>
-                            <label class="block text-xs font-semibold text-gray-700">Category</label>
-                            <select v-model="form.category" class="mt-1 w-full rounded border-gray-300 text-sm">
+                            <label for="sla-category" class="block text-xs font-semibold text-gray-700">Category</label>
+                            <select id="sla-category" v-model="form.category" class="mt-1 w-full rounded border-gray-300 text-sm">
                                 <option value="">Any category</option>
                                 <option v-for="opt in props.categoryOptions" :key="opt" :value="opt">{{ opt }}</option>
                             </select>
                         </div>
                         <div>
-                            <label class="block text-xs font-semibold text-gray-700">Subcategory</label>
-                            <input v-model="form.subcategory" type="text" class="mt-1 w-full rounded border-gray-300 text-sm" placeholder="Any subcategory">
+                            <label for="sla-subcategory" class="block text-xs font-semibold text-gray-700">Subcategory</label>
+                            <input id="sla-subcategory" v-model="form.subcategory" type="text" class="mt-1 w-full rounded border-gray-300 text-sm" placeholder="Any subcategory">
                         </div>
                         <div>
-                            <label class="block text-xs font-semibold text-gray-700">Priority</label>
-                            <select v-model="form.priority" required class="mt-1 w-full rounded border-gray-300 text-sm">
+                            <label for="sla-priority" class="block text-xs font-semibold text-gray-700">Priority</label>
+                            <select id="sla-priority" v-model="form.priority" required class="mt-1 w-full rounded border-gray-300 text-sm">
                                 <option v-for="opt in props.priorityOptions" :key="opt" :value="opt">{{ opt }}</option>
                             </select>
                         </div>
                         <div class="grid grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-xs font-semibold text-gray-700">Response (seconds)</label>
-                                <input v-model.number="form.response_seconds" type="number" min="60" required class="mt-1 w-full rounded border-gray-300 text-sm">
+                                <label for="sla-response-seconds" class="block text-xs font-semibold text-gray-700">Response (seconds)</label>
+                                <input id="sla-response-seconds" v-model.number="form.response_seconds" type="number" min="60" required class="mt-1 w-full rounded border-gray-300 text-sm">
                             </div>
                             <div>
-                                <label class="block text-xs font-semibold text-gray-700">Resolution (seconds)</label>
-                                <input v-model.number="form.resolution_seconds" type="number" min="60" required class="mt-1 w-full rounded border-gray-300 text-sm">
+                                <label for="sla-resolution-seconds" class="block text-xs font-semibold text-gray-700">Resolution (seconds)</label>
+                                <input id="sla-resolution-seconds" v-model.number="form.resolution_seconds" type="number" min="60" required class="mt-1 w-full rounded border-gray-300 text-sm">
                             </div>
                         </div>
                         <label class="flex items-center gap-2 text-sm text-gray-700">

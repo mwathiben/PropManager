@@ -125,15 +125,16 @@ const getStatusColor = (status) => {
             <h3 class="text-lg font-semibold mb-4">{{ t('bulk_unit_status.new_status') }}</h3>
             <form @submit.prevent="submit" class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_unit_status.status_label') }}</label>
-                    <select v-model="form.new_status" class="w-full border-gray-300 rounded-md">
+                    <label for="unit-status-select" class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_unit_status.status_label') }}</label>
+                    <select id="unit-status-select" v-model="form.new_status" class="w-full border-gray-300 rounded-md">
                         <option v-for="option in statusOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
                     </select>
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_unit_status.notes_label') }}</label>
+                    <label for="unit-status-notes" class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_unit_status.notes_label') }}</label>
                     <textarea
+                        id="unit-status-notes"
                         v-model="form.notes"
                         rows="3"
                         class="w-full border-gray-300 rounded-md"

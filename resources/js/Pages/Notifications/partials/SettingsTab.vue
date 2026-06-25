@@ -348,13 +348,14 @@ const getColorClasses = (color) => {
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <template v-for="field in provider.fields" :key="field.key">
                             <div v-if="shouldShowField(field, provider.id)">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                <label :for="`provider-field-${provider.id}-${field.key}`" class="block text-sm font-medium text-gray-700 mb-1">
                                     {{ field.label }}
                                 </label>
 
                                 <!-- Select -->
                                 <select
                                     v-if="field.type === 'select'"
+                                    :id="`provider-field-${provider.id}-${field.key}`"
                                     v-model="forms[provider.id][field.key]"
                                     :disabled="field.readonly"
                                     class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
@@ -367,6 +368,7 @@ const getColorClasses = (color) => {
                                 <!-- Password with toggle -->
                                 <div v-else-if="field.type === 'password'" class="relative">
                                     <input
+                                        :id="`provider-field-${provider.id}-${field.key}`"
                                         :type="showPassword[field.key] ? 'text' : 'password'"
                                         v-model="forms[provider.id][field.key]"
                                         :placeholder="field.placeholder"
@@ -387,6 +389,7 @@ const getColorClasses = (color) => {
                                 <!-- Text/Email -->
                                 <input
                                     v-else
+                                    :id="`provider-field-${provider.id}-${field.key}`"
                                     :type="field.type"
                                     v-model="forms[provider.id][field.key]"
                                     :placeholder="field.placeholder"
@@ -545,8 +548,9 @@ const getColorClasses = (color) => {
 
                             <!-- SID Input -->
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_settings.templates.content_sid') }}</label>
+                                <label :for="`template-sid-${template.type}`" class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_settings.templates.content_sid') }}</label>
                                 <input
+                                    :id="`template-sid-${template.type}`"
                                     type="text"
                                     v-model="templatesForm.templates[index].sid"
                                     :placeholder="t('notifications_settings.templates.sid_placeholder')"
@@ -619,16 +623,18 @@ const getColorClasses = (color) => {
 
                         <div v-if="globalForm.quiet_hours_enabled" class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_settings.delivery.quiet_hours.start_time') }}</label>
+                                <label for="quiet-hours-start" class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_settings.delivery.quiet_hours.start_time') }}</label>
                                 <input
+                                    id="quiet-hours-start"
                                     type="time"
                                     v-model="globalForm.quiet_hours_start"
                                     class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                                 />
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_settings.delivery.quiet_hours.end_time') }}</label>
+                                <label for="quiet-hours-end" class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_settings.delivery.quiet_hours.end_time') }}</label>
                                 <input
+                                    id="quiet-hours-end"
                                     type="time"
                                     v-model="globalForm.quiet_hours_end"
                                     class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
@@ -670,8 +676,9 @@ const getColorClasses = (color) => {
 
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_settings.delivery.retry.max_retries') }}</label>
+                            <label for="retry-max-retries" class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_settings.delivery.retry.max_retries') }}</label>
                             <input
+                                id="retry-max-retries"
                                 type="number"
                                 v-model.number="globalForm.notification_max_retries"
                                 min="0"
@@ -681,8 +688,9 @@ const getColorClasses = (color) => {
                             <p class="text-xs text-gray-500 mt-1">{{ t('notifications_settings.delivery.retry.max_retries_hint') }}</p>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_settings.delivery.retry.retry_delay') }}</label>
+                            <label for="retry-delay" class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_settings.delivery.retry.retry_delay') }}</label>
                             <input
+                                id="retry-delay"
                                 type="number"
                                 v-model.number="globalForm.notification_retry_delay"
                                 min="1"
@@ -708,8 +716,9 @@ const getColorClasses = (color) => {
 
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_settings.delivery.rate_limit.daily') }}</label>
+                            <label for="rate-limit-daily" class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_settings.delivery.rate_limit.daily') }}</label>
                             <input
+                                id="rate-limit-daily"
                                 type="number"
                                 v-model.number="globalForm.notification_daily_limit_per_tenant"
                                 min="1"
@@ -719,8 +728,9 @@ const getColorClasses = (color) => {
                             <p class="text-xs text-gray-500 mt-1">{{ t('notifications_settings.delivery.rate_limit.daily_hint') }}</p>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_settings.delivery.rate_limit.hourly') }}</label>
+                            <label for="rate-limit-hourly" class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_settings.delivery.rate_limit.hourly') }}</label>
                             <input
+                                id="rate-limit-hourly"
                                 type="number"
                                 v-model.number="globalForm.notification_hourly_limit_per_tenant"
                                 min="1"
@@ -798,6 +808,7 @@ const getColorClasses = (color) => {
                                         v-model.number="globalForm.notification_archive_days"
                                         min="7"
                                         max="365"
+                                        :aria-label="t('notifications_settings.archive.keep_history')"
                                         class="w-20 border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                                     />
                                     <span class="text-sm text-gray-500">{{ t('notifications_settings.archive.days') }}</span>

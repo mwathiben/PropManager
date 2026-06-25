@@ -110,9 +110,11 @@ const submitGenerate = () => {
                                     <MagnifyingGlassIcon class="absolute start-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                                     <input
                                         v-model="search"
+                                        id="inv-search"
                                         type="text"
                                         placeholder="Search invoices..."
                                         class="w-full ps-10 pe-4 py-2 border border-gray-300 rounded-md focus:ring-emerald-500 focus:border-emerald-500"
+                                        aria-label="Search invoices"
                                         @keyup.enter="applyFilters"
                                     />
                                 </div>
@@ -236,8 +238,9 @@ const submitGenerate = () => {
                         <form @submit.prevent="submitGenerate">
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700">Month</label>
+                                    <label for="inv-gen-month" class="block text-sm font-medium text-gray-700">Month</label>
                                     <select
+                                        id="inv-gen-month"
                                         v-model="generateForm.month"
                                         class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                                     >
@@ -251,8 +254,9 @@ const submitGenerate = () => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700">Year</label>
+                                    <label for="inv-gen-year" class="block text-sm font-medium text-gray-700">Year</label>
                                     <select
+                                        id="inv-gen-year"
                                         v-model="generateForm.year"
                                         class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                                     >

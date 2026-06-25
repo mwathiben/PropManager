@@ -187,6 +187,7 @@ const hasActiveFilters = () => {
                         v-model="search"
                         type="text"
                         :placeholder="t('notifications_history.search_placeholder')"
+                        :aria-label="t('notifications_history.search_placeholder')"
                         class="w-full ps-10 pe-4 py-2 border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                     />
                 </div>
@@ -195,6 +196,7 @@ const hasActiveFilters = () => {
                 <div class="flex items-center gap-3">
                     <select
                         v-model="statusFilter"
+                        :aria-label="t('notifications_history.table.status')"
                         class="border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                     >
                         <option v-for="status in statuses" :key="status.value" :value="status.value">
@@ -204,6 +206,7 @@ const hasActiveFilters = () => {
 
                     <select
                         v-model="channelFilter"
+                        :aria-label="t('notifications_history.table.channel')"
                         class="border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                     >
                         <option v-for="channel in channels" :key="channel.value" :value="channel.value">
@@ -213,6 +216,7 @@ const hasActiveFilters = () => {
 
                     <select
                         v-model="typeFilter"
+                        :aria-label="t('notifications_history.table.type')"
                         class="border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                     >
                         <option v-for="type in types" :key="type.value" :value="type.value">

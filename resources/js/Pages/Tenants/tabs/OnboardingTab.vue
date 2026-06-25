@@ -61,11 +61,12 @@ const statusLabel = (s: string): string => t(`tenants_onboarding_tab.status_labe
                 <div class="flex-1 min-w-[200px]">
                     <div class="relative">
                         <input v-model="search" @keyup.enter="applyFilters" type="text" :placeholder="t('tenants_onboarding_tab.search_placeholder')"
+                            :aria-label="t('tenants_onboarding_tab.search_placeholder')"
                             class="w-full ps-10 border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm" />
                         <MagnifyingGlassIcon class="w-5 h-5 text-gray-400 absolute start-3 top-2.5" />
                     </div>
                 </div>
-                <select v-model="status" @change="applyFilters" class="border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                <select v-model="status" @change="applyFilters" :aria-label="t('tenants_onboarding_tab.status_filter.all')" class="border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                     <option value="">{{ t('tenants_onboarding_tab.status_filter.all') }}</option>
                     <option value="pending">{{ t('tenants_onboarding_tab.status_filter.pending') }}</option>
                     <option value="accepted">{{ t('tenants_onboarding_tab.status_filter.accepted') }}</option>

@@ -249,6 +249,7 @@ const getLastLeaseInfo = (tenant) => {
                                 v-model="search"
                                 type="text"
                                 :placeholder="currentTab === 'pending' ? t('tenants.index.search.pending_placeholder') : t('tenants.index.search.placeholder')"
+                                :aria-label="currentTab === 'pending' ? t('tenants.index.search.pending_placeholder') : t('tenants.index.search.placeholder')"
                                 class="w-full ps-10 pe-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                             />
                         </div>

@@ -350,12 +350,13 @@ const applyToWallet = () => {
                             </div>
 
                             <div v-if="selectedInvoice" class="mt-4 pt-4 border-t border-gray-200">
-                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <label for="cn-apply-amount" class="block text-sm font-medium text-gray-700 mb-2">
                                     Amount to Apply
                                 </label>
                                 <div class="relative">
                                     <span class="absolute start-3 top-1/2 -translate-y-1/2 text-gray-500">{{ currencySymbol }}</span>
                                     <input
+                                        id="cn-apply-amount"
                                         v-model="applyAmount"
                                         type="number"
                                         step="0.01"

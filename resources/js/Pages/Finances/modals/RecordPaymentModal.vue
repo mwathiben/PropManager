@@ -143,8 +143,9 @@ const setFullAmount = () => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_record_payment.invoice_label') }}</label>
+                                    <label for="rp-invoice-id" class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_record_payment.invoice_label') }}</label>
                                     <select
+                                        id="rp-invoice-id"
                                         v-model="form.invoice_id"
                                         :class="['w-full px-3 py-2.5 text-sm border rounded-lg transition-colors', errors.invoice_id ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-emerald-500 focus:border-emerald-500']"
                                     >
@@ -157,9 +158,10 @@ const setFullAmount = () => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_record_payment.amount_label') }}</label>
+                                    <label for="rp-amount" class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_record_payment.amount_label') }}</label>
                                     <div class="relative">
                                         <input
+                                            id="rp-amount"
                                             v-model.number="form.amount"
                                             type="number"
                                             min="0"
@@ -193,8 +195,9 @@ const setFullAmount = () => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_record_payment.payment_date') }}</label>
+                                    <label for="rp-payment-date" class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_record_payment.payment_date') }}</label>
                                     <input
+                                        id="rp-payment-date"
                                         v-model="form.payment_date"
                                         type="date"
                                         :class="['w-full px-3 py-2.5 text-sm border rounded-lg transition-colors', errors.payment_date ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-emerald-500 focus:border-emerald-500']"
@@ -203,8 +206,9 @@ const setFullAmount = () => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_record_payment.reference_label') }}</label>
+                                    <label for="rp-reference" class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_record_payment.reference_label') }}</label>
                                     <input
+                                        id="rp-reference"
                                         v-model="form.reference"
                                         type="text"
                                         class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
@@ -213,8 +217,9 @@ const setFullAmount = () => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_record_payment.notes_label') }}</label>
+                                    <label for="rp-notes" class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_record_payment.notes_label') }}</label>
                                     <textarea
+                                        id="rp-notes"
                                         v-model="form.notes"
                                         rows="2"
                                         class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 transition-colors resize-none"

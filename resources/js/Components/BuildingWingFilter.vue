@@ -6,6 +6,7 @@
                 :value="buildingId"
                 @change="onBuildingChange($event.target.value)"
                 class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                :aria-label="buildingPlaceholder"
             >
                 <option value="">{{ buildingPlaceholder }}</option>
                 <option v-for="building in buildings" :key="building.id" :value="building.id">
@@ -20,6 +21,7 @@
                 :value="wingId"
                 @change="$emit('update:wingId', $event.target.value || null)"
                 class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                :aria-label="wingPlaceholder"
             >
                 <option value="">{{ wingPlaceholder }}</option>
                 <option v-for="wing in selectedBuildingWings" :key="wing.id" :value="wing.id">

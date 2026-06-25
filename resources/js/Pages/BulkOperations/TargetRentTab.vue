@@ -94,6 +94,7 @@ const submit = () => {
                             :checked="selectedUnitIds.includes(unit.id)"
                             @change="updateSelection(unit.id, $event.target.checked)"
                             class="rounded border-gray-300"
+                            :aria-label="unit.unit_number"
                         >
                         <div class="flex-1">
                             <div class="font-medium">{{ unit.unit_number }}</div>
@@ -120,8 +121,8 @@ const submit = () => {
             </p>
             <form @submit.prevent="submit" class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_target_rent.type_label') }}</label>
-                    <select v-model="form.adjustment_type" class="w-full border-gray-300 rounded-md">
+                    <label for="bulk-adjustment-type" class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_target_rent.type_label') }}</label>
+                    <select id="bulk-adjustment-type" v-model="form.adjustment_type" class="w-full border-gray-300 rounded-md">
                         <option value="percentage">{{ t('bulk_target_rent.type_percentage') }}</option>
                         <option value="fixed">{{ t('bulk_target_rent.type_fixed') }}</option>
                         <option value="set">{{ t('bulk_target_rent.type_set') }}</option>
@@ -129,8 +130,9 @@ const submit = () => {
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_target_rent.value_label') }}</label>
+                    <label for="bulk-adjustment-value" class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_target_rent.value_label') }}</label>
                     <input
+                        id="bulk-adjustment-value"
                         v-model.number="form.adjustment_value"
                         type="number"
                         step="0.01"

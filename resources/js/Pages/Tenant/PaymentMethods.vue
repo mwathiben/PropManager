@@ -87,8 +87,8 @@ const hasMethods = computed(() => props.methods.length > 0);
                     <h2 class="text-base font-semibold text-gray-900 mb-4">{{ $t('tenant_payment_method.add') }}</h2>
                     <form @submit.prevent="submit" class="space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('tenant_payment_method.type') }}</label>
-                            <select v-model="form.type" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                            <label for="pm-type" class="block text-sm font-medium text-gray-700 mb-1">{{ $t('tenant_payment_method.type') }}</label>
+                            <select id="pm-type" v-model="form.type" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
                                 <option value="mpesa">M-Pesa</option>
                                 <option value="bank">{{ $t('tenant_payment_method.bank') }}</option>
                                 <option value="card">{{ $t('tenant_payment_method.card') }}</option>
@@ -96,38 +96,38 @@ const hasMethods = computed(() => props.methods.length > 0);
                         </div>
 
                         <div v-if="form.type === 'mpesa'">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('tenant_payment_method.phone') }}</label>
-                            <input v-model="form.phone" type="tel" placeholder="+2547..." class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" />
+                            <label for="pm-phone" class="block text-sm font-medium text-gray-700 mb-1">{{ $t('tenant_payment_method.phone') }}</label>
+                            <input id="pm-phone" v-model="form.phone" type="tel" placeholder="+2547..." class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" />
                             <p v-if="form.errors.phone" class="mt-1 text-sm text-red-600">{{ form.errors.phone }}</p>
                         </div>
 
                         <template v-else-if="form.type === 'bank'">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('tenant_payment_method.bank_name') }}</label>
-                                <input v-model="form.bank_name" type="text" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" />
+                                <label for="pm-bank-name" class="block text-sm font-medium text-gray-700 mb-1">{{ $t('tenant_payment_method.bank_name') }}</label>
+                                <input id="pm-bank-name" v-model="form.bank_name" type="text" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" />
                                 <p v-if="form.errors.bank_name" class="mt-1 text-sm text-red-600">{{ form.errors.bank_name }}</p>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('tenant_payment_method.account_name') }}</label>
-                                <input v-model="form.account_name" type="text" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" />
+                                <label for="pm-account-name" class="block text-sm font-medium text-gray-700 mb-1">{{ $t('tenant_payment_method.account_name') }}</label>
+                                <input id="pm-account-name" v-model="form.account_name" type="text" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" />
                                 <p v-if="form.errors.account_name" class="mt-1 text-sm text-red-600">{{ form.errors.account_name }}</p>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('tenant_payment_method.account_number') }}</label>
-                                <input v-model="form.account_number" type="text" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" />
+                                <label for="pm-account-number" class="block text-sm font-medium text-gray-700 mb-1">{{ $t('tenant_payment_method.account_number') }}</label>
+                                <input id="pm-account-number" v-model="form.account_number" type="text" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" />
                                 <p v-if="form.errors.account_number" class="mt-1 text-sm text-red-600">{{ form.errors.account_number }}</p>
                             </div>
                         </template>
 
                         <template v-else-if="form.type === 'card'">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('tenant_payment_method.brand') }}</label>
-                                <input v-model="form.brand" type="text" placeholder="Visa" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" />
+                                <label for="pm-brand" class="block text-sm font-medium text-gray-700 mb-1">{{ $t('tenant_payment_method.brand') }}</label>
+                                <input id="pm-brand" v-model="form.brand" type="text" placeholder="Visa" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" />
                                 <p v-if="form.errors.brand" class="mt-1 text-sm text-red-600">{{ form.errors.brand }}</p>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('tenant_payment_method.last4') }}</label>
-                                <input v-model="form.last4" type="text" inputmode="numeric" maxlength="4" placeholder="4242" class="w-40 border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" />
+                                <label for="pm-last4" class="block text-sm font-medium text-gray-700 mb-1">{{ $t('tenant_payment_method.last4') }}</label>
+                                <input id="pm-last4" v-model="form.last4" type="text" inputmode="numeric" maxlength="4" placeholder="4242" class="w-40 border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" />
                                 <p v-if="form.errors.last4" class="mt-1 text-sm text-red-600">{{ form.errors.last4 }}</p>
                             </div>
                         </template>

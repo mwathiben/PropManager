@@ -59,7 +59,7 @@ const humanStatus = (s: string): string => t(`tenants_move_outs_tab.status.${s}`
 
         <div class="bg-gray-50 rounded-lg p-4 mb-6 border border-gray-200">
             <div class="flex flex-wrap gap-4">
-                <select v-model="status" @change="applyFilters" class="border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                <select v-model="status" @change="applyFilters" class="border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm" :aria-label="t('tenants_move_outs_tab.filter.status')">
                     <option value="active">{{ t('tenants_move_outs_tab.filter.active') }}</option>
                     <option value="completed">{{ t('tenants_move_outs_tab.filter.completed') }}</option>
                 </select>

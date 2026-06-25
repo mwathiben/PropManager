@@ -53,6 +53,7 @@ const clearAll = () => {
 
         <!-- Floor Filter -->
         <select
+            :aria-label="t('unit_filters.all_floors', 'All Floors')"
             :value="floor"
             @change="updateFilter('floor', $event.target.value)"
             class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500 bg-white min-w-[120px]"
@@ -65,6 +66,7 @@ const clearAll = () => {
 
         <!-- Unit Type Filter -->
         <select
+            :aria-label="t('unit_filters.all_types', 'All Types')"
             :value="unitType"
             @change="updateFilter('unitType', $event.target.value)"
             class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500 bg-white min-w-[140px]"

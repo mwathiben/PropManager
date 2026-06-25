@@ -73,17 +73,21 @@ function statusBadge(r: ReadingRow): { label: string; cls: string } {
         <div class="bg-gray-50 rounded-lg p-4 mb-6 border border-gray-200">
             <div class="flex flex-wrap gap-4">
                 <select
+                    id="history-filter-building"
                     v-model="buildingId"
                     @change="applyFilters"
                     class="border-gray-300 rounded-lg shadow-sm focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm"
+                    :aria-label="t('water_history.filters.all_buildings')"
                 >
                     <option value="">{{ t('water_history.filters.all_buildings') }}</option>
                     <option v-for="b in buildingsList" :key="b.id" :value="b.id">{{ b.name }}</option>
                 </select>
                 <select
+                    id="history-filter-status"
                     v-model="status"
                     @change="applyFilters"
                     class="border-gray-300 rounded-lg shadow-sm focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm"
+                    :aria-label="t('water_history.filters.all_status')"
                 >
                     <option value="">{{ t('water_history.filters.all_status') }}</option>
                     <option value="pending">{{ t('water_history.filters.pending') }}</option>

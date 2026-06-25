@@ -130,8 +130,9 @@ const close = () => {
             <form @submit.prevent="submit" class="space-y-4">
                         <!-- Building Selector (for adding wings) -->
                         <div v-if="hasBuildings">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('add_wing_modal.add_to_building') }}</label>
+                            <label for="aw-parent-building" class="block text-sm font-medium text-gray-700 mb-1">{{ t('add_wing_modal.add_to_building') }}</label>
                             <select
+                                id="aw-parent-building"
                                 v-model="form.parent_building_id"
                                 class="block w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                             >
@@ -148,10 +149,11 @@ const close = () => {
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">
+                            <label for="aw-name" class="block text-sm font-medium text-gray-700">
                                 {{ form.parent_building_id ? t('add_wing_modal.wing_name') : t('add_wing_modal.building_name') }}
                             </label>
                             <input
+                                id="aw-name"
                                 v-model="form.name"
                                 type="text"
                                 class="mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
@@ -163,9 +165,10 @@ const close = () => {
 
                         <!-- Unit Prefix (only for wings) -->
                         <div v-if="form.parent_building_id">
-                            <label class="block text-sm font-medium text-gray-700">{{ t('add_wing_modal.unit_prefix') }}</label>
+                            <label for="aw-unit-prefix" class="block text-sm font-medium text-gray-700">{{ t('add_wing_modal.unit_prefix') }}</label>
                             <div class="mt-1 flex items-center gap-3">
                                 <input
+                                    id="aw-unit-prefix"
                                     v-model="form.unit_prefix"
                                     type="text"
                                     maxlength="3"
@@ -185,8 +188,9 @@ const close = () => {
 
                         <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700">{{ t('add_wing_modal.floors') }}</label>
+                                <label for="aw-floors" class="block text-sm font-medium text-gray-700">{{ t('add_wing_modal.floors') }}</label>
                                 <input
+                                    id="aw-floors"
                                     v-model="form.floors"
                                     type="number"
                                     min="1"
@@ -197,8 +201,9 @@ const close = () => {
                                 <p v-if="form.errors.floors" class="mt-1 text-sm text-red-600">{{ form.errors.floors }}</p>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700">{{ t('add_wing_modal.units_per_floor') }}</label>
+                                <label for="aw-units-per-floor" class="block text-sm font-medium text-gray-700">{{ t('add_wing_modal.units_per_floor') }}</label>
                                 <input
+                                    id="aw-units-per-floor"
                                     v-model="form.units_per_floor"
                                     type="number"
                                     min="1"

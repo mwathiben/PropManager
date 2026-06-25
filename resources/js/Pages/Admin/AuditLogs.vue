@@ -86,8 +86,9 @@ const getEventBadgeClass = (color) => {
                 <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
                     <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('admin_audit_logs.filters.search') }}</label>
+                            <label for="audit-search" class="block text-sm font-medium text-gray-700 mb-1">{{ t('admin_audit_logs.filters.search') }}</label>
                             <input
+                                id="audit-search"
                                 v-model="filters.search"
                                 type="text"
                                 :placeholder="t('admin_audit_logs.filters.search_placeholder')"
@@ -96,8 +97,9 @@ const getEventBadgeClass = (color) => {
                             >
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('admin_audit_logs.filters.event_type') }}</label>
+                            <label for="audit-event-type" class="block text-sm font-medium text-gray-700 mb-1">{{ t('admin_audit_logs.filters.event_type') }}</label>
                             <select
+                                id="audit-event-type"
                                 v-model="filters.event_type"
                                 class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
                                 @change="applyFilters"
@@ -109,8 +111,9 @@ const getEventBadgeClass = (color) => {
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('admin_audit_logs.filters.model_type') }}</label>
+                            <label for="audit-model-type" class="block text-sm font-medium text-gray-700 mb-1">{{ t('admin_audit_logs.filters.model_type') }}</label>
                             <select
+                                id="audit-model-type"
                                 v-model="filters.model_type"
                                 class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
                                 @change="applyFilters"
@@ -122,8 +125,9 @@ const getEventBadgeClass = (color) => {
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('admin_audit_logs.filters.from_date') }}</label>
+                            <label for="audit-date-from" class="block text-sm font-medium text-gray-700 mb-1">{{ t('admin_audit_logs.filters.from_date') }}</label>
                             <input
+                                id="audit-date-from"
                                 v-model="filters.date_from"
                                 type="date"
                                 class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
@@ -131,8 +135,9 @@ const getEventBadgeClass = (color) => {
                             >
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('admin_audit_logs.filters.to_date') }}</label>
+                            <label for="audit-date-to" class="block text-sm font-medium text-gray-700 mb-1">{{ t('admin_audit_logs.filters.to_date') }}</label>
                             <input
+                                id="audit-date-to"
                                 v-model="filters.date_to"
                                 type="date"
                                 class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"

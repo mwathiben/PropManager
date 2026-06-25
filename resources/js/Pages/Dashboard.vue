@@ -553,6 +553,7 @@ onUnmounted(() => {
                         :value="activeFloorFilter"
                         @change="setFloorFilter($event.target.value ? parseInt($event.target.value) : null)"
                         class="text-sm border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 py-1.5"
+                        :aria-label="t('dashboard.filter.floor_label')"
                     >
                         <option value="">{{ t('dashboard.filter.all_floors') }}</option>
                         <option v-for="floor in allFloors" :key="floor" :value="floor">

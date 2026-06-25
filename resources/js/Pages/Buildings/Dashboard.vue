@@ -876,17 +876,17 @@ const clearAllFilters = () => {
                         <h3 class="text-lg font-bold text-gray-900 mb-4">{{ t('buildings_dashboard.wing.title') }}</h3>
                         <form @submit.prevent="submitWing" class="space-y-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700">{{ t('buildings_dashboard.wing.name') }}</label>
-                                <input v-model="wingForm.name" type="text" class="mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" :placeholder="t('buildings_dashboard.wing.name_placeholder')">
+                                <label for="wing-name" class="block text-sm font-medium text-gray-700">{{ t('buildings_dashboard.wing.name') }}</label>
+                                <input id="wing-name" v-model="wingForm.name" type="text" class="mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" :placeholder="t('buildings_dashboard.wing.name_placeholder')">
                             </div>
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700">{{ t('buildings_dashboard.wing.floors') }}</label>
-                                    <input v-model="wingForm.floors" type="number" class="mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                    <label for="wing-floors" class="block text-sm font-medium text-gray-700">{{ t('buildings_dashboard.wing.floors') }}</label>
+                                    <input id="wing-floors" v-model="wingForm.floors" type="number" class="mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700">{{ t('buildings_dashboard.wing.units_per_floor') }}</label>
-                                    <input v-model="wingForm.units_per_floor" type="number" class="mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                    <label for="wing-units-per-floor" class="block text-sm font-medium text-gray-700">{{ t('buildings_dashboard.wing.units_per_floor') }}</label>
+                                    <input id="wing-units-per-floor" v-model="wingForm.units_per_floor" type="number" class="mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
                                 </div>
                             </div>
                             <div class="mt-6 flex justify-end gap-3">
@@ -909,26 +909,26 @@ const clearAllFilters = () => {
 
                 <div class="space-y-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">{{ t('buildings_dashboard.hike.adjustment_type') }}</label>
-                        <select v-model="massHikeForm.adjustment_type" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                        <label for="hike-adjustment-type" class="block text-sm font-medium text-gray-700">{{ t('buildings_dashboard.hike.adjustment_type') }}</label>
+                        <select id="hike-adjustment-type" v-model="massHikeForm.adjustment_type" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
                             <option value="percentage">{{ t('buildings_dashboard.hike.type_percentage') }}</option>
                             <option value="fixed">{{ t('buildings_dashboard.hike.type_fixed', { currency: currencySymbol }) }}</option>
                         </select>
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">{{ t('buildings_dashboard.hike.value') }}</label>
-                        <input v-model="massHikeForm.value" type="number" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                        <label for="hike-value" class="block text-sm font-medium text-gray-700">{{ t('buildings_dashboard.hike.value') }}</label>
+                        <input id="hike-value" v-model="massHikeForm.value" type="number" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">{{ t('buildings_dashboard.hike.effective_date') }}</label>
-                        <input v-model="massHikeForm.effective_date" type="date" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                        <label for="hike-effective-date" class="block text-sm font-medium text-gray-700">{{ t('buildings_dashboard.hike.effective_date') }}</label>
+                        <input id="hike-effective-date" v-model="massHikeForm.effective_date" type="date" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">{{ t('buildings_dashboard.hike.reason') }}</label>
-                        <input v-model="massHikeForm.reason" type="text" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                        <label for="hike-reason" class="block text-sm font-medium text-gray-700">{{ t('buildings_dashboard.hike.reason') }}</label>
+                        <input id="hike-reason" v-model="massHikeForm.reason" type="text" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
                     </div>
                 </div>
 

@@ -209,10 +209,11 @@ const cancelDeletion = () => {
                     </p>
                 </div>
                 <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                    <label for="delete-reason" class="block text-sm font-medium text-gray-700 mb-1">
                         {{ t('privacy.delete.reason_label') }}
                     </label>
                     <textarea
+                        id="delete-reason"
                         v-model="deleteForm.reason"
                         rows="3"
                         class="w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 text-sm"

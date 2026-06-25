@@ -108,6 +108,7 @@ const filterByStatus = (status) => {
                                 <MagnifyingGlassIcon class="w-5 h-5 absolute start-3 top-1/2 -translate-y-1/2 text-gray-400" />
                                 <input
                                     type="text"
+                                    :aria-label="t('credit_notes_index.filters.search_placeholder')"
                                     :placeholder="t('credit_notes_index.filters.search_placeholder')"
                                     :value="filters?.search"
                                     @input="search"
@@ -115,6 +116,7 @@ const filterByStatus = (status) => {
                                 />
                             </div>
                             <select
+                                :aria-label="t('credit_notes_index.table.status')"
                                 :value="filters?.status || ''"
                                 @change="filterByStatus($event.target.value)"
                                 class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-purple-500 focus:border-purple-500"

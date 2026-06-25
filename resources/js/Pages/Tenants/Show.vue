@@ -882,29 +882,30 @@ const getActivityIcon = (action) => {
                     </div>
                     <form @submit.prevent="submitEdit" class="space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.show.edit_modal.name') }}</label>
-                            <input v-model="editForm.name" type="text" required class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" />
+                            <label for="edit-name" class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.show.edit_modal.name') }}</label>
+                            <input id="edit-name" v-model="editForm.name" type="text" required class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.show.edit_modal.email') }}</label>
-                            <input v-model="editForm.email" type="email" required class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" />
+                            <label for="edit-email" class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.show.edit_modal.email') }}</label>
+                            <input id="edit-email" v-model="editForm.email" type="email" required class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.show.edit_modal.phone') }}</label>
-                            <input v-model="editForm.phone" type="tel" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" />
+                            <label for="edit-phone" class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.show.edit_modal.phone') }}</label>
+                            <input id="edit-phone" v-model="editForm.phone" type="tel" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.show.edit_modal.id_number') }}</label>
-                            <input v-model="editForm.id_number" type="text" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" />
+                            <label for="edit-id-number" class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.show.edit_modal.id_number') }}</label>
+                            <input id="edit-id-number" v-model="editForm.id_number" type="text" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" />
                         </div>
 
                         <!-- Phase-21 DEFER-DPA-1: Kenya DPA Article 8 / Section 33 children's data. -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                            <label for="edit-dob" class="block text-sm font-medium text-gray-700 mb-1">
                                 {{ t('tenants.show.edit_modal.dob') }}
                                 <span class="text-gray-400 text-xs">{{ t('tenants.show.edit_modal.dob_hint') }}</span>
                             </label>
                             <input
+                                id="edit-dob"
                                 v-model="editForm.dob"
                                 type="date"
                                 :max="new Date().toISOString().split('T')[0]"
@@ -928,11 +929,12 @@ const getActivityIcon = (action) => {
                                 </div>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                <label for="edit-consent-url" class="block text-sm font-medium text-gray-700 mb-1">
                                     {{ t('tenants.show.edit_modal.consent_url') }}
                                     <span class="text-red-600">*</span>
                                 </label>
                                 <input
+                                    id="edit-consent-url"
                                     v-model="editForm.parental_consent_artefact_url"
                                     type="url"
                                     :placeholder="t('tenants.show.edit_modal.consent_url_placeholder')"
@@ -944,8 +946,9 @@ const getActivityIcon = (action) => {
                                 </p>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.show.edit_modal.consent_at') }}</label>
+                                <label for="edit-consent-at" class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.show.edit_modal.consent_at') }}</label>
                                 <input
+                                    id="edit-consent-at"
                                     v-model="editForm.parental_consent_provided_at"
                                     type="datetime-local"
                                     class="w-full border-amber-300 rounded-lg focus:ring-amber-500 focus:border-amber-500"
@@ -987,8 +990,8 @@ const getActivityIcon = (action) => {
                     </div>
                     <form @submit.prevent="submitNote" class="space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.show.note_modal.label') }}</label>
-                            <textarea v-model="noteForm.content" rows="4" required class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" :placeholder="t('tenants.show.note_modal.placeholder')"></textarea>
+                            <label for="note-content" class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.show.note_modal.label') }}</label>
+                            <textarea id="note-content" v-model="noteForm.content" rows="4" required class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" :placeholder="t('tenants.show.note_modal.placeholder')"></textarea>
                         </div>
                         <div class="flex items-center gap-2">
                             <input v-model="noteForm.is_pinned" type="checkbox" id="is_pinned" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
@@ -1018,20 +1021,20 @@ const getActivityIcon = (action) => {
                     </div>
                     <form @submit.prevent="submitContact" class="space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.show.contact_modal.name') }}</label>
-                            <input v-model="contactForm.name" type="text" required class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" :placeholder="t('tenants.show.contact_modal.name_placeholder')" />
+                            <label for="contact-name" class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.show.contact_modal.name') }}</label>
+                            <input id="contact-name" v-model="contactForm.name" type="text" required class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" :placeholder="t('tenants.show.contact_modal.name_placeholder')" />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.show.contact_modal.relationship') }}</label>
-                            <input v-model="contactForm.relationship" type="text" required class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" :placeholder="t('tenants.show.contact_modal.relationship_placeholder')" />
+                            <label for="contact-relationship" class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.show.contact_modal.relationship') }}</label>
+                            <input id="contact-relationship" v-model="contactForm.relationship" type="text" required class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" :placeholder="t('tenants.show.contact_modal.relationship_placeholder')" />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.show.contact_modal.phone') }}</label>
-                            <input v-model="contactForm.phone" type="tel" required class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" :placeholder="t('tenants.show.contact_modal.phone_placeholder')" />
+                            <label for="contact-phone" class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.show.contact_modal.phone') }}</label>
+                            <input id="contact-phone" v-model="contactForm.phone" type="tel" required class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" :placeholder="t('tenants.show.contact_modal.phone_placeholder')" />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.show.contact_modal.email') }}</label>
-                            <input v-model="contactForm.email" type="email" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" :placeholder="t('tenants.show.contact_modal.email_placeholder')" />
+                            <label for="contact-email" class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.show.contact_modal.email') }}</label>
+                            <input id="contact-email" v-model="contactForm.email" type="email" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" :placeholder="t('tenants.show.contact_modal.email_placeholder')" />
                         </div>
                         <div class="flex items-center gap-2">
                             <input v-model="contactForm.is_primary" type="checkbox" id="is_primary" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
@@ -1090,8 +1093,9 @@ const getActivityIcon = (action) => {
                             </div>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.show.wallet_modal.amount', { currency: currencyCode }) }}</label>
+                            <label for="wallet-amount" class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.show.wallet_modal.amount', { currency: currencyCode }) }}</label>
                             <input
+                                id="wallet-amount"
                                 v-model="walletForm.amount"
                                 type="number"
                                 min="0.01"
@@ -1103,8 +1107,9 @@ const getActivityIcon = (action) => {
                             <p v-if="walletForm.errors.amount" class="mt-1 text-sm text-red-600">{{ walletForm.errors.amount }}</p>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.show.wallet_modal.reason') }}</label>
+                            <label for="wallet-reason" class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.show.wallet_modal.reason') }}</label>
                             <input
+                                id="wallet-reason"
                                 v-model="walletForm.reason"
                                 type="text"
                                 required
@@ -1151,8 +1156,9 @@ const getActivityIcon = (action) => {
 
                     <form @submit.prevent="submitNotice" class="space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('document.notice.type') }}</label>
+                            <label for="notice-type" class="block text-sm font-medium text-gray-700 mb-1">{{ $t('document.notice.type') }}</label>
                             <select
+                                id="notice-type"
                                 v-model="noticeForm.notice_type"
                                 required
                                 class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
@@ -1164,8 +1170,9 @@ const getActivityIcon = (action) => {
                             <p v-if="noticeForm.errors.notice_type" class="mt-1 text-sm text-red-600">{{ noticeForm.errors.notice_type }}</p>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('document.notice.effective_date') }}</label>
+                            <label for="notice-effective-date" class="block text-sm font-medium text-gray-700 mb-1">{{ $t('document.notice.effective_date') }}</label>
                             <input
+                                id="notice-effective-date"
                                 v-model="noticeForm.effective_date"
                                 type="date"
                                 class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
@@ -1173,8 +1180,9 @@ const getActivityIcon = (action) => {
                             <p v-if="noticeForm.errors.effective_date" class="mt-1 text-sm text-red-600">{{ noticeForm.errors.effective_date }}</p>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('document.notice.reason') }}</label>
+                            <label for="notice-reason" class="block text-sm font-medium text-gray-700 mb-1">{{ $t('document.notice.reason') }}</label>
                             <textarea
+                                id="notice-reason"
                                 v-model="noticeForm.reason"
                                 rows="4"
                                 maxlength="5000"

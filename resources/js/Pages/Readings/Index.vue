@@ -151,7 +151,7 @@ const getReadingEntry = (unitId) => {
                                 </p>
                             </div>
                             <div class="flex items-center gap-3">
-                                <input type="date" v-model="form.reading_date" class="border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                                <input type="date" v-model="form.reading_date" :aria-label="t('meter.reading_date')" class="border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
                                 <Link
                                     v-if="isLandlord"
                                     :href="route('readings.review')"
@@ -179,6 +179,7 @@ const getReadingEntry = (unitId) => {
                                                 type="number"
                                                 v-model="getReadingEntry(unit.id).current_reading"
                                                 :placeholder="t('readings_index.new_reading_placeholder')"
+                                                :aria-label="t('readings_index.new_reading_placeholder')"
                                                 step="0.01"
                                                 class="w-32 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-end font-mono text-lg"
                                             >

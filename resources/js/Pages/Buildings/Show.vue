@@ -211,9 +211,10 @@ const occupancyColor = computed(() => {
                                 <!-- Basic Details -->
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-500 mb-1">{{ t('buildings_show.building_name') }}</label>
+                                        <label for="building-name" class="block text-sm font-medium text-gray-500 mb-1">{{ t('buildings_show.building_name') }}</label>
                                         <input
                                             v-if="isEditing"
+                                            id="building-name"
                                             v-model="form.name"
                                             type="text"
                                             class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
@@ -221,9 +222,10 @@ const occupancyColor = computed(() => {
                                         <p v-else class="text-lg font-semibold text-gray-900">{{ building.name }}</p>
                                     </div>
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-500 mb-1">{{ t('buildings_show.building_type') }}</label>
+                                        <label for="building-type" class="block text-sm font-medium text-gray-500 mb-1">{{ t('buildings_show.building_type') }}</label>
                                         <select
                                             v-if="isEditing"
+                                            id="building-type"
                                             v-model="form.building_type"
                                             class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                                         >
@@ -241,9 +243,10 @@ const occupancyColor = computed(() => {
 
                                 <!-- Currency Override -->
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-500 mb-1">{{ t('buildings_show.currency') }}</label>
+                                    <label for="building-currency" class="block text-sm font-medium text-gray-500 mb-1">{{ t('buildings_show.currency') }}</label>
                                     <select
                                         v-if="isEditing"
+                                        id="building-currency"
                                         v-model="form.currency"
                                         class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                                     >
@@ -262,9 +265,10 @@ const occupancyColor = computed(() => {
 
                                 <!-- Address -->
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-500 mb-1">{{ t('buildings_show.address_location') }}</label>
+                                    <label for="building-address" class="block text-sm font-medium text-gray-500 mb-1">{{ t('buildings_show.address_location') }}</label>
                                     <div v-if="isEditing" class="flex gap-2">
                                         <input
+                                            id="building-address"
                                             v-model="form.address"
                                             type="text"
                                             :placeholder="t('buildings_show.enter_address_placeholder')"
@@ -285,9 +289,10 @@ const occupancyColor = computed(() => {
 
                                 <!-- Description -->
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-500 mb-1">{{ t('buildings_show.description') }}</label>
+                                    <label for="building-description" class="block text-sm font-medium text-gray-500 mb-1">{{ t('buildings_show.description') }}</label>
                                     <textarea
                                         v-if="isEditing"
+                                        id="building-description"
                                         v-model="form.description"
                                         rows="3"
                                         :placeholder="t('buildings_show.describe_building_placeholder')"
@@ -397,6 +402,7 @@ const occupancyColor = computed(() => {
                                                 v-model="newCustomAmenity"
                                                 type="text"
                                                 :placeholder="t('buildings_show.add_custom_amenity_placeholder')"
+                                                :aria-label="t('buildings_show.add_custom_amenity_placeholder')"
                                                 class="flex-1 border-gray-300 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500"
                                                 @keydown.enter.prevent="addCustomAmenity"
                                             >
@@ -522,8 +528,9 @@ const occupancyColor = computed(() => {
                 />
                 <div class="mt-4 grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('buildings_show.latitude') }}</label>
+                        <label for="map-latitude" class="block text-sm font-medium text-gray-700 mb-1">{{ t('buildings_show.latitude') }}</label>
                         <input
+                            id="map-latitude"
                             v-model.number="form.coordinates.lat"
                             type="number"
                             step="any"
@@ -532,8 +539,9 @@ const occupancyColor = computed(() => {
                         >
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('buildings_show.longitude') }}</label>
+                        <label for="map-longitude" class="block text-sm font-medium text-gray-700 mb-1">{{ t('buildings_show.longitude') }}</label>
                         <input
+                            id="map-longitude"
                             v-model.number="form.coordinates.lng"
                             type="number"
                             step="any"

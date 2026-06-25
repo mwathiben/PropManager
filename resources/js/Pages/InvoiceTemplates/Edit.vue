@@ -306,8 +306,9 @@ const designStyles = computed(() => {
                                 </div>
                                 <div class="p-6 space-y-4">
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Template Name</label>
+                                        <label for="tpl-name" class="block text-sm font-medium text-gray-700 mb-1">Template Name</label>
                                         <input
+                                            id="tpl-name"
                                             :value="previewState.name"
                                             @input="updateField('name', $event.target.value)"
                                             type="text"
@@ -316,8 +317,9 @@ const designStyles = computed(() => {
                                         />
                                     </div>
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Design Style</label>
+                                        <label for="tpl-design" class="block text-sm font-medium text-gray-700 mb-1">Design Style</label>
                                         <select
+                                            id="tpl-design"
                                             :value="previewState.design"
                                             @change="updateField('design', $event.target.value)"
                                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -351,9 +353,10 @@ const designStyles = computed(() => {
                                 <div class="p-6">
                                     <div class="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-1">Primary Color</label>
+                                            <label for="tpl-primary-color" class="block text-sm font-medium text-gray-700 mb-1">Primary Color</label>
                                             <div class="flex items-center gap-2">
                                                 <input
+                                                    id="tpl-primary-color"
                                                     :value="previewState.primary_color"
                                                     @input="updateField('primary_color', $event.target.value)"
                                                     type="color"
@@ -369,9 +372,10 @@ const designStyles = computed(() => {
                                             </div>
                                         </div>
                                         <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-1">Secondary Color</label>
+                                            <label for="tpl-secondary-color" class="block text-sm font-medium text-gray-700 mb-1">Secondary Color</label>
                                             <div class="flex items-center gap-2">
                                                 <input
+                                                    id="tpl-secondary-color"
                                                     :value="previewState.secondary_color"
                                                     @input="updateField('secondary_color', $event.target.value)"
                                                     type="color"
@@ -428,8 +432,9 @@ const designStyles = computed(() => {
                                 </div>
                                 <div class="p-6 space-y-4">
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Custom Header</label>
+                                        <label for="tpl-custom-header" class="block text-sm font-medium text-gray-700 mb-1">Custom Header</label>
                                         <textarea
+                                            id="tpl-custom-header"
                                             :value="previewState.custom_header"
                                             @input="updateField('custom_header', $event.target.value)"
                                             rows="2"
@@ -438,8 +443,9 @@ const designStyles = computed(() => {
                                         ></textarea>
                                     </div>
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Custom Footer</label>
+                                        <label for="tpl-custom-footer" class="block text-sm font-medium text-gray-700 mb-1">Custom Footer</label>
                                         <textarea
+                                            id="tpl-custom-footer"
                                             :value="previewState.custom_footer"
                                             @input="updateField('custom_footer', $event.target.value)"
                                             rows="2"

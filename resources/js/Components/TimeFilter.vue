@@ -98,16 +98,18 @@ watch(() => props.endDate, (val) => { localEndDate.value = val || ''; });
             <!-- Custom Date Range -->
             <div v-if="isCustom" class="border-t border-gray-200 p-4 space-y-4">
                 <div>
-                    <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('time_filter.start_date', 'Start Date') }}</label>
+                    <label for="tf-start-date" class="block text-xs font-medium text-gray-500 mb-1">{{ t('time_filter.start_date', 'Start Date') }}</label>
                     <input
+                        id="tf-start-date"
                         v-model="localStartDate"
                         type="date"
                         class="w-full border-gray-300 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500"
                     />
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('time_filter.end_date', 'End Date') }}</label>
+                    <label for="tf-end-date" class="block text-xs font-medium text-gray-500 mb-1">{{ t('time_filter.end_date', 'End Date') }}</label>
                     <input
+                        id="tf-end-date"
                         v-model="localEndDate"
                         type="date"
                         class="w-full border-gray-300 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500"

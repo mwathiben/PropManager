@@ -117,9 +117,10 @@ const getLeaseDuration = (startDate, endDate) => {
                 <div class="mb-6 bg-white shadow-sm rounded-lg p-4">
                     <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
                         <div class="md:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('leases.index.filters.search') }}</label>
+                            <label for="leases-filter-search" class="block text-sm font-medium text-gray-700 mb-1">{{ t('leases.index.filters.search') }}</label>
                             <div class="relative">
                                 <input
+                                    id="leases-filter-search"
                                     v-model="search"
                                     @keyup.enter="applyFilters"
                                     type="text"
@@ -131,8 +132,9 @@ const getLeaseDuration = (startDate, endDate) => {
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('leases.index.filters.status') }}</label>
+                            <label for="leases-filter-status" class="block text-sm font-medium text-gray-700 mb-1">{{ t('leases.index.filters.status') }}</label>
                             <select
+                                id="leases-filter-status"
                                 v-model="status"
                                 @change="applyFilters"
                                 class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
@@ -144,8 +146,9 @@ const getLeaseDuration = (startDate, endDate) => {
                         </div>
 
                         <div v-if="buildings?.length > 0">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('leases.index.filters.building') }}</label>
+                            <label for="leases-filter-building" class="block text-sm font-medium text-gray-700 mb-1">{{ t('leases.index.filters.building') }}</label>
                             <select
+                                id="leases-filter-building"
                                 v-model="buildingId"
                                 @change="applyFilters"
                                 class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"

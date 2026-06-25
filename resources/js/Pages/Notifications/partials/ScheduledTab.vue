@@ -326,8 +326,9 @@ const getChannelBadges = (channelList) => {
 
                         <form @submit.prevent="saveSchedule" class="p-6 space-y-5">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_scheduled.form.name') }}</label>
+                                <label for="sched-name" class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_scheduled.form.name') }}</label>
                                 <input
+                                    id="sched-name"
                                     v-model="form.name"
                                     type="text"
                                     class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
@@ -339,8 +340,9 @@ const getChannelBadges = (channelList) => {
 
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_scheduled.form.notification_type') }}</label>
+                                    <label for="sched-type" class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_scheduled.form.notification_type') }}</label>
                                     <select
+                                        id="sched-type"
                                         v-model="form.type"
                                         class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                                     >
@@ -351,8 +353,9 @@ const getChannelBadges = (channelList) => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_scheduled.form.template') }}</label>
+                                    <label for="sched-template" class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_scheduled.form.template') }}</label>
                                     <select
+                                        id="sched-template"
                                         v-model="form.template_id"
                                         class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                                     >
@@ -365,8 +368,9 @@ const getChannelBadges = (channelList) => {
                             </div>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_scheduled.form.trigger') }}</label>
+                                <label for="sched-trigger" class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_scheduled.form.trigger') }}</label>
                                 <select
+                                    id="sched-trigger"
                                     v-model="form.trigger"
                                     class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                                 >
@@ -381,8 +385,9 @@ const getChannelBadges = (channelList) => {
 
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_scheduled.form.days') }}</label>
+                                    <label for="sched-days-offset" class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_scheduled.form.days') }}</label>
                                     <input
+                                        id="sched-days-offset"
                                         v-model.number="form.days_offset"
                                         type="number"
                                         min="1"
@@ -393,8 +398,9 @@ const getChannelBadges = (channelList) => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_scheduled.form.send_time') }}</label>
+                                    <label for="sched-send-time" class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_scheduled.form.send_time') }}</label>
                                     <input
+                                        id="sched-send-time"
                                         v-model="form.send_time"
                                         type="time"
                                         class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"

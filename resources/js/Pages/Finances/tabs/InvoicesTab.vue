@@ -243,8 +243,9 @@ const exportData = (format: string): void => {
                         <form @submit.prevent="submitGenerate">
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700">{{ t('finances_invoices_tab.generate_modal.month_label') }}</label>
+                                    <label for="inv-gen-month" class="block text-sm font-medium text-gray-700">{{ t('finances_invoices_tab.generate_modal.month_label') }}</label>
                                     <select
+                                        id="inv-gen-month"
                                         v-model="generateForm.month"
                                         class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500"
                                     >
@@ -258,8 +259,9 @@ const exportData = (format: string): void => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700">{{ t('finances_invoices_tab.generate_modal.year_label') }}</label>
+                                    <label for="inv-gen-year" class="block text-sm font-medium text-gray-700">{{ t('finances_invoices_tab.generate_modal.year_label') }}</label>
                                     <select
+                                        id="inv-gen-year"
                                         v-model="generateForm.year"
                                         class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500"
                                     >

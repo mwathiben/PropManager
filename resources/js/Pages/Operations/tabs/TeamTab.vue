@@ -255,8 +255,9 @@ const getStatusColor = (status) => {
 
                     <form @submit.prevent="submitInvite" class="space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('operations_team.modal.name') }}</label>
+                            <label for="invite-name" class="block text-sm font-medium text-gray-700 mb-1">{{ t('operations_team.modal.name') }}</label>
                             <input
+                                id="invite-name"
                                 v-model="inviteForm.name"
                                 type="text"
                                 class="w-full border-gray-300 rounded-lg"
@@ -265,8 +266,9 @@ const getStatusColor = (status) => {
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('operations_team.modal.email') }}</label>
+                            <label for="invite-email" class="block text-sm font-medium text-gray-700 mb-1">{{ t('operations_team.modal.email') }}</label>
                             <input
+                                id="invite-email"
                                 v-model="inviteForm.email"
                                 type="email"
                                 class="w-full border-gray-300 rounded-lg"

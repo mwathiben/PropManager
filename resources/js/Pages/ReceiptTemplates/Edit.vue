@@ -293,20 +293,22 @@ const toggleGroups = props.toggleGroups || [
                                 </div>
                                 <div class="p-6 space-y-4">
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Template Name</label>
+                                        <label for="rt-template-name" class="block text-sm font-medium text-gray-700 mb-1">Template Name</label>
                                         <input
                                             :value="previewState.name"
                                             @input="updateField('name', $event.target.value)"
                                             type="text"
+                                            id="rt-template-name"
                                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                             placeholder="e.g., Standard Receipt"
                                         />
                                     </div>
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Design Style</label>
+                                        <label for="rt-design-style" class="block text-sm font-medium text-gray-700 mb-1">Design Style</label>
                                         <select
                                             :value="previewState.design"
                                             @change="updateField('design', $event.target.value)"
+                                            id="rt-design-style"
                                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                         >
                                             <option v-for="(label, value) in designOptions" :key="value" :value="value">
@@ -338,12 +340,13 @@ const toggleGroups = props.toggleGroups || [
                                 <div class="p-6">
                                     <div class="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-1">Primary Color</label>
+                                            <label for="rt-primary-color" class="block text-sm font-medium text-gray-700 mb-1">Primary Color</label>
                                             <div class="flex items-center gap-2">
                                                 <input
                                                     :value="previewState.primary_color"
                                                     @input="updateField('primary_color', $event.target.value)"
                                                     type="color"
+                                                    id="rt-primary-color"
                                                     class="w-10 h-10 rounded border border-gray-300 cursor-pointer"
                                                 />
                                                 <input
@@ -356,12 +359,13 @@ const toggleGroups = props.toggleGroups || [
                                             </div>
                                         </div>
                                         <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-1">Secondary Color</label>
+                                            <label for="rt-secondary-color" class="block text-sm font-medium text-gray-700 mb-1">Secondary Color</label>
                                             <div class="flex items-center gap-2">
                                                 <input
                                                     :value="previewState.secondary_color"
                                                     @input="updateField('secondary_color', $event.target.value)"
                                                     type="color"
+                                                    id="rt-secondary-color"
                                                     class="w-10 h-10 rounded border border-gray-300 cursor-pointer"
                                                 />
                                                 <input
@@ -415,31 +419,34 @@ const toggleGroups = props.toggleGroups || [
                                 </div>
                                 <div class="p-6 space-y-4">
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Custom Header</label>
+                                        <label for="rt-custom-header" class="block text-sm font-medium text-gray-700 mb-1">Custom Header</label>
                                         <textarea
                                             :value="previewState.custom_header"
                                             @input="updateField('custom_header', $event.target.value)"
                                             rows="2"
+                                            id="rt-custom-header"
                                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
                                             placeholder="Additional text to display in the header..."
                                         ></textarea>
                                     </div>
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Thank You Message</label>
+                                        <label for="rt-thank-you-msg" class="block text-sm font-medium text-gray-700 mb-1">Thank You Message</label>
                                         <textarea
                                             :value="previewState.thank_you_message"
                                             @input="updateField('thank_you_message', $event.target.value)"
                                             rows="2"
+                                            id="rt-thank-you-msg"
                                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
                                             placeholder="Thank you for your payment!"
                                         ></textarea>
                                     </div>
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Custom Footer</label>
+                                        <label for="rt-custom-footer" class="block text-sm font-medium text-gray-700 mb-1">Custom Footer</label>
                                         <textarea
                                             :value="previewState.custom_footer"
                                             @input="updateField('custom_footer', $event.target.value)"
                                             rows="2"
+                                            id="rt-custom-footer"
                                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
                                             placeholder="Additional text to display in the footer..."
                                         ></textarea>

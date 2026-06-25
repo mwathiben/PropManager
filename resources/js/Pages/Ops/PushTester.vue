@@ -47,8 +47,8 @@ function submit(): void {
 
                 <form @submit.prevent="submit" class="space-y-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">Recipient</label>
-                        <select v-model="form.user_id" class="mt-1 block w-full rounded-md border-gray-300 text-sm">
+                        <label for="push-recipient" class="block text-sm font-medium text-gray-700">Recipient</label>
+                        <select id="push-recipient" v-model="form.user_id" class="mt-1 block w-full rounded-md border-gray-300 text-sm">
                             <option value="">— pick a user —</option>
                             <option v-for="u in users" :key="u.id" :value="u.id">
                                 {{ u.name }} ({{ u.role }}, {{ u.email }})
@@ -58,20 +58,20 @@ function submit(): void {
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">Title</label>
-                        <input v-model="form.title" type="text" class="mt-1 block w-full rounded-md border-gray-300 text-sm" maxlength="120" />
+                        <label for="push-title" class="block text-sm font-medium text-gray-700">Title</label>
+                        <input id="push-title" v-model="form.title" type="text" class="mt-1 block w-full rounded-md border-gray-300 text-sm" maxlength="120" />
                         <p v-if="form.errors.title" class="mt-1 text-xs text-red-600">{{ form.errors.title }}</p>
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">Body</label>
-                        <textarea v-model="form.body" rows="3" class="mt-1 block w-full rounded-md border-gray-300 text-sm" maxlength="500"></textarea>
+                        <label for="push-body" class="block text-sm font-medium text-gray-700">Body</label>
+                        <textarea id="push-body" v-model="form.body" rows="3" class="mt-1 block w-full rounded-md border-gray-300 text-sm" maxlength="500"></textarea>
                         <p v-if="form.errors.body" class="mt-1 text-xs text-red-600">{{ form.errors.body }}</p>
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">Click URL</label>
-                        <input v-model="form.click_url" type="text" class="mt-1 block w-full rounded-md border-gray-300 text-sm" />
+                        <label for="push-click-url" class="block text-sm font-medium text-gray-700">Click URL</label>
+                        <input id="push-click-url" v-model="form.click_url" type="text" class="mt-1 block w-full rounded-md border-gray-300 text-sm" />
                         <p class="mt-1 text-xs text-gray-500">Where tapping the notification lands the user. Defaults to /dashboard.</p>
                     </div>
 

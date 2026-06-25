@@ -145,15 +145,15 @@ onMounted(async () => {
                 </div>
 
                 <div v-if="form.water_billing_type === 'consumption'">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('water_settings_form.rate_per_unit') }} ({{ currencyCode }})</label>
-                    <input v-model="form.water_unit_rate" type="number" min="0" step="0.01" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="150" />
+                    <label for="water-unit-rate" class="block text-sm font-medium text-gray-700 mb-1">{{ $t('water_settings_form.rate_per_unit') }} ({{ currencyCode }})</label>
+                    <input id="water-unit-rate" v-model="form.water_unit_rate" type="number" min="0" step="0.01" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="150" />
                     <p class="mt-1 text-xs text-gray-500">{{ $t('water_settings_form.rate_per_unit_hint') }}</p>
                     <p v-if="form.errors.water_unit_rate" class="mt-1 text-sm text-red-600">{{ form.errors.water_unit_rate }}</p>
                 </div>
 
                 <div v-if="form.water_billing_type === 'flat_rate'">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('water_settings_form.flat_rate') }} ({{ currencyCode }})</label>
-                    <input v-model="form.flat_water_rate" type="number" min="0" step="0.01" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="500" />
+                    <label for="water-flat-rate" class="block text-sm font-medium text-gray-700 mb-1">{{ $t('water_settings_form.flat_rate') }} ({{ currencyCode }})</label>
+                    <input id="water-flat-rate" v-model="form.flat_water_rate" type="number" min="0" step="0.01" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="500" />
                     <p class="mt-1 text-xs text-gray-500">{{ $t('water_settings_form.flat_rate_hint') }}</p>
                     <p v-if="form.errors.flat_water_rate" class="mt-1 text-sm text-red-600">{{ form.errors.flat_water_rate }}</p>
                 </div>
@@ -250,6 +250,7 @@ onMounted(async () => {
                         </div>
                         <select
                             v-model="form.building_overrides[getBuildingOverrideIndex(building.id)].water_billing_type"
+                            :aria-label="$t('water_settings_form.billing_method')"
                             class="border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                         >
                             <option value="inherit">{{ $t('water_settings_form.type_inherit') }}</option>
@@ -263,8 +264,8 @@ onMounted(async () => {
                         v-if="form.building_overrides[getBuildingOverrideIndex(building.id)].water_billing_type === 'consumption'"
                         class="mt-3 ps-4 border-s-2 border-indigo-200"
                     >
-                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('water_settings_form.rate_per_unit') }} ({{ currencyCode }})</label>
-                        <input v-model="form.building_overrides[getBuildingOverrideIndex(building.id)].water_unit_rate"
+                        <label :for="`bld-unit-rate-${building.id}`" class="block text-sm font-medium text-gray-700 mb-1">{{ $t('water_settings_form.rate_per_unit') }} ({{ currencyCode }})</label>
+                        <input :id="`bld-unit-rate-${building.id}`" v-model="form.building_overrides[getBuildingOverrideIndex(building.id)].water_unit_rate"
                             type="number" min="0" step="0.01"
                             class="w-48 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                             :placeholder="String(form.water_unit_rate || '150')" />
@@ -274,8 +275,8 @@ onMounted(async () => {
                         v-if="form.building_overrides[getBuildingOverrideIndex(building.id)].water_billing_type === 'flat_rate'"
                         class="mt-3 ps-4 border-s-2 border-indigo-200"
                     >
-                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('water_settings_form.flat_rate') }} ({{ currencyCode }})</label>
-                        <input v-model="form.building_overrides[getBuildingOverrideIndex(building.id)].water_flat_rate"
+                        <label :for="`bld-flat-rate-${building.id}`" class="block text-sm font-medium text-gray-700 mb-1">{{ $t('water_settings_form.flat_rate') }} ({{ currencyCode }})</label>
+                        <input :id="`bld-flat-rate-${building.id}`" v-model="form.building_overrides[getBuildingOverrideIndex(building.id)].water_flat_rate"
                             type="number" min="0" step="0.01"
                             class="w-48 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                             :placeholder="String(form.flat_water_rate || '500')" />

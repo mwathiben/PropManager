@@ -221,8 +221,9 @@ const channelButtonBaseClass = 'px-4 py-2 text-sm rounded-lg border-2 transition
                         {{ t('finances_settings.currency.description') }}
                     </p>
                     <div>
-                        <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_settings.currency.label') }}</label>
+                        <label for="currency-default" class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_settings.currency.label') }}</label>
                         <select
+                            id="currency-default"
                             v-model="currencyForm.default_currency"
                             class="w-64 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                         >
@@ -364,8 +365,9 @@ const channelButtonBaseClass = 'px-4 py-2 text-sm rounded-lg border-2 transition
                     <h3 class="text-sm font-semibold text-gray-900 mb-4">{{ t('finances_settings.receipt.custom_text_heading') }}</h3>
                     <div class="space-y-4">
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_settings.receipt.header_text') }}</label>
+                            <label for="receipt-header-text" class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_settings.receipt.header_text') }}</label>
                             <input
+                                id="receipt-header-text"
                                 v-model="receiptForm.receipt_header_text"
                                 type="text"
                                 maxlength="255"
@@ -375,8 +377,9 @@ const channelButtonBaseClass = 'px-4 py-2 text-sm rounded-lg border-2 transition
                             <p class="mt-1 text-xs text-gray-500">{{ t('finances_settings.receipt.header_text_help') }}</p>
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_settings.receipt.thank_you') }}</label>
+                            <label for="receipt-thank-you" class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_settings.receipt.thank_you') }}</label>
                             <input
+                                id="receipt-thank-you"
                                 v-model="receiptForm.receipt_thank_you_message"
                                 type="text"
                                 maxlength="500"
@@ -385,8 +388,9 @@ const channelButtonBaseClass = 'px-4 py-2 text-sm rounded-lg border-2 transition
                             />
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_settings.receipt.footer_text') }}</label>
+                            <label for="receipt-footer-text" class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_settings.receipt.footer_text') }}</label>
                             <textarea
+                                id="receipt-footer-text"
                                 v-model="receiptForm.receipt_footer_text"
                                 rows="3"
                                 :placeholder="t('finances_settings.receipt.footer_text_placeholder')"
@@ -459,8 +463,9 @@ const channelButtonBaseClass = 'px-4 py-2 text-sm rounded-lg border-2 transition
                         </div>
 
                         <div v-if="fiscalYearForm.fiscal_year_type === 'custom'">
-                            <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_settings.fiscal_year.start_month') }}</label>
+                            <label for="fiscal-start-month" class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_settings.fiscal_year.start_month') }}</label>
                             <select
+                                id="fiscal-start-month"
                                 v-model.number="fiscalYearForm.fiscal_year_start_month"
                                 class="w-48 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                             >
@@ -506,8 +511,9 @@ const channelButtonBaseClass = 'px-4 py-2 text-sm rounded-lg border-2 transition
                     <h3 class="text-sm font-semibold text-gray-900 mb-4">{{ t('finances_settings.reminders.heading') }}</h3>
                     <div class="space-y-4">
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_settings.reminders.days_before') }}</label>
+                            <label for="reminder-days-before" class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_settings.reminders.days_before') }}</label>
                             <input
+                                id="reminder-days-before"
                                 v-model.number="reminderForm.reminder_days_before_due"
                                 type="number"
                                 min="1"
@@ -516,8 +522,9 @@ const channelButtonBaseClass = 'px-4 py-2 text-sm rounded-lg border-2 transition
                             />
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_settings.reminders.overdue_frequency') }}</label>
+                            <label for="reminder-overdue-freq" class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_settings.reminders.overdue_frequency') }}</label>
                             <select
+                                id="reminder-overdue-freq"
                                 v-model="reminderForm.overdue_reminder_frequency"
                                 class="w-48 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                             >

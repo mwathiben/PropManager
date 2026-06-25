@@ -57,6 +57,7 @@ const hasActiveFilters = computed(() => {
                             @keyup.enter="applyFilters"
                             type="text"
                             :placeholder="t('archive_leases.search_placeholder')"
+                            :aria-label="t('archive_leases.search_placeholder')"
                             class="w-full ps-10 border-gray-300 rounded-lg shadow-sm focus:ring-gray-500 focus:border-gray-500 sm:text-sm"
                         />
                         <MagnifyingGlassIcon class="w-5 h-5 text-gray-400 absolute start-3 top-2.5" />
@@ -66,6 +67,7 @@ const hasActiveFilters = computed(() => {
                 <select
                     v-model="buildingId"
                     @change="applyFilters"
+                    :aria-label="t('archive_leases.all_buildings')"
                     class="border-gray-300 rounded-lg shadow-sm focus:ring-gray-500 focus:border-gray-500 sm:text-sm"
                 >
                     <option value="">{{ t('archive_leases.all_buildings') }}</option>
@@ -77,6 +79,7 @@ const hasActiveFilters = computed(() => {
                 <select
                     v-model="status"
                     @change="applyFilters"
+                    :aria-label="t('archive_leases.all_status')"
                     class="border-gray-300 rounded-lg shadow-sm focus:ring-gray-500 focus:border-gray-500 sm:text-sm"
                 >
                     <option value="">{{ t('archive_leases.all_status') }}</option>

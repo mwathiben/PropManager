@@ -129,6 +129,7 @@ const activeFiltersCount = () => {
                         v-model="searchQuery"
                         type="text"
                         :placeholder="searchPlaceholder || t('finances_filter_bar.search_placeholder')"
+                        :aria-label="searchPlaceholder || t('finances_filter_bar.search_placeholder')"
                         class="w-full ps-9 pe-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     />
                 </div>
@@ -166,8 +167,9 @@ const activeFiltersCount = () => {
             <div v-if="showFilters" class="p-4 bg-gray-50 rounded-lg border border-gray-200">
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div v-if="showStatus && statusOptions.length > 0">
-                        <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_filter_bar.status_label') }}</label>
+                        <label for="fb-status" class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_filter_bar.status_label') }}</label>
                         <select
+                            id="fb-status"
                             :value="modelValue.status"
                             @change="updateFilter('status', $event.target.value)"
                             class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -180,8 +182,9 @@ const activeFiltersCount = () => {
                     </div>
 
                     <div v-if="showPaymentMethod && paymentMethodOptions.length > 0">
-                        <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_filter_bar.payment_method_label') }}</label>
+                        <label for="fb-payment-method" class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_filter_bar.payment_method_label') }}</label>
                         <select
+                            id="fb-payment-method"
                             :value="modelValue.paymentMethod"
                             @change="updateFilter('paymentMethod', $event.target.value)"
                             class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -194,8 +197,9 @@ const activeFiltersCount = () => {
                     </div>
 
                     <div v-if="showBuilding && buildings.length > 0">
-                        <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_filter_bar.building_label') }}</label>
+                        <label for="fb-building" class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_filter_bar.building_label') }}</label>
                         <select
+                            id="fb-building"
                             :value="modelValue.buildingId"
                             @change="updateFilter('buildingId', $event.target.value || null)"
                             class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -208,9 +212,10 @@ const activeFiltersCount = () => {
                     </div>
 
                     <div v-if="showDateRange" class="sm:col-span-2 lg:col-span-1">
-                        <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_filter_bar.date_range_label') }}</label>
+                        <label for="fb-date-from" class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_filter_bar.date_range_label') }}</label>
                         <div class="flex gap-2">
                             <input
+                                id="fb-date-from"
                                 type="date"
                                 :value="modelValue.dateRange?.from"
                                 @change="updateFilter('dateRange', { ...modelValue.dateRange, from: $event.target.value })"
@@ -218,6 +223,7 @@ const activeFiltersCount = () => {
                             />
                             <input
                                 type="date"
+                                :aria-label="t('finances_filter_bar.date_range_label')"
                                 :value="modelValue.dateRange?.to"
                                 @change="updateFilter('dateRange', { ...modelValue.dateRange, to: $event.target.value })"
                                 class="flex-1 px-2 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"

@@ -91,8 +91,8 @@ function submit() {
             <form @submit.prevent="submit" class="grid gap-6 lg:grid-cols-5">
                 <div class="lg:col-span-3 space-y-5">
                     <div class="bg-white rounded-xl border border-gray-200 p-5">
-                        <label class="block text-sm font-semibold text-gray-700 mb-1">{{ t('agreements.compose.owner') }} *</label>
-                        <select v-model="form.property_owner_id" class="w-full rounded-lg border-gray-300">
+                        <label for="compose-owner" class="block text-sm font-semibold text-gray-700 mb-1">{{ t('agreements.compose.owner') }} *</label>
+                        <select id="compose-owner" v-model="form.property_owner_id" class="w-full rounded-lg border-gray-300">
                             <option value="">{{ t('agreements.compose.owner_placeholder') }}</option>
                             <option v-for="owner in owners" :key="owner.id" :value="owner.id">{{ owner.name }}</option>
                         </select>

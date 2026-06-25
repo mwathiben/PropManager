@@ -65,6 +65,7 @@ function submit() {
                     type="text"
                     maxlength="200"
                     :placeholder="t('tenant_inbox_index.compose.subject_placeholder')"
+                    :aria-label="t('tenant_inbox_index.compose.subject_placeholder')"
                     class="mb-2 w-full rounded-md border-gray-300 shadow-sm text-sm"
                 />
                 <textarea
@@ -72,6 +73,7 @@ function submit() {
                     rows="3"
                     maxlength="4000"
                     :placeholder="t('tenant_inbox_index.compose.body_placeholder')"
+                    :aria-label="t('tenant_inbox_index.compose.body_placeholder')"
                     class="w-full rounded-md border-gray-300 shadow-sm text-sm"
                 ></textarea>
                 <button

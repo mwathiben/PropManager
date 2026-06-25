@@ -208,8 +208,9 @@ const setFullAmount = () => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_refund.payment_label') }}</label>
+                                    <label for="refund-payment-id" class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_refund.payment_label') }}</label>
                                     <select
+                                        id="refund-payment-id"
                                         v-model="form.payment_id"
                                         :class="['w-full px-3 py-2.5 text-sm border rounded-lg transition-colors', errors.payment_id ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-emerald-500 focus:border-emerald-500']"
                                     >
@@ -239,9 +240,10 @@ const setFullAmount = () => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_refund.refund_amount') }}</label>
+                                    <label for="refund-amount" class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_refund.refund_amount') }}</label>
                                     <div class="relative">
                                         <input
+                                            id="refund-amount"
                                             v-model.number="form.amount"
                                             type="number"
                                             min="0"
@@ -263,8 +265,9 @@ const setFullAmount = () => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_refund.reason_label') }}</label>
+                                    <label for="refund-reason" class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_refund.reason_label') }}</label>
                                     <select
+                                        id="refund-reason"
                                         v-model="form.reason"
                                         :class="['w-full px-3 py-2.5 text-sm border rounded-lg transition-colors', errors.reason ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-emerald-500 focus:border-emerald-500']"
                                     >
@@ -277,8 +280,9 @@ const setFullAmount = () => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_refund.refund_method') }}</label>
+                                    <label for="refund-refund-method" class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_refund.refund_method') }}</label>
                                     <select
+                                        id="refund-refund-method"
                                         v-model="form.refund_method"
                                         :class="['w-full px-3 py-2.5 text-sm border rounded-lg transition-colors', errors.refund_method ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-emerald-500 focus:border-emerald-500']"
                                     >

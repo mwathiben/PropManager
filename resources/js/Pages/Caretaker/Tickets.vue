@@ -160,6 +160,7 @@ const getTimeAgo = (dateString) => {
                             <select
                                 v-model="status"
                                 @change="applyFilters"
+                                :aria-label="t('caretaker_tickets.all_statuses')"
                                 class="border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                             >
                                 <option value="">{{ t('caretaker_tickets.all_statuses') }}</option>
@@ -173,6 +174,7 @@ const getTimeAgo = (dateString) => {
                             <select
                                 v-model="priority"
                                 @change="applyFilters"
+                                :aria-label="t('caretaker_tickets.all_priorities')"
                                 class="border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                             >
                                 <option value="">{{ t('caretaker_tickets.all_priorities') }}</option>

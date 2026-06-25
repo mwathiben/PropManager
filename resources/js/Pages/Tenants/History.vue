@@ -96,9 +96,10 @@ const formatReason = (reason) => {
                 <div class="mb-6 bg-white shadow-sm rounded-lg p-4">
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div class="md:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.history.search_label') }}</label>
+                            <label for="history-search" class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.history.search_label') }}</label>
                             <div class="relative">
                                 <input
+                                    id="history-search"
                                     v-model="search"
                                     @keyup.enter="applyFilters"
                                     type="text"
@@ -110,8 +111,9 @@ const formatReason = (reason) => {
                         </div>
 
                         <div v-if="buildings?.length > 0">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.history.building_label') }}</label>
+                            <label for="history-building" class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenants.history.building_label') }}</label>
                             <select
+                                id="history-building"
                                 v-model="buildingId"
                                 @change="applyFilters"
                                 class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"

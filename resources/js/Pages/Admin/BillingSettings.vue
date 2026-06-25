@@ -177,8 +177,9 @@ const calculatePreview = async () => {
 
                                         <form @submit.prevent="submitModelChange" class="space-y-4">
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700">{{ t('admin_billing_settings.billing_model.select_label') }}</label>
+                                                <label for="billing-model-select" class="block text-sm font-medium text-gray-700">{{ t('admin_billing_settings.billing_model.select_label') }}</label>
                                                 <select
+                                                    id="billing-model-select"
                                                     v-model="modelForm.billing_model"
                                                     class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                                                 >
@@ -189,8 +190,9 @@ const calculatePreview = async () => {
                                             </div>
 
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700">{{ t('admin_billing_settings.billing_model.reason_label') }}</label>
+                                                <label for="billing-model-reason" class="block text-sm font-medium text-gray-700">{{ t('admin_billing_settings.billing_model.reason_label') }}</label>
                                                 <textarea
+                                                    id="billing-model-reason"
                                                     v-model="modelForm.reason"
                                                     rows="2"
                                                     class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
@@ -220,6 +222,7 @@ const calculatePreview = async () => {
                                                 min="100"
                                                 class="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                                                 :placeholder="t('admin_billing_settings.calculator.amount_placeholder')"
+                                                :aria-label="t('admin_billing_settings.calculator.amount_placeholder')"
                                             />
                                             <button
                                                 @click="calculatePreview"
@@ -253,8 +256,9 @@ const calculatePreview = async () => {
                                 <h3 class="text-lg font-medium text-gray-900 mb-4">{{ t('admin_billing_settings.fees.heading') }}</h3>
                                 <form @submit.prevent="submitFeeChange" class="bg-gray-50 rounded-lg p-4 space-y-4">
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700">{{ t('admin_billing_settings.fees.transaction_fee_percent') }}</label>
+                                        <label for="fee-transaction-pct" class="block text-sm font-medium text-gray-700">{{ t('admin_billing_settings.fees.transaction_fee_percent') }}</label>
                                         <input
+                                            id="fee-transaction-pct"
                                             v-model="feeForm.transaction_fee_percentage"
                                             type="number"
                                             step="0.01"
@@ -267,8 +271,9 @@ const calculatePreview = async () => {
 
                                     <div class="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label class="block text-sm font-medium text-gray-700">{{ t('admin_billing_settings.fees.minimum_fee', { currency: currencyCode }) }}</label>
+                                            <label for="fee-minimum" class="block text-sm font-medium text-gray-700">{{ t('admin_billing_settings.fees.minimum_fee', { currency: currencyCode }) }}</label>
                                             <input
+                                                id="fee-minimum"
                                                 v-model="feeForm.minimum_fee"
                                                 type="number"
                                                 step="1"
@@ -277,8 +282,9 @@ const calculatePreview = async () => {
                                             />
                                         </div>
                                         <div>
-                                            <label class="block text-sm font-medium text-gray-700">{{ t('admin_billing_settings.fees.maximum_fee', { currency: currencyCode }) }}</label>
+                                            <label for="fee-maximum" class="block text-sm font-medium text-gray-700">{{ t('admin_billing_settings.fees.maximum_fee', { currency: currencyCode }) }}</label>
                                             <input
+                                                id="fee-maximum"
                                                 v-model="feeForm.maximum_fee"
                                                 type="number"
                                                 step="1"
@@ -290,8 +296,9 @@ const calculatePreview = async () => {
                                     </div>
 
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700">{{ t('admin_billing_settings.fees.fee_bearer') }}</label>
+                                        <label for="fee-bearer" class="block text-sm font-medium text-gray-700">{{ t('admin_billing_settings.fees.fee_bearer') }}</label>
                                         <select
+                                            id="fee-bearer"
                                             v-model="feeForm.fee_bearer"
                                             class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                                         >
@@ -302,8 +309,9 @@ const calculatePreview = async () => {
                                     </div>
 
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700">{{ t('admin_billing_settings.fees.hybrid_discount') }}</label>
+                                        <label for="fee-hybrid-discount" class="block text-sm font-medium text-gray-700">{{ t('admin_billing_settings.fees.hybrid_discount') }}</label>
                                         <input
+                                            id="fee-hybrid-discount"
                                             v-model="feeForm.hybrid_subscription_discount"
                                             type="number"
                                             step="1"
@@ -315,8 +323,9 @@ const calculatePreview = async () => {
                                     </div>
 
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700">{{ t('admin_billing_settings.fees.reason_label') }}</label>
+                                        <label for="fee-reason" class="block text-sm font-medium text-gray-700">{{ t('admin_billing_settings.fees.reason_label') }}</label>
                                         <textarea
+                                            id="fee-reason"
                                             v-model="feeForm.reason"
                                             rows="2"
                                             class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"

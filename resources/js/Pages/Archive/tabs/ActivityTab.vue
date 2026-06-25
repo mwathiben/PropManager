@@ -90,6 +90,7 @@ const hasActiveFilters = computed(() => !!(search.value || type.value));
                             @keyup.enter="applyFilters"
                             type="text"
                             :placeholder="t('archive_activity.search_placeholder')"
+                            :aria-label="t('archive_activity.search_placeholder')"
                             class="w-full ps-10 border-gray-300 rounded-lg shadow-sm focus:ring-gray-500 focus:border-gray-500 sm:text-sm"
                         />
                         <MagnifyingGlassIcon class="w-5 h-5 text-gray-400 absolute start-3 top-2.5" />
@@ -98,6 +99,7 @@ const hasActiveFilters = computed(() => !!(search.value || type.value));
                 <select
                     v-model="type"
                     @change="applyFilters"
+                    :aria-label="t('archive_activity.all_types')"
                     class="border-gray-300 rounded-lg shadow-sm focus:ring-gray-500 focus:border-gray-500 sm:text-sm"
                 >
                     <option value="">{{ t('archive_activity.all_types') }}</option>

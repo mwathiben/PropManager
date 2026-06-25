@@ -516,8 +516,9 @@ function completeOnboarding() {
                         <!-- Name & Phone -->
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('onboarding.page.profile.name') }}</label>
+                                <label for="profile-name" class="block text-sm font-medium text-gray-700 mb-1">{{ t('onboarding.page.profile.name') }}</label>
                                 <input
+                                    id="profile-name"
                                     v-model="form.name"
                                     type="text"
                                     required
@@ -527,8 +528,9 @@ function completeOnboarding() {
                                 <InputError class="mt-1" :message="form.errors.name" />
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('onboarding.page.profile.phone') }}</label>
+                                <label for="profile-phone" class="block text-sm font-medium text-gray-700 mb-1">{{ t('onboarding.page.profile.phone') }}</label>
                                 <input
+                                    id="profile-phone"
                                     v-model="form.mobile_number"
                                     type="tel"
                                     class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -547,8 +549,9 @@ function completeOnboarding() {
 
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('onboarding.page.profile.company_name') }}</label>
+                                    <label for="profile-company-name" class="block text-sm font-medium text-gray-700 mb-1">{{ t('onboarding.page.profile.company_name') }}</label>
                                     <input
+                                        id="profile-company-name"
                                         v-model="form.company_name"
                                         type="text"
                                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -557,8 +560,9 @@ function completeOnboarding() {
                                     <InputError class="mt-1" :message="form.errors.company_name" />
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('onboarding.page.profile.registration_number') }}</label>
+                                    <label for="profile-reg-number" class="block text-sm font-medium text-gray-700 mb-1">{{ t('onboarding.page.profile.registration_number') }}</label>
                                     <input
+                                        id="profile-reg-number"
                                         v-model="form.business_registration_number"
                                         type="text"
                                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -569,8 +573,9 @@ function completeOnboarding() {
                             </div>
 
                             <div class="mt-4">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('onboarding.page.profile.address') }}</label>
+                                <label for="profile-address" class="block text-sm font-medium text-gray-700 mb-1">{{ t('onboarding.page.profile.address') }}</label>
                                 <textarea
+                                    id="profile-address"
                                     v-model="form.address"
                                     rows="2"
                                     class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -581,8 +586,9 @@ function completeOnboarding() {
 
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('onboarding.page.profile.city') }}</label>
+                                    <label for="profile-city" class="block text-sm font-medium text-gray-700 mb-1">{{ t('onboarding.page.profile.city') }}</label>
                                     <input
+                                        id="profile-city"
                                         v-model="form.city"
                                         type="text"
                                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -591,8 +597,9 @@ function completeOnboarding() {
                                     <InputError class="mt-1" :message="form.errors.city" />
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('onboarding.page.profile.country') }}</label>
+                                    <label for="profile-country" class="block text-sm font-medium text-gray-700 mb-1">{{ t('onboarding.page.profile.country') }}</label>
                                     <input
+                                        id="profile-country"
                                         v-model="form.country"
                                         type="text"
                                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -634,8 +641,9 @@ function completeOnboarding() {
 
                     <form @submit.prevent="submitStep" class="space-y-6">
                         <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">{{ t('onboarding.page.property.name') }}</label>
+                            <label for="property-name" class="block text-sm font-semibold text-gray-700 mb-2">{{ t('onboarding.page.property.name') }}</label>
                             <input
+                                id="property-name"
                                 v-model="form.property_name"
                                 type="text"
                                 required
@@ -708,8 +716,9 @@ function completeOnboarding() {
                         </div>
 
                         <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">{{ t('onboarding.page.property.address') }}</label>
+                            <label for="property-address" class="block text-sm font-semibold text-gray-700 mb-2">{{ t('onboarding.page.property.address') }}</label>
                             <textarea
+                                id="property-address"
                                 v-model="form.property_address"
                                 rows="2"
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -772,8 +781,9 @@ function completeOnboarding() {
                         <div v-if="!form.has_wings" class="bg-indigo-50 p-6 rounded-xl border border-indigo-100">
                             <div class="grid grid-cols-2 gap-6">
                                 <div>
-                                    <label class="block text-sm font-semibold text-gray-700 mb-1">{{ floorLabel }}</label>
+                                    <label for="structure-floors" class="block text-sm font-semibold text-gray-700 mb-1">{{ floorLabel }}</label>
                                     <input
+                                        id="structure-floors"
                                         v-model="form.floors"
                                         type="number"
                                         min="1"
@@ -783,8 +793,9 @@ function completeOnboarding() {
                                     <InputError class="mt-1" :message="form.errors.floors" />
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-semibold text-gray-700 mb-1">{{ unitLabel }}</label>
+                                    <label for="structure-units-per-floor" class="block text-sm font-semibold text-gray-700 mb-1">{{ unitLabel }}</label>
                                     <input
+                                        id="structure-units-per-floor"
                                         v-model="form.units_per_floor"
                                         type="number"
                                         min="1"
@@ -816,8 +827,9 @@ function completeOnboarding() {
                                 </div>
                                 <div class="grid grid-cols-4 gap-3">
                                     <div class="col-span-2">
-                                        <label class="block text-xs font-medium text-gray-600 mb-1">{{ t('onboarding.page.structure.wing_name') }}</label>
+                                        <label :for="'wing-name-' + index" class="block text-xs font-medium text-gray-600 mb-1">{{ t('onboarding.page.structure.wing_name') }}</label>
                                         <input
+                                            :id="'wing-name-' + index"
                                             v-model="wing.name"
                                             @blur="updatePrefix(index)"
                                             type="text"
@@ -827,8 +839,9 @@ function completeOnboarding() {
                                         <InputError class="mt-1" :message="form.errors['wings.' + index + '.name']" />
                                     </div>
                                     <div>
-                                        <label class="block text-xs font-medium text-gray-600 mb-1">{{ t('onboarding.page.structure.prefix') }}</label>
+                                        <label :for="'wing-prefix-' + index" class="block text-xs font-medium text-gray-600 mb-1">{{ t('onboarding.page.structure.prefix') }}</label>
                                         <input
+                                            :id="'wing-prefix-' + index"
                                             v-model="wing.prefix"
                                             type="text"
                                             maxlength="3"
@@ -838,8 +851,9 @@ function completeOnboarding() {
                                         <InputError class="mt-1" :message="form.errors['wings.' + index + '.prefix']" />
                                     </div>
                                     <div>
-                                        <label class="block text-xs font-medium text-gray-600 mb-1">{{ t('onboarding.page.structure.floors') }}</label>
+                                        <label :for="'wing-floors-' + index" class="block text-xs font-medium text-gray-600 mb-1">{{ t('onboarding.page.structure.floors') }}</label>
                                         <input
+                                            :id="'wing-floors-' + index"
                                             v-model="wing.floors"
                                             type="number"
                                             min="1"
@@ -849,8 +863,9 @@ function completeOnboarding() {
                                     </div>
                                 </div>
                                 <div class="mt-3">
-                                    <label class="block text-xs font-medium text-gray-600 mb-1">{{ t('onboarding.page.structure.units_per_floor') }}</label>
+                                    <label :for="'wing-units-per-floor-' + index" class="block text-xs font-medium text-gray-600 mb-1">{{ t('onboarding.page.structure.units_per_floor') }}</label>
                                     <input
+                                        :id="'wing-units-per-floor-' + index"
                                         v-model="wing.units_per_floor"
                                         type="number"
                                         min="1"
@@ -915,12 +930,13 @@ function completeOnboarding() {
                     <form @submit.prevent="submitStep" class="space-y-6">
                         <!-- Default Rent -->
                         <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">{{ t('onboarding.page.financial.default_rent') }}</label>
+                            <label for="financial-default-rent" class="block text-sm font-semibold text-gray-700 mb-2">{{ t('onboarding.page.financial.default_rent') }}</label>
                             <div class="relative">
                                 <div class="absolute inset-y-0 start-0 ps-4 flex items-center pointer-events-none">
                                     <span class="text-gray-500 font-bold">{{ currencySymbol }}</span>
                                 </div>
                                 <input
+                                    id="financial-default-rent"
                                     v-model="form.default_rent"
                                     type="number"
                                     required
@@ -980,8 +996,9 @@ function completeOnboarding() {
 
                             <!-- Water Rate Input -->
                             <div v-if="form.water_billing_type === 'consumption'" class="mt-4">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('onboarding.page.financial.rate_per_unit', { currency: currencyCode }) }}</label>
+                                <label for="financial-water-unit-rate" class="block text-sm font-medium text-gray-700 mb-1">{{ t('onboarding.page.financial.rate_per_unit', { currency: currencyCode }) }}</label>
                                 <input
+                                    id="financial-water-unit-rate"
                                     v-model="form.water_unit_rate"
                                     type="number"
                                     min="0"
@@ -990,8 +1007,9 @@ function completeOnboarding() {
                                 <InputError class="mt-1" :message="form.errors.water_unit_rate" />
                             </div>
                             <div v-else-if="form.water_billing_type === 'flat_rate'" class="mt-4">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('onboarding.page.financial.monthly_flat_rate', { currency: currencyCode }) }}</label>
+                                <label for="financial-flat-water-rate" class="block text-sm font-medium text-gray-700 mb-1">{{ t('onboarding.page.financial.monthly_flat_rate', { currency: currencyCode }) }}</label>
                                 <input
+                                    id="financial-flat-water-rate"
                                     v-model="form.flat_water_rate"
                                     type="number"
                                     min="0"
@@ -1208,8 +1226,9 @@ function completeOnboarding() {
                         <template v-else>
                             <!-- Unit Selection -->
                             <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-2">{{ t('onboarding.page.first_tenant.select_unit') }}</label>
+                                <label for="tenant-unit-id" class="block text-sm font-semibold text-gray-700 mb-2">{{ t('onboarding.page.first_tenant.select_unit') }}</label>
                                 <select
+                                    id="tenant-unit-id"
                                     v-model="form.unit_id"
                                     class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                 >
@@ -1224,8 +1243,9 @@ function completeOnboarding() {
                             <!-- Tenant Details -->
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-sm font-semibold text-gray-700 mb-2">{{ t('onboarding.page.first_tenant.tenant_email') }}</label>
+                                    <label for="tenant-email" class="block text-sm font-semibold text-gray-700 mb-2">{{ t('onboarding.page.first_tenant.tenant_email') }}</label>
                                     <input
+                                        id="tenant-email"
                                         v-model="form.tenant_email"
                                         type="email"
                                         required
@@ -1235,8 +1255,9 @@ function completeOnboarding() {
                                     <InputError class="mt-1" :message="form.errors.tenant_email" />
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-semibold text-gray-700 mb-2">{{ t('onboarding.page.first_tenant.tenant_name') }}</label>
+                                    <label for="tenant-name" class="block text-sm font-semibold text-gray-700 mb-2">{{ t('onboarding.page.first_tenant.tenant_name') }}</label>
                                     <input
+                                        id="tenant-name"
                                         v-model="form.tenant_name"
                                         type="text"
                                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -1248,8 +1269,9 @@ function completeOnboarding() {
 
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
-                                    <label class="block text-sm font-semibold text-gray-700 mb-2">{{ t('onboarding.page.first_tenant.phone') }}</label>
+                                    <label for="tenant-phone" class="block text-sm font-semibold text-gray-700 mb-2">{{ t('onboarding.page.first_tenant.phone') }}</label>
                                     <input
+                                        id="tenant-phone"
                                         v-model="form.tenant_phone"
                                         type="tel"
                                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -1258,8 +1280,9 @@ function completeOnboarding() {
                                     <InputError class="mt-1" :message="form.errors.tenant_phone" />
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-semibold text-gray-700 mb-2">{{ t('onboarding.page.first_tenant.monthly_rent') }}</label>
+                                    <label for="tenant-rent-amount" class="block text-sm font-semibold text-gray-700 mb-2">{{ t('onboarding.page.first_tenant.monthly_rent') }}</label>
                                     <input
+                                        id="tenant-rent-amount"
                                         v-model="form.rent_amount"
                                         type="number"
                                         required
@@ -1269,8 +1292,9 @@ function completeOnboarding() {
                                     <InputError class="mt-1" :message="form.errors.rent_amount" />
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-semibold text-gray-700 mb-2">{{ t('onboarding.page.first_tenant.deposit') }}</label>
+                                    <label for="tenant-deposit-amount" class="block text-sm font-semibold text-gray-700 mb-2">{{ t('onboarding.page.first_tenant.deposit') }}</label>
                                     <input
+                                        id="tenant-deposit-amount"
                                         v-model="form.deposit_amount"
                                         type="number"
                                         required
@@ -1282,8 +1306,9 @@ function completeOnboarding() {
                             </div>
 
                             <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-2">{{ t('onboarding.page.first_tenant.start_date') }}</label>
+                                <label for="tenant-start-date" class="block text-sm font-semibold text-gray-700 mb-2">{{ t('onboarding.page.first_tenant.start_date') }}</label>
                                 <input
+                                    id="tenant-start-date"
                                     v-model="form.start_date"
                                     type="date"
                                     required

@@ -121,11 +121,12 @@ const submit = () => {
                     <form @submit.prevent="submit" class="p-6 space-y-6">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                <label for="moveout-notice-date" class="block text-sm font-medium text-gray-700 mb-1">
                                     <CalendarDaysIcon class="w-4 h-4 inline me-1" />
                                     {{ t('moveouts.create.notice_date_label') }}
                                 </label>
                                 <input
+                                    id="moveout-notice-date"
                                     v-model="form.notice_date"
                                     type="date"
                                     required
@@ -136,11 +137,12 @@ const submit = () => {
                             </div>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                <label for="moveout-intended-date" class="block text-sm font-medium text-gray-700 mb-1">
                                     <CalendarDaysIcon class="w-4 h-4 inline me-1" />
                                     {{ t('moveouts.create.intended_date_label') }}
                                 </label>
                                 <input
+                                    id="moveout-intended-date"
                                     v-model="form.intended_move_out_date"
                                     type="date"
                                     required
@@ -153,8 +155,9 @@ const submit = () => {
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('moveouts.create.reason_label') }}</label>
+                            <label for="moveout-reason" class="block text-sm font-medium text-gray-700 mb-1">{{ t('moveouts.create.reason_label') }}</label>
                             <textarea
+                                id="moveout-reason"
                                 v-model="form.reason"
                                 rows="3"
                                 class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"

@@ -165,7 +165,7 @@ const priorityClass: Record<string, string> = {
             <div class="fixed inset-0 bg-gray-900/50" @click="escalating = null"></div>
             <div class="relative z-10 w-full max-w-md rounded-t-2xl sm:rounded-2xl bg-white p-5">
                 <h3 class="mb-3 text-lg font-semibold text-gray-900">{{ t('maintenance.task_board.escalate_title') }}</h3>
-                <select v-model="escalateForm.preset" class="mb-3 w-full rounded-lg border-gray-300 text-sm">
+                <select v-model="escalateForm.preset" class="mb-3 w-full rounded-lg border-gray-300 text-sm" :aria-label="t('maintenance.task_board.escalate_reason')">
                     <option value="">{{ t('maintenance.task_board.escalate_reason') }}</option>
                     <option v-for="(label, key) in escalationReasons" :key="key" :value="key">{{ label }}</option>
                 </select>
@@ -174,6 +174,7 @@ const priorityClass: Record<string, string> = {
                     rows="3"
                     class="mb-1 w-full rounded-lg border-gray-300 text-sm"
                     :placeholder="t('maintenance.task_board.escalate_reason')"
+                    :aria-label="t('maintenance.task_board.escalate_reason')"
                 ></textarea>
                 <p v-if="escalateForm.errors.reason" class="mb-2 text-xs text-rose-600">{{ escalateForm.errors.reason }}</p>
                 <div class="mt-2 flex gap-2">

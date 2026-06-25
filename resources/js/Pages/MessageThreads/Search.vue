@@ -48,6 +48,7 @@ watch(query, (value) => {
                 v-model="query"
                 type="search"
                 :placeholder="t('inbox.search.placeholder')"
+                :aria-label="t('inbox.search.title')"
                 class="w-full rounded-md border-gray-300 shadow-sm"
                 data-testid="inbox-search-input"
             />

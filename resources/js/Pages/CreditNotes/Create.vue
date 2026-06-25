@@ -142,7 +142,7 @@ const submit = () => {
                     <div class="p-6 space-y-6">
                         <!-- Tenant Selection -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <label for="cn-tenant-search" class="block text-sm font-medium text-gray-700 mb-2">
                                 {{ t('credit_notes_create.label_tenant') }} <span class="text-red-500">*</span>
                             </label>
 
@@ -168,6 +168,7 @@ const submit = () => {
                             <div v-else class="relative">
                                 <MagnifyingGlassIcon class="w-5 h-5 absolute start-3 top-1/2 -translate-y-1/2 text-gray-400" />
                                 <input
+                                    id="cn-tenant-search"
                                     v-model="searchQuery"
                                     type="text"
                                     :placeholder="t('credit_notes_create.search_placeholder')"

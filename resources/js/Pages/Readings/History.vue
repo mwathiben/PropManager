@@ -100,8 +100,8 @@ const deleteReading = (readingId) => {
                             <h3 class="font-semibold text-gray-700 mb-3">{{ t('readings_history.filters.title') }}</h3>
                             <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('readings_history.filters.building') }}</label>
-                                    <select v-model="filterForm.building_id" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                                    <label for="filter-building" class="block text-sm font-medium text-gray-700 mb-1">{{ t('readings_history.filters.building') }}</label>
+                                    <select id="filter-building" v-model="filterForm.building_id" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
                                         <option value="">{{ t('readings_history.filters.all_buildings') }}</option>
                                         <option v-for="building in buildings" :key="building.id" :value="building.id">
                                             {{ building.name }}
@@ -110,8 +110,8 @@ const deleteReading = (readingId) => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('readings_history.filters.unit') }}</label>
-                                    <select v-model="filterForm.unit_id" :disabled="!filterForm.building_id" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100">
+                                    <label for="filter-unit" class="block text-sm font-medium text-gray-700 mb-1">{{ t('readings_history.filters.unit') }}</label>
+                                    <select id="filter-unit" v-model="filterForm.unit_id" :disabled="!filterForm.building_id" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100">
                                         <option value="">{{ t('readings_history.filters.all_units') }}</option>
                                         <option v-for="unit in filteredUnits" :key="unit.id" :value="unit.id">
                                             {{ unit.unit_number }}
@@ -120,18 +120,18 @@ const deleteReading = (readingId) => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('readings_history.filters.from_date') }}</label>
-                                    <input type="date" v-model="filterForm.date_from" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                                    <label for="filter-date-from" class="block text-sm font-medium text-gray-700 mb-1">{{ t('readings_history.filters.from_date') }}</label>
+                                    <input id="filter-date-from" type="date" v-model="filterForm.date_from" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('readings_history.filters.to_date') }}</label>
-                                    <input type="date" v-model="filterForm.date_to" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                                    <label for="filter-date-to" class="block text-sm font-medium text-gray-700 mb-1">{{ t('readings_history.filters.to_date') }}</label>
+                                    <input id="filter-date-to" type="date" v-model="filterForm.date_to" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('readings_history.filters.status') }}</label>
-                                    <select v-model="filterForm.invoiced" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                                    <label for="filter-status" class="block text-sm font-medium text-gray-700 mb-1">{{ t('readings_history.filters.status') }}</label>
+                                    <select id="filter-status" v-model="filterForm.invoiced" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
                                         <option value="">{{ t('readings_history.filters.all') }}</option>
                                         <option value="false">{{ t('readings_history.filters.not_invoiced') }}</option>
                                         <option value="true">{{ t('readings_history.filters.invoiced') }}</option>

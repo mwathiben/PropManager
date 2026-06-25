@@ -270,9 +270,11 @@ const handleSubmit = () => {
                                     <MagnifyingGlassIcon class="absolute start-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                                     <input
                                         v-model="searchQuery"
+                                        id="tenant-search"
                                         type="text"
                                         class="w-full ps-10 pe-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
                                         :placeholder="t('finances_payment_record.tenant.search_placeholder')"
+                                        :aria-label="t('finances_payment_record.tenant.search_placeholder')"
                                         @focus="showSearchResults = searchResults.length > 0"
                                     />
                                     <div v-if="isSearching" class="absolute end-3 top-1/2 -translate-y-1/2">
@@ -377,10 +379,11 @@ const handleSubmit = () => {
 
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_payment_record.details.amount') }}</label>
+                                    <label for="pay-amount" class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_payment_record.details.amount') }}</label>
                                     <div class="relative">
                                         <span class="absolute start-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">{{ currencySymbol }}</span>
                                         <input
+                                            id="pay-amount"
                                             v-model.number="form.amount"
                                             type="number"
                                             min="0.01"
@@ -406,7 +409,7 @@ const handleSubmit = () => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_payment_record.details.method') }}</label>
+                                    <label for="pay-method" class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_payment_record.details.method') }}</label>
                                     <PaymentMethodSelector
                                         v-model="form.payment_method"
                                         :methods="normalizedMethods"
@@ -415,8 +418,9 @@ const handleSubmit = () => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_payment_record.details.date') }}</label>
+                                    <label for="pay-date" class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_payment_record.details.date') }}</label>
                                     <input
+                                        id="pay-date"
                                         v-model="form.payment_date"
                                         type="date"
                                         :max="todayAsISODate()"
@@ -431,8 +435,9 @@ const handleSubmit = () => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_payment_record.details.reference') }}</label>
+                                    <label for="pay-reference" class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_payment_record.details.reference') }}</label>
                                     <input
+                                        id="pay-reference"
                                         v-model="form.reference"
                                         type="text"
                                         class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
@@ -442,8 +447,9 @@ const handleSubmit = () => {
                             </div>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_payment_record.details.notes') }}</label>
+                                <label for="pay-notes" class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_payment_record.details.notes') }}</label>
                                 <textarea
+                                    id="pay-notes"
                                     v-model="form.notes"
                                     rows="2"
                                     class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 transition-colors resize-none"

@@ -204,16 +204,18 @@ const getTypeLabel = (type) => {
                     <div v-if="showFilters" class="border-t border-gray-200 p-4 bg-gray-50">
                         <div class="flex flex-wrap items-end gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">From Date</label>
+                                <label for="ledger-date-from" class="block text-sm font-medium text-gray-700 mb-1">From Date</label>
                                 <input
+                                    id="ledger-date-from"
                                     v-model="dateFrom"
                                     type="date"
                                     class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-emerald-500 focus:border-emerald-500"
                                 />
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">To Date</label>
+                                <label for="ledger-date-to" class="block text-sm font-medium text-gray-700 mb-1">To Date</label>
                                 <input
+                                    id="ledger-date-to"
                                     v-model="dateTo"
                                     type="date"
                                     class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-emerald-500 focus:border-emerald-500"

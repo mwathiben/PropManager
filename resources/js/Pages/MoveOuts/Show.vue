@@ -241,8 +241,9 @@ const progressSteps = computed(() => [
                             </p>
                             <div class="flex items-end gap-4">
                                 <div class="flex-1">
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('moveouts.show.start_inspection.date_label') }}</label>
+                                    <label for="inspection-actual-date" class="block text-sm font-medium text-gray-700 mb-1">{{ t('moveouts.show.start_inspection.date_label') }}</label>
                                     <input
+                                        id="inspection-actual-date"
                                         v-model="inspectionForm.actual_move_out_date"
                                         type="date"
                                         class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
@@ -457,8 +458,9 @@ const progressSteps = computed(() => [
 
                     <form @submit.prevent="saveDeduction" class="p-6 space-y-4">
                         <div v-if="categories?.length > 0">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('moveouts.show.deduction_modal.category_label') }}</label>
+                            <label for="deduction-category" class="block text-sm font-medium text-gray-700 mb-1">{{ t('moveouts.show.deduction_modal.category_label') }}</label>
                             <select
+                                id="deduction-category"
                                 v-model="deductionForm.category_id"
                                 @change="onCategorySelected"
                                 class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
@@ -473,8 +475,9 @@ const progressSteps = computed(() => [
                             </p>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('moveouts.show.deduction_modal.description_label') }}</label>
+                            <label for="deduction-description" class="block text-sm font-medium text-gray-700 mb-1">{{ t('moveouts.show.deduction_modal.description_label') }}</label>
                             <input
+                                id="deduction-description"
                                 v-model="deductionForm.description"
                                 type="text"
                                 required
@@ -483,8 +486,9 @@ const progressSteps = computed(() => [
                             />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('moveouts.show.deduction_modal.amount_label', { currency: currencyCode }) }}</label>
+                            <label for="deduction-amount" class="block text-sm font-medium text-gray-700 mb-1">{{ t('moveouts.show.deduction_modal.amount_label', { currency: currencyCode }) }}</label>
                             <input
+                                id="deduction-amount"
                                 v-model="deductionForm.amount"
                                 type="number"
                                 min="0"
@@ -494,8 +498,9 @@ const progressSteps = computed(() => [
                             />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('moveouts.show.deduction_modal.notes_label') }}</label>
+                            <label for="deduction-notes" class="block text-sm font-medium text-gray-700 mb-1">{{ t('moveouts.show.deduction_modal.notes_label') }}</label>
                             <textarea
+                                id="deduction-notes"
                                 v-model="deductionForm.notes"
                                 rows="2"
                                 class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
@@ -543,8 +548,9 @@ const progressSteps = computed(() => [
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('moveouts.show.settlement_modal.method_label') }}</label>
+                            <label for="settlement-method" class="block text-sm font-medium text-gray-700 mb-1">{{ t('moveouts.show.settlement_modal.method_label') }}</label>
                             <select
+                                id="settlement-method"
                                 v-model="settlementForm.settlement_method"
                                 required
                                 class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
@@ -557,8 +563,9 @@ const progressSteps = computed(() => [
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('moveouts.show.settlement_modal.reference_label') }}</label>
+                            <label for="settlement-reference" class="block text-sm font-medium text-gray-700 mb-1">{{ t('moveouts.show.settlement_modal.reference_label') }}</label>
                             <input
+                                id="settlement-reference"
                                 v-model="settlementForm.settlement_reference"
                                 type="text"
                                 class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"

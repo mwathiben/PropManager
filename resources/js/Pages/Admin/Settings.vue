@@ -127,9 +127,10 @@ const testPaystackConnection = async () => {
                     <form @submit.prevent="savePaymentSettings" class="p-6 space-y-4">
                         <!-- Public Key -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('admin_settings.form.public_key') }}</label>
+                            <label for="paystack-public-key" class="block text-sm font-medium text-gray-700 mb-1">{{ t('admin_settings.form.public_key') }}</label>
                             <div class="relative">
                                 <input
+                                    id="paystack-public-key"
                                     :type="showPaystackPublicKey ? 'text' : 'password'"
                                     v-model="paymentForm.paystack_public_key"
                                     :placeholder="paymentSettings.has_paystack_public_key ? paymentSettings.paystack_public_key : 'pk_live_...'"
@@ -151,9 +152,10 @@ const testPaystackConnection = async () => {
 
                         <!-- Secret Key -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('admin_settings.form.secret_key') }}</label>
+                            <label for="paystack-secret-key" class="block text-sm font-medium text-gray-700 mb-1">{{ t('admin_settings.form.secret_key') }}</label>
                             <div class="relative">
                                 <input
+                                    id="paystack-secret-key"
                                     :type="showPaystackSecretKey ? 'text' : 'password'"
                                     v-model="paymentForm.paystack_secret_key"
                                     :placeholder="paymentSettings.has_paystack_secret_key ? paymentSettings.paystack_secret_key : 'sk_live_...'"
