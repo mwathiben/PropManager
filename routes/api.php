@@ -203,6 +203,11 @@ Route::prefix('webhooks')->group(function () {
     Route::post('/intasend/mpesa', [\App\Http\Controllers\Api\IntaSendWebhookController::class, 'handleMpesaWebhook'])
         ->middleware('webhook.intasend');
 
+    // Documenso e-signature completion (Slice 2, PR 2.4b). Shared-secret
+    // validated via middleware; DOCUMENT_COMPLETED seals the evidence + activates.
+    Route::post('/documenso', [\App\Http\Controllers\Api\DocumensoWebhookController::class, 'handle'])
+        ->middleware('webhook.documenso');
+
     // M-Pesa webhooks (IP + timestamp validated via middleware)
     Route::middleware('webhook.mpesa')->group(function () {
         Route::post('/mpesa/c2b/validation', [\App\Http\Controllers\Api\MpesaWebhookController::class, 'c2bValidation']);

@@ -83,6 +83,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'webhook.mpesa' => \App\Http\Middleware\ValidateMpesaWebhook::class,
             'webhook.paystack' => \App\Http\Middleware\ValidatePaystackWebhook::class,
             'webhook.intasend' => \App\Http\Middleware\ValidateIntaSendWebhook::class,
+            'webhook.documenso' => \App\Http\Middleware\ValidateDocumensoWebhook::class,
             'block.archived' => \App\Http\Middleware\BlockArchivedUsers::class,
             // Phase-70 VENDOR-AUTH: vendor-portal session guard (no User row).
             'vendor.portal' => \App\Http\Middleware\EnsureVendorPortal::class,
