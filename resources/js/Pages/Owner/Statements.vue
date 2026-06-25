@@ -58,7 +58,7 @@ const download = () => {
             <div class="flex items-center justify-between gap-3">
                 <h1 class="text-lg font-semibold text-gray-900">{{ t('owners.portal.statements_title') }}</h1>
                 <div class="flex items-center gap-2">
-                    <select v-model="period" class="rounded-lg border border-gray-300 px-2 py-1.5 text-sm" @change="applyPeriod">
+                    <select id="stmt-period" v-model="period" class="rounded-lg border border-gray-300 px-2 py-1.5 text-sm" :aria-label="t('owners.portal.period')" @change="applyPeriod">
                         <option v-for="o in periodOptions" :key="o.value" :value="o.value">{{ o.label }}</option>
                     </select>
                     <button

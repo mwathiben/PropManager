@@ -163,10 +163,11 @@ function closeModal() {
                 </p>
 
                 <div v-if="form.status === 'rejected'" class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                    <label for="kyc-rejection-reason" class="block text-sm font-medium text-gray-700 mb-1">
                         Rejection Reason <span class="text-red-500">*</span>
                     </label>
                     <textarea
+                        id="kyc-rejection-reason"
                         v-model="rejectionReason"
                         rows="3"
                         class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"

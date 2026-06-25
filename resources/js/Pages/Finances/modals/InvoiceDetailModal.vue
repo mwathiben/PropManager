@@ -351,6 +351,7 @@ const handleVoid = async () => {
                                 <textarea
                                     v-model="voidReason"
                                     :placeholder="t('finances_invoice_detail.void.reason_placeholder')"
+                                    :aria-label="t('finances_invoice_detail.void.reason_placeholder')"
                                     rows="2"
                                     class="w-full px-3 py-2 text-sm border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 mb-3"
                                 />

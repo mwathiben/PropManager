@@ -213,9 +213,10 @@ const getFileIcon = (document) => {
                 <div class="mb-6 bg-white shadow-sm rounded-lg p-4">
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('documents.filters.search') }}</label>
+                            <label for="doc-search" class="block text-sm font-medium text-gray-700 mb-1">{{ t('documents.filters.search') }}</label>
                             <div class="relative">
                                 <input
+                                    id="doc-search"
                                     v-model="search"
                                     @keyup.enter="applyFilters"
                                     type="text"
@@ -227,8 +228,9 @@ const getFileIcon = (document) => {
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('documents.filters.document_type') }}</label>
+                            <label for="doc-type-filter" class="block text-sm font-medium text-gray-700 mb-1">{{ t('documents.filters.document_type') }}</label>
                             <select
+                                id="doc-type-filter"
                                 v-model="typeFilter"
                                 @change="applyFilters"
                                 class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
@@ -246,8 +248,9 @@ const getFileIcon = (document) => {
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('documents.filters.attached_to') }}</label>
+                            <label for="doc-model-filter" class="block text-sm font-medium text-gray-700 mb-1">{{ t('documents.filters.attached_to') }}</label>
                             <select
+                                id="doc-model-filter"
                                 v-model="modelFilter"
                                 @change="applyFilters"
                                 class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"

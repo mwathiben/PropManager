@@ -146,7 +146,7 @@ const handleSubmit = () => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('finances_match_payment.select_invoice') }}</label>
+                                    <label :for="eligibleInvoices.length ? `invoice-opt-${eligibleInvoices[0].id}` : undefined" class="block text-sm font-medium text-gray-700 mb-2">{{ t('finances_match_payment.select_invoice') }}</label>
                                     <div v-if="eligibleInvoices.length === 0" class="p-4 text-center text-sm text-gray-500 bg-gray-50 rounded-lg">
                                         {{ t('finances_match_payment.no_eligible') }}
                                     </div>
@@ -162,6 +162,7 @@ const handleSubmit = () => {
                                             ]"
                                         >
                                             <input
+                                                :id="`invoice-opt-${invoice.id}`"
                                                 type="radio"
                                                 :value="invoice.id"
                                                 v-model="selectedInvoiceId"

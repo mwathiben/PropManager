@@ -121,8 +121,8 @@ const counter = () => {
                         </div>
 
                         <form v-else-if="mode === 'reject'" @submit.prevent="reject" class="space-y-3">
-                            <label class="block text-sm font-medium text-gray-700">{{ $t('tenant_renewal.reject_reason') }}</label>
-                            <textarea v-model="rejectForm.rejection_reason" rows="3" maxlength="500" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                            <label for="renewal-reject-reason" class="block text-sm font-medium text-gray-700">{{ $t('tenant_renewal.reject_reason') }}</label>
+                            <textarea id="renewal-reject-reason" v-model="rejectForm.rejection_reason" rows="3" maxlength="500" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"></textarea>
                             <div class="flex gap-3">
                                 <button type="submit" :disabled="rejectForm.processing" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50">{{ $t('tenant_renewal.reject') }}</button>
                                 <button type="button" @click="mode = 'none'" class="px-4 py-2 text-gray-600">{{ $t('tenant_renewal.cancel') }}</button>
@@ -131,18 +131,18 @@ const counter = () => {
 
                         <form v-else-if="mode === 'counter'" @submit.prevent="counter" class="space-y-3">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('tenant_renewal.counter_rent') }}</label>
-                                <input v-model="counterForm.counter_rent_amount_cents" type="number" min="1" step="0.01" required class="w-48 border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" />
+                                <label for="renewal-counter-rent" class="block text-sm font-medium text-gray-700 mb-1">{{ $t('tenant_renewal.counter_rent') }}</label>
+                                <input id="renewal-counter-rent" v-model="counterForm.counter_rent_amount_cents" type="number" min="1" step="0.01" required class="w-48 border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" />
                                 <p v-if="counterForm.errors.counter_rent_amount_cents" class="mt-1 text-sm text-red-600">{{ counterForm.errors.counter_rent_amount_cents }}</p>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('tenant_renewal.counter_end_date') }}</label>
-                                <input v-model="counterForm.counter_end_date" type="date" required class="border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" />
+                                <label for="renewal-counter-end-date" class="block text-sm font-medium text-gray-700 mb-1">{{ $t('tenant_renewal.counter_end_date') }}</label>
+                                <input id="renewal-counter-end-date" v-model="counterForm.counter_end_date" type="date" required class="border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" />
                                 <p v-if="counterForm.errors.counter_end_date" class="mt-1 text-sm text-red-600">{{ counterForm.errors.counter_end_date }}</p>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('tenant_renewal.counter_message') }}</label>
-                                <textarea v-model="counterForm.counter_message" rows="2" maxlength="500" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                                <label for="renewal-counter-message" class="block text-sm font-medium text-gray-700 mb-1">{{ $t('tenant_renewal.counter_message') }}</label>
+                                <textarea id="renewal-counter-message" v-model="counterForm.counter_message" rows="2" maxlength="500" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"></textarea>
                             </div>
                             <div class="flex gap-3">
                                 <button type="submit" :disabled="counterForm.processing" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">{{ $t('tenant_renewal.send_counter') }}</button>

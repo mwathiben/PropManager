@@ -103,6 +103,7 @@ const submitDecline = (tk: VendorTicket) => {
                                 rows="2"
                                 maxlength="500"
                                 :placeholder="t('vendor_portal.inbox.decline_reason')"
+                                :aria-label="t('vendor_portal.inbox.decline_reason')"
                                 class="w-full rounded-lg border-gray-200 text-sm"
                             ></textarea>
                             <div class="mt-2 text-end">

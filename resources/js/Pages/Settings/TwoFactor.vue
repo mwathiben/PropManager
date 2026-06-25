@@ -273,8 +273,9 @@ const disableTwoFactor = () => {
                     <form @submit.prevent="disableTwoFactor">
                         <div class="space-y-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('two_factor.disable_modal.password_label') }}</label>
+                                <label for="disable-2fa-password" class="block text-sm font-medium text-gray-700 mb-1">{{ t('two_factor.disable_modal.password_label') }}</label>
                                 <input
+                                    id="disable-2fa-password"
                                     v-model="disableForm.password"
                                     type="password"
                                     class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
@@ -282,8 +283,9 @@ const disableTwoFactor = () => {
                                 <p v-if="disableForm.errors.password" class="text-sm text-red-600 mt-1">{{ disableForm.errors.password }}</p>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('two_factor.disable_modal.code_label') }}</label>
+                                <label for="disable-2fa-code" class="block text-sm font-medium text-gray-700 mb-1">{{ t('two_factor.disable_modal.code_label') }}</label>
                                 <input
+                                    id="disable-2fa-code"
                                     v-model="disableForm.code"
                                     type="text"
                                     inputmode="numeric"

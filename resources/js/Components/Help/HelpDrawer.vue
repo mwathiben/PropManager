@@ -119,6 +119,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
             type="search"
             class="w-full border rounded px-3 py-2 text-sm"
             :placeholder="t('onboarding.help.search_placeholder')"
+            :aria-label="t('onboarding.help.search_placeholder')"
             @input="debouncedSearch"
           />
         </div>

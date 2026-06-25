@@ -47,12 +47,12 @@ const firstLease = (tenant: TenantRow) => tenant.leases?.[0];
             <div class="flex flex-wrap gap-4">
                 <div class="flex-1 min-w-[200px]">
                     <div class="relative">
-                        <input v-model="search" @keyup.enter="applyFilters" type="text" :placeholder="t('tenants_directory_tab.search_placeholder')"
+                        <input v-model="search" @keyup.enter="applyFilters" type="text" :placeholder="t('tenants_directory_tab.search_placeholder')" :aria-label="t('tenants_directory_tab.search_placeholder')"
                             class="w-full ps-10 border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm" />
                         <MagnifyingGlassIcon class="w-5 h-5 text-gray-400 absolute start-3 top-2.5" />
                     </div>
                 </div>
-                <select v-model="buildingId" @change="applyFilters" class="border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                <select v-model="buildingId" @change="applyFilters" :aria-label="t('tenants_directory_tab.all_buildings')" class="border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                     <option value="">{{ t('tenants_directory_tab.all_buildings') }}</option>
                     <option v-for="b in buildings" :key="b.id" :value="b.id">{{ b.name }}</option>
                 </select>

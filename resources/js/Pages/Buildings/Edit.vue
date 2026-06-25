@@ -658,15 +658,15 @@ const confirmDeleteBuilding = () => {
                                         {{ t('buildings_edit.settings.building_info') }}
                                     </h3>
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('buildings_edit.settings.building_name') }}</label>
-                                        <input v-model="settingsForm.name" type="text"
+                                        <label for="settings-building-name" class="block text-sm font-medium text-gray-700 mb-2">{{ t('buildings_edit.settings.building_name') }}</label>
+                                        <input id="settings-building-name" v-model="settingsForm.name" type="text"
                                             class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
                                             :placeholder="t('buildings_edit.settings.building_name_placeholder')">
                                     </div>
 
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('buildings_edit.settings.property_type') }}</label>
-                                        <select v-model="settingsForm.building_type"
+                                        <label for="settings-building-type" class="block text-sm font-medium text-gray-700 mb-2">{{ t('buildings_edit.settings.property_type') }}</label>
+                                        <select id="settings-building-type" v-model="settingsForm.building_type"
                                             class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white">
                                             <option v-for="type in buildingTypes" :key="type.value" :value="type.value">
                                                 {{ type.label }}
@@ -675,8 +675,8 @@ const confirmDeleteBuilding = () => {
                                     </div>
 
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('buildings_edit.settings.currency_override') }}</label>
-                                        <select v-model="settingsForm.currency"
+                                        <label for="settings-currency" class="block text-sm font-medium text-gray-700 mb-2">{{ t('buildings_edit.settings.currency_override') }}</label>
+                                        <select id="settings-currency" v-model="settingsForm.currency"
                                             class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white">
                                             <option value="">{{ t('buildings_edit.settings.currency_inherit') }}</option>
                                             <option value="KES">{{ t('buildings_edit.settings.currency_kes') }}</option>
@@ -935,11 +935,11 @@ const confirmDeleteBuilding = () => {
 
                             <div v-if="automationForm.auto_generate_invoices" class="space-y-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    <label for="automation-generation-day" class="block text-sm font-medium text-gray-700 mb-2">
                                         <CalendarDaysIcon class="w-4 h-4 inline me-1 text-gray-400" />
                                         {{ t('buildings_edit.automation.generation_day') }}
                                     </label>
-                                    <select v-model="automationForm.invoice_generation_day"
+                                    <select id="automation-generation-day" v-model="automationForm.invoice_generation_day"
                                         class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white">
                                         <option v-for="day in dayOptions" :key="day" :value="day">
                                             {{ t('buildings_edit.automation.day_of_month', { day: day + (day === 1 ? t('buildings_edit.automation.ordinal_st') : day === 2 ? t('buildings_edit.automation.ordinal_nd') : day === 3 ? t('buildings_edit.automation.ordinal_rd') : t('buildings_edit.automation.ordinal_th')) }) }}
@@ -1071,19 +1071,19 @@ const confirmDeleteBuilding = () => {
 
                                 <div class="p-6">
                                     <div v-if="modalType === 'update_rent'">
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('buildings_edit.action_modal.new_rent_label', { currency: currencyCode }) }}</label>
+                                        <label for="action-rent-value" class="block text-sm font-medium text-gray-700 mb-2">{{ t('buildings_edit.action_modal.new_rent_label', { currency: currencyCode }) }}</label>
                                         <div class="relative">
                                             <div class="absolute inset-y-0 start-0 ps-4 flex items-center pointer-events-none">
                                                 <span class="text-gray-400 font-medium">{{ currencySymbol }}</span>
                                             </div>
-                                            <input v-model="actionForm.value" type="number"
+                                            <input id="action-rent-value" v-model="actionForm.value" type="number"
                                                 class="w-full ps-14 pe-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-lg font-semibold"
                                                 placeholder="25,000">
                                         </div>
                                     </div>
 
                                     <div v-if="modalType === 'update_type'">
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('buildings_edit.action_modal.select_unit_type') }}</label>
+                                        <label for="action-type-residential" class="block text-sm font-medium text-gray-700 mb-2">{{ t('buildings_edit.action_modal.select_unit_type') }}</label>
                                         <div class="grid grid-cols-2 gap-3">
                                             <label :class="[
                                                 'flex flex-col items-center gap-2 p-4 rounded-xl border-2 cursor-pointer transition-colors',
@@ -1091,7 +1091,7 @@ const confirmDeleteBuilding = () => {
                                                     ? 'border-indigo-500 bg-indigo-50'
                                                     : 'border-gray-200 hover:border-gray-300'
                                             ]">
-                                                <input type="radio" v-model="actionForm.value" value="residential" class="sr-only">
+                                                <input id="action-type-residential" type="radio" v-model="actionForm.value" value="residential" class="sr-only">
                                                 <HomeIcon :class="['w-8 h-8', actionForm.value === 'residential' ? 'text-indigo-600' : 'text-gray-400']" />
                                                 <span :class="['font-medium', actionForm.value === 'residential' ? 'text-indigo-700' : 'text-gray-700']">{{ t('buildings_edit.unit_type.residential') }}</span>
                                             </label>
@@ -1199,15 +1199,15 @@ const confirmDeleteBuilding = () => {
                             <form @submit.prevent="submitAddUnit" class="p-6 space-y-5">
                                 <div class="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('buildings_edit.add_unit.floor') }}</label>
-                                        <input v-model="addUnitForm.floor_number" type="number"
+                                        <label for="add-unit-floor" class="block text-sm font-medium text-gray-700 mb-2">{{ t('buildings_edit.add_unit.floor') }}</label>
+                                        <input id="add-unit-floor" v-model="addUnitForm.floor_number" type="number"
                                             class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                             placeholder="1">
                                         <p v-if="addUnitForm.errors.floor_number" class="text-red-500 text-xs mt-1">{{ addUnitForm.errors.floor_number }}</p>
                                     </div>
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('buildings_edit.add_unit.unit_number') }}</label>
-                                        <input v-model="addUnitForm.unit_number" type="text"
+                                        <label for="add-unit-number" class="block text-sm font-medium text-gray-700 mb-2">{{ t('buildings_edit.add_unit.unit_number') }}</label>
+                                        <input id="add-unit-number" v-model="addUnitForm.unit_number" type="text"
                                             class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                             placeholder="101">
                                         <p v-if="addUnitForm.errors.unit_number" class="text-red-500 text-xs mt-1">{{ addUnitForm.errors.unit_number }}</p>
@@ -1215,12 +1215,12 @@ const confirmDeleteBuilding = () => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('buildings_edit.add_unit.target_rent', { currency: currencyCode }) }}</label>
+                                    <label for="add-unit-target-rent" class="block text-sm font-medium text-gray-700 mb-2">{{ t('buildings_edit.add_unit.target_rent', { currency: currencyCode }) }}</label>
                                     <div class="relative">
                                         <div class="absolute inset-y-0 start-0 ps-4 flex items-center pointer-events-none">
                                             <span class="text-gray-400 font-medium">{{ currencySymbol }}</span>
                                         </div>
-                                        <input v-model="addUnitForm.target_rent" type="number"
+                                        <input id="add-unit-target-rent" v-model="addUnitForm.target_rent" type="number"
                                             class="w-full ps-14 pe-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                             placeholder="25,000">
                                     </div>
@@ -1228,7 +1228,7 @@ const confirmDeleteBuilding = () => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('buildings_edit.add_unit.unit_type') }}</label>
+                                    <label for="add-unit-type-residential" class="block text-sm font-medium text-gray-700 mb-2">{{ t('buildings_edit.add_unit.unit_type') }}</label>
                                     <div class="grid grid-cols-2 gap-3">
                                         <label :class="[
                                             'flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-colors',
@@ -1236,7 +1236,7 @@ const confirmDeleteBuilding = () => {
                                                 ? 'border-indigo-500 bg-indigo-50'
                                                 : 'border-gray-200 hover:border-gray-300'
                                         ]">
-                                            <input type="radio" v-model="addUnitForm.unit_type" value="residential" class="sr-only">
+                                            <input id="add-unit-type-residential" type="radio" v-model="addUnitForm.unit_type" value="residential" class="sr-only">
                                             <HomeIcon :class="['w-5 h-5', addUnitForm.unit_type === 'residential' ? 'text-indigo-600' : 'text-gray-400']" />
                                             <span :class="addUnitForm.unit_type === 'residential' ? 'text-indigo-700' : 'text-gray-700'">{{ t('buildings_edit.unit_type.residential') }}</span>
                                         </label>

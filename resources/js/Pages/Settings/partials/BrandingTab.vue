@@ -143,6 +143,7 @@ const submit = () => {
                         type="file"
                         accept="image/jpeg,image/png,image/gif,image/svg+xml"
                         class="hidden"
+                        :aria-label="t('branding.logo.upload')"
                         @change="onLogoSelected"
                     >
                     <button

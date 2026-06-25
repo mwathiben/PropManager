@@ -132,6 +132,7 @@ const getBuildingTypeColor = (type: string) => {
                             <input
                                 v-model="search"
                                 type="text"
+                                :aria-label="t('buildings_index.search_placeholder')"
                                 :placeholder="t('buildings_index.search_placeholder')"
                                 class="w-full ps-10 pe-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                             />

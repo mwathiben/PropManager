@@ -132,8 +132,9 @@ const close = () => {
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('eviction_notice_modal.subject') }}</label>
+                    <label for="eviction-subject" class="block text-sm font-medium text-gray-700 mb-1">{{ t('eviction_notice_modal.subject') }}</label>
                     <input
+                        id="eviction-subject"
                         v-model="form.subject"
                         type="text"
                         required
@@ -143,8 +144,9 @@ const close = () => {
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('eviction_notice_modal.message') }}</label>
+                    <label for="eviction-message" class="block text-sm font-medium text-gray-700 mb-1">{{ t('eviction_notice_modal.message') }}</label>
                     <textarea
+                        id="eviction-message"
                         v-model="form.message"
                         rows="8"
                         required

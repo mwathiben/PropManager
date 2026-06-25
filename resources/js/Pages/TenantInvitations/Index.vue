@@ -412,8 +412,9 @@ const closeEditModal = () => {
                     <form @submit.prevent="createInvitation" class="p-6 space-y-6">
                         <!-- Unit Selection -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenant_invitations.form.unit') }}</label>
+                            <label for="create-unit" class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenant_invitations.form.unit') }}</label>
                             <select
+                                id="create-unit"
                                 v-model="createForm.unit_id"
                                 class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                                 required
@@ -429,8 +430,9 @@ const closeEditModal = () => {
                         <!-- Tenant Info -->
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenant_invitations.form.email') }}</label>
+                                <label for="create-email" class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenant_invitations.form.email') }}</label>
                                 <input
+                                    id="create-email"
                                     v-model="createForm.email"
                                     type="email"
                                     required
@@ -440,8 +442,9 @@ const closeEditModal = () => {
                                 <p v-if="createForm.errors.email" class="mt-1 text-sm text-red-600">{{ createForm.errors.email }}</p>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenant_invitations.form.name') }}</label>
+                                <label for="create-name" class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenant_invitations.form.name') }}</label>
                                 <input
+                                    id="create-name"
                                     v-model="createForm.tenant_name"
                                     type="text"
                                     class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
@@ -449,8 +452,9 @@ const closeEditModal = () => {
                                 />
                             </div>
                             <div class="md:col-span-2">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenant_invitations.form.phone') }}</label>
+                                <label for="create-phone" class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenant_invitations.form.phone') }}</label>
                                 <input
+                                    id="create-phone"
                                     v-model="createForm.tenant_phone"
                                     type="tel"
                                     class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
@@ -465,8 +469,9 @@ const closeEditModal = () => {
                             <h4 class="text-sm font-medium text-gray-900 mb-3">{{ t('tenant_invitations.form.lease_terms') }}</h4>
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenant_invitations.form.rent', { currency: currencyCode }) }}</label>
+                                    <label for="create-rent" class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenant_invitations.form.rent', { currency: currencyCode }) }}</label>
                                     <input
+                                        id="create-rent"
                                         v-model="createForm.rent_amount"
                                         type="number"
                                         min="0"
@@ -475,8 +480,9 @@ const closeEditModal = () => {
                                     />
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenant_invitations.form.service_charge') }}</label>
+                                    <label for="create-service-charge" class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenant_invitations.form.service_charge') }}</label>
                                     <input
+                                        id="create-service-charge"
                                         v-model="createForm.service_charge"
                                         type="number"
                                         min="0"
@@ -484,8 +490,9 @@ const closeEditModal = () => {
                                     />
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenant_invitations.form.deposit', { currency: currencyCode }) }}</label>
+                                    <label for="create-deposit" class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenant_invitations.form.deposit', { currency: currencyCode }) }}</label>
                                     <input
+                                        id="create-deposit"
                                         v-model="createForm.deposit_amount"
                                         type="number"
                                         min="0"
@@ -494,8 +501,9 @@ const closeEditModal = () => {
                                     />
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenant_invitations.form.start_date') }}</label>
+                                    <label for="create-start-date" class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenant_invitations.form.start_date') }}</label>
                                     <input
+                                        id="create-start-date"
                                         v-model="createForm.start_date"
                                         type="date"
                                         required
@@ -503,8 +511,9 @@ const closeEditModal = () => {
                                     />
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenant_invitations.form.end_date') }}</label>
+                                    <label for="create-end-date" class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenant_invitations.form.end_date') }}</label>
                                     <input
+                                        id="create-end-date"
                                         v-model="createForm.end_date"
                                         type="date"
                                         class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
@@ -608,8 +617,9 @@ const closeEditModal = () => {
                         <!-- Tenant Info -->
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenant_invitations.form.email') }}</label>
+                                <label for="edit-email" class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenant_invitations.form.email') }}</label>
                                 <input
+                                    id="edit-email"
                                     v-model="editForm.email"
                                     type="email"
                                     required
@@ -618,16 +628,18 @@ const closeEditModal = () => {
                                 <p v-if="editForm.errors.email" class="mt-1 text-sm text-red-600">{{ editForm.errors.email }}</p>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenant_invitations.form.name') }}</label>
+                                <label for="edit-name" class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenant_invitations.form.name') }}</label>
                                 <input
+                                    id="edit-name"
                                     v-model="editForm.tenant_name"
                                     type="text"
                                     class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                                 />
                             </div>
                             <div class="md:col-span-2">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenant_invitations.form.phone') }}</label>
+                                <label for="edit-phone" class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenant_invitations.form.phone') }}</label>
                                 <input
+                                    id="edit-phone"
                                     v-model="editForm.tenant_phone"
                                     type="tel"
                                     class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
@@ -641,8 +653,9 @@ const closeEditModal = () => {
                             <h4 class="text-sm font-medium text-gray-900 mb-3">{{ t('tenant_invitations.form.lease_terms') }}</h4>
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenant_invitations.form.rent', { currency: currencyCode }) }}</label>
+                                    <label for="edit-rent" class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenant_invitations.form.rent', { currency: currencyCode }) }}</label>
                                     <input
+                                        id="edit-rent"
                                         v-model="editForm.rent_amount"
                                         type="number"
                                         min="0"
@@ -651,8 +664,9 @@ const closeEditModal = () => {
                                     />
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenant_invitations.form.service_charge') }}</label>
+                                    <label for="edit-service-charge" class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenant_invitations.form.service_charge') }}</label>
                                     <input
+                                        id="edit-service-charge"
                                         v-model="editForm.service_charge"
                                         type="number"
                                         min="0"
@@ -660,8 +674,9 @@ const closeEditModal = () => {
                                     />
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenant_invitations.form.deposit', { currency: currencyCode }) }}</label>
+                                    <label for="edit-deposit" class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenant_invitations.form.deposit', { currency: currencyCode }) }}</label>
                                     <input
+                                        id="edit-deposit"
                                         v-model="editForm.deposit_amount"
                                         type="number"
                                         min="0"
@@ -670,8 +685,9 @@ const closeEditModal = () => {
                                     />
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenant_invitations.form.start_date') }}</label>
+                                    <label for="edit-start-date" class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenant_invitations.form.start_date') }}</label>
                                     <input
+                                        id="edit-start-date"
                                         v-model="editForm.start_date"
                                         type="date"
                                         required
@@ -679,8 +695,9 @@ const closeEditModal = () => {
                                     />
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenant_invitations.form.end_date') }}</label>
+                                    <label for="edit-end-date" class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenant_invitations.form.end_date') }}</label>
                                     <input
+                                        id="edit-end-date"
                                         v-model="editForm.end_date"
                                         type="date"
                                         class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"

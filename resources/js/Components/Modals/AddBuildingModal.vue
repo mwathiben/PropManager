@@ -178,8 +178,9 @@ const close = () => {
                 <!-- Step 1: Basic Info -->
                 <div v-if="currentStep === 1" class="space-y-6">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('add_building_modal.building_name_required') }}</label>
+                        <label for="add-building-name" class="block text-sm font-medium text-gray-700 mb-2">{{ t('add_building_modal.building_name_required') }}</label>
                         <input
+                            id="add-building-name"
                             v-model="form.name"
                             type="text"
                             :placeholder="t('add_building_modal.building_name_placeholder')"
@@ -208,10 +209,11 @@ const close = () => {
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('add_building_modal.address_optional') }}</label>
+                        <label for="add-building-address" class="block text-sm font-medium text-gray-700 mb-2">{{ t('add_building_modal.address_optional') }}</label>
                         <div class="relative">
                             <MapPinIcon class="absolute start-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                             <input
+                                id="add-building-address"
                                 v-model="form.address"
                                 type="text"
                                 :placeholder="t('add_building_modal.address_placeholder')"
@@ -225,8 +227,9 @@ const close = () => {
                 <div v-if="currentStep === 2" class="space-y-6">
                     <div class="grid grid-cols-2 gap-6">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('add_building_modal.floors_required') }}</label>
+                            <label for="add-building-floors" class="block text-sm font-medium text-gray-700 mb-2">{{ t('add_building_modal.floors_required') }}</label>
                             <input
+                                id="add-building-floors"
                                 v-model.number="form.total_floors"
                                 type="number"
                                 min="1"
@@ -237,8 +240,9 @@ const close = () => {
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('add_building_modal.units_per_floor_required') }}</label>
+                            <label for="add-building-units-per-floor" class="block text-sm font-medium text-gray-700 mb-2">{{ t('add_building_modal.units_per_floor_required') }}</label>
                             <input
+                                id="add-building-units-per-floor"
                                 v-model.number="form.units_per_floor"
                                 type="number"
                                 min="1"
@@ -259,8 +263,9 @@ const close = () => {
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('add_building_modal.description_optional') }}</label>
+                        <label for="add-building-description" class="block text-sm font-medium text-gray-700 mb-2">{{ t('add_building_modal.description_optional') }}</label>
                         <textarea
+                            id="add-building-description"
                             v-model="form.description"
                             rows="3"
                             :placeholder="t('add_building_modal.description_placeholder')"

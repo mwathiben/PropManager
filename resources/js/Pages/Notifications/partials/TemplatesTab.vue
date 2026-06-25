@@ -292,8 +292,9 @@ const getTypeColor = (type) => {
                         <form @submit.prevent="saveTemplate" class="p-6 space-y-5">
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_templates.modal.name_label') }}</label>
+                                    <label for="tpl-name" class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_templates.modal.name_label') }}</label>
                                     <input
+                                        id="tpl-name"
                                         v-model="form.name"
                                         type="text"
                                         class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
@@ -304,8 +305,9 @@ const getTypeColor = (type) => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_templates.modal.type_label') }}</label>
+                                    <label for="tpl-type" class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_templates.modal.type_label') }}</label>
                                     <select
+                                        id="tpl-type"
                                         v-model="form.type"
                                         class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                                     >
@@ -339,8 +341,9 @@ const getTypeColor = (type) => {
                             </div>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_templates.modal.subject_label') }}</label>
+                                <label for="tpl-subject" class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_templates.modal.subject_label') }}</label>
                                 <input
+                                    id="tpl-subject"
                                     v-model="form.subject"
                                     type="text"
                                     class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
@@ -351,8 +354,9 @@ const getTypeColor = (type) => {
                             </div>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_templates.modal.body_label') }}</label>
+                                <label for="tpl-body" class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_templates.modal.body_label') }}</label>
                                 <textarea
+                                    id="tpl-body"
                                     v-model="form.body"
                                     rows="8"
                                     class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm"

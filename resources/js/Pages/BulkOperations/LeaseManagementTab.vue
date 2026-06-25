@@ -172,8 +172,8 @@ const submitDepositAdjustment = () => {
                 <h4 class="font-semibold text-gray-900 mb-3">{{ t('bulk_lease_management.extend.title') }}</h4>
                 <form @submit.prevent="submitExtension" class="space-y-3">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_lease_management.extend.period_label') }}</label>
-                        <select v-model.number="extendForm.extension_months" class="w-full border-gray-300 rounded-md">
+                        <label for="extend-period" class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_lease_management.extend.period_label') }}</label>
+                        <select id="extend-period" v-model.number="extendForm.extension_months" class="w-full border-gray-300 rounded-md">
                             <option v-for="option in extensionPeriodOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
                         </select>
                     </div>
@@ -196,12 +196,12 @@ const submitDepositAdjustment = () => {
                 <h4 class="font-semibold text-red-900 mb-3">{{ t('bulk_lease_management.terminate.title') }}</h4>
                 <form @submit.prevent="submitTermination" class="space-y-3">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_lease_management.terminate.date_label') }}</label>
-                        <input v-model="terminateForm.termination_date" type="date" class="w-full border-gray-300 rounded-md">
+                        <label for="terminate-date" class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_lease_management.terminate.date_label') }}</label>
+                        <input id="terminate-date" v-model="terminateForm.termination_date" type="date" class="w-full border-gray-300 rounded-md">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_lease_management.terminate.reason_label') }}</label>
-                        <input v-model="terminateForm.reason" type="text" class="w-full border-gray-300 rounded-md" :placeholder="t('bulk_lease_management.terminate.reason_placeholder')">
+                        <label for="terminate-reason" class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_lease_management.terminate.reason_label') }}</label>
+                        <input id="terminate-reason" v-model="terminateForm.reason" type="text" class="w-full border-gray-300 rounded-md" :placeholder="t('bulk_lease_management.terminate.reason_placeholder')">
                     </div>
                     <div class="flex flex-col gap-2">
                         <div class="flex items-center gap-2">
@@ -229,16 +229,16 @@ const submitDepositAdjustment = () => {
                 <form @submit.prevent="submitDepositAdjustment" class="space-y-3">
                     <div class="grid grid-cols-2 gap-2">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_lease_management.deposit.type_label') }}</label>
-                            <select v-model="depositForm.adjustment_type" class="w-full border-gray-300 rounded-md text-sm">
+                            <label for="deposit-type" class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_lease_management.deposit.type_label') }}</label>
+                            <select id="deposit-type" v-model="depositForm.adjustment_type" class="w-full border-gray-300 rounded-md text-sm">
                                 <option value="percentage">{{ t('bulk_lease_management.deposit.type_percentage') }}</option>
                                 <option value="fixed">{{ t('bulk_lease_management.deposit.type_fixed') }}</option>
                                 <option value="set">{{ t('bulk_lease_management.deposit.type_set') }}</option>
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_lease_management.deposit.value_label') }}</label>
-                            <input v-model.number="depositForm.adjustment_value" type="number" step="0.01" class="w-full border-gray-300 rounded-md text-sm">
+                            <label for="deposit-value" class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_lease_management.deposit.value_label') }}</label>
+                            <input id="deposit-value" v-model.number="depositForm.adjustment_value" type="number" step="0.01" class="w-full border-gray-300 rounded-md text-sm">
                         </div>
                     </div>
                     <div class="flex items-center gap-2">

@@ -108,9 +108,11 @@ const roleLabel = computed(() => {
                 <div>
                     <input
                         ref="photoInput"
+                        id="profile-photo-upload"
                         type="file"
                         class="hidden"
                         accept="image/*"
+                        :aria-label="t('profile_personal_info.upload_photo')"
                         @change="updatePhotoPreview"
                     />
                     <button

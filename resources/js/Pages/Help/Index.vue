@@ -93,6 +93,7 @@ const currentCategoryArticles = computed(() => {
                             @input="searchHelp"
                             type="text"
                             :placeholder="t('help.search_placeholder')"
+                            :aria-label="t('help.search_placeholder')"
                             class="w-full ps-12 pe-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-lg"
                         />
                     </div>

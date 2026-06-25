@@ -203,9 +203,10 @@ const setFullRefund = () => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_refund_deposit.refund_amount') }}</label>
+                                    <label for="refund-amount" class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_refund_deposit.refund_amount') }}</label>
                                     <div class="relative">
                                         <input
+                                            id="refund-amount"
                                             v-model.number="form.refund_amount"
                                             type="number"
                                             min="0"
@@ -226,8 +227,9 @@ const setFullRefund = () => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_refund_deposit.deductions') }}</label>
+                                    <label for="refund-deductions" class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_refund_deposit.deductions') }}</label>
                                     <input
+                                        id="refund-deductions"
                                         v-model.number="form.deductions"
                                         type="number"
                                         min="0"
@@ -240,8 +242,9 @@ const setFullRefund = () => {
                                 </div>
 
                                 <div v-if="form.deductions > 0">
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_refund_deposit.reason_label') }}</label>
+                                    <label for="refund-deduction-reason" class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_refund_deposit.reason_label') }}</label>
                                     <select
+                                        id="refund-deduction-reason"
                                         v-model="form.deduction_reason"
                                         :class="['w-full px-3 py-2.5 text-sm border rounded-lg transition-colors', errors.deduction_reason ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-emerald-500 focus:border-emerald-500']"
                                     >

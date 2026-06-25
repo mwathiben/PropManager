@@ -542,20 +542,20 @@ const canEdit = computed(() => {
                 <p class="mt-1 text-xs text-gray-500">{{ t('tickets.show.parts_auto_note') }}</p>
                 <form class="mt-4 space-y-3" @submit.prevent="submitCost">
                     <div>
-                        <label class="block text-xs font-semibold text-gray-700">{{ t('tickets.show.category') }}</label>
-                        <select v-model="costForm.category" required class="mt-1 w-full rounded border-gray-300 text-sm">
+                        <label for="cost-category" class="block text-xs font-semibold text-gray-700">{{ t('tickets.show.category') }}</label>
+                        <select id="cost-category" v-model="costForm.category" required class="mt-1 w-full rounded border-gray-300 text-sm">
                             <option value="vendor">{{ t('tickets.show.vendor') }}</option>
                             <option value="labor">{{ t('tickets.show.labor') }}</option>
                             <option value="other">{{ t('tickets.show.other') }}</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-gray-700">{{ t('tickets.show.amount_kes') }}</label>
-                        <input v-model.number="costForm.amount_kes" type="number" min="0.01" step="0.01" required class="mt-1 w-full rounded border-gray-300 text-sm">
+                        <label for="cost-amount-kes" class="block text-xs font-semibold text-gray-700">{{ t('tickets.show.amount_kes') }}</label>
+                        <input id="cost-amount-kes" v-model.number="costForm.amount_kes" type="number" min="0.01" step="0.01" required class="mt-1 w-full rounded border-gray-300 text-sm">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-gray-700">{{ t('tickets.show.notes') }}</label>
-                        <textarea v-model="costForm.notes" rows="2" maxlength="500" class="mt-1 w-full rounded border-gray-300 text-sm"></textarea>
+                        <label for="cost-notes" class="block text-xs font-semibold text-gray-700">{{ t('tickets.show.notes') }}</label>
+                        <textarea id="cost-notes" v-model="costForm.notes" rows="2" maxlength="500" class="mt-1 w-full rounded border-gray-300 text-sm"></textarea>
                     </div>
                     <div class="flex justify-end gap-2 pt-2">
                         <button type="button" class="rounded border border-gray-300 px-3 py-1.5 text-sm" @click="showCostModal = false">{{ t('tickets.show.cancel') }}</button>
@@ -573,8 +573,9 @@ const canEdit = computed(() => {
                     <h3 class="text-lg font-medium text-gray-900 mb-4">{{ t('tickets.show.resolve_ticket') }}</h3>
                     <form @submit.prevent="resolveTicket">
                         <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tickets.show.resolution_notes') }}</label>
+                            <label for="resolve-resolution-notes" class="block text-sm font-medium text-gray-700 mb-1">{{ t('tickets.show.resolution_notes') }}</label>
                             <textarea
+                                id="resolve-resolution-notes"
                                 v-model="resolveForm.resolution_notes"
                                 rows="4"
                                 :placeholder="t('tickets.show.resolution_notes_placeholder')"
@@ -610,8 +611,9 @@ const canEdit = computed(() => {
                     <h3 class="text-lg font-medium text-gray-900 mb-4">{{ t('tickets.show.assign_ticket') }}</h3>
                     <form @submit.prevent="assignTicket">
                         <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tickets.show.select_caretaker') }}</label>
+                            <label for="assign-caretaker" class="block text-sm font-medium text-gray-700 mb-1">{{ t('tickets.show.select_caretaker') }}</label>
                             <select
+                                id="assign-caretaker"
                                 v-model="assignForm.assigned_to"
                                 class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                             >

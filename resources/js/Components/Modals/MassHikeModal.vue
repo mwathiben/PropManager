@@ -48,26 +48,26 @@ const close = () => {
 
             <div class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700">{{ t('mass_hike_modal.adjustment_type') }}</label>
-                    <select v-model="form.adjustment_type" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                    <label for="mh-adjustment-type" class="block text-sm font-medium text-gray-700">{{ t('mass_hike_modal.adjustment_type') }}</label>
+                    <select id="mh-adjustment-type" v-model="form.adjustment_type" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
                         <option value="percentage">{{ t('mass_hike_modal.type_percentage') }}</option>
                         <option value="fixed">{{ t('mass_hike_modal.type_fixed', { currency: currencySymbol }) }}</option>
                     </select>
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700">{{ t('mass_hike_modal.value') }}</label>
-                    <input v-model="form.value" type="number" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                    <label for="mh-value" class="block text-sm font-medium text-gray-700">{{ t('mass_hike_modal.value') }}</label>
+                    <input id="mh-value" v-model="form.value" type="number" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700">{{ t('mass_hike_modal.effective_date') }}</label>
-                    <input v-model="form.effective_date" type="date" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                    <label for="mh-effective-date" class="block text-sm font-medium text-gray-700">{{ t('mass_hike_modal.effective_date') }}</label>
+                    <input id="mh-effective-date" v-model="form.effective_date" type="date" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700">{{ t('mass_hike_modal.reason') }}</label>
-                    <input v-model="form.reason" type="text" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                    <label for="mh-reason" class="block text-sm font-medium text-gray-700">{{ t('mass_hike_modal.reason') }}</label>
+                    <input id="mh-reason" v-model="form.reason" type="text" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
                 </div>
             </div>
 

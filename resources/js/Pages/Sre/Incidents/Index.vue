@@ -74,21 +74,21 @@ const statusColor = (s: string): string => ({
 
             <form v-if="showForm" class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-4" @submit.prevent="submit">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700">Title</label>
-                    <input v-model="form.title" type="text" maxlength="255" class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm" />
+                    <label for="inc-title" class="block text-sm font-medium text-gray-700">Title</label>
+                    <input id="inc-title" v-model="form.title" type="text" maxlength="255" class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm" />
                     <p v-if="form.errors.title" class="mt-1 text-xs text-rose-600">{{ form.errors.title }}</p>
                 </div>
                 <div class="flex gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">Severity</label>
-                        <select v-model="form.severity" class="mt-1 rounded-md border-gray-300 text-sm shadow-sm uppercase">
+                        <label for="inc-severity" class="block text-sm font-medium text-gray-700">Severity</label>
+                        <select id="inc-severity" v-model="form.severity" class="mt-1 rounded-md border-gray-300 text-sm shadow-sm uppercase">
                             <option v-for="s in SEVERITIES" :key="s" :value="s">{{ s }}</option>
                         </select>
                     </div>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700">Summary (optional)</label>
-                    <textarea v-model="form.summary" rows="2" maxlength="5000" class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm"></textarea>
+                    <label for="inc-summary" class="block text-sm font-medium text-gray-700">Summary (optional)</label>
+                    <textarea id="inc-summary" v-model="form.summary" rows="2" maxlength="5000" class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm"></textarea>
                 </div>
                 <button type="submit" :disabled="form.processing || !form.title" class="rounded-md bg-rose-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">Open</button>
             </form>

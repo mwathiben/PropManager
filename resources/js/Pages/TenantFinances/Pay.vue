@@ -394,8 +394,9 @@ onUnmounted(() => {
                     </div>
 
                     <div v-if="(selectedMethod === 'mpesa' || selectedMethod === 'mobile_money' || selectedMethod === 'intasend_mpesa') && mpesaState === 'idle' && intasendState === 'idle'" class="mt-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenant_finances_pay.mpesa_phone_number') }}</label>
+                        <label for="mpesa-phone" class="block text-sm font-medium text-gray-700 mb-1">{{ t('tenant_finances_pay.mpesa_phone_number') }}</label>
                         <input
+                            id="mpesa-phone"
                             v-model="phoneNumber"
                             type="tel"
                             :placeholder="t('tenant_finances_pay.phone_placeholder')"

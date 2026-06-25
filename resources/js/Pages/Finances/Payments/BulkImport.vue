@@ -349,8 +349,9 @@ const totalValidAmount = computed(() => {
 
                     <!-- Building Selector -->
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_import.building.label') }}</label>
+                        <label for="bulk-building" class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_import.building.label') }}</label>
                         <select
+                            id="bulk-building"
                             v-model="selectedBuildingId"
                             class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                         >
@@ -385,7 +386,7 @@ const totalValidAmount = computed(() => {
 
                     <!-- File Upload -->
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('bulk_import.file.label') }}</label>
+                        <label for="csv-file" class="block text-sm font-medium text-gray-700 mb-2">{{ t('bulk_import.file.label') }}</label>
                         <label
                             class="flex items-center justify-center px-6 py-8 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-emerald-400 hover:bg-gray-50 transition-colors"
                             @dragover.prevent="handleDragOver"

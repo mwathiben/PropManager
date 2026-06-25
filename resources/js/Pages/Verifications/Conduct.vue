@@ -197,8 +197,9 @@ const completeVerification = () => {
                         </p>
 
                         <div class="mt-6 max-w-md mx-auto">
-                            <label class="block text-sm font-medium text-gray-700 text-start mb-2">{{ t('verifications_conduct.start.select_template') }}</label>
+                            <label for="conduct-template" class="block text-sm font-medium text-gray-700 text-start mb-2">{{ t('verifications_conduct.start.select_template') }}</label>
                             <select
+                                id="conduct-template"
                                 v-model="selectedTemplateId"
                                 class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                             >

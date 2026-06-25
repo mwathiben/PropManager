@@ -153,10 +153,11 @@ const getChannelLabel = (channel) => {
                             </div>
                             <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
                                 <div class="sm:col-span-3">
-                                    <label class="block text-sm font-medium text-gray-700">
+                                    <label for="lease-tenant-email" class="block text-sm font-medium text-gray-700">
                                         {{ t('leases.create.fields.email') }} <span class="text-red-500">{{ t('leases.create.required') }}</span>
                                     </label>
                                     <input
+                                        id="lease-tenant-email"
                                         v-model="form.email"
                                         type="email"
                                         class="mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
@@ -168,8 +169,9 @@ const getChannelLabel = (channel) => {
                                     <p v-else class="mt-1 text-xs text-gray-500">{{ t('leases.create.fields.email_help') }}</p>
                                 </div>
                                 <div class="sm:col-span-3">
-                                    <label class="block text-sm font-medium text-gray-700">{{ t('leases.create.fields.name') }}</label>
+                                    <label for="lease-tenant-name" class="block text-sm font-medium text-gray-700">{{ t('leases.create.fields.name') }}</label>
                                     <input
+                                        id="lease-tenant-name"
                                         v-model="form.tenant_name"
                                         type="text"
                                         class="mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
@@ -180,12 +182,13 @@ const getChannelLabel = (channel) => {
                                     <p v-else class="mt-1 text-xs text-gray-500">{{ t('leases.create.fields.name_help') }}</p>
                                 </div>
                                 <div class="sm:col-span-3">
-                                    <label class="block text-sm font-medium text-gray-700">
+                                    <label for="lease-tenant-phone" class="block text-sm font-medium text-gray-700">
                                         {{ t('leases.create.fields.phone') }}
                                         <span v-if="requiresPhone" class="text-red-500">{{ t('leases.create.required') }}</span>
                                         <span v-else class="text-gray-400 text-xs font-normal">{{ t('leases.create.fields.phone_optional') }}</span>
                                     </label>
                                     <input
+                                        id="lease-tenant-phone"
                                         v-model="form.tenant_phone"
                                         type="text"
                                         class="mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
@@ -208,11 +211,12 @@ const getChannelLabel = (channel) => {
                             <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-3">
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700">
+                                    <label for="lease-rent-amount" class="block text-sm font-medium text-gray-700">
                                         {{ t('leases.create.fields.monthly_rent', { currency: currencySymbol }) }} <span class="text-red-500">{{ t('leases.create.required') }}</span>
                                     </label>
                                     <div class="mt-1 relative rounded-md shadow-sm">
                                         <input
+                                            id="lease-rent-amount"
                                             v-model="form.rent_amount"
                                             type="number"
                                             class="focus:ring-indigo-500 focus:border-indigo-500 block w-full ps-4 pe-12 sm:text-sm rounded-md py-2 border"
@@ -225,9 +229,10 @@ const getChannelLabel = (channel) => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700">{{ t('leases.create.fields.service_charge', { currency: currencySymbol }) }}</label>
+                                    <label for="lease-service-charge" class="block text-sm font-medium text-gray-700">{{ t('leases.create.fields.service_charge', { currency: currencySymbol }) }}</label>
                                     <div class="mt-1 relative rounded-md shadow-sm">
                                         <input
+                                            id="lease-service-charge"
                                             v-model="form.service_charge"
                                             type="number"
                                             class="focus:ring-indigo-500 focus:border-indigo-500 block w-full ps-4 pe-12 sm:text-sm rounded-md py-2 border"
@@ -240,11 +245,12 @@ const getChannelLabel = (channel) => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700">
+                                    <label for="lease-deposit-amount" class="block text-sm font-medium text-gray-700">
                                         {{ t('leases.create.fields.security_deposit', { currency: currencySymbol }) }} <span class="text-red-500">{{ t('leases.create.required') }}</span>
                                     </label>
                                     <div class="mt-1 relative rounded-md shadow-sm">
                                         <input
+                                            id="lease-deposit-amount"
                                             v-model="form.deposit_amount"
                                             type="number"
                                             class="focus:ring-indigo-500 focus:border-indigo-500 block w-full ps-4 pe-12 sm:text-sm rounded-md py-2 border"
@@ -272,10 +278,11 @@ const getChannelLabel = (channel) => {
                             </div>
                             <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700">
+                                    <label for="lease-start-date" class="block text-sm font-medium text-gray-700">
                                         {{ t('leases.create.fields.start_date') }} <span class="text-red-500">{{ t('leases.create.required') }}</span>
                                     </label>
                                     <input
+                                        id="lease-start-date"
                                         v-model="form.start_date"
                                         type="date"
                                         class="mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
@@ -285,8 +292,9 @@ const getChannelLabel = (channel) => {
                                     <p v-if="form.errors.start_date" class="mt-1 text-sm text-red-600">{{ form.errors.start_date }}</p>
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700">{{ t('leases.create.fields.end_date') }}</label>
+                                    <label for="lease-end-date" class="block text-sm font-medium text-gray-700">{{ t('leases.create.fields.end_date') }}</label>
                                     <input
+                                        id="lease-end-date"
                                         v-model="form.end_date"
                                         type="date"
                                         class="mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"

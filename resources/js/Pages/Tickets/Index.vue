@@ -135,9 +135,10 @@ const emptyStateActionLabel = computed(() => isTenant.value ? t('tickets.index.e
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
                         <!-- Search -->
                         <div class="md:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tickets.index.filter_search') }}</label>
+                            <label for="ticket-search" class="block text-sm font-medium text-gray-700 mb-1">{{ t('tickets.index.filter_search') }}</label>
                             <div class="relative">
                                 <input
+                                    id="ticket-search"
                                     v-model="search"
                                     @keyup.enter="applyFilters"
                                     type="text"
@@ -150,8 +151,9 @@ const emptyStateActionLabel = computed(() => isTenant.value ? t('tickets.index.e
 
                         <!-- Status Filter -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tickets.index.filter_status') }}</label>
+                            <label for="ticket-status" class="block text-sm font-medium text-gray-700 mb-1">{{ t('tickets.index.filter_status') }}</label>
                             <select
+                                id="ticket-status"
                                 v-model="status"
                                 @change="applyFilters"
                                 class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
@@ -166,8 +168,9 @@ const emptyStateActionLabel = computed(() => isTenant.value ? t('tickets.index.e
 
                         <!-- Category Filter -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tickets.index.filter_category') }}</label>
+                            <label for="ticket-category" class="block text-sm font-medium text-gray-700 mb-1">{{ t('tickets.index.filter_category') }}</label>
                             <select
+                                id="ticket-category"
                                 v-model="category"
                                 @change="applyFilters"
                                 class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
@@ -181,8 +184,9 @@ const emptyStateActionLabel = computed(() => isTenant.value ? t('tickets.index.e
 
                         <!-- Priority Filter -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('tickets.index.filter_priority') }}</label>
+                            <label for="ticket-priority" class="block text-sm font-medium text-gray-700 mb-1">{{ t('tickets.index.filter_priority') }}</label>
                             <select
+                                id="ticket-priority"
                                 v-model="priority"
                                 @change="applyFilters"
                                 class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"

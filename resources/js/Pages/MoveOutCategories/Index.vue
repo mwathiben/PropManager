@@ -305,6 +305,7 @@ const breadcrumbs = computed(() => [
                             v-model="search"
                             type="text"
                             :placeholder="t('move_out_categories_index.search.placeholder')"
+                            :aria-label="t('move_out_categories_index.search.placeholder')"
                             class="w-full ps-9 pe-8 py-2 text-sm rounded-lg border border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
                         />
                         <button
@@ -317,6 +318,7 @@ const breadcrumbs = computed(() => [
                     </div>
                     <select
                         v-model="scopeFilter"
+                        :aria-label="t('move_out_categories_index.modal.scope_label')"
                         class="text-sm rounded-lg border border-gray-300 py-2 pe-8 focus:border-indigo-500 focus:ring-indigo-500"
                     >
                         <option value="">{{ t('move_out_categories_index.scope_filter.all') }}</option>

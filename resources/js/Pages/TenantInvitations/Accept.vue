@@ -175,10 +175,11 @@ const acceptInvitation = () => {
                     <!-- Form for New User -->
                     <form v-else @submit.prevent="acceptInvitation" class="px-6 py-6 space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                            <label for="accept-full-name" class="block text-sm font-medium text-gray-700 mb-1">
                                 {{ t('tenant_invitations.accept.full_name') }} <span class="text-red-500">*</span>
                             </label>
                             <input
+                                id="accept-full-name"
                                 v-model="form.name"
                                 type="text"
                                 required
@@ -192,10 +193,11 @@ const acceptInvitation = () => {
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                            <label for="accept-phone-number" class="block text-sm font-medium text-gray-700 mb-1">
                                 {{ t('tenant_invitations.accept.phone_number') }}
                             </label>
                             <input
+                                id="accept-phone-number"
                                 v-model="form.phone"
                                 type="tel"
                                 :placeholder="t('tenant_invitations.accept.phone_placeholder')"
@@ -208,10 +210,11 @@ const acceptInvitation = () => {
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                            <label for="accept-id-number" class="block text-sm font-medium text-gray-700 mb-1">
                                 {{ t('tenant_invitations.accept.id_number') }}
                             </label>
                             <input
+                                id="accept-id-number"
                                 v-model="form.id_number"
                                 type="text"
                                 :placeholder="t('tenant_invitations.accept.id_placeholder')"
@@ -224,10 +227,11 @@ const acceptInvitation = () => {
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                            <label for="accept-password" class="block text-sm font-medium text-gray-700 mb-1">
                                 {{ t('tenant_invitations.accept.password') }} <span class="text-red-500">*</span>
                             </label>
                             <input
+                                id="accept-password"
                                 v-model="form.password"
                                 type="password"
                                 required
@@ -241,10 +245,11 @@ const acceptInvitation = () => {
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                            <label for="accept-password-confirm" class="block text-sm font-medium text-gray-700 mb-1">
                                 {{ t('tenant_invitations.accept.confirm_password') }} <span class="text-red-500">*</span>
                             </label>
                             <input
+                                id="accept-password-confirm"
                                 v-model="form.password_confirmation"
                                 type="password"
                                 required

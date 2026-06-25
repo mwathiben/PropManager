@@ -162,6 +162,7 @@ const { formatDateTime: formatDate } = useFormatters();
                                             type="radio"
                                             :value="key"
                                             v-model="selectedType"
+                                            :aria-label="typeInfo.label"
                                             class="mt-1 text-indigo-600 focus:ring-indigo-500"
                                         >
                                         <div class="flex-1">
@@ -182,7 +183,7 @@ const { formatDateTime: formatDate } = useFormatters();
 
                         <!-- File Upload -->
                         <div class="mb-6">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('imports.csv_file_label') }}</label>
+                            <label for="file-input" class="block text-sm font-medium text-gray-700 mb-2">{{ t('imports.csv_file_label') }}</label>
                             <div class="flex items-center gap-3">
                                 <label class="flex-1 cursor-pointer">
                                     <div class="flex items-center justify-center gap-2 px-4 py-3 bg-white border-2 border-dashed border-gray-300 rounded-lg hover:border-indigo-400 transition-colors">

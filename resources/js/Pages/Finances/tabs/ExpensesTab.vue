@@ -409,12 +409,14 @@ const executeDelete = () => {
                             :placeholder="t('finances_expenses.filters.search_placeholder')"
                             class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                             @keyup.enter="applyFilters"
+                            :aria-label="t('finances_expenses.filters.search_placeholder')"
                         />
                     </div>
                     <select
                         v-model="localFilters.categoryId"
                         class="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                         @change="applyFilters"
+                        :aria-label="t('finances_expenses.filters.all_categories')"
                     >
                         <option :value="null">{{ t('finances_expenses.filters.all_categories') }}</option>
                         <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
@@ -423,6 +425,7 @@ const executeDelete = () => {
                         v-model="localFilters.vendorId"
                         class="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                         @change="applyFilters"
+                        :aria-label="t('finances_expenses.filters.all_vendors')"
                     >
                         <option :value="null">{{ t('finances_expenses.filters.all_vendors') }}</option>
                         <option v-for="v in vendors" :key="v.id" :value="v.id">{{ v.name }}</option>
@@ -431,6 +434,7 @@ const executeDelete = () => {
                         v-model="localFilters.buildingId"
                         class="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                         @change="applyFilters"
+                        :aria-label="t('finances_expenses.filters.all_buildings')"
                     >
                         <option :value="null">{{ t('finances_expenses.filters.all_buildings') }}</option>
                         <option v-for="b in buildings" :key="b.id" :value="b.id">{{ b.name }}</option>
@@ -440,6 +444,7 @@ const executeDelete = () => {
                         type="date"
                         class="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                         @change="applyFilters"
+                        :aria-label="t('finances_expenses.filters.date_from')"
                     />
                     <span class="text-gray-400">{{ t('finances_expenses.filters.to') }}</span>
                     <input
@@ -447,6 +452,7 @@ const executeDelete = () => {
                         type="date"
                         class="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                         @change="applyFilters"
+                        :aria-label="t('finances_expenses.filters.date_to')"
                     />
                     <button
                         v-if="hasActiveFilters"
@@ -470,8 +476,9 @@ const executeDelete = () => {
                     <form @submit.prevent="submitExpenseForm" class="space-y-4">
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_expenses.expense_form.description') }}</label>
+                                <label for="exp-description" class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_expenses.expense_form.description') }}</label>
                                 <input
+                                    id="exp-description"
                                     v-model="expenseForm.description"
                                     type="text"
                                     required
@@ -480,10 +487,11 @@ const executeDelete = () => {
                                 />
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_expenses.expense_form.amount') }}</label>
+                                <label for="exp-amount" class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_expenses.expense_form.amount') }}</label>
                                 <div class="relative">
                                     <span class="absolute start-3 top-2 text-gray-400">{{ currencySymbol }}</span>
                                     <input
+                                        id="exp-amount"
                                         v-model.number="expenseForm.amount"
                                         type="number"
                                         min="0.01"
@@ -494,8 +502,9 @@ const executeDelete = () => {
                                 </div>
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_expenses.expense_form.date') }}</label>
+                                <label for="exp-date" class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_expenses.expense_form.date') }}</label>
                                 <input
+                                    id="exp-date"
                                     v-model="expenseForm.expense_date"
                                     type="date"
                                     required
@@ -505,8 +514,9 @@ const executeDelete = () => {
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_expenses.expense_form.category') }}</label>
+                                <label for="exp-category" class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_expenses.expense_form.category') }}</label>
                                 <select
+                                    id="exp-category"
                                     v-model="expenseForm.category_id"
                                     class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                 >
@@ -515,8 +525,9 @@ const executeDelete = () => {
                                 </select>
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_expenses.expense_form.vendor') }}</label>
+                                <label for="exp-vendor" class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_expenses.expense_form.vendor') }}</label>
                                 <select
+                                    id="exp-vendor"
                                     v-model="expenseForm.vendor_id"
                                     class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                 >
@@ -525,8 +536,9 @@ const executeDelete = () => {
                                 </select>
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_expenses.expense_form.payment_method') }}</label>
+                                <label for="exp-payment-method" class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_expenses.expense_form.payment_method') }}</label>
                                 <select
+                                    id="exp-payment-method"
                                     v-model="expenseForm.payment_method"
                                     class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                 >
@@ -535,8 +547,9 @@ const executeDelete = () => {
                                 </select>
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_expenses.expense_form.reference') }}</label>
+                                <label for="exp-reference" class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_expenses.expense_form.reference') }}</label>
                                 <input
+                                    id="exp-reference"
                                     v-model="expenseForm.reference"
                                     type="text"
                                     :placeholder="t('finances_expenses.expense_form.reference_placeholder')"
@@ -546,8 +559,9 @@ const executeDelete = () => {
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_expenses.expense_form.building') }}</label>
+                                <label for="exp-building" class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_expenses.expense_form.building') }}</label>
                                 <select
+                                    id="exp-building"
                                     v-model="expenseForm.building_id"
                                     class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                 >
@@ -556,8 +570,9 @@ const executeDelete = () => {
                                 </select>
                             </div>
                             <div class="md:col-span-2">
-                                <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_expenses.expense_form.notes') }}</label>
+                                <label for="exp-notes" class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_expenses.expense_form.notes') }}</label>
                                 <input
+                                    id="exp-notes"
                                     v-model="expenseForm.notes"
                                     type="text"
                                     :placeholder="t('finances_expenses.expense_form.notes_placeholder')"
@@ -575,8 +590,9 @@ const executeDelete = () => {
                                 <span class="text-sm text-gray-700">{{ t('finances_expenses.expense_form.recurring') }}</span>
                             </label>
                             <div v-if="expenseForm.is_recurring" class="flex items-center gap-2">
-                                <label class="text-sm text-gray-700">{{ t('finances_expenses.expense_form.frequency') }}</label>
+                                <label for="exp-frequency" class="text-sm text-gray-700">{{ t('finances_expenses.expense_form.frequency') }}</label>
                                 <select
+                                    id="exp-frequency"
                                     v-model="expenseForm.recurring_frequency"
                                     class="px-3 py-1 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                 >
@@ -691,8 +707,9 @@ const executeDelete = () => {
                     <form @submit.prevent="submitCategoryForm" class="space-y-4">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_expenses.categories.name') }}</label>
+                                <label for="cat-name" class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_expenses.categories.name') }}</label>
                                 <input
+                                    id="cat-name"
                                     v-model="categoryForm.name"
                                     type="text"
                                     required
@@ -701,8 +718,9 @@ const executeDelete = () => {
                                 />
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_expenses.categories.description') }}</label>
+                                <label for="cat-description" class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_expenses.categories.description') }}</label>
                                 <input
+                                    id="cat-description"
                                     v-model="categoryForm.description"
                                     type="text"
                                     :placeholder="t('finances_expenses.categories.description_placeholder')"
@@ -802,8 +820,9 @@ const executeDelete = () => {
                     <form @submit.prevent="submitVendorForm" class="space-y-4">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_expenses.vendors.name') }}</label>
+                                <label for="vendor-name" class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_expenses.vendors.name') }}</label>
                                 <input
+                                    id="vendor-name"
                                     v-model="vendorForm.name"
                                     type="text"
                                     required
@@ -812,8 +831,9 @@ const executeDelete = () => {
                                 />
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_expenses.vendors.contact_person') }}</label>
+                                <label for="vendor-contact-person" class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_expenses.vendors.contact_person') }}</label>
                                 <input
+                                    id="vendor-contact-person"
                                     v-model="vendorForm.contact_person"
                                     type="text"
                                     :placeholder="t('finances_expenses.vendors.contact_person_placeholder')"
@@ -823,8 +843,9 @@ const executeDelete = () => {
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_expenses.vendors.email') }}</label>
+                                <label for="vendor-email" class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_expenses.vendors.email') }}</label>
                                 <input
+                                    id="vendor-email"
                                     v-model="vendorForm.email"
                                     type="email"
                                     :placeholder="t('finances_expenses.vendors.email_placeholder')"
@@ -832,8 +853,9 @@ const executeDelete = () => {
                                 />
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_expenses.vendors.phone') }}</label>
+                                <label for="vendor-phone" class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_expenses.vendors.phone') }}</label>
                                 <input
+                                    id="vendor-phone"
                                     v-model="vendorForm.phone"
                                     type="text"
                                     :placeholder="t('finances_expenses.vendors.phone_placeholder')"
@@ -841,8 +863,9 @@ const executeDelete = () => {
                                 />
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_expenses.vendors.tax_id') }}</label>
+                                <label for="vendor-tax-id" class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_expenses.vendors.tax_id') }}</label>
                                 <input
+                                    id="vendor-tax-id"
                                     v-model="vendorForm.tax_id"
                                     type="text"
                                     :placeholder="t('finances_expenses.vendors.tax_id_placeholder')"
@@ -851,8 +874,9 @@ const executeDelete = () => {
                             </div>
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_expenses.vendors.address') }}</label>
+                            <label for="vendor-address" class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_expenses.vendors.address') }}</label>
                             <input
+                                id="vendor-address"
                                 v-model="vendorForm.address"
                                 type="text"
                                 :placeholder="t('finances_expenses.vendors.address_placeholder')"
@@ -860,8 +884,9 @@ const executeDelete = () => {
                             />
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_expenses.vendors.notes') }}</label>
+                            <label for="vendor-notes" class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_expenses.vendors.notes') }}</label>
                             <textarea
+                                id="vendor-notes"
                                 v-model="vendorForm.notes"
                                 rows="2"
                                 :placeholder="t('finances_expenses.vendors.notes_placeholder')"

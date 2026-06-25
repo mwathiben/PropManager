@@ -110,8 +110,8 @@ const getPhotoUrl = (reading) => {
                         <div class="bg-gray-50 p-4 rounded-lg mb-6">
                             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('readings_review.filters.building') }}</label>
-                                    <select v-model="filterForm.building_id" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                                    <label for="filter-building" class="block text-sm font-medium text-gray-700 mb-1">{{ t('readings_review.filters.building') }}</label>
+                                    <select id="filter-building" v-model="filterForm.building_id" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
                                         <option value="">{{ t('readings_review.filters.all_buildings') }}</option>
                                         <option v-for="building in buildings" :key="building.id" :value="building.id">
                                             {{ building.name }}
@@ -120,13 +120,13 @@ const getPhotoUrl = (reading) => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('readings_review.filters.date_from') }}</label>
-                                    <input type="date" v-model="filterForm.date_from" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                                    <label for="filter-date-from" class="block text-sm font-medium text-gray-700 mb-1">{{ t('readings_review.filters.date_from') }}</label>
+                                    <input id="filter-date-from" type="date" v-model="filterForm.date_from" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('readings_review.filters.date_to') }}</label>
-                                    <input type="date" v-model="filterForm.date_to" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                                    <label for="filter-date-to" class="block text-sm font-medium text-gray-700 mb-1">{{ t('readings_review.filters.date_to') }}</label>
+                                    <input id="filter-date-to" type="date" v-model="filterForm.date_to" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
                                 </div>
 
                                 <div class="flex items-end gap-2">
@@ -295,10 +295,11 @@ const getPhotoUrl = (reading) => {
                 </div>
 
                 <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                    <label for="approve-notes" class="block text-sm font-medium text-gray-700 mb-2">
                         {{ t('readings_review.approve.notes_label') }}
                     </label>
                     <textarea
+                        id="approve-notes"
                         v-model="approveForm.notes"
                         rows="3"
                         class="w-full border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500"
@@ -341,10 +342,11 @@ const getPhotoUrl = (reading) => {
                 </div>
 
                 <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                    <label for="reject-reason" class="block text-sm font-medium text-gray-700 mb-2">
                         {{ t('readings_review.reject.reason_label') }} <span class="text-red-500">*</span>
                     </label>
                     <textarea
+                        id="reject-reason"
                         v-model="rejectForm.reason"
                         rows="4"
                         class="w-full border-gray-300 rounded-md shadow-sm focus:ring-red-500 focus:border-red-500"

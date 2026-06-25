@@ -317,6 +317,7 @@ const canPayOnline = computed(() => {
                                     accept=".pdf,.jpg,.jpeg,.png"
                                     multiple
                                     @change="handleFileSelect"
+                                    :aria-label="t('tenant_payment_required.upload.heading')"
                                 />
                                 <DocumentArrowUpIcon class="w-10 h-10 text-gray-400 mx-auto mb-3" />
                                 <p class="text-sm text-gray-600">

@@ -122,6 +122,7 @@ const statusLabel = (status) => {
                     v-model="search"
                     type="text"
                     :placeholder="t('operations_inbox.search_placeholder')"
+                    :aria-label="t('operations_inbox.search_placeholder')"
                     class="w-full ps-10 pe-4 py-2 border border-gray-300 rounded-md text-sm focus:ring-indigo-500 focus:border-indigo-500"
                 />
             </div>

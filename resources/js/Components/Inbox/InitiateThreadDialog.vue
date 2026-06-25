@@ -80,6 +80,7 @@ defineExpose({ open });
                         maxlength="200"
                         placeholder="Subject (optional)"
                         class="w-full rounded-md border-gray-300 text-sm"
+                        id="thread-subject"
                     />
                     <textarea
                         v-model="form.body"
@@ -88,6 +89,8 @@ defineExpose({ open });
                         placeholder="Write your message…"
                         class="w-full rounded-md border-gray-300 text-sm"
                         required
+                        id="thread-body"
+                        :aria-label="$t('inbox.chat.body_label')"
                     />
                     <p
                         v-if="form.errors.body"

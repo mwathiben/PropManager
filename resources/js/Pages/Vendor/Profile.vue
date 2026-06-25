@@ -47,10 +47,11 @@ function submit(): void {
 
             <form class="space-y-4" @submit.prevent="submit">
                 <div>
-                    <label class="block text-xs font-semibold text-gray-700">
+                    <label for="vendor-contact-person" class="block text-xs font-semibold text-gray-700">
                         {{ t('maintenance.vendor_onboarding.form.contact_person') }}
                     </label>
                     <input
+                        id="vendor-contact-person"
                         v-model="form.contact_person"
                         type="text"
                         maxlength="100"
@@ -60,10 +61,11 @@ function submit(): void {
                 </div>
 
                 <div>
-                    <label class="block text-xs font-semibold text-gray-700">
+                    <label for="vendor-phone" class="block text-xs font-semibold text-gray-700">
                         {{ t('maintenance.vendor_onboarding.form.phone') }}
                     </label>
                     <input
+                        id="vendor-phone"
                         v-model="form.phone"
                         type="tel"
                         maxlength="30"
@@ -73,10 +75,11 @@ function submit(): void {
                 </div>
 
                 <div>
-                    <label class="block text-xs font-semibold text-gray-700">
+                    <label for="vendor-address" class="block text-xs font-semibold text-gray-700">
                         {{ t('maintenance.vendor_onboarding.form.address') }}
                     </label>
                     <input
+                        id="vendor-address"
                         v-model="form.address"
                         type="text"
                         maxlength="255"
@@ -86,10 +89,11 @@ function submit(): void {
                 </div>
 
                 <div>
-                    <label class="block text-xs font-semibold text-gray-700">
+                    <label for="vendor-notes" class="block text-xs font-semibold text-gray-700">
                         {{ t('maintenance.vendor_onboarding.form.notes') }}
                     </label>
                     <textarea
+                        id="vendor-notes"
                         v-model="form.notes"
                         rows="3"
                         maxlength="1000"

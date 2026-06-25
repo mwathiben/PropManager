@@ -192,17 +192,17 @@ function submit(): void {
                                 </select>
 
                                 <template v-if="card.type === 'chart'">
-                                    <input v-model="card.label_field" type="text" maxlength="64" class="w-28 rounded-md border-gray-300 text-xs" :placeholder="t('reports.dashboards.label_field')" />
-                                    <input v-model="card.value_field" type="text" maxlength="64" class="w-28 rounded-md border-gray-300 text-xs" :placeholder="t('reports.dashboards.value_field')" />
+                                    <input v-model="card.label_field" type="text" maxlength="64" class="w-28 rounded-md border-gray-300 text-xs" :placeholder="t('reports.dashboards.label_field')" :aria-label="t('reports.dashboards.label_field')" />
+                                    <input v-model="card.value_field" type="text" maxlength="64" class="w-28 rounded-md border-gray-300 text-xs" :placeholder="t('reports.dashboards.value_field')" :aria-label="t('reports.dashboards.value_field')" />
                                 </template>
 
-                                <input v-if="card.type === 'text'" v-model="card.body" type="text" maxlength="2000" class="flex-1 rounded-md border-gray-300 text-xs" :placeholder="t('reports.dashboards.body_label')" />
+                                <input v-if="card.type === 'text'" v-model="card.body" type="text" maxlength="2000" class="flex-1 rounded-md border-gray-300 text-xs" :placeholder="t('reports.dashboards.body_label')" :aria-label="t('reports.dashboards.body_label')" />
 
                                 <select v-model="card.size" class="rounded-md border-gray-300 text-xs" :aria-label="t('reports.dashboards.card_size')">
                                     <option value="wide">{{ t('reports.dashboards.size_wide') }}</option>
                                     <option value="narrow">{{ t('reports.dashboards.size_narrow') }}</option>
                                 </select>
-                                <input v-if="card.type !== 'text'" v-model="card.title" type="text" maxlength="200" class="flex-1 rounded-md border-gray-300 text-xs" :placeholder="t('reports.dashboards.card_title_label')" />
+                                <input v-if="card.type !== 'text'" v-model="card.title" type="text" maxlength="200" class="flex-1 rounded-md border-gray-300 text-xs" :placeholder="t('reports.dashboards.card_title_label')" :aria-label="t('reports.dashboards.card_title_label')" />
                                 <span class="flex gap-1">
                                     <button type="button" class="rounded px-1 text-gray-400 hover:text-gray-700" :aria-label="t('reports.dashboards.move_up')" @click="move(i, -1)">↑</button>
                                     <button type="button" class="rounded px-1 text-gray-400 hover:text-gray-700" :aria-label="t('reports.dashboards.move_down')" @click="move(i, 1)">↓</button>

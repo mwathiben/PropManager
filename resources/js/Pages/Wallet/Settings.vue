@@ -37,7 +37,7 @@ function save(): void {
 
         <div class="mx-auto max-w-xl px-4 py-6 sm:px-6 lg:px-8" data-testid="wallet-settings">
             <form class="space-y-4 rounded-lg bg-white p-6 shadow" @submit.prevent="save">
-                <label class="block text-sm font-medium text-gray-700">{{ t('wallet.settings.mode_label') }}</label>
+                <label :for="'wallet-mode-' + modes[0]" class="block text-sm font-medium text-gray-700">{{ t('wallet.settings.mode_label') }}</label>
                 <div class="space-y-2">
                     <label
                         v-for="m in modes"
@@ -45,7 +45,7 @@ function save(): void {
                         class="flex cursor-pointer items-center gap-3 rounded-md border border-gray-200 px-3 py-2 hover:bg-gray-50"
                         :class="form.auto_apply_mode === m ? 'ring-2 ring-emerald-500' : ''"
                     >
-                        <input v-model="form.auto_apply_mode" type="radio" :value="m" class="text-emerald-600" />
+                        <input v-model="form.auto_apply_mode" type="radio" :value="m" :id="'wallet-mode-' + m" class="text-emerald-600" />
                         <span class="text-sm text-gray-800">{{ t('wallet.settings.mode_' + m) }}</span>
                     </label>
                 </div>

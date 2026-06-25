@@ -192,8 +192,9 @@ const templates = computed(() => [
 
                     <form @submit.prevent="submitImport" class="space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('operations_imports.csv_file_label') }}</label>
+                            <label for="imports-csv-file" class="block text-sm font-medium text-gray-700 mb-1">{{ t('operations_imports.csv_file_label') }}</label>
                             <input
+                                id="imports-csv-file"
                                 type="file"
                                 accept=".csv"
                                 @change="handleFileChange"

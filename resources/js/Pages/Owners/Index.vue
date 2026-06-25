@@ -213,28 +213,28 @@ const invite = (owner: Owner) => {
                 <h3 class="mb-4 text-lg font-semibold text-gray-900">{{ editing ? t('owners.edit') : t('owners.add') }}</h3>
                 <form class="space-y-3" @submit.prevent="submit">
                     <div>
-                        <label class="block text-xs font-medium text-gray-600">{{ t('owners.fields.name') }}</label>
-                        <input v-model="form.name" type="text" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" required />
+                        <label for="owner-name" class="block text-xs font-medium text-gray-600">{{ t('owners.fields.name') }}</label>
+                        <input id="owner-name" v-model="form.name" type="text" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" required />
                         <p v-if="form.errors.name" class="mt-1 text-xs text-rose-600">{{ form.errors.name }}</p>
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-gray-600">{{ t('owners.fields.email') }}</label>
-                        <input v-model="form.email" type="email" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                        <label for="owner-email" class="block text-xs font-medium text-gray-600">{{ t('owners.fields.email') }}</label>
+                        <input id="owner-email" v-model="form.email" type="email" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
                         <p v-if="form.errors.email" class="mt-1 text-xs text-rose-600">{{ form.errors.email }}</p>
                     </div>
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label class="block text-xs font-medium text-gray-600">{{ t('owners.fields.phone') }}</label>
-                            <input v-model="form.phone" type="text" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                            <label for="owner-phone" class="block text-xs font-medium text-gray-600">{{ t('owners.fields.phone') }}</label>
+                            <input id="owner-phone" v-model="form.phone" type="text" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-600">{{ t('owners.fields.id_number') }}</label>
-                            <input v-model="form.id_number" type="text" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                            <label for="owner-id-number" class="block text-xs font-medium text-gray-600">{{ t('owners.fields.id_number') }}</label>
+                            <input id="owner-id-number" v-model="form.id_number" type="text" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
                         </div>
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-gray-600">{{ t('owners.fields.notes') }}</label>
-                        <textarea v-model="form.notes" rows="2" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"></textarea>
+                        <label for="owner-notes" class="block text-xs font-medium text-gray-600">{{ t('owners.fields.notes') }}</label>
+                        <textarea id="owner-notes" v-model="form.notes" rows="2" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"></textarea>
                     </div>
                     <label v-if="editing" class="flex items-center gap-2 text-sm text-gray-700">
                         <input v-model="form.is_active" type="checkbox" class="rounded border-gray-300" />

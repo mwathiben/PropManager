@@ -266,8 +266,9 @@ const deletePolicy = () => {
                 <form @submit.prevent="submitForm" class="space-y-4">
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_latefee.form.name') }}</label>
+                            <label for="lf-name" class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_latefee.form.name') }}</label>
                             <input
+                                id="lf-name"
                                 v-model="form.name"
                                 type="text"
                                 required
@@ -277,8 +278,9 @@ const deletePolicy = () => {
                             <p v-if="form.errors.name" class="mt-1 text-xs text-red-500">{{ form.errors.name }}</p>
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_latefee.form.property') }}</label>
+                            <label for="lf-property" class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_latefee.form.property') }}</label>
                             <select
+                                id="lf-property"
                                 v-model="form.property_id"
                                 class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                             >
@@ -289,8 +291,9 @@ const deletePolicy = () => {
                             </select>
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_latefee.form.building') }}</label>
+                            <label for="lf-building" class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_latefee.form.building') }}</label>
                             <select
+                                id="lf-building"
                                 v-model="form.building_id"
                                 :disabled="!form.property_id"
                                 class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-gray-100"
@@ -305,8 +308,9 @@ const deletePolicy = () => {
 
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_latefee.form.grace_period') }}</label>
+                            <label for="lf-grace-period" class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_latefee.form.grace_period') }}</label>
                             <input
+                                id="lf-grace-period"
                                 v-model.number="form.grace_period_days"
                                 type="number"
                                 min="0"
@@ -317,8 +321,9 @@ const deletePolicy = () => {
                             <p class="mt-1 text-xs text-gray-500">{{ t('finances_latefee.form.grace_period_hint') }}</p>
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_latefee.form.fee_type') }}</label>
+                            <label for="lf-fee-type" class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_latefee.form.fee_type') }}</label>
                             <select
+                                id="lf-fee-type"
                                 v-model="form.fee_type"
                                 required
                                 class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
@@ -328,9 +333,10 @@ const deletePolicy = () => {
                             </select>
                         </div>
                         <div v-if="form.fee_type === 'percentage'">
-                            <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_latefee.form.fee_percentage') }}</label>
+                            <label for="lf-fee-percentage" class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_latefee.form.fee_percentage') }}</label>
                             <div class="relative">
                                 <input
+                                    id="lf-fee-percentage"
                                     v-model.number="form.fee_percentage"
                                     type="number"
                                     min="0"
@@ -343,10 +349,11 @@ const deletePolicy = () => {
                             </div>
                         </div>
                         <div v-else>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_latefee.form.fee_amount') }}</label>
+                            <label for="lf-fee-amount" class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_latefee.form.fee_amount') }}</label>
                             <div class="relative">
                                 <span class="absolute start-3 top-2 text-gray-400">{{ currencySymbol }}</span>
                                 <input
+                                    id="lf-fee-amount"
                                     v-model.number="form.fee_amount"
                                     type="number"
                                     min="0"
@@ -357,10 +364,11 @@ const deletePolicy = () => {
                             </div>
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_latefee.form.max_fee_cap') }}</label>
+                            <label for="lf-max-fee-cap" class="block text-xs font-medium text-gray-700 mb-1">{{ t('finances_latefee.form.max_fee_cap') }}</label>
                             <div class="relative">
                                 <span class="absolute start-3 top-2 text-gray-400">{{ currencySymbol }}</span>
                                 <input
+                                    id="lf-max-fee-cap"
                                     v-model.number="form.max_fee_cap"
                                     type="number"
                                     min="0"
@@ -383,8 +391,9 @@ const deletePolicy = () => {
                         </label>
 
                         <div v-if="form.is_compounding" class="flex items-center gap-2">
-                            <label class="text-sm text-gray-700">{{ t('finances_latefee.form.frequency') }}</label>
+                            <label for="lf-compounding-frequency" class="text-sm text-gray-700">{{ t('finances_latefee.form.frequency') }}</label>
                             <select
+                                id="lf-compounding-frequency"
                                 v-model="form.compounding_frequency"
                                 class="px-3 py-1 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                             >

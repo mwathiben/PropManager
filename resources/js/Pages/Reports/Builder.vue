@@ -278,10 +278,10 @@ onMounted(() => {
                 <!-- Left column: field picker + filters + actions -->
                 <section class="lg:col-span-1 space-y-4">
                     <div class="rounded-lg border border-gray-200 bg-white p-4">
-                        <label class="block text-xs font-medium uppercase tracking-wide text-gray-500"
+                        <label for="source-table" class="block text-xs font-medium uppercase tracking-wide text-gray-500"
                             >Source table</label
                         >
-                        <select v-model="table" class="mt-1 w-full rounded-md border-gray-300 text-sm">
+                        <select id="source-table" v-model="table" class="mt-1 w-full rounded-md border-gray-300 text-sm">
                             <option v-for="tbl in props.allowedTables" :key="tbl" :value="tbl">{{ tbl }}</option>
                         </select>
                     </div>

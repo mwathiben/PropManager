@@ -78,9 +78,11 @@ const getRoleLabel = (role) => {
                             <input type="text"
                                    v-model="searchQuery"
                                    :placeholder="t('admin_users.search_placeholder')"
+                                   :aria-label="t('admin_users.search_placeholder')"
                                    class="w-full ps-10 pe-4 py-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500" />
                         </div>
                         <select v-model="selectedRole"
+                                :aria-label="t('admin_users.table.role')"
                                 class="border rounded-lg px-4 py-2 focus:ring-indigo-500 focus:border-indigo-500">
                             <option value="">{{ t('admin_users.all_roles') }}</option>
                             <option v-for="(label, value) in roles" :key="value" :value="value">

@@ -266,10 +266,11 @@ const copyInviteLink = (token) => {
                     <div class="px-6 py-4 space-y-4">
                         <!-- Email -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                            <label for="inv-email" class="block text-sm font-medium text-gray-700 mb-1">
                                 {{ t('invitations.modal.email') }}
                             </label>
                             <input
+                                id="inv-email"
                                 v-model="inviteForm.email"
                                 type="email"
                                 required
@@ -283,10 +284,11 @@ const copyInviteLink = (token) => {
 
                         <!-- Property -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                            <label for="inv-property" class="block text-sm font-medium text-gray-700 mb-1">
                                 {{ t('invitations.modal.property') }}
                             </label>
                             <select
+                                id="inv-property"
                                 v-model="inviteForm.property_id"
                                 required
                                 class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"

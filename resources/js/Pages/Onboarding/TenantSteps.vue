@@ -71,18 +71,18 @@ function submit() {
             <form @submit.prevent="submit" class="space-y-5">
                 <template v-if="currentStep === 1">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">{{ t('onboarding_tenant_steps.full_name') }}</label>
-                        <input v-model="form.name" type="text" class="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required />
+                        <label for="ts-full-name" class="block text-sm font-medium text-gray-700">{{ t('onboarding_tenant_steps.full_name') }}</label>
+                        <input id="ts-full-name" v-model="form.name" type="text" class="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required />
                         <p v-if="form.errors.name" class="mt-1 text-sm text-red-600">{{ form.errors.name }}</p>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">{{ t('onboarding_tenant_steps.mobile_number') }}</label>
-                        <input v-model="form.mobile_number" type="text" class="mt-1 w-full rounded-md border-gray-300 shadow-sm" />
+                        <label for="ts-mobile-number" class="block text-sm font-medium text-gray-700">{{ t('onboarding_tenant_steps.mobile_number') }}</label>
+                        <input id="ts-mobile-number" v-model="form.mobile_number" type="text" class="mt-1 w-full rounded-md border-gray-300 shadow-sm" />
                         <p v-if="form.errors.mobile_number" class="mt-1 text-sm text-red-600">{{ form.errors.mobile_number }}</p>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">{{ t('onboarding_tenant_steps.national_id') }}</label>
-                        <input v-model="form.national_id" type="text" class="mt-1 w-full rounded-md border-gray-300 shadow-sm" />
+                        <label for="ts-national-id" class="block text-sm font-medium text-gray-700">{{ t('onboarding_tenant_steps.national_id') }}</label>
+                        <input id="ts-national-id" v-model="form.national_id" type="text" class="mt-1 w-full rounded-md border-gray-300 shadow-sm" />
                         <p v-if="form.errors.national_id" class="mt-1 text-sm text-red-600">{{ form.errors.national_id }}</p>
                     </div>
                 </template>
@@ -124,8 +124,8 @@ function submit() {
                     <p class="text-gray-700">{{ t('onboarding_tenant_steps.payment_intro') }}</p>
                     <!-- Phase-51 TENANT-WIZARD-POLISH-2: per-type SVG icon card-grid picker -->
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">{{ t('onboarding_tenant_steps.payment_type') }}</label>
-                        <div class="mt-2 grid grid-cols-3 gap-2">
+                        <label for="ts-payment-type-group" class="block text-sm font-medium text-gray-700">{{ t('onboarding_tenant_steps.payment_type') }}</label>
+                        <div id="ts-payment-type-group" class="mt-2 grid grid-cols-3 gap-2">
                             <button
                                 v-for="option in paymentTypeOptions"
                                 :key="option.value"
@@ -175,8 +175,9 @@ function submit() {
                         </div>
                     </div>
                     <div v-if="form.type === 'mpesa'">
-                        <label class="block text-sm font-medium text-gray-700">{{ t('onboarding_tenant_steps.mpesa_phone') }}</label>
+                        <label for="ts-mpesa-phone" class="block text-sm font-medium text-gray-700">{{ t('onboarding_tenant_steps.mpesa_phone') }}</label>
                         <input
+                            id="ts-mpesa-phone"
                             v-model="(form.details as Record<string, unknown>).phone"
                             type="text"
                             placeholder="0712345678"
@@ -185,16 +186,16 @@ function submit() {
                     </div>
                     <template v-else-if="form.type === 'bank'">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">{{ t('onboarding_tenant_steps.bank_name') }}</label>
-                            <input v-model="(form.details as Record<string, unknown>).bank_name" type="text" class="mt-1 w-full rounded-md border-gray-300 shadow-sm" />
+                            <label for="ts-bank-name" class="block text-sm font-medium text-gray-700">{{ t('onboarding_tenant_steps.bank_name') }}</label>
+                            <input id="ts-bank-name" v-model="(form.details as Record<string, unknown>).bank_name" type="text" class="mt-1 w-full rounded-md border-gray-300 shadow-sm" />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">{{ t('onboarding_tenant_steps.account_number') }}</label>
-                            <input v-model="(form.details as Record<string, unknown>).account_number" type="text" class="mt-1 w-full rounded-md border-gray-300 shadow-sm" />
+                            <label for="ts-account-number" class="block text-sm font-medium text-gray-700">{{ t('onboarding_tenant_steps.account_number') }}</label>
+                            <input id="ts-account-number" v-model="(form.details as Record<string, unknown>).account_number" type="text" class="mt-1 w-full rounded-md border-gray-300 shadow-sm" />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">{{ t('onboarding_tenant_steps.account_name') }}</label>
-                            <input v-model="(form.details as Record<string, unknown>).account_name" type="text" class="mt-1 w-full rounded-md border-gray-300 shadow-sm" />
+                            <label for="ts-account-name" class="block text-sm font-medium text-gray-700">{{ t('onboarding_tenant_steps.account_name') }}</label>
+                            <input id="ts-account-name" v-model="(form.details as Record<string, unknown>).account_name" type="text" class="mt-1 w-full rounded-md border-gray-300 shadow-sm" />
                         </div>
                     </template>
                     <label v-if="form.type" class="inline-flex items-center gap-2">

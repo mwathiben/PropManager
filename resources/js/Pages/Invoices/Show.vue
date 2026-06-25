@@ -359,8 +359,9 @@ const reissueInvoice = () => {
                         <form @submit.prevent="submitPayment">
                             <div class="space-y-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700">{{ t('invoices_show.payment_modal.amount') }}</label>
+                                    <label for="inv-payment-amount" class="block text-sm font-medium text-gray-700">{{ t('invoices_show.payment_modal.amount') }}</label>
                                     <input
+                                        id="inv-payment-amount"
                                         v-model="paymentForm.amount"
                                         type="number"
                                         step="0.01"
@@ -373,8 +374,9 @@ const reissueInvoice = () => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700">{{ t('invoices_show.payment_modal.payment_method') }}</label>
+                                    <label for="inv-payment-method" class="block text-sm font-medium text-gray-700">{{ t('invoices_show.payment_modal.payment_method') }}</label>
                                     <select
+                                        id="inv-payment-method"
                                         v-model="paymentForm.payment_method"
                                         class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500"
                                     >
@@ -388,8 +390,9 @@ const reissueInvoice = () => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700">{{ t('invoices_show.payment_modal.reference_optional') }}</label>
+                                    <label for="inv-payment-reference" class="block text-sm font-medium text-gray-700">{{ t('invoices_show.payment_modal.reference_optional') }}</label>
                                     <input
+                                        id="inv-payment-reference"
                                         v-model="paymentForm.reference"
                                         type="text"
                                         class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500"
@@ -429,8 +432,9 @@ const reissueInvoice = () => {
 
                         <form @submit.prevent="submitVoid">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700">{{ t('invoices_show.void_modal.reason_label') }}</label>
+                                <label for="inv-void-reason" class="block text-sm font-medium text-gray-700">{{ t('invoices_show.void_modal.reason_label') }}</label>
                                 <textarea
+                                    id="inv-void-reason"
                                     v-model="voidForm.reason"
                                     rows="3"
                                     class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-red-500 focus:border-red-500"

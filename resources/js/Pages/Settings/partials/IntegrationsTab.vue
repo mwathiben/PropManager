@@ -104,6 +104,7 @@ const providerChanged = (provider) => {
                                 type="radio"
                                 :value="key"
                                 v-model="ocrForm.provider"
+                                :aria-label="provider.name"
                                 class="mt-1 text-indigo-600 focus:ring-indigo-500"
                             >
                             <div class="ms-3 flex-1">
@@ -138,6 +139,7 @@ const providerChanged = (provider) => {
                                 type="radio"
                                 value="none"
                                 v-model="ocrForm.provider"
+                                :aria-label="t('integrations.ocr.none.name')"
                                 class="mt-1 text-gray-600 focus:ring-gray-500"
                             >
                             <div class="ms-3">
@@ -193,8 +195,9 @@ const providerChanged = (provider) => {
 
                 <div v-if="!ocrSettings.has_api_key || showApiKeyInput" class="space-y-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('integrations.ocr.api_key_label') }}</label>
+                        <label for="ocr-api-key" class="block text-sm font-medium text-gray-700 mb-2">{{ t('integrations.ocr.api_key_label') }}</label>
                         <input
+                            id="ocr-api-key"
                             v-model="ocrForm.api_key"
                             type="password"
                             :placeholder="t('integrations.ocr.api_key_placeholder')"
@@ -205,8 +208,9 @@ const providerChanged = (provider) => {
 
                     <!-- Azure Endpoint (if Azure selected) -->
                     <div v-if="ocrForm.provider === 'azure_vision'">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('integrations.ocr.endpoint_label') }}</label>
+                        <label for="ocr-azure-endpoint" class="block text-sm font-medium text-gray-700 mb-2">{{ t('integrations.ocr.endpoint_label') }}</label>
                         <input
+                            id="ocr-azure-endpoint"
                             v-model="ocrForm.azure_endpoint"
                             type="url"
                             placeholder="https://your-resource.cognitiveservices.azure.com/"

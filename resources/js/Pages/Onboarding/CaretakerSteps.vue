@@ -121,13 +121,13 @@ function submit() {
 
                 <template v-else-if="currentStep === 2">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">{{ t('onboarding_caretaker_steps.full_name') }}</label>
-                        <input v-model="form.name" type="text" class="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required />
+                        <label for="caretaker-full-name" class="block text-sm font-medium text-gray-700">{{ t('onboarding_caretaker_steps.full_name') }}</label>
+                        <input id="caretaker-full-name" v-model="form.name" type="text" class="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required />
                         <p v-if="form.errors.name" class="mt-1 text-sm text-red-600">{{ form.errors.name }}</p>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">{{ t('onboarding_caretaker_steps.mobile_number') }}</label>
-                        <input v-model="form.mobile_number" type="text" class="mt-1 w-full rounded-md border-gray-300 shadow-sm" />
+                        <label for="caretaker-mobile-number" class="block text-sm font-medium text-gray-700">{{ t('onboarding_caretaker_steps.mobile_number') }}</label>
+                        <input id="caretaker-mobile-number" v-model="form.mobile_number" type="text" class="mt-1 w-full rounded-md border-gray-300 shadow-sm" />
                         <p v-if="form.errors.mobile_number" class="mt-1 text-sm text-red-600">{{ form.errors.mobile_number }}</p>
                     </div>
                 </template>
@@ -178,8 +178,9 @@ function submit() {
                                 </div>
                             </div>
                             <div v-if="isDeclined(assignment.id)" class="mt-3">
-                                <label class="block text-xs font-medium text-gray-700">{{ t('onboarding_caretaker_steps.reason_label') }}</label>
+                                <label :for="'caretaker-decline-reason-' + assignment.id" class="block text-xs font-medium text-gray-700">{{ t('onboarding_caretaker_steps.reason_label') }}</label>
                                 <textarea
+                                    :id="'caretaker-decline-reason-' + assignment.id"
                                     v-model="(form.decline_reason as Record<number, string>)[assignment.id]"
                                     :maxlength="MAX_DECLINE_REASON_LENGTH"
                                     rows="2"

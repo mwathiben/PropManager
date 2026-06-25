@@ -83,6 +83,7 @@ function updatePreference(row: Row, preference: string): void {
                                         @change="updatePreference(row, ($event.target as HTMLSelectElement).value)"
                                         :disabled="updatingId === row.id"
                                         class="rounded-md border-gray-300 text-sm"
+                                        :aria-label="t('admin_gateways_index.table.preference')"
                                     >
                                         <option value="auto">{{ t('admin_gateways_index.options.auto') }}</option>
                                         <option value="paystack">{{ t('admin_gateways_index.options.paystack') }}</option>

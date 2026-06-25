@@ -382,10 +382,11 @@ const paymentMethodLabels = computed(() => ({
 
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_refunds_create.amount_label') }}</label>
+                                    <label for="refund-amount" class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_refunds_create.amount_label') }}</label>
                                     <div class="relative">
                                         <span class="absolute start-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">{{ currencySymbol }}</span>
                                         <input
+                                            id="refund-amount"
                                             v-model.number="form.amount"
                                             type="number"
                                             min="0.01"
@@ -412,8 +413,9 @@ const paymentMethodLabels = computed(() => ({
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_refunds_create.refund_method_label') }}</label>
+                                    <label for="refund-method" class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_refunds_create.refund_method_label') }}</label>
                                     <select
+                                        id="refund-method"
                                         v-model="form.refund_method"
                                         :class="[
                                             'w-full px-3 py-2.5 text-sm border rounded-lg transition-colors',
@@ -430,8 +432,9 @@ const paymentMethodLabels = computed(() => ({
                                 </div>
 
                                 <div class="sm:col-span-2">
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_refunds_create.reason_label') }}</label>
+                                    <label for="refund-reason" class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_refunds_create.reason_label') }}</label>
                                     <select
+                                        id="refund-reason"
                                         v-model="form.reason"
                                         :class="[
                                             'w-full px-3 py-2.5 text-sm border rounded-lg transition-colors',
@@ -449,8 +452,9 @@ const paymentMethodLabels = computed(() => ({
                                 </div>
 
                                 <div v-if="form.reason === 'Other'" class="sm:col-span-2">
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_refunds_create.specify_reason_label') }}</label>
+                                    <label for="refund-custom-reason" class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_refunds_create.specify_reason_label') }}</label>
                                     <input
+                                        id="refund-custom-reason"
                                         v-model="form.custom_reason"
                                         type="text"
                                         :class="[
@@ -466,8 +470,9 @@ const paymentMethodLabels = computed(() => ({
                             </div>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_refunds_create.notes_label') }}</label>
+                                <label for="refund-notes" class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_refunds_create.notes_label') }}</label>
                                 <textarea
+                                    id="refund-notes"
                                     v-model="form.notes"
                                     rows="2"
                                     class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 transition-colors resize-none"

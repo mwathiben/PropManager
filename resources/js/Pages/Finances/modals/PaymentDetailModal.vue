@@ -318,10 +318,11 @@ const handleVoid = async () => {
                                 {{ t('finances_payment_detail.void_warning') }}
                             </p>
                             <div class="mb-4">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                <label for="void-reason" class="block text-sm font-medium text-gray-700 mb-1">
                                     {{ t('finances_payment_detail.reason_for_voiding') }} <span class="text-red-500">*</span>
                                 </label>
                                 <textarea
+                                    id="void-reason"
                                     v-model="voidReason"
                                     rows="3"
                                     class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm"

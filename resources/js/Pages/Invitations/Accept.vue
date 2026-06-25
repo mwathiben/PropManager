@@ -93,10 +93,11 @@ const acceptInvitation = () => {
                     <!-- Registration Form -->
                     <form @submit.prevent="acceptInvitation" class="px-6 py-6 space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                            <label for="inv-full-name" class="block text-sm font-medium text-gray-700 mb-1">
                                 {{ t('invitations.accept.full_name') }} <span class="text-red-500">*</span>
                             </label>
                             <input
+                                id="inv-full-name"
                                 v-model="form.name"
                                 type="text"
                                 required
@@ -109,10 +110,11 @@ const acceptInvitation = () => {
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                            <label for="inv-mobile-number" class="block text-sm font-medium text-gray-700 mb-1">
                                 {{ t('invitations.accept.mobile_number') }}
                             </label>
                             <input
+                                id="inv-mobile-number"
                                 v-model="form.mobile_number"
                                 type="tel"
                                 :placeholder="t('invitations.accept.phone_placeholder')"
@@ -124,10 +126,11 @@ const acceptInvitation = () => {
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                            <label for="inv-password" class="block text-sm font-medium text-gray-700 mb-1">
                                 {{ t('invitations.accept.password') }} <span class="text-red-500">*</span>
                             </label>
                             <input
+                                id="inv-password"
                                 v-model="form.password"
                                 type="password"
                                 required
@@ -140,10 +143,11 @@ const acceptInvitation = () => {
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                            <label for="inv-confirm-password" class="block text-sm font-medium text-gray-700 mb-1">
                                 {{ t('invitations.accept.confirm_password') }} <span class="text-red-500">*</span>
                             </label>
                             <input
+                                id="inv-confirm-password"
                                 v-model="form.password_confirmation"
                                 type="password"
                                 required

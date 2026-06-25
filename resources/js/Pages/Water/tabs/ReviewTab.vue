@@ -135,17 +135,21 @@ function requestReread(reading: ReadingRow): void {
 
                 <textarea
                     v-if="mode === 'approve'"
+                    id="approve-notes"
                     v-model="approveForm.notes"
                     rows="3"
                     class="mb-4 w-full rounded-md border-gray-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
                     :placeholder="t('water_review_tab.modal.notes_placeholder')"
+                    :aria-label="t('water_review_tab.modal.notes_placeholder')"
                 ></textarea>
                 <textarea
                     v-else
+                    id="reject-reason"
                     v-model="rejectForm.reason"
                     rows="3"
                     class="mb-4 w-full rounded-md border-gray-300 text-sm focus:border-rose-500 focus:ring-rose-500"
                     :placeholder="t('water_review_tab.modal.reason_placeholder')"
+                    :aria-label="t('water_review_tab.modal.reason_placeholder')"
                 ></textarea>
 
                 <div class="flex gap-3">

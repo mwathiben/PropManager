@@ -112,9 +112,10 @@ const clearFilters = () => {
                 <div class="mb-6 bg-white shadow-sm rounded-lg p-4">
                     <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
                         <div class="md:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('activity_logs.filters.search') }}</label>
+                            <label for="al-filter-search" class="block text-sm font-medium text-gray-700 mb-1">{{ t('activity_logs.filters.search') }}</label>
                             <div class="relative">
                                 <input
+                                    id="al-filter-search"
                                     v-model="search"
                                     @keyup.enter="applyFilters"
                                     type="text"
@@ -126,8 +127,9 @@ const clearFilters = () => {
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('activity_logs.filters.activity_type') }}</label>
+                            <label for="al-filter-type" class="block text-sm font-medium text-gray-700 mb-1">{{ t('activity_logs.filters.activity_type') }}</label>
                             <select
+                                id="al-filter-type"
                                 v-model="type"
                                 @change="applyFilters"
                                 class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
@@ -140,8 +142,9 @@ const clearFilters = () => {
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('activity_logs.filters.from_date') }}</label>
+                            <label for="al-filter-date-from" class="block text-sm font-medium text-gray-700 mb-1">{{ t('activity_logs.filters.from_date') }}</label>
                             <input
+                                id="al-filter-date-from"
                                 v-model="dateFrom"
                                 @change="applyFilters"
                                 type="date"
@@ -150,8 +153,9 @@ const clearFilters = () => {
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('activity_logs.filters.to_date') }}</label>
+                            <label for="al-filter-date-to" class="block text-sm font-medium text-gray-700 mb-1">{{ t('activity_logs.filters.to_date') }}</label>
                             <input
+                                id="al-filter-date-to"
                                 v-model="dateTo"
                                 @change="applyFilters"
                                 type="date"

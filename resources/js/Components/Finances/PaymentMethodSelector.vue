@@ -53,10 +53,12 @@ const onDropdownChange = (event: Event) => {
     <div>
         <template v-if="mode === 'dropdown'">
             <select
+                id="payment-method-select"
                 :value="modelValue"
                 @change="onDropdownChange"
                 :disabled="disabled"
                 :class="selectClasses"
+                aria-label="Payment method"
             >
                 <option v-for="method in methods" :key="method.id" :value="method.id">
                     {{ method.label }}

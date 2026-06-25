@@ -132,6 +132,7 @@ const submitRenew = () => {
                             @keyup.enter="applyFilters"
                             type="text"
                             :placeholder="$t('document.search')"
+                            :aria-label="$t('document.search')"
                             class="w-full ps-10 border-gray-300 rounded-lg shadow-sm focus:ring-gray-500 focus:border-gray-500 sm:text-sm"
                         />
                         <MagnifyingGlassIcon class="w-5 h-5 text-gray-400 absolute start-3 top-2.5" />
@@ -140,6 +141,7 @@ const submitRenew = () => {
                 <select
                     v-model="type"
                     @change="applyFilters"
+                    :aria-label="$t('document.type')"
                     class="border-gray-300 rounded-lg shadow-sm focus:ring-gray-500 focus:border-gray-500 sm:text-sm"
                 >
                     <option value="">{{ $t('document.all_types') }}</option>
@@ -148,6 +150,7 @@ const submitRenew = () => {
                 <select
                     v-model="expiry"
                     @change="applyFilters"
+                    :aria-label="$t('document.expiry.column')"
                     class="border-gray-300 rounded-lg shadow-sm focus:ring-gray-500 focus:border-gray-500 sm:text-sm"
                 >
                     <option v-for="f in expiryFilters" :key="f.value" :value="f.value">{{ f.label }}</option>
@@ -240,10 +243,11 @@ const submitRenew = () => {
                 </div>
                 <div class="px-6 py-4 space-y-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                        <label for="doc-renew-file" class="block text-sm font-medium text-gray-700 mb-1">
                             {{ $t('document.label') }} <span class="text-red-500">*</span>
                         </label>
                         <input
+                            id="doc-renew-file"
                             type="file"
                             @change="handleRenewFile"
                             accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
@@ -253,10 +257,11 @@ const submitRenew = () => {
                         <p v-if="renewForm.errors.file" class="mt-1 text-sm text-red-600">{{ renewForm.errors.file }}</p>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                        <label for="doc-renew-expiry" class="block text-sm font-medium text-gray-700 mb-1">
                             {{ $t('document.renewal.new_expiry') }} <span class="text-red-500">*</span>
                         </label>
                         <input
+                            id="doc-renew-expiry"
                             v-model="renewForm.expires_at"
                             type="date"
                             required

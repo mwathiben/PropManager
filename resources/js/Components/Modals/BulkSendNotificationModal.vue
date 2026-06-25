@@ -146,8 +146,9 @@ watch(() => props.show, (newVal) => {
 
                         <!-- Type -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_send_notification.type_label') }}</label>
+                            <label for="bsn-type" class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_send_notification.type_label') }}</label>
                             <select
+                                id="bsn-type"
                                 v-model="form.type"
                                 class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                             >
@@ -176,8 +177,9 @@ watch(() => props.show, (newVal) => {
 
                         <!-- Subject -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_send_notification.subject_label') }}</label>
+                            <label for="bsn-subject" class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_send_notification.subject_label') }}</label>
                             <input
+                                id="bsn-subject"
                                 v-model="form.subject"
                                 type="text"
                                 class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
@@ -189,8 +191,9 @@ watch(() => props.show, (newVal) => {
 
                         <!-- Message -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_send_notification.message_label') }}</label>
+                            <label for="bsn-message" class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_send_notification.message_label') }}</label>
                             <textarea
+                                id="bsn-message"
                                 v-model="form.message"
                                 rows="5"
                                 class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"

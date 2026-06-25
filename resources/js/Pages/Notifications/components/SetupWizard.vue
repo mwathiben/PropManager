@@ -302,8 +302,9 @@ watch(() => props.show, (newVal) => {
 
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.email.mail_driver') }}</label>
+                                    <label for="email-mail-driver" class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.email.mail_driver') }}</label>
                                     <select
+                                        id="email-mail-driver"
                                         v-model="emailForm.mail_mailer"
                                         class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                                     >
@@ -314,8 +315,9 @@ watch(() => props.show, (newVal) => {
                                     </select>
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.email.encryption') }}</label>
+                                    <label for="email-encryption" class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.email.encryption') }}</label>
                                     <select
+                                        id="email-encryption"
                                         v-model="emailForm.mail_encryption"
                                         class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                                     >
@@ -328,8 +330,9 @@ watch(() => props.show, (newVal) => {
 
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.email.smtp_host') }}</label>
+                                    <label for="email-smtp-host" class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.email.smtp_host') }}</label>
                                     <input
+                                        id="email-smtp-host"
                                         v-model="emailForm.mail_host"
                                         type="text"
                                         placeholder="smtp.example.com"
@@ -337,8 +340,9 @@ watch(() => props.show, (newVal) => {
                                     />
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.email.smtp_port') }}</label>
+                                    <label for="email-smtp-port" class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.email.smtp_port') }}</label>
                                     <input
+                                        id="email-smtp-port"
                                         v-model="emailForm.mail_port"
                                         type="text"
                                         placeholder="587"
@@ -349,17 +353,19 @@ watch(() => props.show, (newVal) => {
 
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.email.username') }}</label>
+                                    <label for="email-username" class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.email.username') }}</label>
                                     <input
+                                        id="email-username"
                                         v-model="emailForm.mail_username"
                                         type="text"
                                         class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                                     />
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.email.password') }}</label>
+                                    <label for="email-password" class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.email.password') }}</label>
                                     <div class="relative">
                                         <input
+                                            id="email-password"
                                             v-model="emailForm.mail_password"
                                             :type="showPassword.mail_password ? 'text' : 'password'"
                                             class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 pe-10"
@@ -378,8 +384,9 @@ watch(() => props.show, (newVal) => {
 
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.email.from_address') }}</label>
+                                    <label for="email-from-address" class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.email.from_address') }}</label>
                                     <input
+                                        id="email-from-address"
                                         v-model="emailForm.mail_from_address"
                                         type="email"
                                         placeholder="noreply@example.com"
@@ -387,8 +394,9 @@ watch(() => props.show, (newVal) => {
                                     />
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.email.from_name') }}</label>
+                                    <label for="email-from-name" class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.email.from_name') }}</label>
                                     <input
+                                        id="email-from-name"
                                         v-model="emailForm.mail_from_name"
                                         type="text"
                                         :placeholder="t('notifications_setup_wizard.email.from_name_placeholder')"
@@ -403,8 +411,9 @@ watch(() => props.show, (newVal) => {
                             <p class="text-gray-600 mb-4">{{ t('notifications_setup_wizard.sms.intro') }}</p>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.sms.provider') }}</label>
+                                <label for="sms-provider" class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.sms.provider') }}</label>
                                 <select
+                                    id="sms-provider"
                                     v-model="smsForm.sms_provider"
                                     class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                                 >
@@ -416,8 +425,9 @@ watch(() => props.show, (newVal) => {
                             <!-- Africa's Talking Fields -->
                             <template v-if="smsForm.sms_provider === 'africastalking'">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.sms.username') }}</label>
+                                    <label for="sms-at-username" class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.sms.username') }}</label>
                                     <input
+                                        id="sms-at-username"
                                         v-model="smsForm.africastalking_username"
                                         type="text"
                                         :placeholder="t('notifications_setup_wizard.sms.username_placeholder')"
@@ -425,9 +435,10 @@ watch(() => props.show, (newVal) => {
                                     />
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.sms.api_key') }}</label>
+                                    <label for="sms-at-api-key" class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.sms.api_key') }}</label>
                                     <div class="relative">
                                         <input
+                                            id="sms-at-api-key"
                                             v-model="smsForm.africastalking_api_key"
                                             :type="showPassword.at_api_key ? 'text' : 'password'"
                                             class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 pe-10"
@@ -443,8 +454,9 @@ watch(() => props.show, (newVal) => {
                                     </div>
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.sms.sender_id') }}</label>
+                                    <label for="sms-at-sender-id" class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.sms.sender_id') }}</label>
                                     <input
+                                        id="sms-at-sender-id"
                                         v-model="smsForm.africastalking_sender_id"
                                         type="text"
                                         :placeholder="t('notifications_setup_wizard.sms.sender_id_placeholder')"
@@ -456,17 +468,19 @@ watch(() => props.show, (newVal) => {
                             <!-- Twilio Fields -->
                             <template v-else>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.sms.account_sid') }}</label>
+                                    <label for="sms-twilio-sid" class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.sms.account_sid') }}</label>
                                     <input
+                                        id="sms-twilio-sid"
                                         v-model="smsForm.twilio_sid"
                                         type="text"
                                         class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                                     />
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.sms.auth_token') }}</label>
+                                    <label for="sms-twilio-token" class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.sms.auth_token') }}</label>
                                     <div class="relative">
                                         <input
+                                            id="sms-twilio-token"
                                             v-model="smsForm.twilio_token"
                                             :type="showPassword.twilio_token ? 'text' : 'password'"
                                             class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 pe-10"
@@ -482,8 +496,9 @@ watch(() => props.show, (newVal) => {
                                     </div>
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.sms.from_number') }}</label>
+                                    <label for="sms-twilio-from" class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.sms.from_number') }}</label>
                                     <input
+                                        id="sms-twilio-from"
                                         v-model="smsForm.twilio_from"
                                         type="text"
                                         placeholder="+1234567890"
@@ -498,17 +513,19 @@ watch(() => props.show, (newVal) => {
                             <p class="text-gray-600 mb-4">{{ t('notifications_setup_wizard.whatsapp.intro') }}</p>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.whatsapp.account_sid') }}</label>
+                                <label for="wa-account-sid" class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.whatsapp.account_sid') }}</label>
                                 <input
+                                    id="wa-account-sid"
                                     v-model="whatsappForm.whatsapp_twilio_sid"
                                     type="text"
                                     class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                                 />
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.whatsapp.auth_token') }}</label>
+                                <label for="wa-auth-token" class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.whatsapp.auth_token') }}</label>
                                 <div class="relative">
                                     <input
+                                        id="wa-auth-token"
                                         v-model="whatsappForm.whatsapp_twilio_token"
                                         :type="showPassword.wa_token ? 'text' : 'password'"
                                         class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 pe-10"
@@ -524,8 +541,9 @@ watch(() => props.show, (newVal) => {
                                 </div>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.whatsapp.from_number') }}</label>
+                                <label for="wa-from-number" class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.whatsapp.from_number') }}</label>
                                 <input
+                                    id="wa-from-number"
                                     v-model="whatsappForm.whatsapp_from"
                                     type="text"
                                     placeholder="+14155238886"
@@ -553,8 +571,9 @@ watch(() => props.show, (newVal) => {
                             </div>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.push.vapid_subject') }}</label>
+                                <label for="push-vapid-subject" class="block text-sm font-medium text-gray-700 mb-1">{{ t('notifications_setup_wizard.push.vapid_subject') }}</label>
                                 <input
+                                    id="push-vapid-subject"
                                     v-model="pushForm.vapid_subject"
                                     type="email"
                                     placeholder="mailto:admin@example.com"

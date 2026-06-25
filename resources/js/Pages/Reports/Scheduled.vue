@@ -315,14 +315,14 @@ onUnmounted(() => {
 
                             <template v-if="editingId === schedule.id">
                                 <td class="px-2 py-2">
-                                    <select v-model="editForm.cadence" class="w-full rounded-md border-gray-300 text-xs" data-testid="edit-cadence">
+                                    <select v-model="editForm.cadence" class="w-full rounded-md border-gray-300 text-xs" data-testid="edit-cadence" :aria-label="t('reports.scheduled.col_cadence')">
                                         <option v-for="cadence in props.cadences" :key="cadence" :value="cadence">
                                             {{ cadenceLabel(cadence) }}
                                         </option>
                                     </select>
                                 </td>
                                 <td class="px-2 py-2">
-                                    <select v-model="editForm.recipient_email" class="w-full rounded-md border-gray-300 text-xs" data-testid="edit-recipient">
+                                    <select v-model="editForm.recipient_email" class="w-full rounded-md border-gray-300 text-xs" data-testid="edit-recipient" :aria-label="t('reports.scheduled.col_recipient')">
                                         <option v-for="email in props.allowedRecipients" :key="email" :value="email">
                                             {{ email }}
                                         </option>
@@ -384,24 +384,24 @@ onUnmounted(() => {
                 <h2 class="text-sm font-semibold text-gray-900">{{ t('reports.scheduled.new_heading') }}</h2>
                 <form class="mt-3 space-y-3 text-sm" @submit.prevent="save">
                     <div>
-                        <label class="block text-xs font-medium uppercase tracking-wide text-gray-500">{{ t('reports.scheduled.saved_report') }}</label>
-                        <select v-model="form.saved_report_id" class="mt-1 w-full rounded-md border-gray-300 text-sm">
+                        <label for="sched-saved-report" class="block text-xs font-medium uppercase tracking-wide text-gray-500">{{ t('reports.scheduled.saved_report') }}</label>
+                        <select id="sched-saved-report" v-model="form.saved_report_id" class="mt-1 w-full rounded-md border-gray-300 text-sm">
                             <option v-for="report in props.savedReports" :key="report.id" :value="report.id">
                                 {{ report.name }}
                             </option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-xs font-medium uppercase tracking-wide text-gray-500">{{ t('reports.scheduled.cadence') }}</label>
-                        <select v-model="form.cadence" class="mt-1 w-full rounded-md border-gray-300 text-sm">
+                        <label for="sched-cadence" class="block text-xs font-medium uppercase tracking-wide text-gray-500">{{ t('reports.scheduled.cadence') }}</label>
+                        <select id="sched-cadence" v-model="form.cadence" class="mt-1 w-full rounded-md border-gray-300 text-sm">
                             <option v-for="cadence in props.cadences" :key="cadence" :value="cadence">
                                 {{ cadenceLabel(cadence) }}
                             </option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-xs font-medium uppercase tracking-wide text-gray-500">{{ t('reports.scheduled.recipient') }}</label>
-                        <select v-model="form.recipient_email" class="mt-1 w-full rounded-md border-gray-300 text-sm">
+                        <label for="sched-recipient" class="block text-xs font-medium uppercase tracking-wide text-gray-500">{{ t('reports.scheduled.recipient') }}</label>
+                        <select id="sched-recipient" v-model="form.recipient_email" class="mt-1 w-full rounded-md border-gray-300 text-sm">
                             <option v-for="email in props.allowedRecipients" :key="email" :value="email">
                                 {{ email }}
                             </option>

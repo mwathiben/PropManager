@@ -22,6 +22,8 @@ return [
         'all_categories' => 'All Categories',
         'all_vendors' => 'All Vendors',
         'all_buildings' => 'All Buildings',
+        'date_from' => 'From date',
+        'date_to' => 'To date',
         'to' => 'to',
         'clear' => 'Clear',
     ],

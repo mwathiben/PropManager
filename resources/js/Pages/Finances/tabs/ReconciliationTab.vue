@@ -272,8 +272,9 @@ const processQueue = () => {
             <form @submit.prevent="submitImport" class="space-y-4">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_reconciliation.import.bank_label') }}</label>
+                        <label for="recon-bank-code" class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_reconciliation.import.bank_label') }}</label>
                         <select
+                            id="recon-bank-code"
                             v-model="importForm.bank_code"
                             class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                             required
@@ -286,7 +287,7 @@ const processQueue = () => {
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_reconciliation.import.file_label') }}</label>
+                        <label for="bank-statement-file" class="block text-sm font-medium text-gray-700 mb-1">{{ t('finances_reconciliation.import.file_label') }}</label>
                         <input
                             id="bank-statement-file"
                             type="file"
@@ -318,8 +319,9 @@ const processQueue = () => {
                         </p>
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1">{{ t('finances_reconciliation.import.reference_column') }}</label>
+                                <label for="recon-col-reference" class="block text-xs font-medium text-gray-600 mb-1">{{ t('finances_reconciliation.import.reference_column') }}</label>
                                 <input
+                                    id="recon-col-reference"
                                     v-model="importForm.column_mapping.reference"
                                     type="text"
                                     :placeholder="t('finances_reconciliation.placeholders.reference')"
@@ -327,8 +329,9 @@ const processQueue = () => {
                                 />
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1">{{ t('finances_reconciliation.import.amount_column') }}</label>
+                                <label for="recon-col-amount" class="block text-xs font-medium text-gray-600 mb-1">{{ t('finances_reconciliation.import.amount_column') }}</label>
                                 <input
+                                    id="recon-col-amount"
                                     v-model="importForm.column_mapping.amount"
                                     type="text"
                                     :placeholder="t('finances_reconciliation.placeholders.amount')"
@@ -336,8 +339,9 @@ const processQueue = () => {
                                 />
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1">{{ t('finances_reconciliation.import.date_column') }}</label>
+                                <label for="recon-col-date" class="block text-xs font-medium text-gray-600 mb-1">{{ t('finances_reconciliation.import.date_column') }}</label>
                                 <input
+                                    id="recon-col-date"
                                     v-model="importForm.column_mapping.date"
                                     type="text"
                                     :placeholder="t('finances_reconciliation.placeholders.date')"
@@ -345,8 +349,9 @@ const processQueue = () => {
                                 />
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1">{{ t('finances_reconciliation.import.description_column') }}</label>
+                                <label for="recon-col-description" class="block text-xs font-medium text-gray-600 mb-1">{{ t('finances_reconciliation.import.description_column') }}</label>
                                 <input
+                                    id="recon-col-description"
                                     v-model="importForm.column_mapping.description"
                                     type="text"
                                     :placeholder="t('finances_reconciliation.placeholders.description')"

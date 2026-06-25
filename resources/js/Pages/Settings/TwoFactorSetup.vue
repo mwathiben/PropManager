@@ -84,10 +84,11 @@ const copySecret = () => {
                         <!-- Verification Form -->
                         <form @submit.prevent="confirm">
                             <div class="mb-4">
-                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <label for="tfa-verification-code" class="block text-sm font-medium text-gray-700 mb-2">
                                     {{ t('two_factor_setup.code_label') }}
                                 </label>
                                 <input
+                                    id="tfa-verification-code"
                                     v-model="form.code"
                                     type="text"
                                     inputmode="numeric"

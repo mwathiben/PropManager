@@ -142,19 +142,19 @@ const documents = computed(() => props.lease.documents ?? []);
 
                     <form @submit.prevent="submitEscalation" class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
                         <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">{{ $t('lease.escalation.type') }}</label>
-                            <select v-model="escalationForm.escalation_type" class="w-full border-gray-300 rounded-lg text-sm">
+                            <label for="esc-type" class="block text-xs font-medium text-gray-600 mb-1">{{ $t('lease.escalation.type') }}</label>
+                            <select id="esc-type" v-model="escalationForm.escalation_type" class="w-full border-gray-300 rounded-lg text-sm">
                                 <option value="percentage">{{ $t('lease.escalation.percentage') }}</option>
                                 <option value="fixed_amount">{{ $t('lease.escalation.fixed_amount') }}</option>
                             </select>
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">{{ $t('lease.escalation.amount') }}</label>
-                            <input v-model="escalationForm.amount" type="number" step="0.01" min="0.01" required class="w-full border-gray-300 rounded-lg text-sm" />
+                            <label for="esc-amount" class="block text-xs font-medium text-gray-600 mb-1">{{ $t('lease.escalation.amount') }}</label>
+                            <input id="esc-amount" v-model="escalationForm.amount" type="number" step="0.01" min="0.01" required class="w-full border-gray-300 rounded-lg text-sm" />
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">{{ $t('lease.escalation.effective_date') }}</label>
-                            <input v-model="escalationForm.effective_date" type="date" required class="w-full border-gray-300 rounded-lg text-sm" />
+                            <label for="esc-effective-date" class="block text-xs font-medium text-gray-600 mb-1">{{ $t('lease.escalation.effective_date') }}</label>
+                            <input id="esc-effective-date" v-model="escalationForm.effective_date" type="date" required class="w-full border-gray-300 rounded-lg text-sm" />
                         </div>
                         <button type="submit" :disabled="escalationForm.processing" class="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 text-sm">
                             {{ $t('lease.escalation.add') }}

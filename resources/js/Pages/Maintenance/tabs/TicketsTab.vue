@@ -93,6 +93,7 @@ const { isLandlord, isTenant } = useAuth();
                             @keyup.enter="applyFilters"
                             type="text"
                             :placeholder="t('maintenance_tickets.search_placeholder')"
+                            :aria-label="t('maintenance_tickets.search_placeholder')"
                             class="w-full ps-10 border-gray-300 rounded-lg shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
                         />
                         <MagnifyingGlassIcon class="w-5 h-5 text-gray-400 absolute start-3 top-2.5" />
@@ -102,6 +103,7 @@ const { isLandlord, isTenant } = useAuth();
                 <select
                     v-model="status"
                     @change="applyFilters"
+                    :aria-label="t('maintenance_tickets.filters.all_status')"
                     class="border-gray-300 rounded-lg shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
                 >
                     <option value="">{{ t('maintenance_tickets.filters.all_status') }}</option>
@@ -114,6 +116,7 @@ const { isLandlord, isTenant } = useAuth();
                 <select
                     v-model="priority"
                     @change="applyFilters"
+                    :aria-label="t('maintenance_tickets.filters.all_priority')"
                     class="border-gray-300 rounded-lg shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
                 >
                     <option value="">{{ t('maintenance_tickets.filters.all_priority') }}</option>

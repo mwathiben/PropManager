@@ -435,16 +435,18 @@ const { formatMoney: formatCurrency, formatPercent: formatPercentage } = useForm
                 <h3 class="text-lg font-semibold text-gray-900 mb-4">{{ t('reports.index.custom_date_range') }}</h3>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('reports.index.from') }}</label>
+                        <label for="date-range-from" class="block text-sm font-medium text-gray-700 mb-1">{{ t('reports.index.from') }}</label>
                         <input
+                            id="date-range-from"
                             type="date"
                             v-model="dateRange.from"
                             class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                         />
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('reports.index.to') }}</label>
+                        <label for="date-range-to" class="block text-sm font-medium text-gray-700 mb-1">{{ t('reports.index.to') }}</label>
                         <input
+                            id="date-range-to"
                             type="date"
                             v-model="dateRange.to"
                             class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"

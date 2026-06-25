@@ -139,18 +139,19 @@ const getStatusColor = (status) => {
             <h3 class="text-lg font-semibold mb-4">{{ t('bulk_rent_adjustment.settings_title') }}</h3>
             <form @submit.prevent="submit" class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_rent_adjustment.type_label') }}</label>
-                    <select v-model="form.adjustment_type" class="w-full border-gray-300 rounded-md">
+                    <label for="adj-type" class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_rent_adjustment.type_label') }}</label>
+                    <select id="adj-type" v-model="form.adjustment_type" class="w-full border-gray-300 rounded-md">
                         <option value="percentage">{{ t('bulk_rent_adjustment.type_percentage') }}</option>
                         <option value="fixed">{{ t('bulk_rent_adjustment.type_fixed', { currency: currencyCode }) }}</option>
                     </select>
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                    <label for="adj-value" class="block text-sm font-medium text-gray-700 mb-1">
                         {{ valueLabel }}
                     </label>
                     <input
+                        id="adj-value"
                         v-model.number="form.adjustment_value"
                         type="number"
                         step="0.01"
@@ -163,8 +164,9 @@ const getStatusColor = (status) => {
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_rent_adjustment.effective_date_label') }}</label>
+                    <label for="adj-effective-date" class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_rent_adjustment.effective_date_label') }}</label>
                     <input
+                        id="adj-effective-date"
                         v-model="form.effective_date"
                         type="date"
                         class="w-full border-gray-300 rounded-md"
@@ -172,8 +174,9 @@ const getStatusColor = (status) => {
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_rent_adjustment.reason_label') }}</label>
+                    <label for="adj-reason" class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_rent_adjustment.reason_label') }}</label>
                     <textarea
+                        id="adj-reason"
                         v-model="form.reason"
                         rows="2"
                         class="w-full border-gray-300 rounded-md"

@@ -107,6 +107,7 @@ const awaitingReviewCount = computed(() => {
                                 v-model="search"
                                 type="text"
                                 :placeholder="t('payment_verifications_index.filters.search_placeholder')"
+                                :aria-label="t('payment_verifications_index.filters.search_placeholder')"
                                 class="w-full ps-10 pe-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                 @keyup.enter="applyFilters"
                             />
@@ -116,6 +117,7 @@ const awaitingReviewCount = computed(() => {
                         <select
                             v-model="status"
                             @change="applyFilters"
+                            :aria-label="t('payment_verifications_index.table.status')"
                             class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                         >
                             <option v-for="opt in statusOptions" :key="opt.value" :value="opt.value">

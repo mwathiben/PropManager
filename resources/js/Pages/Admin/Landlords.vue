@@ -185,32 +185,36 @@ const getOccupancyRate = (occupied, total) => {
                     <h3 class="text-lg font-semibold text-gray-900 mb-4">{{ t('admin_landlords.modal.title') }}</h3>
                     <form @submit.prevent="createLandlord" class="space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('admin_landlords.modal.name') }}</label>
+                            <label for="create-landlord-name" class="block text-sm font-medium text-gray-700 mb-1">{{ t('admin_landlords.modal.name') }}</label>
                             <input type="text"
+                                   id="create-landlord-name"
                                    v-model="createForm.name"
                                    class="w-full border rounded-lg px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500"
                                    required />
                             <p v-if="createForm.errors.name" class="mt-1 text-sm text-red-600">{{ createForm.errors.name }}</p>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('admin_landlords.modal.email') }}</label>
+                            <label for="create-landlord-email" class="block text-sm font-medium text-gray-700 mb-1">{{ t('admin_landlords.modal.email') }}</label>
                             <input type="email"
+                                   id="create-landlord-email"
                                    v-model="createForm.email"
                                    class="w-full border rounded-lg px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500"
                                    required />
                             <p v-if="createForm.errors.email" class="mt-1 text-sm text-red-600">{{ createForm.errors.email }}</p>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('admin_landlords.modal.password') }}</label>
+                            <label for="create-landlord-password" class="block text-sm font-medium text-gray-700 mb-1">{{ t('admin_landlords.modal.password') }}</label>
                             <input type="password"
+                                   id="create-landlord-password"
                                    v-model="createForm.password"
                                    class="w-full border rounded-lg px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500"
                                    required />
                             <p v-if="createForm.errors.password" class="mt-1 text-sm text-red-600">{{ createForm.errors.password }}</p>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('admin_landlords.modal.mobile') }}</label>
+                            <label for="create-landlord-mobile" class="block text-sm font-medium text-gray-700 mb-1">{{ t('admin_landlords.modal.mobile') }}</label>
                             <input type="text"
+                                   id="create-landlord-mobile"
                                    v-model="createForm.mobile_number"
                                    class="w-full border rounded-lg px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500" />
                         </div>

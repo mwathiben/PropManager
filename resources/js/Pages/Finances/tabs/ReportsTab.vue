@@ -437,8 +437,9 @@ watch(() => localFilters.value.period, (newVal) => {
         <div v-if="showFilters" class="bg-gray-50 rounded-xl p-4 border border-gray-200">
             <div class="flex flex-wrap items-end gap-4">
                 <div v-if="buildings?.length > 1" class="flex-1 min-w-[200px]">
-                    <label class="block text-xs font-medium text-gray-600 mb-1">{{ t('finances_reports.filters.building') }}</label>
+                    <label for="report-filter-building" class="block text-xs font-medium text-gray-600 mb-1">{{ t('finances_reports.filters.building') }}</label>
                     <select
+                        id="report-filter-building"
                         v-model="localFilters.buildingId"
                         class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500"
                     >
@@ -450,8 +451,9 @@ watch(() => localFilters.value.period, (newVal) => {
                 </div>
 
                 <div v-if="isCustomPeriod" class="flex-1 min-w-[150px]">
-                    <label class="block text-xs font-medium text-gray-600 mb-1">{{ t('finances_reports.filters.from') }}</label>
+                    <label for="report-filter-date-from" class="block text-xs font-medium text-gray-600 mb-1">{{ t('finances_reports.filters.from') }}</label>
                     <input
+                        id="report-filter-date-from"
                         type="date"
                         v-model="localFilters.dateFrom"
                         class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500"
@@ -459,8 +461,9 @@ watch(() => localFilters.value.period, (newVal) => {
                 </div>
 
                 <div v-if="isCustomPeriod" class="flex-1 min-w-[150px]">
-                    <label class="block text-xs font-medium text-gray-600 mb-1">{{ t('finances_reports.filters.to') }}</label>
+                    <label for="report-filter-date-to" class="block text-xs font-medium text-gray-600 mb-1">{{ t('finances_reports.filters.to') }}</label>
                     <input
+                        id="report-filter-date-to"
                         type="date"
                         v-model="localFilters.dateTo"
                         class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500"

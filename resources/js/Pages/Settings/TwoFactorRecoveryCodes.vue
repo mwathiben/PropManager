@@ -179,8 +179,9 @@ const printCodes = () => {
 
                     <form @submit.prevent="regenerateCodes">
                         <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('two_factor_recovery.regenerate.confirm_password') }}</label>
+                            <label for="2fa-confirm-password" class="block text-sm font-medium text-gray-700 mb-1">{{ t('two_factor_recovery.regenerate.confirm_password') }}</label>
                             <input
+                                id="2fa-confirm-password"
                                 v-model="passwordForm.password"
                                 type="password"
                                 class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"

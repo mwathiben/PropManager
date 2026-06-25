@@ -177,7 +177,7 @@ const getLogoUrl = () => {
                                         </div>
 
                                         <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('invoice_settings_edit.business.logo_label') }}</label>
+                                            <label for="biz-logo-upload" class="block text-sm font-medium text-gray-700 mb-2">{{ t('invoice_settings_edit.business.logo_label') }}</label>
                                             <div class="flex items-center gap-4">
                                                 <div class="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center overflow-hidden bg-gray-50">
                                                     <img v-if="getLogoUrl()" :src="getLogoUrl()" :alt="t('invoice_settings_edit.business.logo_alt')" loading="lazy" decoding="async" class="w-full h-full object-contain" />
@@ -186,6 +186,7 @@ const getLogoUrl = () => {
                                                 <div class="flex flex-col gap-2">
                                                     <label class="cursor-pointer inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
                                                         <input
+                                                            id="biz-logo-upload"
                                                             ref="logoInput"
                                                             type="file"
                                                             accept="image/*"
@@ -210,8 +211,9 @@ const getLogoUrl = () => {
 
                                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.business.business_name') }}</label>
+                                                <label for="biz-name" class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.business.business_name') }}</label>
                                                 <input
+                                                    id="biz-name"
                                                     v-model="form.business_name"
                                                     type="text"
                                                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -219,8 +221,9 @@ const getLogoUrl = () => {
                                                 />
                                             </div>
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.business.tax_number') }}</label>
+                                                <label for="biz-tax-number" class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.business.tax_number') }}</label>
                                                 <input
+                                                    id="biz-tax-number"
                                                     v-model="form.tax_number"
                                                     type="text"
                                                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -228,8 +231,9 @@ const getLogoUrl = () => {
                                                 />
                                             </div>
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.business.phone') }}</label>
+                                                <label for="biz-phone" class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.business.phone') }}</label>
                                                 <input
+                                                    id="biz-phone"
                                                     v-model="form.business_phone"
                                                     type="text"
                                                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -237,8 +241,9 @@ const getLogoUrl = () => {
                                                 />
                                             </div>
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.business.email') }}</label>
+                                                <label for="biz-email" class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.business.email') }}</label>
                                                 <input
+                                                    id="biz-email"
                                                     v-model="form.business_email"
                                                     type="email"
                                                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -247,8 +252,9 @@ const getLogoUrl = () => {
                                             </div>
                                         </div>
                                         <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.business.address') }}</label>
+                                            <label for="biz-address" class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.business.address') }}</label>
                                             <textarea
+                                                id="biz-address"
                                                 v-model="form.business_address"
                                                 rows="3"
                                                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -265,8 +271,9 @@ const getLogoUrl = () => {
 
                                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.bank.bank_name') }}</label>
+                                                <label for="bank-name" class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.bank.bank_name') }}</label>
                                                 <input
+                                                    id="bank-name"
                                                     v-model="form.bank_name"
                                                     type="text"
                                                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -274,8 +281,9 @@ const getLogoUrl = () => {
                                                 />
                                             </div>
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.bank.account_name') }}</label>
+                                                <label for="bank-account-name" class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.bank.account_name') }}</label>
                                                 <input
+                                                    id="bank-account-name"
                                                     v-model="form.bank_account_name"
                                                     type="text"
                                                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -283,8 +291,9 @@ const getLogoUrl = () => {
                                                 />
                                             </div>
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.bank.account_number') }}</label>
+                                                <label for="bank-account-number" class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.bank.account_number') }}</label>
                                                 <input
+                                                    id="bank-account-number"
                                                     v-model="form.bank_account_number"
                                                     type="text"
                                                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -292,8 +301,9 @@ const getLogoUrl = () => {
                                                 />
                                             </div>
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.bank.branch') }}</label>
+                                                <label for="bank-branch" class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.bank.branch') }}</label>
                                                 <input
+                                                    id="bank-branch"
                                                     v-model="form.bank_branch"
                                                     type="text"
                                                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -301,8 +311,9 @@ const getLogoUrl = () => {
                                                 />
                                             </div>
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.bank.swift_code') }}</label>
+                                                <label for="bank-swift-code" class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.bank.swift_code') }}</label>
                                                 <input
+                                                    id="bank-swift-code"
                                                     v-model="form.bank_swift_code"
                                                     type="text"
                                                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -322,8 +333,9 @@ const getLogoUrl = () => {
                                             <div class="p-4 bg-gray-50 rounded-lg border border-gray-200 space-y-4">
                                                 <h3 class="text-sm font-semibold text-gray-900">{{ t('invoice_settings_edit.numbering.invoices') }}</h3>
                                                 <div>
-                                                    <label class="block text-sm text-gray-600 mb-1">{{ t('invoice_settings_edit.numbering.prefix') }}</label>
+                                                    <label for="inv-prefix" class="block text-sm text-gray-600 mb-1">{{ t('invoice_settings_edit.numbering.prefix') }}</label>
                                                     <input
+                                                        id="inv-prefix"
                                                         v-model="form.invoice_prefix"
                                                         type="text"
                                                         class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -331,8 +343,9 @@ const getLogoUrl = () => {
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label class="block text-sm text-gray-600 mb-1">{{ t('invoice_settings_edit.numbering.next_number') }}</label>
+                                                    <label for="inv-next-number" class="block text-sm text-gray-600 mb-1">{{ t('invoice_settings_edit.numbering.next_number') }}</label>
                                                     <input
+                                                        id="inv-next-number"
                                                         v-model="form.invoice_next_number"
                                                         type="number"
                                                         min="1"
@@ -345,8 +358,9 @@ const getLogoUrl = () => {
                                             <div class="p-4 bg-gray-50 rounded-lg border border-gray-200 space-y-4">
                                                 <h3 class="text-sm font-semibold text-gray-900">{{ t('invoice_settings_edit.numbering.receipts') }}</h3>
                                                 <div>
-                                                    <label class="block text-sm text-gray-600 mb-1">{{ t('invoice_settings_edit.numbering.prefix') }}</label>
+                                                    <label for="rct-prefix" class="block text-sm text-gray-600 mb-1">{{ t('invoice_settings_edit.numbering.prefix') }}</label>
                                                     <input
+                                                        id="rct-prefix"
                                                         v-model="form.receipt_prefix"
                                                         type="text"
                                                         class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -354,8 +368,9 @@ const getLogoUrl = () => {
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label class="block text-sm text-gray-600 mb-1">{{ t('invoice_settings_edit.numbering.next_number') }}</label>
+                                                    <label for="rct-next-number" class="block text-sm text-gray-600 mb-1">{{ t('invoice_settings_edit.numbering.next_number') }}</label>
                                                     <input
+                                                        id="rct-next-number"
                                                         v-model="form.receipt_next_number"
                                                         type="number"
                                                         min="1"
@@ -368,8 +383,9 @@ const getLogoUrl = () => {
                                             <div class="p-4 bg-gray-50 rounded-lg border border-gray-200 space-y-4">
                                                 <h3 class="text-sm font-semibold text-gray-900">{{ t('invoice_settings_edit.numbering.credit_notes') }}</h3>
                                                 <div>
-                                                    <label class="block text-sm text-gray-600 mb-1">{{ t('invoice_settings_edit.numbering.prefix') }}</label>
+                                                    <label for="cn-prefix" class="block text-sm text-gray-600 mb-1">{{ t('invoice_settings_edit.numbering.prefix') }}</label>
                                                     <input
+                                                        id="cn-prefix"
                                                         v-model="form.credit_note_prefix"
                                                         type="text"
                                                         class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -377,8 +393,9 @@ const getLogoUrl = () => {
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label class="block text-sm text-gray-600 mb-1">{{ t('invoice_settings_edit.numbering.next_number') }}</label>
+                                                    <label for="cn-next-number" class="block text-sm text-gray-600 mb-1">{{ t('invoice_settings_edit.numbering.next_number') }}</label>
                                                     <input
+                                                        id="cn-next-number"
                                                         v-model="form.credit_note_next_number"
                                                         type="number"
                                                         min="1"
@@ -398,9 +415,10 @@ const getLogoUrl = () => {
 
                                         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.terms.due_days') }}</label>
+                                                <label for="terms-due-days" class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.terms.due_days') }}</label>
                                                 <div class="relative">
                                                     <input
+                                                        id="terms-due-days"
                                                         v-model="form.default_due_days"
                                                         type="number"
                                                         min="1"
@@ -412,9 +430,10 @@ const getLogoUrl = () => {
                                                 <p class="mt-1 text-xs text-gray-500">{{ t('invoice_settings_edit.terms.due_days_hint') }}</p>
                                             </div>
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.terms.late_penalty') }}</label>
+                                                <label for="terms-late-penalty" class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.terms.late_penalty') }}</label>
                                                 <div class="relative">
                                                     <input
+                                                        id="terms-late-penalty"
                                                         v-model="form.late_penalty_percentage"
                                                         type="number"
                                                         min="0"
@@ -427,9 +446,10 @@ const getLogoUrl = () => {
                                                 <p class="mt-1 text-xs text-gray-500">{{ t('invoice_settings_edit.terms.late_penalty_hint') }}</p>
                                             </div>
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.terms.grace_period') }}</label>
+                                                <label for="terms-grace-period" class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.terms.grace_period') }}</label>
                                                 <div class="relative">
                                                     <input
+                                                        id="terms-grace-period"
                                                         v-model="form.grace_period_days"
                                                         type="number"
                                                         min="0"
@@ -450,8 +470,9 @@ const getLogoUrl = () => {
                                         </div>
 
                                         <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.conditions.terms_label') }}</label>
+                                            <label for="cond-terms" class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.conditions.terms_label') }}</label>
                                             <textarea
+                                                id="cond-terms"
                                                 v-model="form.terms_and_conditions"
                                                 rows="6"
                                                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -459,8 +480,9 @@ const getLogoUrl = () => {
                                             ></textarea>
                                         </div>
                                         <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.conditions.footer_label') }}</label>
+                                            <label for="cond-footer" class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.conditions.footer_label') }}</label>
                                             <textarea
+                                                id="cond-footer"
                                                 v-model="form.footer_note"
                                                 rows="3"
                                                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -513,10 +535,11 @@ const getLogoUrl = () => {
 
                                         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-gray-200">
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.first_invoice.admin_fee') }}</label>
+                                                <label for="fi-admin-fee" class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.first_invoice.admin_fee') }}</label>
                                                 <div class="relative">
                                                     <span class="absolute start-4 top-1/2 -translate-y-1/2 text-sm text-gray-500">{{ currencySymbol }}</span>
                                                     <input
+                                                        id="fi-admin-fee"
                                                         v-model="form.admin_fee_amount"
                                                         type="number"
                                                         min="0"
@@ -528,10 +551,11 @@ const getLogoUrl = () => {
                                                 <p class="mt-1 text-xs text-gray-500">{{ t('invoice_settings_edit.first_invoice.admin_fee_hint') }}</p>
                                             </div>
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.first_invoice.key_deposit') }}</label>
+                                                <label for="fi-key-deposit" class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.first_invoice.key_deposit') }}</label>
                                                 <div class="relative">
                                                     <span class="absolute start-4 top-1/2 -translate-y-1/2 text-sm text-gray-500">{{ currencySymbol }}</span>
                                                     <input
+                                                        id="fi-key-deposit"
                                                         v-model="form.key_deposit_amount"
                                                         type="number"
                                                         min="0"
@@ -543,9 +567,10 @@ const getLogoUrl = () => {
                                                 <p class="mt-1 text-xs text-gray-500">{{ t('invoice_settings_edit.first_invoice.key_deposit_hint') }}</p>
                                             </div>
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.first_invoice.due_days_after_movein') }}</label>
+                                                <label for="fi-due-days" class="block text-sm font-medium text-gray-700 mb-1">{{ t('invoice_settings_edit.first_invoice.due_days_after_movein') }}</label>
                                                 <div class="relative">
                                                     <input
+                                                        id="fi-due-days"
                                                         v-model="form.first_invoice_due_days"
                                                         type="number"
                                                         min="0"

@@ -140,8 +140,8 @@ const tabs = computed(() => [
                             </div>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_operations.filters.property') }}</label>
-                                <select v-model="selectedPropertyId" class="w-full border-gray-300 rounded-md" :disabled="!!selectedBuildingId">
+                                <label for="filter-property" class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_operations.filters.property') }}</label>
+                                <select id="filter-property" v-model="selectedPropertyId" class="w-full border-gray-300 rounded-md" :disabled="!!selectedBuildingId">
                                     <option value="">{{ t('bulk_operations.filters.all_properties') }}</option>
                                     <option v-for="property in properties" :key="property.id" :value="property.id">
                                         {{ property.name }}
@@ -150,8 +150,8 @@ const tabs = computed(() => [
                             </div>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_operations.filters.status') }}</label>
-                                <select v-model="selectedStatus" class="w-full border-gray-300 rounded-md">
+                                <label for="filter-status" class="block text-sm font-medium text-gray-700 mb-1">{{ t('bulk_operations.filters.status') }}</label>
+                                <select id="filter-status" v-model="selectedStatus" class="w-full border-gray-300 rounded-md">
                                     <option value="">{{ t('bulk_operations.filters.all_statuses') }}</option>
                                     <option value="vacant">{{ t('bulk_operations.status.vacant') }}</option>
                                     <option value="occupied">{{ t('bulk_operations.status.occupied') }}</option>
