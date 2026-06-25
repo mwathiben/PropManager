@@ -83,6 +83,17 @@ Route::post('/owner-invite/{token}/accept', [\App\Http\Controllers\OwnerInvitati
     ->middleware('throttle:invitation')
     ->name('owner-invite.accept');
 
+// Slice-2 PR-2.3c: Owner management-agreement e-signature (public, token + OTP gated)
+Route::get('/agreement-signing/{token}', [\App\Http\Controllers\AgreementSigningController::class, 'show'])
+    ->middleware('throttle:invitation')
+    ->name('agreements.sign.show');
+Route::post('/agreement-signing/{token}/otp', [\App\Http\Controllers\AgreementSigningController::class, 'requestOtp'])
+    ->middleware('throttle:6,1')
+    ->name('agreements.sign.otp');
+Route::post('/agreement-signing/{token}', [\App\Http\Controllers\AgreementSigningController::class, 'sign'])
+    ->middleware('throttle:6,1')
+    ->name('agreements.sign');
+
 // Tenant Invitations
 Route::get('/tenant-invite/{token}', [TenantInvitationController::class, 'show'])->name('tenant-invitations.show');
 Route::post('/tenant-invite/{token}/accept', [TenantInvitationController::class, 'accept'])

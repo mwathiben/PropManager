@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Enums\ClauseType;
+use App\Exceptions\DataIntegrityException;
 use App\Http\Requests\ComposeManagementAgreementRequest;
 use App\Models\Clause;
 use App\Models\ManagementAgreement;
 use App\Models\PropertyOwner;
 use App\Services\Agreements\AgreementComposer;
+use App\Services\Agreements\AgreementSender;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
@@ -59,6 +61,24 @@ class AgreementController extends Controller
 
         return redirect()->route('agreements.show', $agreement)
             ->with('success', __('agreements.draft_created'));
+    }
+
+    public function send(ManagementAgreement $agreement, AgreementSender $sender): RedirectResponse
+    {
+        $this->authorize('send', $agreement);
+
+        try {
+            $sender->send($agreement);
+        } catch (DataIntegrityException $e) {
+            $key = $e->getErrorCode() === 'agreement.owner_contact_missing'
+                ? 'agreements.sign.errors.owner_contact_missing'
+                : 'agreements.sign.errors.not_sendable';
+
+            return back()->withErrors(['agreement' => __($key)]);
+        }
+
+        return redirect()->route('agreements.show', $agreement)
+            ->with('success', __('agreements.sign.sent'));
     }
 
     public function show(ManagementAgreement $agreement): Response

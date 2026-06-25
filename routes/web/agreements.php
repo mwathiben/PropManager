@@ -11,5 +11,6 @@ Route::middleware('role:manager')->group(function () {
     Route::get('/agreements', [AgreementController::class, 'index'])->name('agreements.index');
     Route::get('/agreements/create', [AgreementController::class, 'create'])->name('agreements.create');
     Route::post('/agreements', [AgreementController::class, 'store'])->name('agreements.store');
+    Route::post('/agreements/{agreement}/send', [AgreementController::class, 'send'])->name('agreements.send');
     Route::get('/agreements/{agreement}', [AgreementController::class, 'show'])->name('agreements.show');
 });
