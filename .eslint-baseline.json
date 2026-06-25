@@ -3,8 +3,8 @@
     "rules": {
         "propmanager/no-hardcoded-english-strings": 3751,
         "propmanager/no-ltr-class": 0,
-        "vuejs-accessibility/label-has-for": 743,
-        "vuejs-accessibility/form-control-has-label": 593,
+        "vuejs-accessibility/label-has-for": 474,
+        "vuejs-accessibility/form-control-has-label": 584,
         "vuejs-accessibility/no-static-element-interactions": 91,
         "vuejs-accessibility/click-events-have-key-events": 85,
         "vuejs-accessibility/anchor-has-content": 12,
@@ -25,6 +25,10 @@
             "rule_severity": "warn",
             "gate_severity": "error_via_baseline",
             "rationale": "The 9 vuejs-accessibility rules were severity=warn but UNGATED, so a11y warnings accumulated unchecked (1546 at lock time, led by label-has-for 743 + form-control-has-label 593). Locking them shrink-only here: CI's lint:baseline now fails on any NEW a11y warning (new code must associate labels / label controls / key-handle interactive elements), and the existing debt can only ratchet down as files are touched. Counts captured fresh on main, no eslintcache. This is the enforced answer to 'don't leave a11y warnings just because they're pre-existing' — new ones are blocked, old ones must shrink."
+        },
+        "a11y-paydown-1": {
+            "set_at": "2026-06-25",
+            "rationale": "label-has-for 743 -> 474. Two parts: (1) corrected the rule to WCAG-standard `required: { some: [nesting, id] }` in eslint.config.js — the plugin default `every` over-flagged 260 already-accessible labels (associated by for/id OR nesting) as false positives; `some` flags only genuinely unassociated labels. (2) Real paydown: UploadDocumentModal associated all 9 label/control pairs via for/id (no DOM restructure), clearing 9 label-has-for + 9 form-control-has-label (593 -> 584). The remaining 474 + 584 stay gated and ratchet down in subsequent batches."
         }
     }
 }

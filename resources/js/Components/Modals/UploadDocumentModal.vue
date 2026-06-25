@@ -77,10 +77,11 @@ const close = () => {
             <div class="px-6 py-4 space-y-4">
                 <!-- File Upload -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                    <label for="doc-file" class="block text-sm font-medium text-gray-700 mb-1">
                         {{ t('upload_document_modal.file_label') }} <span class="text-red-500">*</span>
                     </label>
                     <input
+                        id="doc-file"
                         ref="fileInputRef"
                         type="file"
                         @change="handleFileSelect"
@@ -99,10 +100,11 @@ const close = () => {
 
                 <!-- Title -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                    <label for="doc-title" class="block text-sm font-medium text-gray-700 mb-1">
                         {{ t('upload_document_modal.title_label') }} <span class="text-red-500">*</span>
                     </label>
                     <input
+                        id="doc-title"
                         v-model="form.title"
                         type="text"
                         required
@@ -116,10 +118,11 @@ const close = () => {
 
                 <!-- Document Type -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                    <label for="doc-type" class="block text-sm font-medium text-gray-700 mb-1">
                         {{ t('upload_document_modal.document_type_label') }} <span class="text-red-500">*</span>
                     </label>
                     <select
+                        id="doc-type"
                         v-model="form.document_type"
                         required
                         class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
@@ -142,8 +145,9 @@ const close = () => {
                 <!-- Phase-82 DOC-META-2: lifecycle (expiry / issue date / renewal). -->
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('document.fields.issue_date') }}</label>
+                        <label for="doc-issue-date" class="block text-sm font-medium text-gray-700 mb-1">{{ $t('document.fields.issue_date') }}</label>
                         <input
+                            id="doc-issue-date"
                             v-model="form.issue_date"
                             type="date"
                             class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
@@ -151,8 +155,9 @@ const close = () => {
                         <p v-if="form.errors.issue_date" class="mt-1 text-sm text-red-600">{{ form.errors.issue_date }}</p>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('document.fields.expires_at') }}</label>
+                        <label for="doc-expires-at" class="block text-sm font-medium text-gray-700 mb-1">{{ $t('document.fields.expires_at') }}</label>
                         <input
+                            id="doc-expires-at"
                             v-model="form.expires_at"
                             type="date"
                             class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
@@ -167,8 +172,9 @@ const close = () => {
                 </div>
 
                 <div v-if="form.is_renewable">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('document.fields.reminder_days') }}</label>
+                    <label for="doc-reminder-days" class="block text-sm font-medium text-gray-700 mb-1">{{ $t('document.fields.reminder_days') }}</label>
                     <input
+                        id="doc-reminder-days"
                         v-model="form.reminder_days"
                         type="number"
                         min="1"
@@ -182,10 +188,11 @@ const close = () => {
                 <!-- Attach To -->
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                        <label for="doc-attach-to" class="block text-sm font-medium text-gray-700 mb-1">
                             {{ t('upload_document_modal.attach_to_label') }} <span class="text-red-500">*</span>
                         </label>
                         <select
+                            id="doc-attach-to"
                             v-model="form.documentable_type"
                             required
                             class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
@@ -195,10 +202,11 @@ const close = () => {
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                        <label for="doc-documentable-id" class="block text-sm font-medium text-gray-700 mb-1">
                             {{ t('upload_document_modal.documentable_id_label', { label: documentableLabel }) }} <span class="text-red-500">*</span>
                         </label>
                         <input
+                            id="doc-documentable-id"
                             v-model="form.documentable_id"
                             type="number"
                             required
@@ -213,10 +221,11 @@ const close = () => {
 
                 <!-- Description -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                    <label for="doc-description" class="block text-sm font-medium text-gray-700 mb-1">
                         {{ t('upload_document_modal.description_label') }}
                     </label>
                     <textarea
+                        id="doc-description"
                         v-model="form.description"
                         rows="3"
                         :placeholder="t('upload_document_modal.description_placeholder')"
