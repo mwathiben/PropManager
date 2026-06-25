@@ -4,10 +4,18 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\ManagementFeeBase;
+use App\Enums\ManagementFeeFlatCadence;
+use App\Enums\ManagementFeeType;
 use App\Models\Expense;
+use App\Models\Invoice;
+use App\Models\Lease;
 use App\Models\Payment;
 use App\Models\Property;
 use App\Models\PropertyOwner;
+use App\Services\ManagementFee\FeePeriodContext;
+use App\Services\ManagementFee\FeePeriodScope;
+use App\Services\ManagementFee\ManagementFeeCalculator;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 
@@ -20,6 +28,8 @@ use Illuminate\Support\Collection;
  */
 class OwnerStatementService
 {
+    public function __construct(private readonly ManagementFeeCalculator $feeCalculator) {}
+
     /**
      * @return array{property: array{id:int, name:string}, period: array{start:string, end:string}, collected: float, expenses: array<int, array{category:string, amount:float}>, total_expenses: float, net: float, generated_at: string}|null
      */
@@ -77,9 +87,11 @@ class OwnerStatementService
             ];
         })->all();
 
-        // Phase-103: the PM's management fee (the owner-facing deduction only — forProperty,
-        // which feeds the landlord's own reports, stays fee-free). Default type 'none' => 0.
-        $managementFee = $owner->managementFeeOn($agg['collected']);
+        // Phase-103 / Slice-2 PR-2.3b: the PM's management fee (owner-facing deduction only —
+        // forProperty, which feeds the landlord's own reports, stays fee-free). Computed from the
+        // FULL fee model via ManagementFeeCalculator so a billed/scheduled base or a per-unit flat
+        // is honored exactly as the owner signed — not the collected-only shortcut. Default 'none' => 0.
+        $managementFee = $this->managementFeeFor($owner, new FeePeriodScope($landlordId, $propertyIds, $start, $end), $agg['collected']);
 
         return [
             'owner' => ['id' => $owner->id, 'name' => $owner->name, 'email' => $owner->email],
@@ -140,5 +152,80 @@ class OwnerStatementService
             'expenses' => $expenses,
             'total_expenses' => round((float) $expenseRows->sum('amount'), 2),
         ];
+    }
+
+    /**
+     * The owner's management fee for the period, via the full fee model. Each
+     * period figure self-gates to 0 unless the configured fee shape reads it
+     * (collected is always to hand), so the common collected/per-period case
+     * adds no queries.
+     */
+    private function managementFeeFor(PropertyOwner $owner, FeePeriodScope $scope, float $collected): float
+    {
+        $context = new FeePeriodContext(
+            collected: $collected,
+            billed: $this->billedFor($owner, $scope),
+            scheduled: $this->scheduledRentFor($owner, $scope),
+            occupiedUnits: $this->occupiedUnitsFor($owner, $scope),
+        );
+
+        return $this->feeCalculator->calculate($owner, $context);
+    }
+
+    /**
+     * Total invoiced (billed) for the period — invoices issued during the window,
+     * paralleling collected's cash-in-period basis. Zero unless the fee is a
+     * percentage on the billed base.
+     */
+    private function billedFor(PropertyOwner $owner, FeePeriodScope $scope): float
+    {
+        if ($owner->management_fee_type !== ManagementFeeType::Percentage
+            || $owner->management_fee_base !== ManagementFeeBase::Billed
+            || $scope->propertyIds === []) {
+            return 0.0;
+        }
+
+        return round((float) Invoice::query()
+            ->where('landlord_id', $scope->landlordId)
+            ->whereBetween('created_at', [$scope->start, $scope->end])
+            ->whereHas('lease.unit.building', fn ($q) => $q->whereIn('property_id', $scope->propertyIds))
+            ->sum('total_due'), 2);
+    }
+
+    /**
+     * Contracted monthly rent across the owner's currently-active leases — the
+     * "scheduled" basis (what should be billed, independent of issuance/collection).
+     * Zero unless the fee is a percentage on the scheduled base.
+     */
+    private function scheduledRentFor(PropertyOwner $owner, FeePeriodScope $scope): float
+    {
+        if ($owner->management_fee_type !== ManagementFeeType::Percentage
+            || $owner->management_fee_base !== ManagementFeeBase::Scheduled
+            || $scope->propertyIds === []) {
+            return 0.0;
+        }
+
+        return round((float) $this->activeLeases($scope)->sum('rent_amount'), 2);
+    }
+
+    /** Occupied-unit count for a per-unit flat fee; zero for any other fee shape. */
+    private function occupiedUnitsFor(PropertyOwner $owner, FeePeriodScope $scope): int
+    {
+        if ($owner->management_fee_type !== ManagementFeeType::Flat
+            || $owner->management_fee_flat_cadence !== ManagementFeeFlatCadence::PerUnit
+            || $scope->propertyIds === []) {
+            return 0;
+        }
+
+        return $this->activeLeases($scope)->count();
+    }
+
+    /** @return \Illuminate\Database\Eloquent\Builder<Lease> */
+    private function activeLeases(FeePeriodScope $scope): \Illuminate\Database\Eloquent\Builder
+    {
+        return Lease::query()
+            ->where('landlord_id', $scope->landlordId)
+            ->where('is_active', true)
+            ->whereHas('unit.building', fn ($q) => $q->whereIn('property_id', $scope->propertyIds));
     }
 }
