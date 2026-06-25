@@ -22,6 +22,8 @@ return [
         'all_categories' => 'جميع الفئات',
         'all_vendors' => 'جميع الموردين',
         'all_buildings' => 'جميع المباني',
+        'date_from' => 'من تاريخ',
+        'date_to' => 'إلى تاريخ',
         'to' => 'إلى',
         'clear' => 'مسح',
     ],

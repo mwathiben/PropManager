@@ -22,6 +22,8 @@ return [
         'all_categories' => 'Kategoria Zote',
         'all_vendors' => 'Wauzaji Wote',
         'all_buildings' => 'Majengo Yote',
+        'date_from' => 'Kuanzia tarehe',
+        'date_to' => 'Hadi tarehe',
         'to' => 'hadi',
         'clear' => 'Futa',
     ],
