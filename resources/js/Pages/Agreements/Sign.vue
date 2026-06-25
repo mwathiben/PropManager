@@ -74,23 +74,24 @@ const sign = () => signForm.post(route('agreements.sign', props.token), { preser
                             <p class="text-sm text-green-700">{{ t('agreements.sign.otp_sent') }}</p>
 
                             <div>
-                                <label for="sign-code" class="block text-sm font-medium text-gray-700 mb-1">
+                                <label for="sign-code" class="block text-sm font-medium text-gray-700">
                                     {{ t('agreements.sign.code_label') }}
+                                    <input
+                                        id="sign-code"
+                                        v-model="signForm.code"
+                                        inputmode="numeric"
+                                        maxlength="6"
+                                        autocomplete="one-time-code"
+                                        class="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-center tracking-[0.5em]"
+                                    />
                                 </label>
-                                <input
-                                    id="sign-code"
-                                    v-model="signForm.code"
-                                    inputmode="numeric"
-                                    maxlength="6"
-                                    autocomplete="one-time-code"
-                                    class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-center tracking-[0.5em]"
-                                />
                                 <p v-if="signForm.errors.code" class="mt-1 text-sm text-red-600">{{ signForm.errors.code }}</p>
                                 <p class="mt-1 text-xs text-gray-500">{{ t('agreements.sign.code_hint', { phone: phoneHint }) }}</p>
                             </div>
 
-                            <label class="flex items-start gap-2 text-sm text-gray-700">
+                            <label for="sign-agree" class="flex items-start gap-2 text-sm text-gray-700">
                                 <input
+                                    id="sign-agree"
                                     v-model="signForm.agree"
                                     type="checkbox"
                                     class="mt-0.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
