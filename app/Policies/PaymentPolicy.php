@@ -54,18 +54,33 @@ class PaymentPolicy
     public function create(User $user, ?Invoice $invoice = null): bool
     {
         if ($user->isScopeOwner()) {
-            return $invoice === null || $invoice->landlord_id === $user->id;
+            return $this->scopeOwnerCanCreate($user, $invoice);
         }
 
         if ($user->isCaretaker()) {
-            return $invoice === null || $invoice->landlord_id === $user->landlord_id;
+            return $this->caretakerCanCreate($user, $invoice);
         }
 
         if ($user->isTenant()) {
-            return $invoice !== null && $invoice->lease?->tenant_id === $user->id;
+            return $this->tenantCanCreate($user, $invoice);
         }
 
         return false;
+    }
+
+    private function scopeOwnerCanCreate(User $user, ?Invoice $invoice): bool
+    {
+        return $invoice === null || $invoice->landlord_id === $user->id;
+    }
+
+    private function caretakerCanCreate(User $user, ?Invoice $invoice): bool
+    {
+        return $invoice === null || $invoice->landlord_id === $user->landlord_id;
+    }
+
+    private function tenantCanCreate(User $user, ?Invoice $invoice): bool
+    {
+        return $invoice !== null && $invoice->lease?->tenant_id === $user->id;
     }
 
     /**

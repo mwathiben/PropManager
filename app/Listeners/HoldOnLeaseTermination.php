@@ -44,43 +44,57 @@ class HoldOnLeaseTermination implements ShouldQueue
         // can't mint a duplicate matter (a unique index on matter_reference is
         // unsuitable — the wizard allows free-form, possibly repeated refs).
         Cache::lock('auto-hold-term-'.$termination->id, 10)->block(5, function () use ($termination, $landlordId, $reference) {
-            $alreadyDone = LegalMatter::withoutGlobalScopes()
-                ->where('landlord_id', $landlordId)
-                ->where('matter_reference', $reference)
-                ->exists();
-            if ($alreadyDone) {
-                return;
-            }
-
-            $lease = $termination->lease()->withoutGlobalScopes()->first();
-            $tenant = $lease?->tenant_id !== null ? User::find($lease->tenant_id) : null;
-            $landlord = User::find($landlordId);
-            if ($tenant === null || $landlord === null) {
-                return;
-            }
-
-            $idsMap = $this->subjects->idsForTenant($tenant, $landlordId);
-            if (array_sum(array_map('count', $idsMap)) === 0) {
-                return;
-            }
-
-            DB::transaction(function () use ($landlordId, $landlord, $tenant, $reference, $idsMap) {
-                $matter = LegalMatter::create([
-                    'landlord_id' => $landlordId,
-                    'title' => __('legal_holds.auto_hold.title', ['tenant' => $tenant->name]),
-                    'matter_reference' => $reference,
-                    'situation_type' => 'tenant_dispute',
-                    'description' => __('legal_holds.auto_hold.reason'),
-                ]);
-
-                foreach ($idsMap as $subjectClass => $ids) {
-                    if ($ids === []) {
-                        continue;
-                    }
-
-                    $this->bulk->holdAll($subjectClass, $ids, $landlord, __('legal_holds.auto_hold.reason'), (int) $matter->id);
-                }
-            });
+            $this->applyHoldUnderLock($termination, $landlordId, $reference);
         });
+    }
+
+    private function applyHoldUnderLock(mixed $termination, int $landlordId, string $reference): void
+    {
+        $alreadyDone = LegalMatter::withoutGlobalScopes()
+            ->where('landlord_id', $landlordId)
+            ->where('matter_reference', $reference)
+            ->exists();
+        if ($alreadyDone) {
+            return;
+        }
+
+        $lease = $termination->lease()->withoutGlobalScopes()->first();
+        $tenant = $lease?->tenant_id !== null ? User::find($lease->tenant_id) : null;
+        $landlord = User::find($landlordId);
+        if ($tenant === null || $landlord === null) {
+            return;
+        }
+
+        $idsMap = $this->subjects->idsForTenant($tenant, $landlordId);
+        if (array_sum(array_map('count', $idsMap)) === 0) {
+            return;
+        }
+
+        $ctx = compact('landlordId', 'landlord', 'tenant', 'reference', 'idsMap');
+        DB::transaction(function () use ($ctx) {
+            $this->createMatterWithHolds($ctx);
+        });
+    }
+
+    /** @param array{landlordId:int,landlord:User,tenant:User,reference:string,idsMap:array<string,int[]>} $ctx */
+    private function createMatterWithHolds(array $ctx): void
+    {
+        ['landlordId' => $landlordId, 'landlord' => $landlord, 'tenant' => $tenant, 'reference' => $reference, 'idsMap' => $idsMap] = $ctx;
+
+        $matter = LegalMatter::create([
+            'landlord_id' => $landlordId,
+            'title' => __('legal_holds.auto_hold.title', ['tenant' => $tenant->name]),
+            'matter_reference' => $reference,
+            'situation_type' => 'tenant_dispute',
+            'description' => __('legal_holds.auto_hold.reason'),
+        ]);
+
+        foreach ($idsMap as $subjectClass => $ids) {
+            if ($ids === []) {
+                continue;
+            }
+
+            $this->bulk->holdAll($subjectClass, $ids, $landlord, __('legal_holds.auto_hold.reason'), (int) $matter->id);
+        }
     }
 }

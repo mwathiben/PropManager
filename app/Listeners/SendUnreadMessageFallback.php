@@ -56,8 +56,7 @@ class SendUnreadMessageFallback implements ShouldQueue
             return;
         }
 
-        $body = $message->body;
-        $preview = Str::limit($body, 120);
+        $preview = Str::limit($message->body, 120);
 
         $participantIds = DB::table('message_thread_participants')
             ->where('thread_id', $thread->id)
@@ -65,41 +64,56 @@ class SendUnreadMessageFallback implements ShouldQueue
             ->pluck('user_id');
 
         foreach ($participantIds as $userId) {
-            $idemKey = 'inbox:fallback:'.$message->id.':'.$userId;
-            if (! Cache::add($idemKey, 1, self::IDEMPOTENCY_TTL_SECONDS)) {
-                continue;
-            }
-
-            $user = \App\Models\User::withoutGlobalScope('landlord')->find($userId);
-            if ($user === null) {
-                continue;
-            }
-
-            // Skip when the user is plausibly online — Reverb already
-            // delivered the in-app push.
-            if (
-                $user->last_active_at !== null
-                && $user->last_active_at->greaterThan(
-                    now()->subMinutes(self::ACTIVE_WINDOW_MINUTES),
-                )
-            ) {
-                continue;
-            }
-
-            $senderName = $message->sender?->name ?? __('inbox.notification.sender_unknown');
-
-            $this->notifications->send(
-                recipientId: $userId,
-                type: Notification::TYPE_NEW_MESSAGE,
-                subject: __('inbox.notification.subject', ['sender' => $senderName]),
-                message: $preview,
-                data: [
-                    'thread_id' => $thread->id,
-                    'message_id' => $message->id,
-                    'sender_name' => $senderName,
-                ],
-                landlordId: $thread->landlord_id,
-            );
+            $this->notifyParticipant($userId, $message, $thread, $preview);
         }
+    }
+
+    /**
+     * Attempt to send a fallback notification to a single participant.
+     * Skips when idempotency key already exists, user not found, or user is online.
+     *
+     * @param  \App\Models\MessageThread  $thread
+     * @param  \App\Models\Message  $message
+     */
+    private function notifyParticipant(int $userId, object $message, object $thread, string $preview): void
+    {
+        $idemKey = 'inbox:fallback:'.$message->id.':'.$userId;
+        if (! Cache::add($idemKey, 1, self::IDEMPOTENCY_TTL_SECONDS)) {
+            return;
+        }
+
+        $user = \App\Models\User::withoutGlobalScope('landlord')->find($userId);
+        if ($user === null) {
+            return;
+        }
+
+        // Skip when the user is plausibly online — Reverb already
+        // delivered the in-app push.
+        if ($this->isUserOnline($user)) {
+            return;
+        }
+
+        $senderName = $message->sender?->name ?? __('inbox.notification.sender_unknown');
+
+        $this->notifications->send(
+            recipientId: $userId,
+            type: Notification::TYPE_NEW_MESSAGE,
+            subject: __('inbox.notification.subject', ['sender' => $senderName]),
+            message: $preview,
+            data: [
+                'thread_id' => $thread->id,
+                'message_id' => $message->id,
+                'sender_name' => $senderName,
+            ],
+            landlordId: $thread->landlord_id,
+        );
+    }
+
+    private function isUserOnline(\App\Models\User $user): bool
+    {
+        return $user->last_active_at !== null
+            && $user->last_active_at->greaterThan(
+                now()->subMinutes(self::ACTIVE_WINDOW_MINUTES),
+            );
     }
 }

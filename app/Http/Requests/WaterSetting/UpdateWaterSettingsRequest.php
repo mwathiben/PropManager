@@ -62,29 +62,45 @@ class UpdateWaterSettingsRequest extends FormRequest
                 return;
             }
 
-            $sorted = collect($bands)
-                ->sortBy(fn ($b) => (float) ($b['from'] ?? 0))
-                ->values();
-            $expectedFrom = 0.0;
-            $last = $sorted->count() - 1;
-
-            foreach ($sorted as $i => $band) {
-                $from = (float) ($band['from'] ?? 0);
-                $hasTo = isset($band['to']) && $band['to'] !== null && $band['to'] !== '';
-                $to = $hasTo ? (float) $band['to'] : null;
-
-                $invalid = $from != $expectedFrom
-                    || ($to !== null && $to <= $from)
-                    || ($to === null && $i !== $last);
-
-                if ($invalid) {
-                    $v->errors()->add('tiered_tariffs', __('water_settings_form.tiers_invalid'));
-
-                    return;
-                }
-
-                $expectedFrom = $to ?? $from;
+            if ($this->tieredTariffBandsAreInvalid($bands)) {
+                $v->errors()->add('tiered_tariffs', __('water_settings_form.tiers_invalid'));
             }
         });
+    }
+
+    private function tieredTariffBandsAreInvalid(array $bands): bool
+    {
+        $sorted = collect($bands)
+            ->sortBy(fn ($b) => (float) ($b['from'] ?? 0))
+            ->values();
+        $last = $sorted->count() - 1;
+        $expectedFrom = 0.0;
+
+        foreach ($sorted as $i => $band) {
+            $to = $this->bandTo($band);
+
+            if ($this->bandIsInvalid(['from' => (float) ($band['from'] ?? 0), 'to' => $to, 'expectedFrom' => $expectedFrom, 'index' => $i, 'last' => $last])) {
+                return true;
+            }
+
+            $expectedFrom = $to ?? (float) ($band['from'] ?? 0);
+        }
+
+        return false;
+    }
+
+    private function bandTo(array $band): ?float
+    {
+        $hasTo = isset($band['to']) && $band['to'] !== null && $band['to'] !== '';
+
+        return $hasTo ? (float) $band['to'] : null;
+    }
+
+    /** @param array{from: float, to: ?float, expectedFrom: float, index: int, last: int} $ctx */
+    private function bandIsInvalid(array $ctx): bool
+    {
+        return $ctx['from'] != $ctx['expectedFrom']
+            || ($ctx['to'] !== null && $ctx['to'] <= $ctx['from'])
+            || ($ctx['to'] === null && $ctx['index'] !== $ctx['last']);
     }
 }

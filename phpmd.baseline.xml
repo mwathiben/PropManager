@@ -222,18 +222,11 @@
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Http/Middleware/HandleInertiaRequests.php" method="share"/>
   <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Http/Middleware/HandleInertiaRequests.php" method="share"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Http/Middleware/HandleInertiaRequests.php" method="getI18nBundle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Http/Requests/Ticket/UpdateTicketRequest.php" method="authorize"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Http/Requests/WaterSetting/UpdateWaterSettingsRequest.php" method="withValidator"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Http/Traits/ParsesCSVFiles.php" method="parseCSVContent"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Jobs/PerRecipientBulkNotificationJob.php" method="__construct"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Jobs/SendBulkNotificationsJob.php" method="__construct"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Jobs/SendNotificationJob.php" method="__construct"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Jobs/SendNotificationJob.php" method="forNew"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Jobs/SendScheduledNotificationsJob.php" method="__construct"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Listeners/AutoEscalateOnSlaBreach.php" method="handle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Listeners/HoldOnLeaseTermination.php" method="handle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Listeners/SendUnreadMessageFallback.php" method="handle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Logging/SensitiveDataMaskingProcessor.php" method="maskRecursive"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Mail/OverpaymentNotification.php" method="__construct"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Mail/OwnerPayoutMail.php" method="__construct"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Mail/RentHikeNotice.php" method="__construct"/>
@@ -265,7 +258,6 @@
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Observers/TicketObserver.php" method="creating"/>
   <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Observers/TicketObserver.php" method="creating"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Observers/TicketObserver.php" method="created"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Policies/PaymentPolicy.php" method="create"/>
   <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Providers/AppServiceProvider.php" method="register"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Providers/AppServiceProvider.php" method="boot"/>
   <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Providers/AppServiceProvider.php" method="boot"/>
@@ -473,7 +465,6 @@
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Support/RateLimiterConfigurator.php" method="configure"/>
   <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Support/RateLimiterConfigurator.php" method="configure"/>
   <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Support/RateLimiterConfigurator.php" method="configure"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Traits/Auditable.php" method="logAudit"/>
   <violation rule="PHPMD\Rule\ExcessivePublicCount" file="app/ValueObjects/Money.php"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/ValueObjects/Money.php" method="roundHalfEven"/>
   <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/ValueObjects/Money.php" method="roundHalfEven"/>
