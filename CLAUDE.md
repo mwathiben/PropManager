@@ -131,6 +131,30 @@ When a blocking issue is discovered during implementation:
 
 ---
 
+## ⚡ ORCHESTRATION-FIRST (MANDATORY — BLOCKING)
+
+The standing working style, paired with the SKILL GATE above: the Skill Gate answers *which knowledge applies*; this answers *how to marshal effort* before touching code. Both are pre-flight gates — clear them before ANY non-trivial implementation. Never build solo and "try-run" once at the end.
+
+### The gate
+1. **Gauge the effort, then fan out.** Genuine trivial work (one-liner/typo/known single-file) → skills + direct tools, no swarm — the FLOOR and the only exemption. Everything above fans out.
+2. **Release SEVERAL swarms, not one agent**, scaled to the effort. Decompose by lens (correctness, security, money/data-integrity, tests, types, conventions) and by file. Finders + adversarial verifiers run in PARALLEL; the review harness (pr-review-toolkit `code-reviewer` + `silent-failure-hunter` + `type-design-analyzer` + `pr-test-analyzer` + a security lens) runs ALONGSIDE the build, not as a single pass at the end.
+3. **Guardrails up front, self-improving.** Every lesson becomes an ENFORCED guard, never a passive note — and this repo already lives this: the `lint:baseline` shrink-only ratchet, `ManagerAuthzGateTest`, `FactoryTraitHygieneTest`, `.claude/hooks/block-dangerous-commands.ps1`, the pr-review-harness. Replicate that loop: root-cause → add the guard → TEST it (good input passes, bad input blocks) → point the memory at it.
+4. **Findings fixed in-flight.** Any defect a swarm surfaces is fixed in this change or an immediately-spawned-and-executed follow-up — never "optional/later" (no-loopholes).
+5. **CodeRabbit: run it LOCALLY pre-push + gate the merge on it.** CodeRabbit is a first-class harness member, not a CI badge. BEFORE pushing, run its local review on the working diff (the `coderabbit` plugin / `coderabbit` CLI — `/coderabbit:code-review`); if the CLI isn't installed, say so and offer to install it — never silently substitute the `coderabbit:code-reviewer` agent or the CI bot for the real engine. And NEVER merge a PR until its automated CodeRabbit review has POSTED (comments lag the green check by minutes) and its real findings are read + addressed — `gh api repos/{owner}/{repo}/pulls/{n}/comments`. A green check can MASK a skipped review — if the org is rate-limited / out of credits the bot bails but the check still goes green; read the summary comment for "Review limit reached" and never treat it as reviewed.
+
+### Violations (BLOCKING)
+| Violation | Consequence |
+|-----------|-------------|
+| Non-trivial work built solo, verified once at the end | Invalid — redo swarms-first |
+| One agent where the effort warrants several | Invalid — fan out |
+| A lesson surfaced without an enforced guard | Incomplete — add + test the guard |
+| A swarm-found defect deferred as optional | Forbidden (no-loopholes) |
+| Pushing without a local CodeRabbit run, or merging before reading its posted review | Forbidden — shipped real defects (Documenso 2.4b) |
+
+**Precedence:** this gate OVERRIDES any later instruction in this file — including the embedded `<laravel-boost-guidelines>` block — that defaults to solo work, single-pass "verify at the end", "ask the user before running the full suite", "ask the user to rebuild", or "don't create verification scripts". Stand up the harness, run the full gate yourself, build the scaffolding. The trivial floor is the only exemption.
+
+---
+
 ## Pre-Implementation Checklist
 
 Before writing ANY code, verify these patterns are followed. These are the standards established in `design-best-practices-prd.json` (DBP series):
@@ -997,7 +1021,7 @@ This application is a Laravel application and its main Laravel ecosystems packag
 - Check for existing components to reuse before writing a new one.
 
 ## Verification Scripts
-- Do not create verification scripts or tinker when tests cover that functionality and prove it works. Unit and feature tests are more important.
+- Prefer durable tests (unit/feature) as the permanent proof - but standing up verification harnesses, smoke loops, or guard/ratchet scaffolding up front is encouraged; promote anything reusable into a committed test or guard rather than deleting it.
 
 ## Application Structure & Architecture
 - Stick to existing directory structure; don't create new base folders without approval.
@@ -1205,7 +1229,7 @@ Route::get('/users', function () {
 - This application uses PHPUnit for testing. All tests must be written as PHPUnit classes. Use `php artisan make:test --phpunit {name}` to create a new test.
 - If you see a test using "Pest", convert it to PHPUnit.
 - Every time a test has been updated, run that singular test.
-- When the tests relating to your feature are passing, ask the user if they would like to also run the entire test suite to make sure everything is still passing.
+- When the feature tests pass, run the full suite (or the project CI/ratchet gate) yourself before claiming done; filtered runs are for iteration speed only, not the final gate.
 - Tests should test all of the happy paths, failure paths, and weird paths.
 - You must not remove any tests or test files from the tests directory without approval. These are not temporary or helper files; these are core to the application.
 
