@@ -52,12 +52,28 @@ class OpsGrowthAttributionController extends Controller
             ->distinct()
             ->pluck('user_id');
 
+        $aggregate = $this->aggregateUserCredits($attribution, $recentUserIds);
+
+        $summary = [];
+        foreach ($aggregate as $model => $channels) {
+            $summary[$model] = $this->topChannelRows($channels);
+        }
+
+        return $summary;
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, int|string>  $userIds
+     * @return array<string, array<string, float>>
+     */
+    private function aggregateUserCredits(AttributionModelService $attribution, \Illuminate\Support\Collection $userIds): array
+    {
         $aggregate = [];
         foreach (AttributionModelService::ALL_MODELS as $model) {
             $aggregate[$model] = [];
         }
 
-        foreach ($recentUserIds as $userId) {
+        foreach ($userIds as $userId) {
             $perUser = $attribution->computeForUser((int) $userId, now());
             foreach ($perUser as $model => $channels) {
                 foreach ($channels as $channel => $creditPct) {
@@ -66,22 +82,27 @@ class OpsGrowthAttributionController extends Controller
             }
         }
 
-        $summary = [];
-        foreach ($aggregate as $model => $channels) {
-            arsort($channels);
-            $top = array_slice($channels, 0, 3, preserve_keys: true);
-            $total = array_sum($channels);
-            $rows = [];
-            foreach ($top as $channel => $credit) {
-                $rows[] = [
-                    'channel' => $channel,
-                    'credit_pct' => $total > 0 ? round(($credit / $total) * 100, 2) : 0.0,
-                ];
-            }
-            $summary[$model] = $rows;
+        return $aggregate;
+    }
+
+    /**
+     * @param  array<string, float>  $channels
+     * @return array<int, array{channel: string, credit_pct: float}>
+     */
+    private function topChannelRows(array $channels): array
+    {
+        arsort($channels);
+        $top = array_slice($channels, 0, 3, preserve_keys: true);
+        $total = array_sum($channels);
+        $rows = [];
+        foreach ($top as $channel => $credit) {
+            $rows[] = [
+                'channel' => $channel,
+                'credit_pct' => $total > 0 ? round(($credit / $total) * 100, 2) : 0.0,
+            ];
         }
 
-        return $summary;
+        return $rows;
     }
 
     /**

@@ -83,43 +83,12 @@ class ProfileController extends Controller
         $user = $request->user();
         $validated = $request->validated();
 
-        // Handle photo upload for all users
-        if ($request->hasFile('profile_photo')) {
-            // Store the new photo FIRST and verify it landed — store() returns false
-            // (it does not throw) on a disk failure. Deleting the old photo before a
-            // failed store would silently destroy it and still report success.
-            $path = $request->file('profile_photo')->store(
-                'profile-photos/'.$user->id,
-                'public'
-            );
-            if ($path === false) {
-                throw new \RuntimeException('Failed to store profile photo.');
-            }
-
-            if ($user->profile_photo_path) {
-                Storage::disk('public')->delete($user->profile_photo_path);
-            }
-
-            $validated['profile_photo_path'] = $path;
-        }
+        $validated = $this->handleProfilePhotoUpload($request, $user, $validated);
 
         // Remove the file from validated data
         unset($validated['profile_photo']);
 
-        // Handle landlord business profile separately
-        if ($user->isScopeOwner() && $request->has('business_profile')) {
-            $businessData = $request->input('business_profile', []);
-            $profile = $user->landlordProfile ?? $user->landlordProfile()->create([]);
-            $profile->update([
-                'company_name' => $businessData['company_name'] ?? null,
-                'business_registration_number' => $businessData['business_registration_number'] ?? null,
-                'tax_id' => $businessData['tax_id'] ?? null,
-                'address' => $businessData['address'] ?? null,
-                'city' => $businessData['city'] ?? null,
-                'country' => $businessData['country'] ?? null,
-                'website' => $businessData['website'] ?? null,
-            ]);
-        }
+        $this->syncBusinessProfile($request, $user);
 
         // Remove business_profile from validated data (handled above)
         unset($validated['business_profile']);
@@ -133,6 +102,62 @@ class ProfileController extends Controller
         $user->save();
 
         return Redirect::route('profile.edit')->with('success', 'Profile updated successfully.');
+    }
+
+    /**
+     * Store a new profile photo and swap it for the existing one.
+     *
+     * Store the new photo FIRST and verify it landed — store() returns false
+     * (it does not throw) on a disk failure. Deleting the old photo before a
+     * failed store would silently destroy it and still report success.
+     *
+     * @param  array<string,mixed>  $validated
+     * @return array<string,mixed>
+     */
+    private function handleProfilePhotoUpload(Request $request, \App\Models\User $user, array $validated): array
+    {
+        if (! $request->hasFile('profile_photo')) {
+            return $validated;
+        }
+
+        $path = $request->file('profile_photo')->store(
+            'profile-photos/'.$user->id,
+            'public'
+        );
+
+        if ($path === false) {
+            throw new \RuntimeException('Failed to store profile photo.');
+        }
+
+        if ($user->profile_photo_path) {
+            Storage::disk('public')->delete($user->profile_photo_path);
+        }
+
+        $validated['profile_photo_path'] = $path;
+
+        return $validated;
+    }
+
+    /**
+     * Upsert the landlord business profile when the request carries that payload.
+     */
+    private function syncBusinessProfile(Request $request, \App\Models\User $user): void
+    {
+        if (! $user->isScopeOwner() || ! $request->has('business_profile')) {
+            return;
+        }
+
+        $businessData = $request->input('business_profile', []);
+        $profile = $user->landlordProfile ?? $user->landlordProfile()->create([]);
+        $profile->update([
+            'company_name' => $businessData['company_name'] ?? null,
+            'business_registration_number' => $businessData['business_registration_number'] ?? null,
+            'tax_id' => $businessData['tax_id'] ?? null,
+            'address' => $businessData['address'] ?? null,
+            'city' => $businessData['city'] ?? null,
+            'country' => $businessData['country'] ?? null,
+            'website' => $businessData['website'] ?? null,
+        ]);
     }
 
     /**

@@ -86,57 +86,82 @@ class MessageThreadController extends Controller
     public function store(StoreMessageThreadRequest $request): RedirectResponse
     {
         $landlord = $request->user();
-        $landlordId = $request->landlordId();
 
         // Phase-67 ATTACHMENT-SCAN: scan before the transaction opens so a
         // rejected (infected) upload's audit row is not rolled back.
         $files = $request->file('attachments');
-        $scanned = is_array($files) && $files !== []
-            ? $this->attachments->scan($files, $landlord)
-            : [];
+        $scanned = $this->scanFiles($files, $landlord);
 
-        [$thread, $initialMessage] = DB::transaction(function () use ($request, $landlord, $landlordId, $scanned) {
-            $subjectType = $request->input('subject_type');
-
-            $thread = MessageThread::create([
-                'landlord_id' => $landlordId,
-                'subject_type' => $subjectType ? $this->resolveSubjectType($subjectType) : null,
-                'subject_id' => $subjectType ? $request->input('subject_id') : null,
-                'title' => $request->input('title'),
-            ]);
-
-            $thread->participants()->attach($landlord->id, [
-                'role' => $landlord->isScopeOwner()
-                    ? MessageThread::ROLE_LANDLORD
-                    : MessageThread::ROLE_CARETAKER,
-            ]);
-
-            foreach ($request->input('participants', []) as $userId) {
-                if ((int) $userId === (int) $landlord->id) {
-                    continue;
-                }
-
-                $user = User::findOrFail($userId);
-                $thread->participants()->attach($user->id, [
-                    'role' => $this->roleFor($user),
-                ]);
-            }
-
-            $message = $thread->messages()->create([
-                'sender_id' => $landlord->id,
-                'body' => $request->input('body'),
-            ]);
-
-            $this->attachments->persist($message, $scanned);
-
-            return [$thread, $message];
-        });
+        [$thread, $initialMessage] = DB::transaction(
+            fn () => $this->createThreadWithMessage($request, $landlord, $request->landlordId(), $scanned)
+        );
 
         broadcast(new MessagePosted($initialMessage))->toOthers();
 
         return redirect()
             ->route('message-threads.show', $thread)
             ->with('status', __('inbox.thread_created'));
+    }
+
+    /**
+     * @return array{0: MessageThread, 1: Message}
+     */
+    private function createThreadWithMessage(
+        StoreMessageThreadRequest $request,
+        User $landlord,
+        int $landlordId,
+        array $scanned,
+    ): array {
+        $subjectType = $request->input('subject_type');
+
+        $thread = MessageThread::create([
+            'landlord_id' => $landlordId,
+            'subject_type' => $subjectType ? $this->resolveSubjectType($subjectType) : null,
+            'subject_id' => $subjectType ? $request->input('subject_id') : null,
+            'title' => $request->input('title'),
+        ]);
+
+        $this->attachCreatorAsParticipant($thread, $landlord);
+        $this->attachAdditionalParticipants($thread, $landlord, $request->input('participants', []));
+
+        $message = $thread->messages()->create([
+            'sender_id' => $landlord->id,
+            'body' => $request->input('body'),
+        ]);
+
+        $this->attachments->persist($message, $scanned);
+
+        return [$thread, $message];
+    }
+
+    private function scanFiles(mixed $files, User $user): array
+    {
+        return is_array($files) && $files !== []
+            ? $this->attachments->scan($files, $user)
+            : [];
+    }
+
+    private function attachCreatorAsParticipant(MessageThread $thread, User $landlord): void
+    {
+        $thread->participants()->attach($landlord->id, [
+            'role' => $landlord->isScopeOwner()
+                ? MessageThread::ROLE_LANDLORD
+                : MessageThread::ROLE_CARETAKER,
+        ]);
+    }
+
+    private function attachAdditionalParticipants(MessageThread $thread, User $landlord, array $userIds): void
+    {
+        foreach ($userIds as $userId) {
+            if ((int) $userId === (int) $landlord->id) {
+                continue;
+            }
+
+            $user = User::findOrFail($userId);
+            $thread->participants()->attach($user->id, [
+                'role' => $this->roleFor($user),
+            ]);
+        }
     }
 
     public function storeMessage(

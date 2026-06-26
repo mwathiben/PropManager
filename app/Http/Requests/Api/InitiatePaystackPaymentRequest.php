@@ -55,35 +55,47 @@ class InitiatePaystackPaymentRequest extends FormRequest
             $invoice = Invoice::find($this->invoice_id);
 
             if ($invoice) {
-                $remainingDue = $invoice->total_due - $invoice->amount_paid;
-
-                if ($this->amount > $remainingDue) {
-                    $validator->errors()->add(
-                        'amount',
-                        "Amount exceeds remaining balance of KES {$remainingDue}."
-                    );
-                }
-
-                if ($invoice->status === InvoiceStatus::Paid) {
-                    $validator->errors()->add('invoice_id', 'This invoice is already fully paid.');
-                }
+                $this->validateInvoiceAmount($validator, $invoice);
             }
 
-            // CRYPTO-10: callback_url is forwarded to Paystack and the
-            // payment-status redirect lands the user there. An off-site
-            // callback is an open redirect and a payment-status leak
-            // vector. Lock it to the configured app.url host.
-            $callbackUrl = $this->input('callback_url');
-            if ($callbackUrl) {
-                $callbackHost = parse_url($callbackUrl, PHP_URL_HOST);
-                $appHost = parse_url((string) config('app.url'), PHP_URL_HOST);
-                if (! $callbackHost || ! $appHost || strcasecmp($callbackHost, $appHost) !== 0) {
-                    $validator->errors()->add(
-                        'callback_url',
-                        'Callback URL host must match the application host.'
-                    );
-                }
-            }
+            $this->validateCallbackUrl($validator);
         });
+    }
+
+    private function validateInvoiceAmount($validator, Invoice $invoice): void
+    {
+        $remainingDue = $invoice->total_due - $invoice->amount_paid;
+
+        if ($this->amount > $remainingDue) {
+            $validator->errors()->add(
+                'amount',
+                "Amount exceeds remaining balance of KES {$remainingDue}."
+            );
+        }
+
+        if ($invoice->status === InvoiceStatus::Paid) {
+            $validator->errors()->add('invoice_id', 'This invoice is already fully paid.');
+        }
+    }
+
+    private function validateCallbackUrl($validator): void
+    {
+        // CRYPTO-10: callback_url is forwarded to Paystack and the
+        // payment-status redirect lands the user there. An off-site
+        // callback is an open redirect and a payment-status leak
+        // vector. Lock it to the configured app.url host.
+        $callbackUrl = $this->input('callback_url');
+        if (! $callbackUrl) {
+            return;
+        }
+
+        $callbackHost = parse_url($callbackUrl, PHP_URL_HOST);
+        $appHost = parse_url((string) config('app.url'), PHP_URL_HOST);
+        if (! $callbackHost || ! $appHost || strcasecmp($callbackHost, $appHost) !== 0) {
+            $validator->errors()->add(
+                'callback_url',
+                'Callback URL host must match the application host.'
+            );
+        }
     }
 }
