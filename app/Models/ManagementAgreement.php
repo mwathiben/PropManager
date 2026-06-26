@@ -106,10 +106,12 @@ class ManagementAgreement extends Model
             ->implode("\n\n");
 
         $this->rendered_body = $body;
-        // The hash must cover EVERY field the signed/sealed PDF presents as authoritative
-        // (the Documenso seal vouches for the whole document), so bind the title in too —
-        // not just the clause body. CodeRabbit #130: "seal only fields covered by the hash".
-        $this->content_hash = hash('sha256', (string) $this->title."\n\n".$body);
+        // The hash must cover EVERY field the sealed PDF presents as authoritative (the
+        // Documenso seal vouches for the whole document), so bind the title in too — and
+        // length-prefix each field so two different (title, body) pairs can never collide
+        // into one input. CodeRabbit #130: cover all sealed fields + unambiguous payload.
+        $title = (string) $this->title;
+        $this->content_hash = hash('sha256', strlen($title).':'.$title.strlen($body).':'.$body);
         $this->save();
     }
 }
