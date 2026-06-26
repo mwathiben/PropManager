@@ -41,26 +41,51 @@ trait ParsesCSVFiles
     protected function parseCSVContent(string $content): array
     {
         $lines = explode("\n", str_replace("\r\n", "\n", $content));
-        $rows = [];
 
         if (empty($lines)) {
             return [];
         }
 
-        // Parse headers from first line
-        $headers = str_getcsv(array_shift($lines));
+        $headers = $this->extractHeaders($lines);
 
-        if (empty($headers) || $headers === [null]) {
+        if ($headers === null) {
             return [];
         }
 
-        // Clean headers (trim, lowercase, replace spaces with underscores)
-        $headers = array_map(
+        return $this->parseDataRows($lines, $headers);
+    }
+
+    /**
+     * Extract and normalise the header row from the lines array (mutates $lines via array_shift).
+     *
+     * @param  array<int, string>  $lines
+     * @return array<int, string>|null Normalised headers, or null when the header row is empty/invalid.
+     */
+    private function extractHeaders(array &$lines): ?array
+    {
+        $headers = str_getcsv(array_shift($lines));
+
+        if (empty($headers) || $headers === [null]) {
+            return null;
+        }
+
+        return array_map(
             fn ($h) => strtolower(trim(str_replace(' ', '_', (string) $h))),
             $headers
         );
+    }
 
-        // Parse remaining rows
+    /**
+     * Parse the data rows using the provided headers.
+     *
+     * @param  array<int, string>  $lines
+     * @param  array<int, string>  $headers
+     * @return array<int, array<string, string>>
+     */
+    private function parseDataRows(array $lines, array $headers): array
+    {
+        $rows = [];
+
         foreach ($lines as $line) {
             $line = trim($line);
             if (empty($line)) {

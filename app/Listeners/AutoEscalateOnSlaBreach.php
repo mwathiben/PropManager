@@ -21,25 +21,31 @@ class AutoEscalateOnSlaBreach implements ShouldQueue
 
     public function handle(TicketSlaBreached $event): void
     {
-        if (! config('maintenance.auto_escalate_on_sla_breach', false)) {
-            return;
-        }
-
-        if ($event->type !== TicketSlaBreached::TYPE_RESOLUTION) {
-            return;
-        }
-
-        $ticket = $event->ticket;
-        $assignee = $ticket->assigned_to !== null ? User::find($ticket->assigned_to) : null;
-        if ($assignee === null || ! $assignee->isCaretaker()) {
-            return; // only caretaker-owned tickets escalate to the landlord
-        }
-
-        if ($ticket->isEscalated()) {
+        if (! $this->shouldEscalate($event)) {
             return;
         }
 
         // System escalation (no caretaker actor) — the breach itself is the trigger.
-        $this->escalation->escalate($ticket, null, __('maintenance.escalation.sla_breach_reason'));
+        $this->escalation->escalate($event->ticket, null, __('maintenance.escalation.sla_breach_reason'));
+    }
+
+    private function shouldEscalate(TicketSlaBreached $event): bool
+    {
+        if (! config('maintenance.auto_escalate_on_sla_breach', false)) {
+            return false;
+        }
+
+        if ($event->type !== TicketSlaBreached::TYPE_RESOLUTION) {
+            return false;
+        }
+
+        $ticket = $event->ticket;
+        $assignee = $ticket->assigned_to !== null ? User::find($ticket->assigned_to) : null;
+
+        if ($assignee === null || ! $assignee->isCaretaker()) {
+            return false; // only caretaker-owned tickets escalate to the landlord
+        }
+
+        return ! $ticket->isEscalated();
     }
 }

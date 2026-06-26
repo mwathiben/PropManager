@@ -58,37 +58,13 @@ trait Auditable
      */
     protected static function logAudit(Model $model, string $eventType): void
     {
-        // Don't log during seeding or testing unless explicitly enabled
-        if (app()->runningInConsole() && ! config('security.audit.log_in_console', false)) {
-            return;
-        }
-
-        // Check if audit logging is enabled for this event type
-        $loggedEvents = config('security.audit.logged_events', []);
-        if (! empty($loggedEvents) && ! in_array($eventType, $loggedEvents)) {
+        if (static::shouldSkipAudit($eventType)) {
             return;
         }
 
         $user = Auth::user();
-        $excludeFields = array_merge(
-            static::$auditExclude,
-            $model->getAuditExclude()
-        );
-
-        $oldValues = null;
-        $newValues = null;
-        $changedFields = null;
-
-        if ($eventType === AuditLog::EVENT_CREATED) {
-            $newValues = static::filterAuditValues($model->getAttributes(), $excludeFields);
-        } elseif ($eventType === AuditLog::EVENT_UPDATED) {
-            $oldValues = static::filterAuditValues($model->getOriginal(), $excludeFields);
-            $newValues = static::filterAuditValues($model->getAttributes(), $excludeFields);
-            $changedFields = array_keys($model->getDirty());
-            $changedFields = array_diff($changedFields, $excludeFields);
-        } elseif ($eventType === AuditLog::EVENT_DELETED) {
-            $oldValues = static::filterAuditValues($model->getAttributes(), $excludeFields);
-        }
+        $excludeFields = array_merge(static::$auditExclude, $model->getAuditExclude());
+        $values = static::resolveAuditValues($model, $eventType, $excludeFields);
 
         AuditLog::create([
             'user_id' => $user?->id,
@@ -96,14 +72,65 @@ trait Auditable
             'event_type' => $eventType,
             'auditable_type' => get_class($model),
             'auditable_id' => $model->getKey(),
-            'old_values' => $oldValues,
-            'new_values' => $newValues,
-            'changed_fields' => ! empty($changedFields) ? array_values($changedFields) : null,
+            'old_values' => $values['old'],
+            'new_values' => $values['new'],
+            'changed_fields' => $values['changed'],
             'ip_address' => Request::ip(),
             'user_agent' => Request::userAgent(),
             'url' => Request::fullUrl(),
             'metadata' => static::buildAuditMetadata($model),
         ]);
+    }
+
+    /**
+     * Determine whether audit logging should be skipped for this event.
+     */
+    private static function shouldSkipAudit(string $eventType): bool
+    {
+        if (app()->runningInConsole() && ! config('security.audit.log_in_console', false)) {
+            return true;
+        }
+
+        $loggedEvents = config('security.audit.logged_events', []);
+
+        return ! empty($loggedEvents) && ! in_array($eventType, $loggedEvents);
+    }
+
+    /**
+     * Resolve old/new/changed values for the given event type.
+     *
+     * @param  string[]  $excludeFields
+     * @return array{old: array|null, new: array|null, changed: array|null}
+     */
+    private static function resolveAuditValues(Model $model, string $eventType, array $excludeFields): array
+    {
+        if ($eventType === AuditLog::EVENT_CREATED) {
+            return [
+                'old' => null,
+                'new' => static::filterAuditValues($model->getAttributes(), $excludeFields),
+                'changed' => null,
+            ];
+        }
+
+        if ($eventType === AuditLog::EVENT_UPDATED) {
+            $changedFields = array_values(array_diff(array_keys($model->getDirty()), $excludeFields));
+
+            return [
+                'old' => static::filterAuditValues($model->getOriginal(), $excludeFields),
+                'new' => static::filterAuditValues($model->getAttributes(), $excludeFields),
+                'changed' => ! empty($changedFields) ? $changedFields : null,
+            ];
+        }
+
+        if ($eventType === AuditLog::EVENT_DELETED) {
+            return [
+                'old' => static::filterAuditValues($model->getAttributes(), $excludeFields),
+                'new' => null,
+                'changed' => null,
+            ];
+        }
+
+        return ['old' => null, 'new' => null, 'changed' => null];
     }
 
     /**
