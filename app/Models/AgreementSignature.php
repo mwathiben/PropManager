@@ -60,6 +60,8 @@ class AgreementSignature extends Model
             'status' => AgreementSignatureStatus::class,
             'signing_method' => AgreementSignatureMethod::class,
             'documenso_status' => DocumensoDocumentStatus::class,
+            // A live signing-session bearer credential — encrypted at rest.
+            'documenso_recipient_token' => 'encrypted',
             'otp_verified_at' => 'datetime',
             'signed_at' => 'datetime',
             'documenso_completed_at' => 'datetime',

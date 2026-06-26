@@ -13,6 +13,7 @@ use App\Models\PropertyOwner;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
@@ -148,5 +149,28 @@ class DocumensoWebhookTest extends TestCase
 
         $this->assertNotNull($route, 'the documenso webhook route must exist');
         $this->assertContains('throttle:60,1', $route->middleware());
+    }
+
+    public function test_malformed_document_id_is_ignored(): void
+    {
+        Bus::fake();
+        $this->pendingSignature(42);
+
+        // "42abc" must not be coerced to 42 and matched — it's ignored, not dispatched.
+        $this->postWebhook(['event' => 'DOCUMENT_COMPLETED', 'payload' => ['id' => '42abc']])->assertOk();
+
+        Bus::assertNotDispatched(FinalizeDocumensoSignatureJob::class);
+    }
+
+    public function test_recipient_token_is_encrypted_at_rest(): void
+    {
+        $signature = $this->pendingSignature(42);
+        $signature->update(['documenso_recipient_token' => 'plain-token-secret']);
+
+        // The model reads it back decrypted...
+        $this->assertSame('plain-token-secret', $signature->fresh()->documenso_recipient_token);
+        // ...but the raw column holds ciphertext, never the plaintext credential.
+        $raw = (string) DB::table('agreement_signatures')->where('id', $signature->id)->value('documenso_recipient_token');
+        $this->assertStringNotContainsString('plain-token-secret', $raw);
     }
 }
