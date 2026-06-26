@@ -148,7 +148,11 @@ onBeforeUnmount(() => {
                         <p class="text-sm text-gray-500 mt-1">{{ t('agreements.sign.documenso.intro') }}</p>
                     </div>
 
-                    <div v-if="pollFailed" class="bg-white rounded-xl border border-amber-200 p-8 text-center">
+                    <div v-if="!embedUrl" class="bg-white rounded-xl border border-amber-200 p-8 text-center">
+                        <p class="text-sm text-gray-700">{{ t('agreements.sign.documenso.unavailable') }}</p>
+                    </div>
+
+                    <div v-else-if="pollFailed" class="bg-white rounded-xl border border-amber-200 p-8 text-center">
                         <p class="text-sm text-gray-700">{{ t('agreements.sign.documenso.finalize_timeout') }}</p>
                     </div>
 

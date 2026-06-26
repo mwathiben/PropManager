@@ -80,6 +80,7 @@ return [
             'loading' => 'Loading the secure signing panel…',
             'finalizing' => 'Signature received — finalizing your agreement. This only takes a moment…',
             'finalize_timeout' => 'This is taking longer than expected. Your signature is safe — refresh this page in a moment, or contact us if it persists.',
+            'unavailable' => 'The secure signing panel is temporarily unavailable. Please contact us so we can complete your signature.',
         ],
         'errors' => [
             'not_sendable' => 'Only a draft agreement can be sent for signature.',

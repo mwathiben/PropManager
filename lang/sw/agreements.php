@@ -80,6 +80,7 @@ return [
             'loading' => 'Inapakia paneli salama ya kusaini…',
             'finalizing' => 'Saini imepokelewa — inakamilisha mkataba wako. Hii inachukua muda mfupi tu…',
             'finalize_timeout' => 'Hii inachukua muda mrefu kuliko ilivyotarajiwa. Saini yako iko salama — onyesha upya ukurasa huu baada ya muda, au wasiliana nasi ikiendelea.',
+            'unavailable' => 'Paneli salama ya kusaini haipatikani kwa sasa. Tafadhali wasiliana nasi ili tukamilishe saini yako.',
         ],
         'errors' => [
             'not_sendable' => 'Rasimu pekee ndiyo inaweza kutumwa kusaini.',

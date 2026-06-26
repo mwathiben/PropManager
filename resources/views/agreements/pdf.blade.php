@@ -14,6 +14,6 @@
     <h1>{{ $agreement->title }}</h1>
     <div class="hash">Document fingerprint (SHA-256): {{ $agreement->content_hash }}</div>
     <div class="body">{{ $agreement->rendered_body }}</div>
-    <div class="footer">Generated {{ now()->toDayDateTimeString() }} &middot; PropManager</div>
+    <div class="footer">PropManager &middot; This document is bound by the SHA-256 fingerprint above.</div>
 </body>
 </html>

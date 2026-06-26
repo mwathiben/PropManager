@@ -13,6 +13,7 @@ use App\Models\Clause;
 use App\Models\ManagementAgreement;
 use App\Models\PropertyOwner;
 use App\Models\User;
+use App\Services\Agreements\AgreementPdfRenderer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
@@ -170,6 +171,32 @@ class AgreementSignEmbedPathTest extends TestCase
         $signature->update(['signer_email' => 'owner@']);
         $this->configureDocumenso();
         $this->fakeCreateFlow();
+        $code = $this->seedOtp($signature->token);
+
+        $this->post(route('agreements.sign', $signature->token), [
+            'code' => $code,
+            'content_hash' => $agreement->content_hash,
+            'agree' => true,
+        ])->assertRedirect();
+
+        $this->assertSame(AgreementStatus::Active, $agreement->fresh()->status);
+        $this->assertSame(AgreementSignatureStatus::Signed, $signature->fresh()->status);
+        $this->assertNull($signature->fresh()->documenso_document_id);
+        $this->assertNotNull($owner->fresh()->management_fee_locked_at);
+        Http::assertNotSent(fn (Request $r) => $r->url() === 'https://docs.example.test/api/v1/documents');
+    }
+
+    public function test_pdf_render_failure_falls_back_to_in_house_without_500(): void
+    {
+        [$agreement, $signature, $owner] = $this->signable();
+        $this->configureDocumenso();
+        $this->fakeCreateFlow();
+        // A PDF render error (e.g. DomPDF blowing up) must degrade to the in-house assent,
+        // never 500 the owner. prepareDocumensoEnvelope catches \Throwable BEFORE the
+        // envelope HTTP call, so no document is created and the fee still activates in-house.
+        $this->mock(AgreementPdfRenderer::class)
+            ->shouldReceive('render')
+            ->andThrow(new \RuntimeException('dompdf exploded'));
         $code = $this->seedOtp($signature->token);
 
         $this->post(route('agreements.sign', $signature->token), [

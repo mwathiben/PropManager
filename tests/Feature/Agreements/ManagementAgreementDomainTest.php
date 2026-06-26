@@ -70,7 +70,8 @@ class ManagementAgreementDomainTest extends TestCase
 
         $this->assertStringContainsString('8% of rent collected', $agreement->rendered_body);
         $this->assertStringContainsString('30 days notice', $agreement->rendered_body);
-        $this->assertSame(hash('sha256', $agreement->rendered_body), $agreement->content_hash);
+        // The content hash binds the title + the clause body (everything the sealed PDF presents).
+        $this->assertSame(hash('sha256', (string) $agreement->title."\n\n".$agreement->rendered_body), $agreement->content_hash);
     }
 
     public function test_an_exclusive_clause_cannot_be_added_twice(): void
