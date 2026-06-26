@@ -175,97 +175,121 @@ class ReportsController extends Controller
     {
         $output = fopen('php://temp', 'r+');
 
-        // Add header
         fputcsv($output, [$data['title']]);
         fputcsv($output, ['Generated: '.now()->format('F j, Y g:i A')]);
         fputcsv($output, []);
 
-        // Add data based on report type
-        if ($reportType === 'financial') {
-            fputcsv($output, ['Financial Summary']);
-            fputcsv($output, ['Metric', 'Value']);
-            fputcsv($output, ['Expected Rent', $currencySymbol.' '.number_format($data['summary']['expected_rent'], 2)]);
-            fputcsv($output, ['Collected Rent', $currencySymbol.' '.number_format($data['summary']['collected_rent'], 2)]);
-            fputcsv($output, ['Water Charges', $currencySymbol.' '.number_format($data['summary']['water_charges'], 2)]);
-            fputcsv($output, ['Outstanding', $currencySymbol.' '.number_format($data['summary']['outstanding'], 2)]);
-            fputcsv($output, ['Collection Rate', $data['summary']['collection_percentage'].'%']);
-            fputcsv($output, []);
-
-            fputcsv($output, ['Revenue Breakdown']);
-            fputcsv($output, ['Category', 'Amount']);
-            foreach ($data['summary']['revenue_breakdown'] as $category => $amount) {
-                fputcsv($output, [ucfirst($category), $currencySymbol.' '.number_format($amount, 2)]);
-            }
-        } elseif ($reportType === 'occupancy') {
-            fputcsv($output, ['Occupancy Summary']);
-            fputcsv($output, ['Metric', 'Value']);
-            fputcsv($output, ['Total Units', $data['summary']['total_units']]);
-            fputcsv($output, ['Occupied', $data['summary']['occupied']]);
-            fputcsv($output, ['Vacant', $data['summary']['vacant']]);
-            fputcsv($output, ['Maintenance', $data['summary']['maintenance']]);
-            fputcsv($output, ['Arrears', $data['summary']['arrears']]);
-            fputcsv($output, ['Occupancy Rate', $data['summary']['occupancy_rate'].'%']);
-            fputcsv($output, []);
-
-            fputcsv($output, ['Top Performing Units']);
-            fputcsv($output, ['Unit', 'Tenant', 'Collection Rate', 'On-Time Payments']);
-            foreach ($data['top_performers'] as $unit) {
-                fputcsv($output, [
-                    $unit['unit'],
-                    $unit['tenant'],
-                    $unit['collection_rate'].'%',
-                    $unit['on_time_payments'].'/'.$unit['total_invoices'],
-                ]);
-            }
-        } elseif ($reportType === 'arrears') {
-            fputcsv($output, ['Arrears Summary']);
-            fputcsv($output, ['Total Arrears', $currencySymbol.' '.number_format($data['summary']['total_arrears'], 2)]);
-            fputcsv($output, ['Number of Overdue Invoices', $data['summary']['count']]);
-            fputcsv($output, []);
-
-            fputcsv($output, ['Aging Analysis']);
-            fputcsv($output, ['Period', 'Amount']);
-            foreach ($data['aging_breakdown'] as $period => $amount) {
-                fputcsv($output, [$period.' days', $currencySymbol.' '.number_format($amount, 2)]);
-            }
-            fputcsv($output, []);
-
-            fputcsv($output, ['Arrears Details']);
-            fputcsv($output, ['Unit', 'Tenant', 'Amount', 'Days Overdue', 'Invoice Number']);
-            foreach ($data['details'] as $detail) {
-                fputcsv($output, [
-                    $detail['unit'],
-                    $detail['tenant'],
-                    $currencySymbol.' '.number_format($detail['amount'], 2),
-                    $detail['days_overdue'],
-                    $detail['invoice_number'],
-                ]);
-            }
-        } elseif ($reportType === 'water') {
-            fputcsv($output, ['Water Consumption Summary']);
-            fputcsv($output, ['Metric', 'Value']);
-            fputcsv($output, ['Total Consumption', $data['summary']['total_consumption'].' units']);
-            fputcsv($output, ['Total Cost', $currencySymbol.' '.number_format($data['summary']['total_cost'], 2)]);
-            fputcsv($output, ['Average Consumption', $data['summary']['average_consumption'].' units']);
-            fputcsv($output, ['Readings Count', $data['summary']['readings_count']]);
-            fputcsv($output, []);
-
-            fputcsv($output, ['Top Consumers']);
-            fputcsv($output, ['Unit', 'Consumption', 'Cost']);
-            foreach ($data['top_consumers'] as $consumer) {
-                fputcsv($output, [
-                    $consumer['unit'],
-                    $consumer['consumption'].' units',
-                    $currencySymbol.' '.number_format($consumer['cost'], 2),
-                ]);
-            }
-        }
+        match ($reportType) {
+            'financial' => $this->writeFinancialCsvRows($output, $data, $currencySymbol),
+            'occupancy' => $this->writeOccupancyCsvRows($output, $data),
+            'arrears' => $this->writeArrearsCsvRows($output, $data, $currencySymbol),
+            'water' => $this->writeWaterCsvRows($output, $data, $currencySymbol),
+            default => null,
+        };
 
         rewind($output);
         $csv = stream_get_contents($output);
         fclose($output);
 
         return $csv;
+    }
+
+    /** @param resource $output */
+    private function writeFinancialCsvRows($output, array $data, string $currencySymbol): void
+    {
+        $s = $data['summary'];
+        fputcsv($output, ['Financial Summary']);
+        fputcsv($output, ['Metric', 'Value']);
+        fputcsv($output, ['Expected Rent', $currencySymbol.' '.number_format($s['expected_rent'], 2)]);
+        fputcsv($output, ['Collected Rent', $currencySymbol.' '.number_format($s['collected_rent'], 2)]);
+        fputcsv($output, ['Water Charges', $currencySymbol.' '.number_format($s['water_charges'], 2)]);
+        fputcsv($output, ['Outstanding', $currencySymbol.' '.number_format($s['outstanding'], 2)]);
+        fputcsv($output, ['Collection Rate', $s['collection_percentage'].'%']);
+        fputcsv($output, []);
+
+        fputcsv($output, ['Revenue Breakdown']);
+        fputcsv($output, ['Category', 'Amount']);
+        foreach ($s['revenue_breakdown'] as $category => $amount) {
+            fputcsv($output, [ucfirst((string) $category), $currencySymbol.' '.number_format($amount, 2)]);
+        }
+    }
+
+    /** @param resource $output */
+    private function writeOccupancyCsvRows($output, array $data): void
+    {
+        $s = $data['summary'];
+        fputcsv($output, ['Occupancy Summary']);
+        fputcsv($output, ['Metric', 'Value']);
+        fputcsv($output, ['Total Units', $s['total_units']]);
+        fputcsv($output, ['Occupied', $s['occupied']]);
+        fputcsv($output, ['Vacant', $s['vacant']]);
+        fputcsv($output, ['Maintenance', $s['maintenance']]);
+        fputcsv($output, ['Arrears', $s['arrears']]);
+        fputcsv($output, ['Occupancy Rate', $s['occupancy_rate'].'%']);
+        fputcsv($output, []);
+
+        fputcsv($output, ['Top Performing Units']);
+        fputcsv($output, ['Unit', 'Tenant', 'Collection Rate', 'On-Time Payments']);
+        foreach ($data['top_performers'] as $unit) {
+            fputcsv($output, [
+                $unit['unit'],
+                $unit['tenant'],
+                $unit['collection_rate'].'%',
+                $unit['on_time_payments'].'/'.$unit['total_invoices'],
+            ]);
+        }
+    }
+
+    /** @param resource $output */
+    private function writeArrearsCsvRows($output, array $data, string $currencySymbol): void
+    {
+        $s = $data['summary'];
+        fputcsv($output, ['Arrears Summary']);
+        fputcsv($output, ['Total Arrears', $currencySymbol.' '.number_format($s['total_arrears'], 2)]);
+        fputcsv($output, ['Number of Overdue Invoices', $s['count']]);
+        fputcsv($output, []);
+
+        fputcsv($output, ['Aging Analysis']);
+        fputcsv($output, ['Period', 'Amount']);
+        foreach ($data['aging_breakdown'] as $period => $amount) {
+            fputcsv($output, [$period.' days', $currencySymbol.' '.number_format($amount, 2)]);
+        }
+        fputcsv($output, []);
+
+        fputcsv($output, ['Arrears Details']);
+        fputcsv($output, ['Unit', 'Tenant', 'Amount', 'Days Overdue', 'Invoice Number']);
+        foreach ($data['details'] as $detail) {
+            fputcsv($output, [
+                $detail['unit'],
+                $detail['tenant'],
+                $currencySymbol.' '.number_format($detail['amount'], 2),
+                $detail['days_overdue'],
+                $detail['invoice_number'],
+            ]);
+        }
+    }
+
+    /** @param resource $output */
+    private function writeWaterCsvRows($output, array $data, string $currencySymbol): void
+    {
+        $s = $data['summary'];
+        fputcsv($output, ['Water Consumption Summary']);
+        fputcsv($output, ['Metric', 'Value']);
+        fputcsv($output, ['Total Consumption', $s['total_consumption'].' units']);
+        fputcsv($output, ['Total Cost', $currencySymbol.' '.number_format($s['total_cost'], 2)]);
+        fputcsv($output, ['Average Consumption', $s['average_consumption'].' units']);
+        fputcsv($output, ['Readings Count', $s['readings_count']]);
+        fputcsv($output, []);
+
+        fputcsv($output, ['Top Consumers']);
+        fputcsv($output, ['Unit', 'Consumption', 'Cost']);
+        foreach ($data['top_consumers'] as $consumer) {
+            fputcsv($output, [
+                $consumer['unit'],
+                $consumer['consumption'].' units',
+                $currencySymbol.' '.number_format($consumer['cost'], 2),
+            ]);
+        }
     }
 
     /**

@@ -21,55 +21,14 @@ class InboxController extends Controller
             ->latest();
 
         if ($request->filled('status')) {
-            if ($request->status === 'unread') {
-                $query->where('status', TenantMessage::STATUS_RECEIVED);
-            } elseif ($request->status === 'processed') {
-                $query->whereIn('status', [
-                    TenantMessage::STATUS_PROCESSED,
-                    TenantMessage::STATUS_ACTION_TAKEN,
-                ]);
-            }
+            $this->applyStatusFilter($query, $request->status);
         }
 
         if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('body', 'like', "%{$search}%")
-                    ->orWhere('from_number', 'like', "%{$search}%")
-                    ->orWhereHas('user', fn ($q) => $q->where('name', 'like', "%{$search}%"));
-            });
+            $this->applySearchFilter($query, $request->search);
         }
 
-        $messages = $query->paginate(20)->through(function ($message) {
-            $unit = $message->user?->lease?->unit;
-
-            return [
-                'id' => $message->id,
-                'tenant_name' => $message->user?->name ?? 'Unknown',
-                'tenant_id' => $message->user_id,
-                'from_number' => $message->from_number,
-                'body' => $message->body,
-                'body_preview' => strlen($message->body) > 100
-                    ? substr($message->body, 0, 100).'...'
-                    : $message->body,
-                'source' => $message->source,
-                'status' => $message->status,
-                'action_type' => $message->action_type,
-                'is_reply' => $message->isReply(),
-                'original_notification' => $message->notification ? [
-                    'subject' => $message->notification->subject,
-                    'type' => $message->notification->type,
-                ] : null,
-                'has_ticket' => $message->hasTicket(),
-                'ticket_id' => $message->ticket_id,
-                'unit_name' => $unit ? $unit->name : null,
-                'building_name' => $unit?->building?->name,
-                'property_name' => $unit?->building?->property?->name,
-                'media_count' => count($message->media_urls ?? []),
-                'created_at' => $message->created_at->diffForHumans(),
-                'created_at_full' => $message->created_at->format('M d, Y H:i'),
-            ];
-        });
+        $messages = $query->paginate(20)->through(fn ($message) => $this->formatMessageForList($message));
 
         $unreadCount = TenantMessage::where('status', TenantMessage::STATUS_RECEIVED)->count();
 
@@ -146,37 +105,12 @@ class InboxController extends Controller
             return back()->with('error', 'Cannot reply: tenant not found.');
         }
 
-        $channel = $message->source === TenantMessage::SOURCE_WHATSAPP
-            ? Notification::CHANNEL_WHATSAPP
-            : Notification::CHANNEL_SMS;
-
         // HANDLE-8: wrap notification create + sendViaChannel in a single
         // transaction so a provider misconfiguration / send failure rolls
         // back the orphan Notification row instead of leaving it sitting
         // unsent in the table.
         try {
-            DB::transaction(function () use ($request, $message, $tenant, $channel, $landlordId) {
-                $notification = Notification::create([
-                    'landlord_id' => $landlordId,
-                    'recipient_id' => $tenant->id,
-                    'type' => Notification::TYPE_GENERAL,
-                    'channel' => $channel,
-                    'subject' => 'Reply from landlord',
-                    'message' => $request->body,
-                    'urgency' => 'informational',
-                    'data' => [
-                        'reply_to_message_id' => $message->id,
-                    ],
-                ]);
-
-                $sent = $this->notificationService->sendViaChannel($notification, $tenant);
-
-                if (! $sent) {
-                    throw new \RuntimeException('Notification channel failed to send.');
-                }
-
-                $message->markAsProcessed();
-            });
+            $this->dispatchReply($message, $tenant, $landlordId, $request->body);
         } catch (\Throwable $e) {
             return back()->with('error', 'Failed to send reply. Please try again.');
         }
@@ -206,5 +140,88 @@ class InboxController extends Controller
             ->update(['status' => TenantMessage::STATUS_PROCESSED]);
 
         return back()->with('success', 'All messages marked as read.');
+    }
+
+    private function applyStatusFilter(mixed $query, string $status): void
+    {
+        if ($status === 'unread') {
+            $query->where('status', TenantMessage::STATUS_RECEIVED);
+        } elseif ($status === 'processed') {
+            $query->whereIn('status', [
+                TenantMessage::STATUS_PROCESSED,
+                TenantMessage::STATUS_ACTION_TAKEN,
+            ]);
+        }
+    }
+
+    private function applySearchFilter(mixed $query, string $search): void
+    {
+        $query->where(function ($q) use ($search) {
+            $q->where('body', 'like', "%{$search}%")
+                ->orWhere('from_number', 'like', "%{$search}%")
+                ->orWhereHas('user', fn ($q) => $q->where('name', 'like', "%{$search}%"));
+        });
+    }
+
+    private function formatMessageForList(TenantMessage $message): array
+    {
+        $unit = $message->user?->lease?->unit;
+
+        return [
+            'id' => $message->id,
+            'tenant_name' => $message->user?->name ?? 'Unknown',
+            'tenant_id' => $message->user_id,
+            'from_number' => $message->from_number,
+            'body' => $message->body,
+            'body_preview' => strlen($message->body) > 100
+                ? substr($message->body, 0, 100).'...'
+                : $message->body,
+            'source' => $message->source,
+            'status' => $message->status,
+            'action_type' => $message->action_type,
+            'is_reply' => $message->isReply(),
+            'original_notification' => $message->notification ? [
+                'subject' => $message->notification->subject,
+                'type' => $message->notification->type,
+            ] : null,
+            'has_ticket' => $message->hasTicket(),
+            'ticket_id' => $message->ticket_id,
+            'unit_name' => $unit ? $unit->name : null,
+            'building_name' => $unit?->building?->name,
+            'property_name' => $unit?->building?->property?->name,
+            'media_count' => count($message->media_urls ?? []),
+            'created_at' => $message->created_at->diffForHumans(),
+            'created_at_full' => $message->created_at->format('M d, Y H:i'),
+        ];
+    }
+
+    private function dispatchReply(TenantMessage $message, mixed $tenant, int $landlordId, string $body): void
+    {
+        $channel = $message->source === TenantMessage::SOURCE_WHATSAPP
+            ? Notification::CHANNEL_WHATSAPP
+            : Notification::CHANNEL_SMS;
+
+        DB::transaction(function () use ($message, $tenant, $landlordId, $body, $channel) {
+            $notification = Notification::create([
+                'landlord_id' => $landlordId,
+                'recipient_id' => $tenant->id,
+                'type' => Notification::TYPE_GENERAL,
+                'channel' => $channel,
+                'subject' => 'Reply from landlord',
+                'message' => $body,
+                'urgency' => 'informational',
+                'data' => [
+                    'reply_to_message_id' => $message->id,
+                ],
+            ]);
+
+            $sent = $this->notificationService->sendViaChannel($notification, $tenant);
+
+            if (! $sent) {
+                throw new \RuntimeException('Notification channel failed to send.');
+            }
+
+            $message->markAsProcessed();
+        });
     }
 }

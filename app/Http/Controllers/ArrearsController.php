@@ -32,59 +32,16 @@ class ArrearsController extends Controller
                 'lease.unit.building:id,name',
             ]);
 
-        // Search filter
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('invoice_number', 'like', "%{$search}%")
-                    ->orWhereHas('lease.tenant', function ($q) use ($search) {
-                        $q->where('name', 'like', "%{$search}%")
-                            ->orWhere('email', 'like', "%{$search}%");
-                    });
-            });
-        }
+        $this->applySearchFilter($query, $request);
+        $this->applyBuildingFilter($query, $request);
+        $this->applyAgeFilter($query, $request, $user);
 
-        // Building filter
-        if ($request->filled('building_id')) {
-            $query->whereHas('lease.unit', function ($q) use ($request) {
-                $q->where('building_id', $request->building_id);
-            });
-        }
-
-        // Age filter (days overdue)
-        // Phase-21 DEFER-PERF-2: anchor "today" in the requesting user's
-        // timezone so the 0-30 / 31-60 / 61-90 buckets honor day-boundary
-        // expectations across TZs (Phase-17 TenantClock pattern).
-        if ($request->filled('age')) {
-            $today = TenantClock::nowFor($user)->startOfDay();
-            switch ($request->age) {
-                case '0-30':
-                    $query->where('due_date', '>=', $today->copy()->subDays(30))
-                        ->where('due_date', '<', $today);
-                    break;
-                case '31-60':
-                    $query->where('due_date', '>=', $today->copy()->subDays(60))
-                        ->where('due_date', '<', $today->copy()->subDays(30));
-                    break;
-                case '61-90':
-                    $query->where('due_date', '>=', $today->copy()->subDays(90))
-                        ->where('due_date', '<', $today->copy()->subDays(60));
-                    break;
-                case '90+':
-                    $query->where('due_date', '<', $today->copy()->subDays(90));
-                    break;
-            }
-        }
-
-        $allowedSorts = ['due_date', 'total_due', 'amount_paid', 'created_at', 'invoice_number'];
-        $sortField = in_array($request->get('sort'), $allowedSorts, true) ? $request->get('sort') : 'due_date';
-        $sortDirection = $request->get('direction') === 'desc' ? 'desc' : 'asc';
+        [$sortField, $sortDirection] = $this->resolveSort($request);
         $query->orderBy($sortField, $sortDirection);
 
         $invoices = $query->paginate(20)->withQueryString();
 
-        // Add computed fields. Phase-21 DEFER-PERF-2: days_overdue
-        // computed against user-TZ today, not server-TZ today.
+        // Phase-21 DEFER-PERF-2: days_overdue computed against user-TZ today.
         $userToday = TenantClock::nowFor($user)->startOfDay();
         $invoices->getCollection()->transform(function ($invoice) use ($userToday) {
             $invoice->amount_owed = $invoice->total_due - $invoice->amount_paid;
@@ -93,11 +50,97 @@ class ArrearsController extends Controller
             return $invoice;
         });
 
-        // PERF-Q1: collapse 7 separate aggregate queries into a single
-        // CASE WHEN selectRaw. The pre-fix code re-scanned the same
-        // arrears predicate seven times to produce $stats + $aging.
-        // Phase-21 DEFER-PERF-2: aging cutoffs anchored in user TZ.
-        $today = $userToday;
+        [$stats, $aging] = $this->fetchAggregates($landlordId, $userToday);
+
+        $buildings = \App\Models\Building::where('landlord_id', $landlordId)
+            ->select('id', 'name')
+            ->orderBy('name')
+            ->get();
+
+        return Inertia::render('Arrears/Index', [
+            'invoices' => $invoices,
+            'stats' => $stats,
+            'aging' => $aging,
+            'buildings' => $buildings,
+            'filters' => $request->only(['search', 'building_id', 'age', 'sort', 'direction']),
+        ]);
+    }
+
+    private function applySearchFilter(\Illuminate\Database\Eloquent\Builder $query, Request $request): void
+    {
+        if (! $request->filled('search')) {
+            return;
+        }
+
+        $search = $request->search;
+        $query->where(function ($q) use ($search) {
+            $q->where('invoice_number', 'like', "%{$search}%")
+                ->orWhereHas('lease.tenant', function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                });
+        });
+    }
+
+    private function applyBuildingFilter(\Illuminate\Database\Eloquent\Builder $query, Request $request): void
+    {
+        if (! $request->filled('building_id')) {
+            return;
+        }
+
+        $query->whereHas('lease.unit', function ($q) use ($request) {
+            $q->where('building_id', $request->building_id);
+        });
+    }
+
+    /**
+     * Phase-21 DEFER-PERF-2: anchor age buckets in the user's timezone.
+     */
+    private function applyAgeFilter(\Illuminate\Database\Eloquent\Builder $query, Request $request, \App\Models\User $user): void
+    {
+        if (! $request->filled('age')) {
+            return;
+        }
+
+        $today = TenantClock::nowFor($user)->startOfDay();
+
+        switch ($request->age) {
+            case '0-30':
+                $query->where('due_date', '>=', $today->copy()->subDays(30))
+                    ->where('due_date', '<', $today);
+                break;
+            case '31-60':
+                $query->where('due_date', '>=', $today->copy()->subDays(60))
+                    ->where('due_date', '<', $today->copy()->subDays(30));
+                break;
+            case '61-90':
+                $query->where('due_date', '>=', $today->copy()->subDays(90))
+                    ->where('due_date', '<', $today->copy()->subDays(60));
+                break;
+            case '90+':
+                $query->where('due_date', '<', $today->copy()->subDays(90));
+                break;
+        }
+    }
+
+    /** @return array{0: string, 1: string} */
+    private function resolveSort(Request $request): array
+    {
+        $allowedSorts = ['due_date', 'total_due', 'amount_paid', 'created_at', 'invoice_number'];
+        $sortField = in_array($request->get('sort'), $allowedSorts, true) ? $request->get('sort') : 'due_date';
+        $sortDirection = $request->get('direction') === 'desc' ? 'desc' : 'asc';
+
+        return [$sortField, $sortDirection];
+    }
+
+    /**
+     * PERF-Q1: single CASE WHEN selectRaw for stats + aging.
+     * Phase-21 DEFER-PERF-2: cutoffs anchored in user TZ.
+     *
+     * @return array{0: array<string, float|int>, 1: array<string, float>}
+     */
+    private function fetchAggregates(int $landlordId, \Carbon\Carbon $today): array
+    {
         $cutoff30 = $today->copy()->subDays(30)->format('Y-m-d');
         $cutoff60 = $today->copy()->subDays(60)->format('Y-m-d');
         $cutoff90 = $today->copy()->subDays(90)->format('Y-m-d');
@@ -135,18 +178,6 @@ class ArrearsController extends Controller
             '90_plus' => (float) ($agg->age_90_plus ?? 0),
         ];
 
-        // Get buildings for filter dropdown
-        $buildings = \App\Models\Building::where('landlord_id', $landlordId)
-            ->select('id', 'name')
-            ->orderBy('name')
-            ->get();
-
-        return Inertia::render('Arrears/Index', [
-            'invoices' => $invoices,
-            'stats' => $stats,
-            'aging' => $aging,
-            'buildings' => $buildings,
-            'filters' => $request->only(['search', 'building_id', 'age', 'sort', 'direction']),
-        ]);
+        return [$stats, $aging];
     }
 }

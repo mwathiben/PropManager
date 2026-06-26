@@ -17,17 +17,7 @@ class CheckPlanLimits
     {
         $user = $request->user();
 
-        if (! $user) {
-            return $next($request);
-        }
-
-        // Only landlords have subscription limits
-        if ($user->role !== 'landlord') {
-            return $next($request);
-        }
-
-        // Super admins bypass all limits
-        if ($user->isSuperAdmin()) {
+        if ($this->isExemptUser($user)) {
             return $next($request);
         }
 
@@ -44,40 +34,13 @@ class CheckPlanLimits
         $allowed = app(\App\Services\Subscriptions\PlanGateService::class)->can($feature, $user);
 
         if (! $allowed) {
-            $message = $this->getFeatureUpgradeMessage($feature);
-
-            if ($request->wantsJson() || $request->ajax()) {
-                return response()->json([
-                    'error' => $message,
-                    'upgrade_url' => route('subscription.plans'),
-                    'feature' => $feature,
-                ], 403);
-            }
-
-            return redirect()->route('subscription.plans')
-                ->with('error', $message);
+            return $this->denyFeatureAccess($request, $feature);
         }
 
-        // Check quantity limits for creation routes (POST requests)
         if ($request->isMethod('POST')) {
-            $limitFeature = $this->getLimitFeature($feature);
-
-            if ($limitFeature && ! $user->withinLimit($limitFeature)) {
-                $limit = $user->getLimit($limitFeature);
-                $message = "You've reached your plan limit of {$limit} {$limitFeature}. Please upgrade your plan for more capacity.";
-
-                if ($request->wantsJson() || $request->ajax()) {
-                    return response()->json([
-                        'error' => $message,
-                        'upgrade_url' => route('subscription.plans'),
-                        'feature' => $limitFeature,
-                        'limit' => $limit,
-                        'current' => $user->getCurrentUsage($limitFeature),
-                    ], 403);
-                }
-
-                return redirect()->back()
-                    ->with('error', $message);
+            $limitDenied = $this->checkPostLimit($request, $user, $feature);
+            if ($limitDenied !== null) {
+                return $limitDenied;
             }
         }
 
@@ -94,17 +57,11 @@ class CheckPlanLimits
     public function terminate(Request $request, Response $response): void
     {
         try {
-            $user = $request->user();
-            if (! $user || $user->role !== 'landlord' || $user->isSuperAdmin()) {
-                return;
-            }
-            if (! in_array($request->method(), ['POST', 'PUT', 'PATCH', 'DELETE'], true)) {
-                return;
-            }
-            if ($response->getStatusCode() >= 400) {
+            if ($this->shouldSkipMetering($request, $response)) {
                 return;
             }
 
+            $user = $request->user();
             $route = $request->route();
             // Pull the feature name from the middleware parameter on the
             // matched route — Laravel renders `plan:units` as parameters
@@ -119,6 +76,84 @@ class CheckPlanLimits
         } catch (\Throwable) {
             // Fail-open: metering MUST NEVER bubble out of terminate.
         }
+    }
+
+    /**
+     * Returns true when the user should bypass all plan checks
+     * (unauthenticated, non-landlord, or super admin).
+     */
+    private function isExemptUser(mixed $user): bool
+    {
+        if (! $user) {
+            return true;
+        }
+
+        return $user->role !== 'landlord' || $user->isSuperAdmin();
+    }
+
+    /**
+     * Build the 403 response for a denied feature gate.
+     */
+    private function denyFeatureAccess(Request $request, string $feature): Response
+    {
+        $message = $this->getFeatureUpgradeMessage($feature);
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'error' => $message,
+                'upgrade_url' => route('subscription.plans'),
+                'feature' => $feature,
+            ], 403);
+        }
+
+        return redirect()->route('subscription.plans')
+            ->with('error', $message);
+    }
+
+    /**
+     * Check quantity limits on POST requests. Returns a response when
+     * the limit is exceeded, null when the request may proceed.
+     */
+    private function checkPostLimit(Request $request, mixed $user, string $feature): ?Response
+    {
+        $limitFeature = $this->getLimitFeature($feature);
+
+        if (! $limitFeature || $user->withinLimit($limitFeature)) {
+            return null;
+        }
+
+        $limit = $user->getLimit($limitFeature);
+        $message = "You've reached your plan limit of {$limit} {$limitFeature}. Please upgrade your plan for more capacity.";
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'error' => $message,
+                'upgrade_url' => route('subscription.plans'),
+                'feature' => $limitFeature,
+                'limit' => $limit,
+                'current' => $user->getCurrentUsage($limitFeature),
+            ], 403);
+        }
+
+        return redirect()->back()->with('error', $message);
+    }
+
+    /**
+     * Returns true when metering should be skipped for this request/response.
+     */
+    private function shouldSkipMetering(Request $request, Response $response): bool
+    {
+        $user = $request->user();
+
+        if ($this->isExemptUser($user)) {
+            return true;
+        }
+
+        if (! in_array($request->method(), ['POST', 'PUT', 'PATCH', 'DELETE'], true)) {
+            return true;
+        }
+
+        return $response->getStatusCode() >= 400;
     }
 
     private function resolveFeatureFromRoute($route): ?string

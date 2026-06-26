@@ -49,57 +49,64 @@ class NotificationDefaultsRepository implements NotificationDefaultsRepositoryIn
     public function updateDefaults(int $landlordId, array $defaults): void
     {
         $model = NotificationDefaults::getOrCreate($landlordId);
-        $updateData = [];
 
-        if (isset($defaults['default_channels'])) {
-            $updateData['default_channels'] = $defaults['default_channels'];
-        }
-        if (isset($defaults['type_settings'])) {
-            $updateData['type_settings'] = $defaults['type_settings'];
-        }
-        if (isset($defaults['quiet_hours_enabled'])) {
-            $updateData['quiet_hours_enabled'] = $defaults['quiet_hours_enabled'];
-        }
-        if (isset($defaults['quiet_hours_start'])) {
-            $updateData['quiet_hours_start'] = $defaults['quiet_hours_start'];
-        }
-        if (isset($defaults['quiet_hours_end'])) {
-            $updateData['quiet_hours_end'] = $defaults['quiet_hours_end'];
-        }
-        if (isset($defaults['quiet_hours_queue_notifications'])) {
-            $updateData['quiet_hours_queue_notifications'] = $defaults['quiet_hours_queue_notifications'];
-        }
-        if (isset($defaults['max_retries'])) {
-            $updateData['max_retries'] = $defaults['max_retries'];
-        }
-        if (isset($defaults['retry_delay_minutes'])) {
-            $updateData['retry_delay_minutes'] = $defaults['retry_delay_minutes'];
-        }
-        if (isset($defaults['daily_limit_per_tenant'])) {
-            $updateData['daily_limit_per_tenant'] = $defaults['daily_limit_per_tenant'];
-        }
-        if (isset($defaults['hourly_limit_per_tenant'])) {
-            $updateData['hourly_limit_per_tenant'] = $defaults['hourly_limit_per_tenant'];
-        }
-        if (array_key_exists('sender_name', $defaults)) {
-            $updateData['sender_name'] = $defaults['sender_name'];
-        }
-        if (array_key_exists('reply_to_email', $defaults)) {
-            $updateData['reply_to_email'] = $defaults['reply_to_email'];
-        }
-        if (isset($defaults['archive_days'])) {
-            $updateData['archive_days'] = $defaults['archive_days'];
-        }
-        if (isset($defaults['track_read_status'])) {
-            $updateData['track_read_status'] = $defaults['track_read_status'];
-        }
-        if (isset($defaults['reminder_days_before_due'])) {
-            $updateData['reminder_days_before_due'] = $defaults['reminder_days_before_due'];
-        }
+        $updateData = array_merge(
+            $this->collectIssetFields($defaults),
+            $this->collectNullableFields($defaults),
+        );
 
         if (! empty($updateData)) {
             $model->update($updateData);
         }
+    }
+
+    /**
+     * Collect fields that are present and non-null in the input.
+     */
+    private function collectIssetFields(array $defaults): array
+    {
+        $fields = [
+            'default_channels',
+            'type_settings',
+            'quiet_hours_enabled',
+            'quiet_hours_start',
+            'quiet_hours_end',
+            'quiet_hours_queue_notifications',
+            'max_retries',
+            'retry_delay_minutes',
+            'daily_limit_per_tenant',
+            'hourly_limit_per_tenant',
+            'archive_days',
+            'track_read_status',
+            'reminder_days_before_due',
+        ];
+
+        $result = [];
+
+        foreach ($fields as $field) {
+            if (isset($defaults[$field])) {
+                $result[$field] = $defaults[$field];
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Collect nullable fields that may be explicitly set to null.
+     */
+    private function collectNullableFields(array $defaults): array
+    {
+        $nullableFields = ['sender_name', 'reply_to_email'];
+        $result = [];
+
+        foreach ($nullableFields as $field) {
+            if (array_key_exists($field, $defaults)) {
+                $result[$field] = $defaults[$field];
+            }
+        }
+
+        return $result;
     }
 
     public function getQuietHours(int $landlordId): array

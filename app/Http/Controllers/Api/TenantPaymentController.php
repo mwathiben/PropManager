@@ -95,6 +95,21 @@ class TenantPaymentController extends Controller
             ], $e->getStatusCode());
         }
 
+        $failureResponse = $this->mpesaStkResultResponse($result);
+        if ($failureResponse !== null) {
+            return $failureResponse;
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'STK Push sent. Please enter your M-Pesa PIN on your phone.',
+            'checkout_request_id' => $result['CheckoutRequestID'],
+            'merchant_request_id' => $result['MerchantRequestID'],
+        ]);
+    }
+
+    private function mpesaStkResultResponse(?array $result): ?\Illuminate\Http\JsonResponse
+    {
         if (! $result) {
             return response()->json([
                 'success' => false,
@@ -109,12 +124,7 @@ class TenantPaymentController extends Controller
             ], 400);
         }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'STK Push sent. Please enter your M-Pesa PIN on your phone.',
-            'checkout_request_id' => $result['CheckoutRequestID'],
-            'merchant_request_id' => $result['MerchantRequestID'],
-        ]);
+        return null;
     }
 
     public function checkMpesaStatus(CheckMpesaStatusRequest $request)
@@ -134,22 +144,10 @@ class TenantPaymentController extends Controller
         }
 
         $tenant = $request->user();
-        $lease = $tenant->leases()->where('is_active', true)->first();
+        [$lease, $paymentConfig, $configError] = $this->resolveLeaseAndMpesaConfig($tenant);
 
-        if (! $lease) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No active lease found.',
-            ], 404);
-        }
-
-        $paymentConfig = PaymentConfiguration::where('landlord_id', $lease->landlord_id)->first();
-
-        if (! $paymentConfig || ! $paymentConfig->hasMpesaApiConfig()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'M-Pesa payments are not configured.',
-            ], 503);
+        if ($configError !== null) {
+            return $configError;
         }
 
         $result = $this->mpesaService->querySTKStatus($checkoutRequestId, $paymentConfig);
@@ -162,6 +160,34 @@ class TenantPaymentController extends Controller
             ]);
         }
 
+        return $this->mpesaStatusResultResponse($result);
+    }
+
+    private function resolveLeaseAndMpesaConfig($tenant): array
+    {
+        $lease = $tenant->leases()->where('is_active', true)->first();
+
+        if (! $lease) {
+            return [null, null, response()->json([
+                'success' => false,
+                'message' => 'No active lease found.',
+            ], 404)];
+        }
+
+        $paymentConfig = PaymentConfiguration::where('landlord_id', $lease->landlord_id)->first();
+
+        if (! $paymentConfig || ! $paymentConfig->hasMpesaApiConfig()) {
+            return [null, null, response()->json([
+                'success' => false,
+                'message' => 'M-Pesa payments are not configured.',
+            ], 503)];
+        }
+
+        return [$lease, $paymentConfig, null];
+    }
+
+    private function mpesaStatusResultResponse(array $result): \Illuminate\Http\JsonResponse
+    {
         $resultCode = $result['ResultCode'] ?? -1;
 
         if ($resultCode === '0' || $resultCode === 0) {
@@ -272,7 +298,7 @@ class TenantPaymentController extends Controller
                 $request->amount,
                 $request->phone,
                 $reference,
-                $paymentConfig->intasend_wallet_id ? ['wallet_id' => $paymentConfig->intasend_wallet_id] : null
+                $this->buildIntaSendWalletOptions($paymentConfig)
             );
         } catch (PaymentGatewayUnreachableException $e) {
             $transaction->markFailed('Gateway unreachable: '.$e->getMessage());
@@ -295,17 +321,7 @@ class TenantPaymentController extends Controller
 
         $intasendInvoiceId = $result['invoice']['invoice_id'];
 
-        try {
-            $transaction->update(['intasend_invoice_id' => $intasendInvoiceId]);
-        } catch (\Throwable $e) {
-            Log::emergency('IntaSend transaction update failed after successful STK push', [
-                'transaction_id' => $transaction->id,
-                'api_ref' => $reference,
-                'intasend_invoice_id' => $intasendInvoiceId,
-                'invoice_id' => $invoice->id,
-                'error' => $e->getMessage(),
-            ]);
-        }
+        $this->persistIntaSendInvoiceId($transaction, $reference, $intasendInvoiceId, $invoice->id);
 
         return response()->json([
             'success' => true,
@@ -313,5 +329,33 @@ class TenantPaymentController extends Controller
             'intasend_invoice_id' => $intasendInvoiceId,
             'api_ref' => $reference,
         ]);
+    }
+
+    private function buildIntaSendWalletOptions(PaymentConfiguration $paymentConfig): ?array
+    {
+        if (! $paymentConfig->intasend_wallet_id) {
+            return null;
+        }
+
+        return ['wallet_id' => $paymentConfig->intasend_wallet_id];
+    }
+
+    private function persistIntaSendInvoiceId(
+        IntaSendTransaction $transaction,
+        string $reference,
+        string $intasendInvoiceId,
+        int $invoiceId,
+    ): void {
+        try {
+            $transaction->update(['intasend_invoice_id' => $intasendInvoiceId]);
+        } catch (\Throwable $e) {
+            Log::emergency('IntaSend transaction update failed after successful STK push', [
+                'transaction_id' => $transaction->id,
+                'api_ref' => $reference,
+                'intasend_invoice_id' => $intasendInvoiceId,
+                'invoice_id' => $invoiceId,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }

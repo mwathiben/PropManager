@@ -50,20 +50,12 @@ class BuildingController extends Controller
 
     public function show(Building $building)
     {
-        if ($building->hasWings()) {
-            $firstWing = $building->wings()->orderBy('name')->first();
-            if ($firstWing) {
-                return redirect()->route('buildings.show', $firstWing);
-            }
+        $redirect = $this->redirectIfHasWings($building, 'buildings.show');
+        if ($redirect) {
+            return $redirect;
         }
 
-        $user = auth()->user();
-        if ($user->isScopeOwner() && $building->landlord_id !== $user->id) {
-            abort(403);
-        }
-        if ($user->isCaretaker() && $building->landlord_id !== $user->landlord_id) {
-            abort(403);
-        }
+        $this->authorizeBuilding($building);
 
         $data = $this->buildingService->getBuildingDetails($building);
 
@@ -72,24 +64,40 @@ class BuildingController extends Controller
 
     public function dashboard(Building $building, Request $request)
     {
-        if ($building->hasWings()) {
-            $firstWing = $building->wings()->orderBy('name')->first();
-            if ($firstWing) {
-                return redirect()->route('buildings.dashboard', $firstWing);
-            }
+        $redirect = $this->redirectIfHasWings($building, 'buildings.dashboard');
+        if ($redirect) {
+            return $redirect;
         }
 
-        $user = auth()->user();
-        if ($user->isScopeOwner() && $building->landlord_id !== $user->id) {
-            abort(403);
-        }
-        if ($user->isCaretaker() && $building->landlord_id !== $user->landlord_id) {
-            abort(403);
-        }
+        $this->authorizeBuilding($building);
 
         $data = $this->buildingService->getBuildingDashboardData($building, $request);
 
         return Inertia::render('Buildings/Dashboard', $data);
+    }
+
+    private function redirectIfHasWings(Building $building, string $routeName): ?\Illuminate\Http\RedirectResponse
+    {
+        if (! $building->hasWings()) {
+            return null;
+        }
+
+        $firstWing = $building->wings()->orderBy('name')->first();
+
+        return $firstWing ? redirect()->route($routeName, $firstWing) : null;
+    }
+
+    private function authorizeBuilding(Building $building): void
+    {
+        $user = auth()->user();
+
+        if ($user->isScopeOwner() && $building->landlord_id !== $user->id) {
+            abort(403);
+        }
+
+        if ($user->isCaretaker() && $building->landlord_id !== $user->landlord_id) {
+            abort(403);
+        }
     }
 
     public function updateSettings(UpdateBuildingSettingsRequest $request, Building $building)
