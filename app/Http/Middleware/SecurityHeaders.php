@@ -115,6 +115,13 @@ class SecurityHeaders
         // webfont returns is already covered by style-src/font-src.
         $mapOrigins = 'https://*.tile.openstreetmap.org https://cdnjs.cloudflare.com';
 
+        // Slice-2 PR-2.4b-ii: the owner signs in an embedded Documenso iframe, so the
+        // self-hosted Documenso origin must be an allowed frame source — default-src
+        // 'self' (the frame-src fallback) would otherwise block it. Scoped to the
+        // configured host; 'none' when Documenso is not configured.
+        $documensoOrigin = rtrim((string) config('documenso.base_url', ''), '/');
+        $frameSrc = $documensoOrigin !== '' ? "frame-src {$documensoOrigin}" : "frame-src 'none'";
+
         $directives = [
             "default-src 'self'",
             "script-src 'self' 'nonce-{$nonce}'",
@@ -123,6 +130,7 @@ class SecurityHeaders
             "img-src 'self' data: blob: https://imgs.paystack.co {$mapOrigins}",
             "font-src 'self' data: https://fonts.bunny.net",
             "connect-src 'self' ws: wss: https://api.paystack.co https://nominatim.openstreetmap.org https://fonts.bunny.net {$mapOrigins}",
+            $frameSrc,
             "frame-ancestors 'none'",
             "base-uri 'self'",
             "form-action 'self'",

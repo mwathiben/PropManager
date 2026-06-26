@@ -133,7 +133,9 @@ class AgreementSigningController extends Controller
     private function prepareDocumensoEnvelope(AgreementSignature $signature, ManagementAgreement $agreement): ?DocumensoEnvelope
     {
         $email = (string) $signature->signer_email;
-        if ((string) config('documenso.base_url') === '' || $email === '') {
+        // A present-but-malformed email would make DocumensoSigner throw — validate
+        // here so it degrades to the in-house fallback instead of 500-ing the owner.
+        if ((string) config('documenso.base_url') === '' || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
             return null;
         }
 
@@ -143,15 +145,18 @@ class AgreementSigningController extends Controller
         }
 
         try {
-            return $this->documenso->createSigningEnvelope(
-                $this->pdfRenderer->render($agreement),
-                new DocumensoSigner((string) $signature->signer_name, $email),
-                (string) $agreement->title,
-                (string) $signature->id,
-            );
-        } catch (DocumensoException $e) {
-            Log::warning('Documenso envelope creation failed; falling back to in-house sign', [
+            $signer = new DocumensoSigner((string) $signature->signer_name, $email);
+            $pdf = $this->pdfRenderer->render($agreement);
+
+            return $this->documenso->createSigningEnvelope($pdf, $signer, (string) $agreement->title, (string) $signature->id);
+        } catch (\Throwable $e) {
+            // ANY failure preparing the Documenso path — unavailable (DocumensoException),
+            // a malformed email (InvalidArgumentException), or a PDF render error — degrades
+            // to the in-house assent: the owner is NEVER blocked. Logged at error WITH the
+            // exception class so a genuine bug stays distinguishable from a Documenso outage.
+            Log::error('Documenso signing preparation failed; falling back to in-house sign', [
                 'signature_id' => $signature->id,
+                'exception' => $e::class,
                 'error' => $e->getMessage(),
             ]);
 

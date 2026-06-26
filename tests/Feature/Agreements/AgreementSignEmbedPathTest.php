@@ -161,4 +161,27 @@ class AgreementSignEmbedPathTest extends TestCase
         // No new envelope created.
         Http::assertNotSent(fn (Request $r) => $r->url() === 'https://docs.example.test/api/v1/documents');
     }
+
+    public function test_malformed_signer_email_falls_back_to_in_house_without_500(): void
+    {
+        [$agreement, $signature, $owner] = $this->signable();
+        // Present-but-invalid email: must short-circuit to in-house, never reach
+        // DocumensoSigner (which would throw InvalidArgumentException -> 500).
+        $signature->update(['signer_email' => 'owner@']);
+        $this->configureDocumenso();
+        $this->fakeCreateFlow();
+        $code = $this->seedOtp($signature->token);
+
+        $this->post(route('agreements.sign', $signature->token), [
+            'code' => $code,
+            'content_hash' => $agreement->content_hash,
+            'agree' => true,
+        ])->assertRedirect();
+
+        $this->assertSame(AgreementStatus::Active, $agreement->fresh()->status);
+        $this->assertSame(AgreementSignatureStatus::Signed, $signature->fresh()->status);
+        $this->assertNull($signature->fresh()->documenso_document_id);
+        $this->assertNotNull($owner->fresh()->management_fee_locked_at);
+        Http::assertNotSent(fn (Request $r) => $r->url() === 'https://docs.example.test/api/v1/documents');
+    }
 }

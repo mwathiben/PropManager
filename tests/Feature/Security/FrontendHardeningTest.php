@@ -86,6 +86,24 @@ class FrontendHardeningTest extends TestCase
         $this->assertStringContainsString('https://cdnjs.cloudflare.com', $connectSrc);
     }
 
+    public function test_csp_frame_src_allows_the_documenso_origin(): void
+    {
+        // Slice-2 PR-2.4b-ii: the owner signs in an embedded Documenso iframe, so the
+        // configured Documenso host must be a frame-src — else default-src 'self' blocks it.
+        config(['documenso.base_url' => 'https://docs.example.test']);
+        $csp = $this->get('/')->headers->get('Content-Security-Policy') ?? '';
+
+        $this->assertStringContainsString('frame-src https://docs.example.test', $csp);
+    }
+
+    public function test_csp_frame_src_is_none_when_documenso_unconfigured(): void
+    {
+        config(['documenso.base_url' => '']);
+        $csp = $this->get('/')->headers->get('Content-Security-Policy') ?? '';
+
+        $this->assertStringContainsString("frame-src 'none'", $csp);
+    }
+
     public function test_csp_report_endpoint_records_security_log(): void
     {
         $payload = [

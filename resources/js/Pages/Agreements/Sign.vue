@@ -39,6 +39,7 @@ const sign = () => signForm.post(route('agreements.sign', props.token), { preser
 // --- Documenso embedded signing ------------------------------------------------
 const iframeReady = ref(false);
 const finalizing = ref(false);
+const pollFailed = ref(false);
 
 const embedOrigin = computed(() => {
     if (!props.embed?.baseUrl) {
@@ -52,7 +53,7 @@ const embedOrigin = computed(() => {
 });
 
 const embedUrl = computed(() => {
-    if (!props.embed) {
+    if (!props.embed || !embedOrigin.value) {
         return '';
     }
     // Documenso reads its config from the URL hash: JSON.parse(decodeURIComponent(atob(hash))).
@@ -67,20 +68,34 @@ const embedUrl = computed(() => {
     return `${props.embed.baseUrl}/embed/sign/${props.embed.token}#${hash}`;
 });
 
+const POLL_MAX_ATTEMPTS = 40; // 40 * 3s ≈ 2 minutes
 let pollTimer = null;
+let pollAttempts = 0;
 const stopPolling = () => {
     if (pollTimer) {
         clearInterval(pollTimer);
         pollTimer = null;
     }
 };
+const failPolling = () => {
+    stopPolling();
+    finalizing.value = false;
+    pollFailed.value = true;
+};
 const startPolling = () => {
     if (pollTimer) {
         return;
     }
+    pollAttempts = 0;
     // The DOCUMENT_COMPLETED webhook (the source of truth) seals + activates server-side;
-    // poll the page until it reflects the signed state. postMessage is UX only.
+    // poll the page until it reflects the signed state. postMessage is UX only. Bounded so
+    // a dropped webhook / failed seal / reload error never leaves the owner on an eternal
+    // spinner — after the cap we surface a terminal "taking longer" state instead.
     pollTimer = setInterval(() => {
+        if (++pollAttempts > POLL_MAX_ATTEMPTS) {
+            failPolling();
+            return;
+        }
         router.reload({
             only: ['signed'],
             onSuccess: () => {
@@ -88,6 +103,7 @@ const startPolling = () => {
                     stopPolling();
                 }
             },
+            onError: failPolling,
         });
     }, 3000);
 };
@@ -132,7 +148,11 @@ onBeforeUnmount(() => {
                         <p class="text-sm text-gray-500 mt-1">{{ t('agreements.sign.documenso.intro') }}</p>
                     </div>
 
-                    <div v-if="finalizing" class="bg-white rounded-xl border border-gray-200 p-8 text-center">
+                    <div v-if="pollFailed" class="bg-white rounded-xl border border-amber-200 p-8 text-center">
+                        <p class="text-sm text-gray-700">{{ t('agreements.sign.documenso.finalize_timeout') }}</p>
+                    </div>
+
+                    <div v-else-if="finalizing" class="bg-white rounded-xl border border-gray-200 p-8 text-center">
                         <div class="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600"></div>
                         <p class="text-sm text-gray-600">{{ t('agreements.sign.documenso.finalizing') }}</p>
                     </div>
