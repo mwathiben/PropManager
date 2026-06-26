@@ -50,16 +50,30 @@ class MarkRegulatorNotified extends Command
         }
 
         if (! $this->option('confirm')) {
-            $this->warn('DRY RUN — pass --confirm to record the acknowledgement.');
-            $this->line("Incident:  #{$incidentId}");
-            $this->line('Deadline:  '.$incident->notification_deadline?->toDateTimeString());
-            $this->line('Reference: '.($reference !== '' ? $reference : '(none)'));
+            $this->showDryRun($incidentId, $incident, $reference);
 
             return self::SUCCESS;
         }
 
         $incident->markOdpcNotified();
 
+        $this->recordAuditLog($incidentId, $incident, $reference);
+
+        $this->info("Incident #{$incidentId} marked as regulator-notified.");
+
+        return self::SUCCESS;
+    }
+
+    private function showDryRun(int $incidentId, SecurityIncident $incident, string $reference): void
+    {
+        $this->warn('DRY RUN — pass --confirm to record the acknowledgement.');
+        $this->line("Incident:  #{$incidentId}");
+        $this->line('Deadline:  '.$incident->notification_deadline?->toDateTimeString());
+        $this->line('Reference: '.($reference !== '' ? $reference : '(none)'));
+    }
+
+    private function recordAuditLog(int $incidentId, SecurityIncident $incident, string $reference): void
+    {
         $actor = $this->resolveActor();
         SecurityLog::create([
             'user_id' => $actor?->id,
@@ -75,10 +89,6 @@ class MarkRegulatorNotified extends Command
             ],
             'is_suspicious' => false,
         ]);
-
-        $this->info("Incident #{$incidentId} marked as regulator-notified.");
-
-        return self::SUCCESS;
     }
 
     private function resolveActor(): ?User

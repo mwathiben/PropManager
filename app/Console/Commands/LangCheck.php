@@ -25,6 +25,27 @@ class LangCheck extends Command
         $baselineBundle = $loader->load($baselineLocale);
 
         $available = $this->resolveTargetLocales($baselineLocale);
+        $failures = $this->collectFailures($loader, $available, $pinned, $baselineBundle);
+
+        if ($failures === []) {
+            $this->info(sprintf('lang:check — pinned namespaces (%s) parity-complete across locales.', implode(', ', $pinned)));
+
+            return self::SUCCESS;
+        }
+
+        $this->reportFailures($failures);
+
+        return self::FAILURE;
+    }
+
+    /**
+     * @param  array<int, string>  $available
+     * @param  array<int, string>  $pinned
+     * @param  array<string, mixed>  $baselineBundle
+     * @return array<string, array<string, array<int, string>>>
+     */
+    private function collectFailures(LangBundleLoader $loader, array $available, array $pinned, array $baselineBundle): array
+    {
         $failures = [];
 
         foreach ($available as $locale) {
@@ -45,12 +66,14 @@ class LangCheck extends Command
             }
         }
 
-        if ($failures === []) {
-            $this->info(sprintf('lang:check — pinned namespaces (%s) parity-complete across locales.', implode(', ', $pinned)));
+        return $failures;
+    }
 
-            return self::SUCCESS;
-        }
-
+    /**
+     * @param  array<string, array<string, array<int, string>>>  $failures
+     */
+    private function reportFailures(array $failures): void
+    {
         foreach ($failures as $locale => $perNamespace) {
             foreach ($perNamespace as $namespace => $missing) {
                 $this->error(sprintf(
@@ -62,8 +85,6 @@ class LangCheck extends Command
                 ));
             }
         }
-
-        return self::FAILURE;
     }
 
     /**

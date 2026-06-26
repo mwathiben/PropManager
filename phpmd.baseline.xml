@@ -1,16 +1,10 @@
 <?xml version="1.0"?>
 <phpmd-baseline>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Broadcasting/LeaseChannel.php" method="join"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/AlertQualityAudit.php" method="handle"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/AnalyticsReplayBatch.php" method="handle"/>
   <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Console/Commands/AnalyticsReplayBatch.php" method="handle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/ApiChangelog.php" method="renderBlock"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/ApiDeprecationsAudit.php" method="handle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/ApplyWalletCredit.php" method="handle"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/ArchiveRehydrate.php" method="handle"/>
   <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Console/Commands/ArchiveRehydrate.php" method="handle"/>
   <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Console/Commands/ArchiveRehydrate.php" method="handle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/AuditDataOrphans.php" method="handle"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/AutoOrganizeBuildings.php" method="handle"/>
   <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Console/Commands/AutoOrganizeBuildings.php" method="handle"/>
   <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Console/Commands/AutoOrganizeBuildings.php" method="handle"/>
@@ -21,8 +15,6 @@
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/BackupVerify.php" method="handle"/>
   <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Console/Commands/BackupVerify.php" method="handle"/>
   <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Console/Commands/BackupVerify.php" method="handle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/BillWaterClients.php" method="handle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/CacheHitRateAudit.php" method="handle"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/CleanupExpiredInvitations.php" method="handle"/>
   <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Console/Commands/CleanupExpiredInvitations.php" method="handle"/>
   <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Console/Commands/CleanupExpiredInvitations.php" method="handle"/>
@@ -32,12 +24,9 @@
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/CryptRotate.php" method="handle"/>
   <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Console/Commands/CryptRotate.php" method="handle"/>
   <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Console/Commands/CryptRotate.php" method="handle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/DailyPaymentReconciliation.php" method="processLandlord"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/DunningEmails.php" method="handle"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/EnforceRetention.php" method="handle"/>
   <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Console/Commands/EnforceRetention.php" method="handle"/>
   <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Console/Commands/EnforceRetention.php" method="handle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/EngagementRollup.php" method="handle"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/FixBuildingArchitecture.php" method="handle"/>
   <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Console/Commands/FixBuildingArchitecture.php" method="handle"/>
   <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Console/Commands/FixBuildingArchitecture.php" method="handle"/>
@@ -46,11 +35,6 @@
   <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Console/Commands/FixUnitPrefixes.php" method="handle"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/GenerateMonthlyInvoices.php" method="handle"/>
   <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Console/Commands/GenerateMonthlyInvoices.php" method="handle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/I18nSpendAudit.php" method="supportedLocales"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/InitiateBreach.php" method="handle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/InsightWeeklyDigest.php" method="handle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/InvoicesEscalateOverdue.php" method="handle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/LangCheck.php" method="handle"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/LangCoverage.php" method="handle"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/LangCoverage.php" method="loadBundle"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/LangReview.php" method="handle"/>
@@ -60,9 +44,6 @@
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/LogVolumeAudit.php" method="handle"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/LogsPrune.php" method="handle"/>
   <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Console/Commands/LogsPrune.php" method="handle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/MarkRegulatorNotified.php" method="handle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/MarkReviewComplete.php" method="handle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/MeteredSoftCapAudit.php" method="handle"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/MigrateToMysql.php" method="handle"/>
   <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Console/Commands/MigrateToMysql.php" method="handle"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/MigrateToMysql.php" method="getOrderedTables"/>
@@ -323,11 +304,9 @@
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Models/Ticket.php" method="logActivity"/>
   <violation rule="PHPMD\Rule\Design\LongClass" file="app/Models/User.php"/>
   <violation rule="PHPMD\Rule\ExcessivePublicCount" file="app/Models/User.php"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Observers/PaymentObserver.php" method="assertCrossTenantConsistency"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Observers/TicketObserver.php" method="creating"/>
   <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Observers/TicketObserver.php" method="creating"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Observers/TicketObserver.php" method="created"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Observers/WaterReadingObserver.php" method="updating"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Policies/PaymentPolicy.php" method="create"/>
   <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Providers/AppServiceProvider.php" method="register"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Providers/AppServiceProvider.php" method="boot"/>

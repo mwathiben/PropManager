@@ -46,18 +46,13 @@ class ApiDeprecationsAudit extends Command
         $deprecated = $this->collectDeprecatedRoutes();
         $doc = (string) file_get_contents($docPath);
 
-        $missing = [];
-        foreach ($deprecated as $entry) {
-            if (! str_contains($doc, $entry['route_signature'])) {
-                $missing[] = $entry;
-            }
-        }
-
         if ($deprecated === []) {
             $this->info('No routes carry the deprecated middleware. Nothing to audit.');
 
             return self::SUCCESS;
         }
+
+        $missing = $this->findMissingEntries($deprecated, $doc);
 
         $this->line(sprintf('Found %d deprecated route(s). Documented: %d. Missing: %d.',
             count($deprecated),
@@ -69,6 +64,30 @@ class ApiDeprecationsAudit extends Command
             return self::SUCCESS;
         }
 
+        return $this->reportMissingAndMaybeFix($docPath, $doc, $missing);
+    }
+
+    /**
+     * @param  list<array{route_signature: string, sunset_at: string}>  $deprecated
+     * @return list<array{route_signature: string, sunset_at: string}>
+     */
+    private function findMissingEntries(array $deprecated, string $doc): array
+    {
+        $missing = [];
+        foreach ($deprecated as $entry) {
+            if (! str_contains($doc, $entry['route_signature'])) {
+                $missing[] = $entry;
+            }
+        }
+
+        return $missing;
+    }
+
+    /**
+     * @param  list<array{route_signature: string, sunset_at: string}>  $missing
+     */
+    private function reportMissingAndMaybeFix(string $docPath, string $doc, array $missing): int
+    {
         foreach ($missing as $entry) {
             $this->warn("  undocumented: {$entry['route_signature']} (sunset {$entry['sunset_at']})");
         }

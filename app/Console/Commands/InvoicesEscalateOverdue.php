@@ -44,8 +44,11 @@ class InvoicesEscalateOverdue extends Command
         30 => self::LEVEL_DRAFT,
     ];
 
+    private NotificationService $notifications;
+
     public function handle(NotificationService $notifications, \App\Services\WorkflowLogger $workflowLogger): int
     {
+        $this->notifications = $notifications;
         $dryRun = (bool) $this->option('dry-run');
         $today = CarbonImmutable::now()->startOfDay();
         $counts = ['sms' => 0, 'task' => 0, 'draft' => 0];
@@ -58,32 +61,7 @@ class InvoicesEscalateOverdue extends Command
             ->get();
 
         foreach ($invoices as $invoice) {
-            $lease = $invoice->lease;
-            if (! $lease) {
-                continue;
-            }
-
-            $daysOverdue = (int) CarbonImmutable::parse($invoice->due_date)->startOfDay()->diffInDays($today, false);
-
-            if (! array_key_exists($daysOverdue, self::LEVEL_BY_DAYS)) {
-                continue;
-            }
-            $level = self::LEVEL_BY_DAYS[$daysOverdue];
-
-            $key = sprintf('invoice-escalation:%d:%s', $invoice->id, $level);
-            if (! Cache::add($key, true, now()->addDays(60))) {
-                continue;
-            }
-
-            if ($dryRun) {
-                continue;
-            }
-
-            match ($level) {
-                self::LEVEL_SMS => $this->fireSmsReminder($notifications, $invoice, $counts),
-                self::LEVEL_TASK => $this->createCallTask($invoice, $counts),
-                self::LEVEL_DRAFT => $this->createEvictionDraft($invoice, $counts),
-            };
+            $this->processInvoice($invoice, $today, $dryRun, $counts);
         }
 
         $this->info(sprintf(
@@ -101,6 +79,36 @@ class InvoicesEscalateOverdue extends Command
         );
 
         return self::SUCCESS;
+    }
+
+    private function processInvoice(Invoice $invoice, CarbonImmutable $today, bool $dryRun, array &$counts): void
+    {
+        $lease = $invoice->lease;
+        if (! $lease) {
+            return;
+        }
+
+        $daysOverdue = (int) CarbonImmutable::parse($invoice->due_date)->startOfDay()->diffInDays($today, false);
+
+        if (! array_key_exists($daysOverdue, self::LEVEL_BY_DAYS)) {
+            return;
+        }
+        $level = self::LEVEL_BY_DAYS[$daysOverdue];
+
+        $key = sprintf('invoice-escalation:%d:%s', $invoice->id, $level);
+        if (! Cache::add($key, true, now()->addDays(60))) {
+            return;
+        }
+
+        if ($dryRun) {
+            return;
+        }
+
+        match ($level) {
+            self::LEVEL_SMS => $this->fireSmsReminder($this->notifications, $invoice, $counts),
+            self::LEVEL_TASK => $this->createCallTask($invoice, $counts),
+            self::LEVEL_DRAFT => $this->createEvictionDraft($invoice, $counts),
+        };
     }
 
     private function fireSmsReminder(NotificationService $notifications, Invoice $invoice, array &$counts): void

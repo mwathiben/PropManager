@@ -45,18 +45,9 @@ class DunningEmails extends Command
             $daysSince = (int) abs($sub->updated_at->diffInDays(now()));
 
             if (in_array($daysSince, [1, 4, 7], true)) {
-                $cacheKey = sprintf('dunning:%d:%d', $sub->id, $daysSince);
-                if (! Cache::add($cacheKey, true, now()->addDays(2))) {
-                    continue;
+                if ($this->sendDunningEmail($sub, $daysSince)) {
+                    $sent++;
                 }
-                if (! $sub->user?->email) {
-                    continue;
-                }
-                if (! app(\App\Services\Platform\LifecycleOptInChecker::class)->allows($sub->user)) {
-                    continue;
-                }
-                Mail::to($sub->user->email)->queue(new DunningReminderMailable($sub, $daysSince));
-                $sent++;
 
                 continue;
             }
@@ -70,5 +61,22 @@ class DunningEmails extends Command
         $this->info(sprintf('Queued %d dunning email(s). Auto-cancelled %d subscription(s).', $sent, $cancelled));
 
         return self::SUCCESS;
+    }
+
+    private function sendDunningEmail(Subscription $sub, int $daysSince): bool
+    {
+        $cacheKey = sprintf('dunning:%d:%d', $sub->id, $daysSince);
+        if (! Cache::add($cacheKey, true, now()->addDays(2))) {
+            return false;
+        }
+        if (! $sub->user?->email) {
+            return false;
+        }
+        if (! app(\App\Services\Platform\LifecycleOptInChecker::class)->allows($sub->user)) {
+            return false;
+        }
+        Mail::to($sub->user->email)->queue(new DunningReminderMailable($sub, $daysSince));
+
+        return true;
     }
 }

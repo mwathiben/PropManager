@@ -119,34 +119,65 @@ class ApiChangelog extends Command
     {
         $lines = ["## {$date}", ''];
 
-        if ($diff['added'] !== []) {
-            $lines[] = '### Added';
-            $lines[] = '';
-            foreach ($diff['added'] as $path) {
-                $lines[] = "- `{$path}`";
-            }
-            $lines[] = '';
-        }
-
-        if ($diff['removed'] !== []) {
-            $lines[] = '### Removed';
-            $lines[] = '';
-            foreach ($diff['removed'] as $path) {
-                $lines[] = "- `{$path}` — breaking. Consumers must migrate before the next release.";
-            }
-            $lines[] = '';
-        }
-
-        if ($diff['changed'] !== []) {
-            $lines[] = '### Changed';
-            $lines[] = '';
-            foreach ($diff['changed'] as $path) {
-                $lines[] = "- `{$path}` — review request/response schema for breaking shape changes.";
-            }
-            $lines[] = '';
-        }
+        $this->appendAddedSection($lines, $diff['added']);
+        $this->appendRemovedSection($lines, $diff['removed']);
+        $this->appendChangedSection($lines, $diff['changed']);
 
         return rtrim(implode("\n", $lines))."\n";
+    }
+
+    /**
+     * @param  list<string>  $lines
+     * @param  list<string>  $paths
+     */
+    private function appendAddedSection(array &$lines, array $paths): void
+    {
+        if ($paths === []) {
+            return;
+        }
+
+        $lines[] = '### Added';
+        $lines[] = '';
+        foreach ($paths as $path) {
+            $lines[] = "- `{$path}`";
+        }
+        $lines[] = '';
+    }
+
+    /**
+     * @param  list<string>  $lines
+     * @param  list<string>  $paths
+     */
+    private function appendRemovedSection(array &$lines, array $paths): void
+    {
+        if ($paths === []) {
+            return;
+        }
+
+        $lines[] = '### Removed';
+        $lines[] = '';
+        foreach ($paths as $path) {
+            $lines[] = "- `{$path}` — breaking. Consumers must migrate before the next release.";
+        }
+        $lines[] = '';
+    }
+
+    /**
+     * @param  list<string>  $lines
+     * @param  list<string>  $paths
+     */
+    private function appendChangedSection(array &$lines, array $paths): void
+    {
+        if ($paths === []) {
+            return;
+        }
+
+        $lines[] = '### Changed';
+        $lines[] = '';
+        foreach ($paths as $path) {
+            $lines[] = "- `{$path}` — review request/response schema for breaking shape changes.";
+        }
+        $lines[] = '';
     }
 
     private function appendBlock(string $path, string $block): void

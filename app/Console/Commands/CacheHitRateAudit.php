@@ -28,7 +28,21 @@ class CacheHitRateAudit extends Command
     public function handle(MetricsService $metrics, AlertFiringRecorder $recorder): int
     {
         $threshold = max(0.0, min(1.0, (float) $this->option('threshold')));
-        $snapshot = $metrics->snapshot();
+        $buckets = $this->parseBucketsFromSnapshot($metrics->snapshot());
+        [$audited, $belowThreshold] = $this->auditBuckets($buckets, $threshold, $metrics);
+        $this->fireOrResolveAlert($belowThreshold, $threshold, $recorder);
+        $this->info(sprintf('Audited %d cache bucket(s); %d below threshold.', $audited, count($belowThreshold)));
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * Parse a raw metrics snapshot into per-bucket hit/miss count arrays.
+     *
+     * @return array<string, array<string, int>>
+     */
+    private function parseBucketsFromSnapshot(array $snapshot): array
+    {
         $buckets = [];
 
         foreach ($snapshot as $field => $value) {
@@ -42,25 +56,50 @@ class CacheHitRateAudit extends Command
             $buckets[$bucket][$kind] = (int) $value;
         }
 
+        return $buckets;
+    }
+
+    /**
+     * Compute hit-rate ratios, emit gauges + console lines, collect below-threshold buckets.
+     *
+     * @param  array<string, array<string, int>>  $buckets
+     * @return array{int, array<string, float>} [audited count, below-threshold map]
+     */
+    private function auditBuckets(array $buckets, float $threshold, MetricsService $metrics): array
+    {
         $belowThreshold = [];
         $audited = 0;
+
         foreach ($buckets as $bucket => $counts) {
             $hits = $counts['hit'] ?? 0;
             $misses = $counts['miss'] ?? 0;
             $total = $hits + $misses;
+
             if ($total === 0) {
                 continue;
             }
+
             $audited++;
             $ratio = round($hits / $total, 4);
             $labels = $this->parseLabels($bucket);
             $metrics->gauge('cache_hit_rate_ratio', $ratio, $labels);
             $this->line(sprintf('%-30s hits=%d misses=%d ratio=%.3f', $bucket, $hits, $misses, $ratio));
+
             if ($ratio < $threshold) {
                 $belowThreshold[$bucket] = $ratio;
             }
         }
 
+        return [$audited, $belowThreshold];
+    }
+
+    /**
+     * Fire or resolve the low_cache_hit_rate alert based on audit results.
+     *
+     * @param  array<string, float>  $belowThreshold
+     */
+    private function fireOrResolveAlert(array $belowThreshold, float $threshold, AlertFiringRecorder $recorder): void
+    {
         if ($belowThreshold !== []) {
             $worst = min($belowThreshold);
             $recorder->record(
@@ -72,10 +111,6 @@ class CacheHitRateAudit extends Command
         } else {
             $recorder->resolve('low_cache_hit_rate');
         }
-
-        $this->info(sprintf('Audited %d cache bucket(s); %d below threshold.', $audited, count($belowThreshold)));
-
-        return self::SUCCESS;
     }
 
     /**
