@@ -47,6 +47,29 @@ class MeteredSoftCapAudit extends Command
             return self::SUCCESS;
         }
 
+        $pairs = $this->buildUsagePairs($payingLandlordIds);
+
+        $this->emitTopGauges($pairs, $metrics);
+        $this->recordOverageAlert($pairs, $threshold, $recorder);
+
+        $offenders = array_filter($pairs, fn ($p) => $p['ratio'] >= $threshold);
+        $this->info(sprintf(
+            'Audited %d pair(s). offenders=%d',
+            count($pairs),
+            count($offenders),
+        ));
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * Build usage ratio pairs for every (landlord, feature) combination.
+     *
+     * @param  array<int>  $payingLandlordIds
+     * @return array<int, array{landlord_id: int, feature: string, plan_slug: string, ratio: float}>
+     */
+    private function buildUsagePairs(array $payingLandlordIds): array
+    {
         $pairs = [];
         foreach ($payingLandlordIds as $landlordId) {
             $landlord = User::find($landlordId);
@@ -69,6 +92,16 @@ class MeteredSoftCapAudit extends Command
             }
         }
 
+        return $pairs;
+    }
+
+    /**
+     * Sort pairs by descending ratio and emit gauges for the top 50.
+     *
+     * @param  array<int, array{feature: string, plan_slug: string, ratio: float}>  $pairs
+     */
+    private function emitTopGauges(array $pairs, MetricsService $metrics): void
+    {
         usort($pairs, fn ($a, $b) => $b['ratio'] <=> $a['ratio']);
         foreach (array_slice($pairs, 0, 50) as $pair) {
             $metrics->gauge(
@@ -77,7 +110,15 @@ class MeteredSoftCapAudit extends Command
                 ['feature' => $pair['feature'], 'plan_slug' => $pair['plan_slug']],
             );
         }
+    }
 
+    /**
+     * Fire or resolve the high_metered_overage alert based on threshold.
+     *
+     * @param  array<int, array{ratio: float}>  $pairs
+     */
+    private function recordOverageAlert(array $pairs, float $threshold, AlertFiringRecorder $recorder): void
+    {
         $offenders = array_filter($pairs, fn ($p) => $p['ratio'] >= $threshold);
         if ($offenders !== []) {
             $worst = max(array_column($offenders, 'ratio'));
@@ -90,13 +131,5 @@ class MeteredSoftCapAudit extends Command
         } else {
             $recorder->resolve('high_metered_overage');
         }
-
-        $this->info(sprintf(
-            'Audited %d pair(s). offenders=%d',
-            count($pairs),
-            count($offenders),
-        ));
-
-        return self::SUCCESS;
     }
 }

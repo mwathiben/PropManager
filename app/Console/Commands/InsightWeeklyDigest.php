@@ -28,16 +28,27 @@ class InsightWeeklyDigest extends Command
 
     protected $description = 'Phase-37 PWA-DIGEST-1: queue weekly insight digest to opted-in paying landlords.';
 
+    private InsightDashboardService $insights;
+
+    private LifecycleOptInChecker $optInChecker;
+
+    private bool $dryRun;
+
+    private string $isoWeek;
+
     public function handle(
         InsightDashboardService $insights,
         LifecycleOptInChecker $optInChecker,
         MetricsService $metrics,
     ): int {
-        $dryRun = (bool) $this->option('dry-run');
+        $this->insights = $insights;
+        $this->optInChecker = $optInChecker;
+        $this->dryRun = (bool) $this->option('dry-run');
+        $this->isoWeek = now()->format('o-W');
+
         $sent = 0;
         $skippedOptIn = 0;
         $skippedNoSummary = 0;
-        $isoWeek = now()->format('o-W');
 
         $payingLandlordIds = Subscription::query()
             ->whereNull('cancelled_at')
@@ -49,58 +60,69 @@ class InsightWeeklyDigest extends Command
             ->whereIn('id', $payingLandlordIds)
             ->whereNotNull('email')
             ->chunkById(100, function ($landlords) use (
-                $insights,
-                $optInChecker,
-                $dryRun,
-                $isoWeek,
                 &$sent,
                 &$skippedOptIn,
                 &$skippedNoSummary,
             ) {
                 foreach ($landlords as $landlord) {
-                    if (! $optInChecker->allows($landlord)) {
+                    $outcome = $this->digestOutcomeForLandlord($landlord);
+
+                    if ($outcome === 'skipped_optin') {
                         $skippedOptIn++;
-
-                        continue;
-                    }
-
-                    $cacheKey = sprintf('insight:digest:%d:%s', $landlord->id, $isoWeek);
-                    if (! Cache::add($cacheKey, true, now()->addDays(8))) {
-                        continue;
-                    }
-
-                    $summary = $insights->landlordSummary($landlord->id);
-                    if (empty($summary)) {
+                    } elseif ($outcome === 'skipped_no_summary') {
                         $skippedNoSummary++;
-
-                        continue;
-                    }
-
-                    if ($dryRun) {
+                    } elseif ($outcome === 'sent') {
                         $sent++;
-
-                        continue;
                     }
-
-                    Mail::to($landlord->email)->queue(
-                        new WeeklyInsightDigestMailable($landlord, $summary),
-                    );
-                    $sent++;
                 }
             });
 
-        $metrics->gauge('insight_digest_sent_count', $sent);
-        $metrics->gauge('insight_digest_skipped_optin_count', $skippedOptIn);
-        $metrics->gauge('insight_digest_skipped_no_summary_count', $skippedNoSummary);
+        $this->recordMetrics($metrics, $sent, $skippedOptIn, $skippedNoSummary);
 
         $this->info(sprintf(
             'Queued %d insight digest(s). Skipped %d opt-out, %d no-summary.%s',
             $sent,
             $skippedOptIn,
             $skippedNoSummary,
-            $dryRun ? ' [dry-run]' : '',
+            $this->dryRun ? ' [dry-run]' : '',
         ));
 
         return self::SUCCESS;
+    }
+
+    private function digestOutcomeForLandlord(User $landlord): string
+    {
+        if (! $this->optInChecker->allows($landlord)) {
+            return 'skipped_optin';
+        }
+
+        $cacheKey = sprintf('insight:digest:%d:%s', $landlord->id, $this->isoWeek);
+        if (! Cache::add($cacheKey, true, now()->addDays(8))) {
+            return 'duplicate';
+        }
+
+        $summary = $this->insights->landlordSummary($landlord->id);
+        if (empty($summary)) {
+            return 'skipped_no_summary';
+        }
+
+        if (! $this->dryRun) {
+            Mail::to($landlord->email)->queue(
+                new WeeklyInsightDigestMailable($landlord, $summary),
+            );
+        }
+
+        return 'sent';
+    }
+
+    private function recordMetrics(
+        MetricsService $metrics,
+        int $sent,
+        int $skippedOptIn,
+        int $skippedNoSummary,
+    ): void {
+        $metrics->gauge('insight_digest_sent_count', $sent);
+        $metrics->gauge('insight_digest_skipped_optin_count', $skippedOptIn);
+        $metrics->gauge('insight_digest_skipped_no_summary_count', $skippedNoSummary);
     }
 }

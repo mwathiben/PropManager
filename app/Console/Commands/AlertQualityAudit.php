@@ -50,26 +50,7 @@ class AlertQualityAudit extends Command
                 continue;
             }
 
-            $signal = 0;
-            $noise = 0;
-            foreach ($firings as $firing) {
-                if ($firing->acknowledged_at !== null) {
-                    $signal++;
-
-                    continue;
-                }
-                if ($firing->resolved_at === null) {
-                    $signal++;
-
-                    continue;
-                }
-                $durationMin = abs($firing->fired_at->diffInMinutes($firing->resolved_at));
-                if ($durationMin > self::NOISE_RESOLVE_WINDOW_MINUTES) {
-                    $signal++;
-                } else {
-                    $noise++;
-                }
-            }
+            [$signal, $noise] = $this->classifyFirings($firings);
             $total = $signal + $noise;
             $ratio = $total > 0 ? round($signal / $total, 3) : 1.0;
             $metrics->gauge('alert_signal_to_noise_ratio', $ratio, ['alert_key' => $key]);
@@ -85,5 +66,38 @@ class AlertQualityAudit extends Command
         $this->info("Alerts in fatigue territory: {$fatigue}");
 
         return self::SUCCESS;
+    }
+
+    /**
+     * @return array{int, int} [signal_count, noise_count]
+     */
+    private function classifyFirings(\Illuminate\Support\Collection $firings): array
+    {
+        $signal = 0;
+        $noise = 0;
+
+        foreach ($firings as $firing) {
+            if ($firing->acknowledged_at !== null) {
+                $signal++;
+
+                continue;
+            }
+
+            if ($firing->resolved_at === null) {
+                $signal++;
+
+                continue;
+            }
+
+            $durationMin = abs($firing->fired_at->diffInMinutes($firing->resolved_at));
+
+            if ($durationMin > self::NOISE_RESOLVE_WINDOW_MINUTES) {
+                $signal++;
+            } else {
+                $noise++;
+            }
+        }
+
+        return [$signal, $noise];
     }
 }

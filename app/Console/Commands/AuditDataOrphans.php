@@ -58,39 +58,60 @@ class AuditDataOrphans extends Command
         $totalOrphans = 0;
 
         foreach ($checks as $kind => $queryBuilder) {
-            try {
-                $query = $queryBuilder();
-                $count = (clone $query)->count();
-                $totalOrphans += $count;
-
-                try {
-                    $metrics->gauge('data_orphan_row_count', (float) $count, ['kind' => $kind]);
-                } catch (\Throwable) {
-                }
-
-                if ($count === 0) {
-                    $this->info("data:audit-orphans: {$kind} — clean (0)");
-
-                    continue;
-                }
-
-                $anyOrphans = true;
-                $sample = $query->limit((int) $this->option('limit'))->get();
-
-                $this->warn("data:audit-orphans: {$kind} — {$count} orphan(s):");
-                foreach ($sample as $row) {
-                    $this->warn('  '.json_encode($row));
-                }
-
-                Log::channel(config('logging.schedule_channel', 'stack'))->warning(
-                    "data:audit-orphans detected orphans ({$kind})",
-                    ['count' => $count, 'sample' => $sample->map(fn ($r) => (array) $r)->all()],
-                );
-            } catch (\Throwable $e) {
-                $this->warn("data:audit-orphans: {$kind} — check failed: {$e->getMessage()}");
-            }
+            $result = $this->processCheck($kind, $queryBuilder, $metrics);
+            $totalOrphans += $result['count'];
+            $anyOrphans = $anyOrphans || $result['hasOrphans'];
         }
 
         return $anyOrphans ? self::FAILURE : self::SUCCESS;
+    }
+
+    /**
+     * Run a single orphan check, emit metrics, and log/warn if orphans found.
+     *
+     * @return array{count: int, hasOrphans: bool}
+     */
+    private function processCheck(string $kind, callable $queryBuilder, MetricsService $metrics): array
+    {
+        try {
+            $query = $queryBuilder();
+            $count = (clone $query)->count();
+
+            try {
+                $metrics->gauge('data_orphan_row_count', (float) $count, ['kind' => $kind]);
+            } catch (\Throwable) {
+            }
+
+            if ($count === 0) {
+                $this->info("data:audit-orphans: {$kind} — clean (0)");
+
+                return ['count' => 0, 'hasOrphans' => false];
+            }
+
+            $sample = $query->limit((int) $this->option('limit'))->get();
+            $this->reportOrphans($kind, $count, $sample);
+
+            return ['count' => $count, 'hasOrphans' => true];
+        } catch (\Throwable $e) {
+            $this->warn("data:audit-orphans: {$kind} — check failed: {$e->getMessage()}");
+
+            return ['count' => 0, 'hasOrphans' => false];
+        }
+    }
+
+    /**
+     * Emit console warnings and a structured log entry for a non-zero orphan group.
+     */
+    private function reportOrphans(string $kind, int $count, \Illuminate\Support\Collection $sample): void
+    {
+        $this->warn("data:audit-orphans: {$kind} — {$count} orphan(s):");
+        foreach ($sample as $row) {
+            $this->warn('  '.json_encode($row));
+        }
+
+        Log::channel(config('logging.schedule_channel', 'stack'))->warning(
+            "data:audit-orphans detected orphans ({$kind})",
+            ['count' => $count, 'sample' => $sample->map(fn ($r) => (array) $r)->all()],
+        );
     }
 }

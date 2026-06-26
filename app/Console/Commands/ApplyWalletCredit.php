@@ -45,34 +45,9 @@ class ApplyWalletCredit extends Command
                 ->get();
 
             foreach ($leases as $lease) {
-                $balances = $wallet->balancesFor($lease);
-                if ($balances === []) {
-                    continue;
-                }
+                [$leaseApplied, $leaseApplications] = $this->processLease($landlordId, $lease, $wallet, $dryRun);
 
-                $leaseApplied = false;
-
-                foreach ($balances as $code => $balance) {
-                    $currency = Currency::from($code);
-                    $invoices = $this->oldestUnpaid($landlordId, $lease->id, $currency);
-
-                    foreach ($invoices as $invoice) {
-                        if ($wallet->balanceFor($lease->fresh(), $currency) <= 0) {
-                            break;
-                        }
-                        if ($dryRun) {
-                            continue;
-                        }
-                        $drawn = $wallet->applyToInvoice($invoice);
-                        if ($drawn <= 0) {
-                            // Credit exhausted (the locked-row cap returned 0) —
-                            // stop walking this currency's invoices.
-                            break;
-                        }
-                        $applied++;
-                        $leaseApplied = true;
-                    }
-                }
+                $applied += $leaseApplications;
 
                 if ($leaseApplied || $dryRun) {
                     $leasesTouched++;
@@ -89,6 +64,65 @@ class ApplyWalletCredit extends Command
         );
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Process a single lease: apply wallet credit across all currency balances.
+     *
+     * @return array{bool, int} [leaseApplied, applicationsCount]
+     */
+    private function processLease(int $landlordId, Lease $lease, WalletService $wallet, bool $dryRun): array
+    {
+        $balances = $wallet->balancesFor($lease);
+        if ($balances === []) {
+            return [false, 0];
+        }
+
+        $leaseApplied = false;
+        $applied = 0;
+
+        foreach ($balances as $code => $balance) {
+            $currency = Currency::from($code);
+            [$currencyApplied, $currencyApplications] = $this->applyCurrencyCredit($lease, $currency, $wallet, $dryRun);
+
+            if ($currencyApplied) {
+                $leaseApplied = true;
+            }
+            $applied += $currencyApplications;
+        }
+
+        return [$leaseApplied, $applied];
+    }
+
+    /**
+     * Apply wallet credit for one currency against oldest unpaid invoices.
+     *
+     * @return array{bool, int} [anyApplied, applicationsCount]
+     */
+    private function applyCurrencyCredit(Lease $lease, Currency $currency, WalletService $wallet, bool $dryRun): array
+    {
+        $invoices = $this->oldestUnpaid($lease->landlord_id, $lease->id, $currency);
+        $applied = false;
+        $count = 0;
+
+        foreach ($invoices as $invoice) {
+            if ($wallet->balanceFor($lease->fresh(), $currency) <= 0) {
+                break;
+            }
+            if ($dryRun) {
+                continue;
+            }
+            $drawn = $wallet->applyToInvoice($invoice);
+            if ($drawn <= 0) {
+                // Credit exhausted (the locked-row cap returned 0) —
+                // stop walking this currency's invoices.
+                break;
+            }
+            $count++;
+            $applied = true;
+        }
+
+        return [$applied, $count];
     }
 
     /**

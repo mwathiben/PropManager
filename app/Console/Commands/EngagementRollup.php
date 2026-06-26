@@ -33,6 +33,24 @@ class EngagementRollup extends Command
     {
         $threshold = max(0, min(100, (int) $this->option('threshold')));
 
+        $scores = $this->snapshotAllLandlords($service);
+        $this->emitTopNGauges($scores, $metrics);
+        $payingOffenders = $this->findPayingOffenders($scores, $threshold);
+        $this->fireOrResolveAlert($payingOffenders, $threshold, $recorder);
+
+        $this->info(sprintf(
+            'Audited %d landlord(s). top=%s low_paying=%d',
+            count($scores),
+            $scores === [] ? '-' : (string) max($scores),
+            count($payingOffenders),
+        ));
+
+        return self::SUCCESS;
+    }
+
+    /** @return array<int,int|float> landlord_id => score */
+    private function snapshotAllLandlords(EngagementScoreService $service): array
+    {
         $landlordIds = User::query()
             ->where('role', 'landlord')
             ->whereNull('archived_at')
@@ -44,6 +62,12 @@ class EngagementRollup extends Command
             $scores[(int) $landlordId] = $snapshot->score;
         }
 
+        return $scores;
+    }
+
+    /** @param array<int,int|float> $scores */
+    private function emitTopNGauges(array $scores, MetricsService $metrics): void
+    {
         arsort($scores);
         $topN = array_slice($scores, 0, 50, true);
         foreach ($topN as $landlordId => $score) {
@@ -53,19 +77,33 @@ class EngagementRollup extends Command
                 ['landlord_id' => (string) $landlordId],
             );
         }
+    }
 
-        $payingOffenders = [];
+    /**
+     * @param  array<int,int|float>  $scores
+     * @return array<int,int|float>
+     */
+    private function findPayingOffenders(array $scores, int $threshold): array
+    {
         $payingLandlordIds = Subscription::query()
             ->whereIn('status', ['active', 'past_due'])
             ->whereNull('cancelled_at')
             ->pluck('user_id')
             ->all();
+
+        $offenders = [];
         foreach ($scores as $landlordId => $score) {
             if ($score < $threshold && in_array($landlordId, $payingLandlordIds, true)) {
-                $payingOffenders[$landlordId] = $score;
+                $offenders[$landlordId] = $score;
             }
         }
 
+        return $offenders;
+    }
+
+    /** @param array<int,int|float> $payingOffenders */
+    private function fireOrResolveAlert(array $payingOffenders, int $threshold, AlertFiringRecorder $recorder): void
+    {
         if ($payingOffenders !== []) {
             $worst = min($payingOffenders);
             $recorder->record(
@@ -77,14 +115,5 @@ class EngagementRollup extends Command
         } else {
             $recorder->resolve('low_engagement_landlord');
         }
-
-        $this->info(sprintf(
-            'Audited %d landlord(s). top=%s low_paying=%d',
-            count($scores),
-            $scores === [] ? '-' : (string) max($scores),
-            count($payingOffenders),
-        ));
-
-        return self::SUCCESS;
     }
 }

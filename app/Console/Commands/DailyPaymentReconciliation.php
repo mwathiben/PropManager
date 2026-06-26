@@ -129,17 +129,29 @@ class DailyPaymentReconciliation extends Command
         // Phase-85 RECON-STRIPE-1: reconcile EVERY gateway the landlord has
         // configured, not just Paystack (the old code only ran reconcilePaystack,
         // so Stripe-configured landlords never got scheduled gateway recon).
-        $gateways = [];
-        if ($config->paystack_enabled && ! empty($config->paystack_secret_key)) {
-            $gateways['paystack'] = fn () => $service->reconcilePaystack($landlordId, $this->from, $this->to);
-        }
-        if ($config->stripe_enabled && ! empty($config->stripe_secret_key)) {
-            $gateways['stripe'] = fn () => $service->reconcileStripe($landlordId, $this->from, $this->to);
-        }
+        $gateways = $this->buildGatewayRunners($service, $landlordId, $config);
 
         foreach ($gateways as $provider => $run) {
             $this->reconcileGateway($provider, $run, $landlordId);
         }
+    }
+
+    /**
+     * @return array<string, \Closure>
+     */
+    private function buildGatewayRunners(PaymentReconciliationService $service, int $landlordId, PaymentConfiguration $config): array
+    {
+        $gateways = [];
+
+        if ($config->paystack_enabled && ! empty($config->paystack_secret_key)) {
+            $gateways['paystack'] = fn () => $service->reconcilePaystack($landlordId, $this->from, $this->to);
+        }
+
+        if ($config->stripe_enabled && ! empty($config->stripe_secret_key)) {
+            $gateways['stripe'] = fn () => $service->reconcileStripe($landlordId, $this->from, $this->to);
+        }
+
+        return $gateways;
     }
 
     private function reconcileGateway(string $provider, \Closure $run, int $landlordId): void
