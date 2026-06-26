@@ -11,6 +11,7 @@ use App\Models\AgreementSignature;
 use App\Models\ManagementAgreement;
 use App\Models\PropertyOwner;
 use App\Models\User;
+use App\Models\WebhookLog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Testing\TestResponse;
@@ -73,6 +74,26 @@ class DocumensoWebhookTest extends TestCase
                 && $job->documentId === 42
                 && $job->envelopeId === 'env_abc',
         );
+    }
+
+    public function test_completed_delivery_records_a_webhook_log_row(): void
+    {
+        // Forensic parity with the IntaSend/M-Pesa money webhooks: every delivery
+        // leaves a WebhookLog row for replay/audit, even though processing is async.
+        Bus::fake();
+        $this->pendingSignature(42);
+
+        $this->postWebhook([
+            'event' => 'DOCUMENT_COMPLETED',
+            'payload' => ['id' => 42, 'envelopeId' => 'env_abc'],
+        ])->assertOk();
+
+        $this->assertDatabaseHas('webhook_logs', [
+            'provider' => WebhookLog::PROVIDER_DOCUMENSO,
+            'event_id' => '42',
+            'event_type' => 'document_completed',
+            'status' => WebhookLog::STATUS_PENDING,
+        ]);
     }
 
     public function test_wrong_secret_is_rejected(): void
