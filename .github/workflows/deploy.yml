@@ -68,7 +68,7 @@ jobs:
             echo "value=${{ github.event.workflow_run.head_sha || github.sha }}" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         if: steps.check.outputs.configured == 'true'
         with:
           ref: ${{ steps.sha.outputs.value }}
