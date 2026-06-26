@@ -70,50 +70,8 @@ class TenantKycController extends Controller
     {
         $user = Auth::user();
         $validated = $request->validated();
-        $storedDocuments = [];
 
-        try {
-            DB::transaction(function () use ($user, $validated, &$storedDocuments) {
-                foreach ($validated['submissions'] as $submissionData) {
-                    $requirementId = $submissionData['requirement_id'];
-                    $document = null;
-
-                    if (! empty($submissionData['file'])) {
-                        $document = $this->storeDocument(
-                            $user,
-                            $submissionData['file'],
-                            $requirementId
-                        );
-                        $storedDocuments[] = $document;
-                    }
-
-                    TenantKycSubmission::updateOrCreate(
-                        [
-                            'user_id' => $user->id,
-                            'requirement_id' => $requirementId,
-                        ],
-                        [
-                            'landlord_id' => $user->landlord_id,
-                            'document_id' => $document?->id,
-                            'submission_value' => $submissionData['value'] ?? null,
-                            'status' => KycSubmissionStatus::Pending,
-                            'rejection_reason' => null,
-                            'reviewed_by' => null,
-                            'reviewed_at' => null,
-                            'submitted_at' => now(),
-                        ]
-                    );
-                }
-            });
-        } catch (\Throwable $e) {
-            // Clean up orphaned files on transaction failure
-            foreach ($storedDocuments as $document) {
-                if ($document->file_path && Storage::tenant()->exists($document->file_path)) {
-                    Storage::tenant()->delete($document->file_path);
-                }
-            }
-            throw $e;
-        }
+        $this->persistSubmissions($user, $validated['submissions']);
 
         if ($user->fresh()->hasCompletedKyc()) {
             return redirect()->route('dashboard')
@@ -121,6 +79,72 @@ class TenantKycController extends Controller
         }
 
         return back()->with('success', 'Documents submitted for review.');
+    }
+
+    /**
+     * Persist all KYC submissions inside a transaction, rolling back stored files on failure.
+     */
+    private function persistSubmissions(User $user, array $submissions): void
+    {
+        $storedDocuments = [];
+
+        try {
+            DB::transaction(function () use ($user, $submissions, &$storedDocuments) {
+                foreach ($submissions as $submissionData) {
+                    $this->persistOneSubmission($user, $submissionData, $storedDocuments);
+                }
+            });
+        } catch (\Throwable $e) {
+            $this->cleanUpOrphanedFiles($storedDocuments);
+            throw $e;
+        }
+    }
+
+    /**
+     * Persist a single KYC submission entry, uploading its file when present.
+     *
+     * @param  array<Document>  $storedDocuments  Accumulator passed by reference for rollback.
+     */
+    private function persistOneSubmission(User $user, array $submissionData, array &$storedDocuments): void
+    {
+        $requirementId = $submissionData['requirement_id'];
+        $document = null;
+
+        if (! empty($submissionData['file'])) {
+            $document = $this->storeDocument($user, $submissionData['file'], $requirementId);
+            $storedDocuments[] = $document;
+        }
+
+        TenantKycSubmission::updateOrCreate(
+            [
+                'user_id' => $user->id,
+                'requirement_id' => $requirementId,
+            ],
+            [
+                'landlord_id' => $user->landlord_id,
+                'document_id' => $document?->id,
+                'submission_value' => $submissionData['value'] ?? null,
+                'status' => KycSubmissionStatus::Pending,
+                'rejection_reason' => null,
+                'reviewed_by' => null,
+                'reviewed_at' => null,
+                'submitted_at' => now(),
+            ]
+        );
+    }
+
+    /**
+     * Delete orphaned files after a failed transaction.
+     *
+     * @param  array<Document>  $documents
+     */
+    private function cleanUpOrphanedFiles(array $documents): void
+    {
+        foreach ($documents as $document) {
+            if ($document->file_path && Storage::tenant()->exists($document->file_path)) {
+                Storage::tenant()->delete($document->file_path);
+            }
+        }
     }
 
     /**

@@ -16,27 +16,27 @@ class EnsureTenantKycComplete
     {
         $user = $request->user();
 
-        // Only apply to authenticated tenants
-        if ($user && $user->isTenant() && ! $user->hasCompletedKyc()) {
-            // Allow access to KYC routes, logout, and API notification routes
-            if ($request->routeIs('tenant.kyc.*')
-                || $request->routeIs('logout')
-                || $request->routeIs('tenant.notifications.api')
-            ) {
-                return $next($request);
-            }
-
-            // For Inertia requests, redirect
-            if ($request->header('X-Inertia')) {
-                return redirect()->route('tenant.kyc.show')
-                    ->with('warning', 'Please complete your profile to continue.');
-            }
-
-            // For regular requests
-            return redirect()->route('tenant.kyc.show')
-                ->with('warning', 'Please complete your profile to continue.');
+        if (! $this->needsKycCheck($user)) {
+            return $next($request);
         }
 
-        return $next($request);
+        if ($this->isKycExemptRoute($request)) {
+            return $next($request);
+        }
+
+        return redirect()->route('tenant.kyc.show')
+            ->with('warning', 'Please complete your profile to continue.');
+    }
+
+    private function needsKycCheck(mixed $user): bool
+    {
+        return $user && $user->isTenant() && ! $user->hasCompletedKyc();
+    }
+
+    private function isKycExemptRoute(Request $request): bool
+    {
+        return $request->routeIs('tenant.kyc.*')
+            || $request->routeIs('logout')
+            || $request->routeIs('tenant.notifications.api');
     }
 }

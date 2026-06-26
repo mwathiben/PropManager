@@ -26,28 +26,49 @@ class TwoFactorChallenge
             return $next($request);
         }
 
-        // Check if 2FA is enabled and user needs to verify
-        if ($this->twoFactorService->isEnabled($user)) {
-            // Check if the user has passed 2FA verification this session
-            if (! session('two_factor_verified', false)) {
-                // Store intended URL and redirect to 2FA challenge
-                session(['url.intended' => $request->url()]);
-
-                return redirect()->route('two-factor.challenge');
-            }
+        $challengeRedirect = $this->challengeRedirectIfNeeded($request);
+        if ($challengeRedirect !== null) {
+            return $challengeRedirect;
         }
 
-        // Check if 2FA setup is required but not completed
-        if ($this->twoFactorService->needsSetup($user)) {
-            // Allow access to 2FA setup routes
-            if ($request->routeIs('two-factor.*') || $request->routeIs('logout')) {
-                return $next($request);
-            }
-
-            return redirect()->route('two-factor.index')
-                ->with('warning', 'You must enable two-factor authentication to continue.');
+        $setupRedirect = $this->setupRedirectIfNeeded($request);
+        if ($setupRedirect !== null) {
+            return $setupRedirect;
         }
 
         return $next($request);
+    }
+
+    private function challengeRedirectIfNeeded(Request $request): ?Response
+    {
+        $user = $request->user();
+
+        if (! $this->twoFactorService->isEnabled($user)) {
+            return null;
+        }
+
+        if (session('two_factor_verified', false)) {
+            return null;
+        }
+
+        session(['url.intended' => $request->url()]);
+
+        return redirect()->route('two-factor.challenge');
+    }
+
+    private function setupRedirectIfNeeded(Request $request): ?Response
+    {
+        $user = $request->user();
+
+        if (! $this->twoFactorService->needsSetup($user)) {
+            return null;
+        }
+
+        if ($request->routeIs('two-factor.*') || $request->routeIs('logout')) {
+            return null;
+        }
+
+        return redirect()->route('two-factor.index')
+            ->with('warning', 'You must enable two-factor authentication to continue.');
     }
 }

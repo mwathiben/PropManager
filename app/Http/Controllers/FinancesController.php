@@ -242,31 +242,72 @@ class FinancesController extends Controller
                 'mpesa_transaction_id' => $payment->mpesa_transaction_id,
                 'notes' => $payment->notes,
                 'created_at' => $payment->created_at->format('Y-m-d H:i'),
-                'invoice' => $payment->invoice ? [
-                    'id' => $payment->invoice->id,
-                    'invoice_number' => $payment->invoice->invoice_number,
-                    'total_due' => $payment->invoice->total_due,
-                ] : null,
-                'tenant' => $payment->lease?->tenant ? [
-                    'id' => $payment->lease->tenant->id,
-                    'name' => $payment->lease->tenant->name,
-                    'email' => $payment->lease->tenant->email,
-                    'phone' => $payment->lease->tenant->mobile_number,
-                ] : null,
-                'unit' => $payment->lease?->unit ? [
-                    'id' => $payment->lease->unit->id,
-                    'unit_number' => $payment->lease->unit->unit_number,
-                    'building' => $payment->lease->unit->building?->name,
-                ] : null,
-                'refund' => $payment->refund ? [
-                    'id' => $payment->refund->id,
-                    'amount' => $payment->refund->amount,
-                    'status' => $payment->refund->status,
-                    'reason' => $payment->refund->reason,
-                ] : null,
-                'can_refund' => ! $payment->refund && $payment->amount > 0,
+                'invoice' => $this->paymentInvoiceBlock($payment),
+                'tenant' => $this->paymentTenantBlock($payment),
+                'unit' => $this->paymentUnitBlock($payment),
+                'refund' => $this->paymentRefundBlock($payment),
+                'can_refund' => $this->paymentCanRefund($payment),
             ],
         ], 60, 300);
+    }
+
+    private function paymentInvoiceBlock(Payment $payment): ?array
+    {
+        if (! $payment->invoice) {
+            return null;
+        }
+
+        return [
+            'id' => $payment->invoice->id,
+            'invoice_number' => $payment->invoice->invoice_number,
+            'total_due' => $payment->invoice->total_due,
+        ];
+    }
+
+    private function paymentTenantBlock(Payment $payment): ?array
+    {
+        if (! $payment->lease?->tenant) {
+            return null;
+        }
+
+        return [
+            'id' => $payment->lease->tenant->id,
+            'name' => $payment->lease->tenant->name,
+            'email' => $payment->lease->tenant->email,
+            'phone' => $payment->lease->tenant->mobile_number,
+        ];
+    }
+
+    private function paymentUnitBlock(Payment $payment): ?array
+    {
+        if (! $payment->lease?->unit) {
+            return null;
+        }
+
+        return [
+            'id' => $payment->lease->unit->id,
+            'unit_number' => $payment->lease->unit->unit_number,
+            'building' => $payment->lease->unit->building?->name,
+        ];
+    }
+
+    private function paymentRefundBlock(Payment $payment): ?array
+    {
+        if (! $payment->refund) {
+            return null;
+        }
+
+        return [
+            'id' => $payment->refund->id,
+            'amount' => $payment->refund->amount,
+            'status' => $payment->refund->status,
+            'reason' => $payment->refund->reason,
+        ];
+    }
+
+    private function paymentCanRefund(Payment $payment): bool
+    {
+        return ! $payment->refund && $payment->amount > 0;
     }
 
     public function matchPayment(MatchPaymentRequest $request, Payment $payment): RedirectResponse

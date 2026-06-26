@@ -65,6 +65,29 @@ class MaintenanceHubController extends Controller
             $query->where('assigned_to', $user->id);
         }
 
+        $this->applyTicketFilters($query, $request);
+
+        $query->orderByRaw("CASE priority
+            WHEN 'urgent' THEN 1
+            WHEN 'high' THEN 2
+            WHEN 'medium' THEN 3
+            WHEN 'low' THEN 4
+            ELSE 5
+        END")
+            ->orderBy('created_at', 'desc');
+
+        $tickets = $query->paginate(20)->withQueryString();
+
+        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
+
+        return [
+            'tickets' => $tickets,
+            'stats' => $this->getTicketStats($landlordId, $category),
+        ];
+    }
+
+    private function applyTicketFilters(\Illuminate\Database\Eloquent\Builder $query, Request $request): void
+    {
         if ($request->filled('status')) {
             if ($request->status === 'active') {
                 $query->open();
@@ -88,21 +111,11 @@ class MaintenanceHubController extends Controller
                     ->orWhere('description', 'like', "%{$search}%");
             });
         }
+    }
 
-        $query->orderByRaw("CASE priority
-            WHEN 'urgent' THEN 1
-            WHEN 'high' THEN 2
-            WHEN 'medium' THEN 3
-            WHEN 'low' THEN 4
-            ELSE 5
-        END")
-            ->orderBy('created_at', 'desc');
-
-        $tickets = $query->paginate(20)->withQueryString();
-
-        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
-
-        $stats = [
+    private function getTicketStats(int $landlordId, string $category): array
+    {
+        return [
             'open' => Ticket::where('landlord_id', $landlordId)
                 ->where('category', $category)
                 ->open()
@@ -116,11 +129,6 @@ class MaintenanceHubController extends Controller
                 ->where('status', 'resolved')
                 ->where('resolved_at', '>=', now()->startOfWeek())
                 ->count(),
-        ];
-
-        return [
-            'tickets' => $tickets,
-            'stats' => $stats,
         ];
     }
 

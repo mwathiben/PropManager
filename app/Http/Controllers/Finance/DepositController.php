@@ -64,7 +64,6 @@ class DepositController extends Controller
         }
 
         $status = $deductions > 0 ? 'partial_refund' : 'refunded';
-        $balanceAfter = $lease->deposit_amount - $refundAmount - $deductions;
         $previousDepositStatus = $lease->deposit_status;
 
         $lease->update([
@@ -84,24 +83,49 @@ class DepositController extends Controller
             $request->deduction_reason ?? 'Deposit refund',
         );
 
-        if ($deductions > 0) {
-            DepositTransaction::create([
-                'lease_id' => $lease->id,
-                'landlord_id' => $landlordId,
-                'processed_by' => auth()->id(),
-                'type' => DepositTransaction::TYPE_DEDUCTION,
-                'amount' => $deductions,
-                'balance_after' => $lease->deposit_amount - $deductions,
-                'reason' => $request->deduction_reason,
-                'notes' => $request->notes,
-            ]);
+        $this->recordDeductionTransactionIfNeeded($lease, $landlordId, [
+            'deductions' => $deductions,
+            'deduction_reason' => $request->deduction_reason,
+            'notes' => $request->notes,
+        ]);
+
+        $this->recordRefundTransaction($lease, $landlordId, $request);
+
+        $this->notifyTenantOfRefund($lease, $status);
+
+        return back()->with('success', 'Deposit refund processed successfully.');
+    }
+
+    private function recordDeductionTransactionIfNeeded(Lease $lease, int $landlordId, array $data): void
+    {
+        if ($data['deductions'] <= 0) {
+            return;
         }
 
         DepositTransaction::create([
             'lease_id' => $lease->id,
             'landlord_id' => $landlordId,
             'processed_by' => auth()->id(),
-            'type' => $deductions > 0 ? DepositTransaction::TYPE_PARTIAL_REFUND : DepositTransaction::TYPE_FULL_REFUND,
+            'type' => DepositTransaction::TYPE_DEDUCTION,
+            'amount' => $data['deductions'],
+            'balance_after' => $lease->deposit_amount - $data['deductions'],
+            'reason' => $data['deduction_reason'],
+            'notes' => $data['notes'],
+        ]);
+    }
+
+    private function recordRefundTransaction(Lease $lease, int $landlordId, RefundDepositRequest $request): void
+    {
+        $refundAmount = $request->refund_amount;
+        $deductions = $request->deductions ?? 0;
+        $balanceAfter = $lease->deposit_amount - $refundAmount - $deductions;
+        $type = $deductions > 0 ? DepositTransaction::TYPE_PARTIAL_REFUND : DepositTransaction::TYPE_FULL_REFUND;
+
+        DepositTransaction::create([
+            'lease_id' => $lease->id,
+            'landlord_id' => $landlordId,
+            'processed_by' => auth()->id(),
+            'type' => $type,
             'amount' => $refundAmount,
             'balance_after' => $balanceAfter,
             'reason' => 'Deposit refund',
@@ -109,12 +133,13 @@ class DepositController extends Controller
             'reference' => $request->reference,
             'notes' => $request->notes,
         ]);
+    }
 
+    private function notifyTenantOfRefund(Lease $lease, string $status): void
+    {
         if ($lease->tenant?->email) {
             Mail::to($lease->tenant->email)->queue(new DepositRefundNotification($lease, $status));
         }
-
-        return back()->with('success', 'Deposit refund processed successfully.');
     }
 
     public function forfeit(ForfeitDepositRequest $request, Lease $lease): RedirectResponse

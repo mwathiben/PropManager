@@ -94,6 +94,31 @@ class NotificationPreferenceController extends Controller
         $channel = $validated['channel'] ?? null;
         $enabled = (bool) $validated['enabled'];
 
+        $guard = $this->guardUpdateInput($type, $channel, $enabled);
+        if ($guard !== null) {
+            return $guard;
+        }
+
+        $user = $request->user();
+        $landlordId = $user->effectiveScopeId();
+        $pref = NotificationPreference::getOrCreate($user->id, (int) $landlordId);
+
+        $this->applyPreferenceChange($pref, $type, $channel, $enabled);
+
+        return response()->json([
+            'updated' => true,
+            'type' => $type,
+            'channel' => $channel,
+            'enabled' => $enabled,
+        ]);
+    }
+
+    /**
+     * Run all three guard checks for update() and return a 422 response
+     * if any guard fires, or null if all pass.
+     */
+    private function guardUpdateInput(string $type, ?string $channel, bool $enabled): ?JsonResponse
+    {
         if (in_array($type, self::TRANSACTIONAL_LOCKED_TYPES, true) && ! $enabled) {
             return response()->json([
                 'error' => 'transactional_locked',
@@ -115,22 +140,19 @@ class NotificationPreferenceController extends Controller
             ], 422);
         }
 
-        $user = $request->user();
-        $landlordId = $user->effectiveScopeId();
-        $pref = NotificationPreference::getOrCreate($user->id, (int) $landlordId);
+        return null;
+    }
 
+    /**
+     * Write the toggled value onto the preference record and persist it.
+     */
+    private function applyPreferenceChange(NotificationPreference $pref, string $type, ?string $channel, bool $enabled): void
+    {
         if ($channel === null) {
             $pref->{$type.'_enabled'} = $enabled;
         } else {
             $pref->{$channel.'_enabled'} = $enabled;
         }
         $pref->save();
-
-        return response()->json([
-            'updated' => true,
-            'type' => $type,
-            'channel' => $channel,
-            'enabled' => $enabled,
-        ]);
     }
 }

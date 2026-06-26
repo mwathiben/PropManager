@@ -24,12 +24,22 @@ class AddTicketCommentRequest extends FormRequest
         // role meant landlord A could comment on landlord B's tickets
         // by guessing the route id.
         if ($user->isScopeOwner() || $user->isCaretaker()) {
-            $landlordId = $user->isCaretaker() ? (int) $user->landlord_id : (int) $user->id;
-
-            return (int) $ticket->landlord_id === $landlordId;
+            return $this->landlordOwnsTicket($user, $ticket);
         }
 
         return false;
+    }
+
+    private function landlordOwnsTicket(mixed $user, mixed $ticket): bool
+    {
+        $landlordId = $this->resolveLandlordId($user);
+
+        return (int) $ticket->landlord_id === $landlordId;
+    }
+
+    private function resolveLandlordId(mixed $user): int
+    {
+        return $user->isCaretaker() ? (int) $user->landlord_id : (int) $user->id;
     }
 
     public function rules(): array

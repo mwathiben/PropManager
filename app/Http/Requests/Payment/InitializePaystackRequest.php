@@ -15,36 +15,50 @@ class InitializePaystackRequest extends FormRequest
         $user = $this->user();
         $invoice = $this->route('invoice');
 
-        if (! $user || ! $invoice) {
-            return false;
-        }
-
         // Only an open invoice can be charged — never a draft/voided/paid one.
         // (rules() caps the amount at the remaining balance, but a voided invoice
         // with no payment still has a positive balance, so it needs this gate.)
-        if (! in_array($invoice->status, [InvoiceStatus::Sent, InvoiceStatus::Partial, InvoiceStatus::Overdue], true)) {
+        if (! $user || ! $invoice || ! $this->invoiceIsChargeable($invoice)) {
             return false;
         }
 
-        if ($user->isScopeOwner() || $user->isCaretaker()) {
-            $landlordId = $user->isCaretaker() ? (int) $user->landlord_id : (int) $user->id;
+        return $this->userOwnsInvoice($user, $invoice);
+    }
 
-            return (int) $invoice->landlord_id === $landlordId;
-        }
+    private function userOwnsInvoice(mixed $user, mixed $invoice): bool
+    {
+        return match (true) {
+            // Phase-99: a water client pays their own water-connection invoice.
+            $user->isScopeOwner(), $user->isCaretaker() => $this->scopeOwnerOrCaretakerOwnsInvoice($user, $invoice),
+            $user->isTenant() => $this->tenantOwnsInvoice($user, $invoice),
+            $user->isWaterClient() => $this->waterClientOwnsInvoice($user, $invoice),
+            default => false,
+        };
+    }
 
-        if ($user->isTenant()) {
-            $lease = $invoice->lease;
+    private function invoiceIsChargeable(mixed $invoice): bool
+    {
+        return in_array($invoice->status, [InvoiceStatus::Sent, InvoiceStatus::Partial, InvoiceStatus::Overdue], true);
+    }
 
-            return $lease && (int) $lease->tenant_id === (int) $user->id;
-        }
+    private function scopeOwnerOrCaretakerOwnsInvoice(mixed $user, mixed $invoice): bool
+    {
+        $landlordId = $user->isCaretaker() ? (int) $user->landlord_id : (int) $user->id;
 
-        // Phase-99: a water client pays their own water-connection invoice.
-        if ($user->isWaterClient()) {
-            return $invoice->isWaterClientInvoice()
-                && (int) $invoice->waterConnection?->user_id === (int) $user->id;
-        }
+        return (int) $invoice->landlord_id === $landlordId;
+    }
 
-        return false;
+    private function tenantOwnsInvoice(mixed $user, mixed $invoice): bool
+    {
+        $lease = $invoice->lease;
+
+        return $lease && (int) $lease->tenant_id === (int) $user->id;
+    }
+
+    private function waterClientOwnsInvoice(mixed $user, mixed $invoice): bool
+    {
+        return $invoice->isWaterClientInvoice()
+            && (int) $invoice->waterConnection?->user_id === (int) $user->id;
     }
 
     public function rules(): array
