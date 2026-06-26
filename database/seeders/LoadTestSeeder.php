@@ -10,6 +10,7 @@ use App\Models\Lease;
 use App\Models\Property;
 use App\Models\Unit;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -36,6 +37,13 @@ class LoadTestSeeder extends Seeder
 
             return;
         }
+
+        // Fixed reference instant — NOT now(). The RTL visual-snapshot suite
+        // (tests/a11y/rtl) renders this landlord's invoices and diffs the result
+        // against committed baselines. now()-relative dates drift day-to-day, so
+        // the rendered due dates would never match a committed baseline. Anchoring
+        // to a constant keeps the fixture deterministic across runs.
+        $reference = CarbonImmutable::create(2026, 3, 15, 9, 0, 0);
 
         $landlord = new User;
         $landlord->forceFill([
@@ -96,7 +104,7 @@ class LoadTestSeeder extends Seeder
                     'landlord_id' => $landlord->id,
                     'rent_amount' => $unit->target_rent,
                     'deposit_amount' => $unit->target_rent,
-                    'start_date' => now()->subMonths(3),
+                    'start_date' => $reference->subMonths(3),
                     'is_active' => true,
                     'wallet_balance' => 0,
                 ]);
@@ -113,8 +121,8 @@ class LoadTestSeeder extends Seeder
                         'total_due' => $lease->rent_amount,
                         'amount_paid' => $status === 'paid' ? $lease->rent_amount : 0,
                         'status' => $status,
-                        'due_date' => now()->subMonths(2 - $i)->addDays(7),
-                        'billing_period_start' => now()->subMonths(2 - $i)->startOfMonth(),
+                        'due_date' => $reference->subMonths(2 - $i)->addDays(7),
+                        'billing_period_start' => $reference->subMonths(2 - $i)->startOfMonth(),
                     ]);
                 }
             }

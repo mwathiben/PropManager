@@ -28,33 +28,30 @@ The codemod in Phase 44 RTL-MIGRATE-1 swapped LTR-leaning Tailwind classes (`ml-
 
 ---
 
-## Seeding recipe (first-time, after Phase 44 ship)
+## Generate baselines on Linux, NOT on a dev box (read this first)
 
-Phase 44 shipped the suite and Phase 53 wires it into CI, but the initial baseline `.png` files are operator-seeded the first time the suite passes locally against a deliberate, known-good state. Run this once and commit the result.
+`toHaveScreenshot()` is pixel-sensitive to the OS + font stack that produced the
+image. The CI `rtl-smoke` job runs on `ubuntu-latest` with Chromium installed via
+`npx playwright install --with-deps chromium`. A baseline generated on Windows or
+macOS renders fonts differently and blows past the 1% `maxDiffPixelRatio` on
+**every** page — so it can never go green in CI.
 
-1. **Boot a fresh dev environment** with a known-good seed.
-   ```bash
-   php artisan migrate:fresh --seed
-   php artisan db:seed --class=Phase22LoadTestSeeder   # creates loadtest@propmanager.test
-   php artisan serve --port=8000 &
-   npm run dev &
-   ```
-2. **Install Chromium** (one-time).
-   ```bash
-   npx playwright install --with-deps chromium
-   ```
-3. **Run the suite with snapshot update.**
-   ```bash
-   A11Y_BASE_URL=http://127.0.0.1:8000 \
-   A11Y_USER_EMAIL=loadtest@propmanager.test \
-   A11Y_USER_PASSWORD=password \
-   npm run test:rtl:update
-   ```
-4. **Commit the generated baselines.**
-   ```bash
-   git add tests/a11y/rtl/__screenshots__/
-   git commit -m "test(rtl): seed Phase-44 visual snapshot baselines"
-   ```
+**Therefore baselines MUST be generated on a Linux runner.** Do not run
+`npm run test:rtl:update` on a laptop and commit the result. Use the dedicated
+regen workflow, which mirrors the CI job exactly:
+
+1. Push your branch (with any deliberate UI change + the seeded fixture state).
+2. `gh workflow run rtl-baseline-regen.yml --ref <your-branch>`
+3. `gh run download <run-id> --name rtl-baselines --dir tests/a11y/rtl/__screenshots__/`
+4. **Eyeball every PNG** (confirm each is a correct RTL render, not a blank/error page).
+5. `git add tests/a11y/rtl/__screenshots__/ && git commit -m "test(rtl): regenerate visual baselines"`
+6. Push; the PR's `rtl-smoke` job now compares against the fresh Linux baselines.
+
+The fixture must be **deterministic**: `LoadTestSeeder` anchors all invoice/lease
+dates to a fixed reference (NOT `now()`) and `InvoiceController@index` has a stable
+`id` tiebreaker, so the rendered rows don't drift day-to-day or reorder run-to-run.
+If you add a covered page that renders time-relative data, freeze it the same way
+or the baseline will rot.
 
 ---
 
@@ -93,4 +90,7 @@ If a known fragile area (e.g., a chart that emits sub-pixel anti-aliased lines) 
 3. Runs `npm run test:rtl` (no `--update-snapshots` flag — strict compare against committed baselines).
 4. Uploads `test-results/` as an artifact on failure so the PR author can inspect the diff without re-running locally.
 
-If the baseline directory is empty (operator hasn't seeded yet), the suite still passes — Playwright's `toHaveScreenshot()` writes the baseline on first run when none exists. That keeps CI green during the bootstrap window.
+**There is no self-healing bootstrap.** A missing baseline does NOT pass — Playwright's
+`toHaveScreenshot()` writes the new file *and fails the run* the first time a baseline is
+absent. So the `__screenshots__/` directory must contain a committed `.png` for every page
+the suite snapshots, generated on Linux per the recipe above, before `rtl-smoke` can go green.

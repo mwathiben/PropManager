@@ -69,7 +69,7 @@ const applyFilters = () => {
     }, { preserveState: true });
 };
 
-const { formatMoney: formatCurrency } = useFormatters();
+const { formatMoney: formatCurrency, formatDate } = useFormatters();
 
 const statusColor = (status) => {
     const colors = {
@@ -197,7 +197,7 @@ const submitGenerate = () => {
                                         </span>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {{ invoice.due_date }}
+                                        {{ formatDate(invoice.due_date) }}
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-end text-sm">
                                         <Link
