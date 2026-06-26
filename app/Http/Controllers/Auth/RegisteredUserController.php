@@ -85,22 +85,7 @@ class RegisteredUserController extends Controller
         // Invitation override: if a valid token was supplied, the
         // invitation's role beats the form's role choice (landlord
         // intended the role; signup shouldn't allow escalation).
-        $resolvedRole = $request->input('role', 'tenant');
-        $invitation = null;
-
-        if ($request->filled('invitation_token')) {
-            $invitation = Invitation::where('token', $request->input('invitation_token'))
-                ->whereNull('accepted_at')
-                ->first();
-            if ($invitation !== null) {
-                // Hard gate: a water_client invitation must NOT mint a user here —
-                // /register never sets landlord_id, so it would orphan the account
-                // (unscoped, null currency) AND burn the one-time token, denying the
-                // legitimate deep-link accept. They onboard via WaterClientInvitationController.
-                abort_if(in_array($invitation->role, ['water_client', 'owner'], true), 403);
-                $resolvedRole = $invitation->role;
-            }
-        }
+        [$invitation, $resolvedRole] = $this->resolveInvitation($request);
 
         $user = User::create([
             'name' => $request->name,
@@ -118,27 +103,8 @@ class RegisteredUserController extends Controller
             $invitation->update(['accepted_at' => now()]);
         }
 
-        // Phase-56 MULTI-TOUCH-1: record the registration touchpoint so
-        // AttributionModelService has something to allocate credit across.
-        $channel = match (true) {
-            $invitation !== null => AttributionTouchpoint::CHANNEL_INVITATION,
-            $request->session()->has('referral_code') => AttributionTouchpoint::CHANNEL_REFERRAL,
-            default => AttributionTouchpoint::CHANNEL_DIRECT,
-        };
-        app(AttributionTouchpointRecorder::class)->record(
-            user: $user,
-            channel: $channel,
-            campaign: $request->session()->get('referral_code'),
-        );
-
-        // Phase-56 COHORT-BY-SOURCE-1: stamp acquisition_source on the user
-        // row so cohort analysis can partition retention curves by source.
-        $user->acquisition_source = match (true) {
-            $invitation !== null => 'invitation',
-            $request->session()->has('referral_code') => 'referral',
-            default => 'organic',
-        };
-        $user->save();
+        $this->recordAttributionTouchpoint($request, $user, $invitation);
+        $this->stampAcquisitionSource($request, $user, $invitation);
 
         // Phase-56 FUNNEL-SANKEY-1: emit the canonical funnel.signup event.
         app(FunnelEventEmitter::class)->emit($user, FunnelStage::SIGNUP, ['role' => $resolvedRole]);
@@ -158,5 +124,65 @@ class RegisteredUserController extends Controller
         $request->session()->regenerate();
 
         return redirect(route('dashboard', absolute: false));
+    }
+
+    /**
+     * Resolve the invitation from the token in the request, returning
+     * the invitation model and the role it dictates.
+     *
+     * @return array{0: Invitation|null, 1: string}
+     */
+    private function resolveInvitation(Request $request): array
+    {
+        $resolvedRole = $request->input('role', 'tenant');
+        $invitation = null;
+
+        if ($request->filled('invitation_token')) {
+            $invitation = Invitation::where('token', $request->input('invitation_token'))
+                ->whereNull('accepted_at')
+                ->first();
+            if ($invitation !== null) {
+                // Hard gate: a water_client invitation must NOT mint a user here —
+                // /register never sets landlord_id, so it would orphan the account
+                // (unscoped, null currency) AND burn the one-time token, denying the
+                // legitimate deep-link accept. They onboard via WaterClientInvitationController.
+                abort_if(in_array($invitation->role, ['water_client', 'owner'], true), 403);
+                $resolvedRole = $invitation->role;
+            }
+        }
+
+        return [$invitation, $resolvedRole];
+    }
+
+    /**
+     * Phase-56 MULTI-TOUCH-1: record the registration touchpoint so
+     * AttributionModelService has something to allocate credit across.
+     */
+    private function recordAttributionTouchpoint(Request $request, User $user, ?Invitation $invitation): void
+    {
+        $channel = match (true) {
+            $invitation !== null => AttributionTouchpoint::CHANNEL_INVITATION,
+            $request->session()->has('referral_code') => AttributionTouchpoint::CHANNEL_REFERRAL,
+            default => AttributionTouchpoint::CHANNEL_DIRECT,
+        };
+        app(AttributionTouchpointRecorder::class)->record(
+            user: $user,
+            channel: $channel,
+            campaign: $request->session()->get('referral_code'),
+        );
+    }
+
+    /**
+     * Phase-56 COHORT-BY-SOURCE-1: stamp acquisition_source on the user
+     * row so cohort analysis can partition retention curves by source.
+     */
+    private function stampAcquisitionSource(Request $request, User $user, ?Invitation $invitation): void
+    {
+        $user->acquisition_source = match (true) {
+            $invitation !== null => 'invitation',
+            $request->session()->has('referral_code') => 'referral',
+            default => 'organic',
+        };
+        $user->save();
     }
 }

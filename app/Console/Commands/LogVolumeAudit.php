@@ -51,39 +51,14 @@ class LogVolumeAudit extends Command
         $bytes = $rows->pluck('bytes')->map(fn ($v) => (int) $v)->all();
         $median = $this->percentile($bytes, 0.5);
         $p95 = $this->percentile($bytes, 0.95);
-        $metrics->gauge('landlord_log_bytes_median', (float) $median);
-        $metrics->gauge('landlord_log_bytes_p95', (float) $p95);
 
-        foreach ($rows->take(20) as $row) {
-            $metrics->gauge(
-                'landlord_log_bytes_24h',
-                (float) $row->bytes,
-                ['landlord_id' => (string) $row->landlord_id],
-            );
-        }
+        $this->emitDistributionGauges($metrics, $rows, $median, $p95);
 
         $multiplier = (float) config('cost.high_landlord_multiplier', 5.0);
         $threshold = $median > 0 ? $median * $multiplier : 0.0;
-        $offenders = [];
-        if ($threshold > 0) {
-            foreach ($rows as $row) {
-                if ((int) $row->bytes >= $threshold) {
-                    $offenders[(int) $row->landlord_id] = (int) $row->bytes;
-                }
-            }
-        }
+        $offenders = $this->collectOffenders($rows, $threshold);
 
-        if ($offenders !== []) {
-            $worst = max($offenders);
-            $recorder->record(
-                alertKey: 'high_landlord_log_volume',
-                value: (float) $worst,
-                threshold: $threshold,
-                metadata: ['landlord_ids' => array_keys($offenders), 'median' => $median, 'p95' => $p95],
-            );
-        } else {
-            $recorder->resolve('high_landlord_log_volume');
-        }
+        $this->fireOrResolveAlert($recorder, $offenders, $threshold, ['median' => $median, 'p95' => $p95]);
 
         $this->info(sprintf(
             'Audited %d landlord(s). median=%dB p95=%dB offenders=%d',
@@ -94,6 +69,60 @@ class LogVolumeAudit extends Command
         ));
 
         return self::SUCCESS;
+    }
+
+    /** @param \Illuminate\Support\Collection<int, \App\Models\LogVolumeDaily> $rows */
+    private function emitDistributionGauges(MetricsService $metrics, $rows, int $median, int $p95): void
+    {
+        $metrics->gauge('landlord_log_bytes_median', (float) $median);
+        $metrics->gauge('landlord_log_bytes_p95', (float) $p95);
+
+        foreach ($rows->take(20) as $row) {
+            $metrics->gauge(
+                'landlord_log_bytes_24h',
+                (float) $row->bytes,
+                ['landlord_id' => (string) $row->landlord_id],
+            );
+        }
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, \App\Models\LogVolumeDaily>  $rows
+     * @return array<int, int>
+     */
+    private function collectOffenders($rows, float $threshold): array
+    {
+        if ($threshold <= 0) {
+            return [];
+        }
+
+        $offenders = [];
+        foreach ($rows as $row) {
+            if ((int) $row->bytes >= $threshold) {
+                $offenders[(int) $row->landlord_id] = (int) $row->bytes;
+            }
+        }
+
+        return $offenders;
+    }
+
+    /**
+     * @param  array<int, int>  $offenders
+     * @param  array{median:int,p95:int}  $distribution
+     */
+    private function fireOrResolveAlert(AlertFiringRecorder $recorder, array $offenders, float $threshold, array $distribution): void
+    {
+        if ($offenders !== []) {
+            $worst = max($offenders);
+            $recorder->record(
+                alertKey: 'high_landlord_log_volume',
+                value: (float) $worst,
+                threshold: $threshold,
+                metadata: ['landlord_ids' => array_keys($offenders), 'median' => $distribution['median'], 'p95' => $distribution['p95']],
+            );
+        } else {
+            $recorder->resolve('high_landlord_log_volume');
+        }
     }
 
     private function percentile(array $values, float $p): int

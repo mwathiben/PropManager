@@ -31,34 +31,44 @@ class ProcessInvoiceAutomation extends Command
         $this->info("Found {$buildings->count()} building(s) configured for day {$day}");
 
         if ($dryRun) {
-            $this->info('DRY RUN - No invoices will be generated');
-            $this->newLine();
-
-            foreach ($buildings as $building) {
-                $preview = $automationService->previewAutomation($building);
-
-                $this->info("Building: {$building->name}");
-                $this->info('  Auto-send emails: '.($building->auto_send_invoices ? 'Yes' : 'No'));
-                $this->info('  Units to invoice: '.count($preview['units_to_invoice']));
-                $this->info('  Units already invoiced: '.count($preview['units_already_invoiced']));
-
-                if (! empty($preview['units_to_invoice'])) {
-                    $this->table(
-                        ['Unit', 'Tenant', 'Rent'],
-                        collect($preview['units_to_invoice'])->map(fn ($u) => [
-                            $u['unit_number'],
-                            $u['tenant_name'],
-                            number_format($u['rent_amount'], 2),
-                        ])
-                    );
-                }
-
-                $this->newLine();
-            }
-
-            return self::SUCCESS;
+            return $this->runDryRun($automationService, $buildings);
         }
 
+        return $this->runAutomation($automationService, $day);
+    }
+
+    private function runDryRun(InvoiceAutomationService $automationService, \Illuminate\Support\Collection $buildings): int
+    {
+        $this->info('DRY RUN - No invoices will be generated');
+        $this->newLine();
+
+        foreach ($buildings as $building) {
+            $preview = $automationService->previewAutomation($building);
+
+            $this->info("Building: {$building->name}");
+            $this->info('  Auto-send emails: '.($building->auto_send_invoices ? 'Yes' : 'No'));
+            $this->info('  Units to invoice: '.count($preview['units_to_invoice']));
+            $this->info('  Units already invoiced: '.count($preview['units_already_invoiced']));
+
+            if (! empty($preview['units_to_invoice'])) {
+                $this->table(
+                    ['Unit', 'Tenant', 'Rent'],
+                    collect($preview['units_to_invoice'])->map(fn ($u) => [
+                        $u['unit_number'],
+                        $u['tenant_name'],
+                        number_format($u['rent_amount'], 2),
+                    ])
+                );
+            }
+
+            $this->newLine();
+        }
+
+        return self::SUCCESS;
+    }
+
+    private function runAutomation(InvoiceAutomationService $automationService, int|string $day): int
+    {
         $results = $automationService->processAutomatedInvoices($day);
 
         $this->info('Automation complete:');

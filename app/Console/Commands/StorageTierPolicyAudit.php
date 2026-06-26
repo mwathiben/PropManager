@@ -52,27 +52,58 @@ class StorageTierPolicyAudit extends Command
 
     private function auditPolicy(StorageTierPolicy $policy, MetricsService $metrics): void
     {
-        try {
-            $disk = Storage::disk($policy->disk_name);
-        } catch (\Throwable $e) {
-            $this->warn(sprintf('Disk [%s] unavailable: %s', $policy->disk_name, $e->getMessage()));
+        $disk = $this->resolveDisk($policy);
+        if ($disk === null) {
+            return;
+        }
 
+        $files = $this->resolveFiles($policy, $disk);
+        if ($files === null) {
             return;
         }
 
         $cutoff = Carbon::now()->subDays($policy->max_age_days)->timestamp;
+        $buckets = $this->classifyFiles($disk, $files, $cutoff);
+
+        $this->emitMetrics($metrics, $policy, $buckets);
+
+        $this->line(sprintf(
+            '%-12s %-24s current=%dB/%dfiles target=%dB/%dfiles',
+            $policy->disk_name,
+            $policy->path_prefix,
+            $buckets['current']['bytes'], $buckets['current']['files'],
+            $buckets['target']['bytes'], $buckets['target']['files'],
+        ));
+    }
+
+    private function resolveDisk(StorageTierPolicy $policy): mixed
+    {
+        try {
+            return Storage::disk($policy->disk_name);
+        } catch (\Throwable $e) {
+            $this->warn(sprintf('Disk [%s] unavailable: %s', $policy->disk_name, $e->getMessage()));
+
+            return null;
+        }
+    }
+
+    private function resolveFiles(StorageTierPolicy $policy, mixed $disk): ?array
+    {
+        try {
+            return $disk->allFiles($policy->path_prefix);
+        } catch (\Throwable $e) {
+            $this->warn(sprintf('Disk [%s] walk failed for [%s]: %s', $policy->disk_name, $policy->path_prefix, $e->getMessage()));
+
+            return null;
+        }
+    }
+
+    private function classifyFiles(mixed $disk, array $files, int $cutoff): array
+    {
         $buckets = [
             'current' => ['bytes' => 0, 'files' => 0],
             'target' => ['bytes' => 0, 'files' => 0],
         ];
-
-        try {
-            $files = $disk->allFiles($policy->path_prefix);
-        } catch (\Throwable $e) {
-            $this->warn(sprintf('Disk [%s] walk failed for [%s]: %s', $policy->disk_name, $policy->path_prefix, $e->getMessage()));
-
-            return;
-        }
 
         foreach ($files as $file) {
             $size = $this->safeSize($disk, $file);
@@ -82,6 +113,11 @@ class StorageTierPolicyAudit extends Command
             $buckets[$bucket]['files']++;
         }
 
+        return $buckets;
+    }
+
+    private function emitMetrics(MetricsService $metrics, StorageTierPolicy $policy, array $buckets): void
+    {
         $labels = [
             'disk' => $policy->disk_name,
             'prefix' => trim($policy->path_prefix, '/'),
@@ -93,14 +129,6 @@ class StorageTierPolicyAudit extends Command
             $metrics->gauge('storage_bytes_by_tier_total', (float) $counts['bytes'], $bucketLabels);
             $metrics->gauge('storage_files_by_tier_total', (float) $counts['files'], $bucketLabels);
         }
-
-        $this->line(sprintf(
-            '%-12s %-24s current=%dB/%dfiles target=%dB/%dfiles',
-            $policy->disk_name,
-            $policy->path_prefix,
-            $buckets['current']['bytes'], $buckets['current']['files'],
-            $buckets['target']['bytes'], $buckets['target']['files'],
-        ));
     }
 
     private function safeSize($disk, string $file): int

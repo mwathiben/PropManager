@@ -42,9 +42,24 @@ class TicketsAuditSla extends Command
             ->breachedResolutionSla()
             ->get();
 
-        $responseByPriority = $responseRows->groupBy('priority');
-        $resolutionByPriority = $resolutionRows->groupBy('priority');
+        $this->emitPriorityGauges($metrics, $responseRows->groupBy('priority'), $resolutionRows->groupBy('priority'));
 
+        $fired = 0;
+        if (! $dryRun) {
+            $fired += $this->fireResponseBreachEvents($responseRows, $now);
+            $fired += $this->fireResolutionBreachEvents($resolutionRows, $now);
+        }
+
+        $this->info("tickets:audit-sla: {$responseRows->count()} response + {$resolutionRows->count()} resolution breach(es), {$fired} notification(s) fired".($dryRun ? ' (dry-run)' : ''));
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * Emit Prometheus gauges for response and resolution breach counts per priority.
+     */
+    private function emitPriorityGauges(MetricsService $metrics, \Illuminate\Support\Collection $responseByPriority, \Illuminate\Support\Collection $resolutionByPriority): void
+    {
         foreach (array_keys(Ticket::SLA_SECONDS) as $priority) {
             $responseCount = $responseByPriority->get($priority, collect())->count();
             $resolutionCount = $resolutionByPriority->get($priority, collect())->count();
@@ -55,29 +70,39 @@ class TicketsAuditSla extends Command
                 Log::warning('tickets:audit-sla gauge emit failed', ['error' => $e->getMessage()]);
             }
         }
+    }
 
+    /**
+     * Fire TicketSlaBreached events for first-response breaches, idempotent within 24h.
+     */
+    private function fireResponseBreachEvents(\Illuminate\Support\Collection $responseRows, CarbonImmutable $now): int
+    {
         $fired = 0;
-        if (! $dryRun) {
-            foreach ($responseRows as $ticket) {
-                $key = sprintf('ticket:sla_breach:%d:response:%s', $ticket->id, $ticket->sla_due_at?->timestamp ?? 'null');
-                if (Cache::add($key, true, now()->addDay())) {
-                    TicketSlaBreached::dispatch($ticket, $now, TicketSlaBreached::TYPE_RESPONSE);
-                    $fired++;
-                }
-            }
-
-            foreach ($resolutionRows as $ticket) {
-                $key = sprintf('ticket:sla_breach:%d:resolution:%s', $ticket->id, $ticket->resolution_due_at?->timestamp ?? 'null');
-                if (Cache::add($key, true, now()->addDay())) {
-                    TicketSlaBreached::dispatch($ticket, $now, TicketSlaBreached::TYPE_RESOLUTION);
-                    $fired++;
-                }
+        foreach ($responseRows as $ticket) {
+            $key = sprintf('ticket:sla_breach:%d:response:%s', $ticket->id, $ticket->sla_due_at?->timestamp ?? 'null');
+            if (Cache::add($key, true, now()->addDay())) {
+                TicketSlaBreached::dispatch($ticket, $now, TicketSlaBreached::TYPE_RESPONSE);
+                $fired++;
             }
         }
 
-        $total = $responseRows->count() + $resolutionRows->count();
-        $this->info("tickets:audit-sla: {$responseRows->count()} response + {$resolutionRows->count()} resolution breach(es), {$fired} notification(s) fired".($dryRun ? ' (dry-run)' : ''));
+        return $fired;
+    }
 
-        return self::SUCCESS;
+    /**
+     * Fire TicketSlaBreached events for resolution breaches, idempotent within 24h.
+     */
+    private function fireResolutionBreachEvents(\Illuminate\Support\Collection $resolutionRows, CarbonImmutable $now): int
+    {
+        $fired = 0;
+        foreach ($resolutionRows as $ticket) {
+            $key = sprintf('ticket:sla_breach:%d:resolution:%s', $ticket->id, $ticket->resolution_due_at?->timestamp ?? 'null');
+            if (Cache::add($key, true, now()->addDay())) {
+                TicketSlaBreached::dispatch($ticket, $now, TicketSlaBreached::TYPE_RESOLUTION);
+                $fired++;
+            }
+        }
+
+        return $fired;
     }
 }

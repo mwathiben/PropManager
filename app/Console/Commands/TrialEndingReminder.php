@@ -29,34 +29,50 @@ class TrialEndingReminder extends Command
     {
         $sent = 0;
         foreach ([3, 1, 0] as $daysRemaining) {
-            $target = now()->addDays($daysRemaining)->startOfDay();
-            $targetEnd = $target->copy()->endOfDay();
-
-            $candidates = Subscription::query()
-                ->where('status', SubscriptionStatus::Trialing)
-                ->whereBetween('trial_ends_at', [$target, $targetEnd])
-                ->with('user')
-                ->get();
-
-            foreach ($candidates as $sub) {
-                $cacheKey = sprintf('trial_ending:%d:%d', $sub->id, $daysRemaining);
-                if (! Cache::add($cacheKey, true, now()->addDays(2))) {
-                    continue;
-                }
-                if (! $sub->user || ! $sub->user->email) {
-                    continue;
-                }
-                if (! $this->lifecycleOptedIn($sub->user)) {
-                    continue;
-                }
-                Mail::to($sub->user->email)->queue(new TrialEndingMailable($sub, $daysRemaining));
-                $sent++;
-            }
+            $sent += $this->processWindow($daysRemaining);
         }
 
         $this->info(sprintf('Queued %d trial-ending reminder(s).', $sent));
 
         return self::SUCCESS;
+    }
+
+    private function processWindow(int $daysRemaining): int
+    {
+        $target = now()->addDays($daysRemaining)->startOfDay();
+        $targetEnd = $target->copy()->endOfDay();
+
+        $candidates = Subscription::query()
+            ->where('status', SubscriptionStatus::Trialing)
+            ->whereBetween('trial_ends_at', [$target, $targetEnd])
+            ->with('user')
+            ->get();
+
+        $sent = 0;
+        foreach ($candidates as $sub) {
+            if ($this->queueReminderForSubscription($sub, $daysRemaining)) {
+                $sent++;
+            }
+        }
+
+        return $sent;
+    }
+
+    private function queueReminderForSubscription(Subscription $sub, int $daysRemaining): bool
+    {
+        $cacheKey = sprintf('trial_ending:%d:%d', $sub->id, $daysRemaining);
+        if (! Cache::add($cacheKey, true, now()->addDays(2))) {
+            return false;
+        }
+        if (! $sub->user || ! $sub->user->email) {
+            return false;
+        }
+        if (! $this->lifecycleOptedIn($sub->user)) {
+            return false;
+        }
+        Mail::to($sub->user->email)->queue(new TrialEndingMailable($sub, $daysRemaining));
+
+        return true;
     }
 
     private function lifecycleOptedIn(\App\Models\User $user): bool
