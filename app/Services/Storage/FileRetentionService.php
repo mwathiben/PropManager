@@ -155,16 +155,7 @@ class FileRetentionService
         foreach ($candidates as $document) {
             try {
                 if (! $dryRun) {
-                    try {
-                        Storage::tenant((int) $document->landlord_id)->delete($document->file_path);
-                    } catch (Throwable $e) {
-                        $orphans++;
-                        Log::warning('file_retention_disk_delete_failed', [
-                            'path' => $document->file_path,
-                            'landlord_id' => $document->landlord_id,
-                            'error' => $e->getMessage(),
-                        ]);
-                    }
+                    $orphans += $this->deleteDocumentFile($document);
                     $document->delete();
                 }
                 $deleted++;
@@ -182,5 +173,26 @@ class FileRetentionService
         }
 
         return ['deleted' => $deleted, 'errors' => $errors];
+    }
+
+    /**
+     * Deletes the physical file for a Document from its tenant disk.
+     * Returns 1 if the disk delete failed (orphan count), 0 on success.
+     */
+    private function deleteDocumentFile(Document $document): int
+    {
+        try {
+            Storage::tenant((int) $document->landlord_id)->delete($document->file_path);
+
+            return 0;
+        } catch (Throwable $e) {
+            Log::warning('file_retention_disk_delete_failed', [
+                'path' => $document->file_path,
+                'landlord_id' => $document->landlord_id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return 1;
+        }
     }
 }

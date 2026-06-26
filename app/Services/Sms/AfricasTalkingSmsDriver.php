@@ -28,9 +28,7 @@ class AfricasTalkingSmsDriver implements SmsDriver
 
     public function send(string $phone, string $message): string
     {
-        if ($this->username === null || $this->username === '' || $this->apiKey === null || $this->apiKey === '') {
-            throw new RuntimeException('AfricasTalkingSmsDriver requires sms.africastalking.username + api_key.');
-        }
+        $this->assertCredentialsPresent();
 
         $response = Http::asForm()
             ->withHeaders([
@@ -53,8 +51,18 @@ class AfricasTalkingSmsDriver implements SmsDriver
             throw new RuntimeException('Africa\'s Talking returned '.$response->status());
         }
 
-        $body = $response->json();
+        return $this->extractMessageId($response->json());
+    }
 
+    private function assertCredentialsPresent(): void
+    {
+        if ($this->username === null || $this->username === '' || $this->apiKey === null || $this->apiKey === '') {
+            throw new RuntimeException('AfricasTalkingSmsDriver requires sms.africastalking.username + api_key.');
+        }
+    }
+
+    private function extractMessageId(mixed $body): string
+    {
         // Response shape: {SMSMessageData: {Message: '...', Recipients: [{number, status, messageId, ...}]}}
         $first = $body['SMSMessageData']['Recipients'][0] ?? null;
 

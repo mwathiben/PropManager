@@ -65,50 +65,65 @@ final class HardcodedEnglishScanner
         $templates = $this->extractTemplateBlocks($contents);
         $violations = 0;
         foreach ($templates as $template) {
-            // Strip HTML comments first BUT preserve i18n-ignore
-            // markers as a single-line placeholder so the
-            // line-walker below still notices them.
-            $template = preg_replace_callback(
-                '/<!--(.*?)-->/s',
-                static fn (array $m) => str_contains($m[1], 'i18n-ignore') ? '<!-- i18n-ignore -->' : '',
-                $template,
-            ) ?? $template;
-
-            $lines = preg_split('/\r?\n/', $template);
-            $skipNext = false;
-            // Collapse same-line opt-outs first: a line that carries
-            // both an i18n-ignore comment and English text counts as
-            // a single line; we treat the ignore as scoping the
-            // whole line.
-            foreach ($lines as $rawLine) {
-                if ($skipNext) {
-                    $skipNext = false;
-
-                    continue;
-                }
-                $line = trim($rawLine);
-                if ($line === '') {
-                    continue;
-                }
-                if (str_contains($line, 'i18n-ignore')) {
-                    // Two valid placements: previous-line comment OR
-                    // inline same-line. Either way, skip this line.
-                    $skipNext = ! preg_match('/i18n-ignore.*?[A-Za-z]/', $line);
-
-                    continue;
-                }
-                $stripped = $this->stripNoise($line);
-                $stripped = trim($stripped);
-                if ($stripped === '') {
-                    continue;
-                }
-                if ($this->lineHasUnwrappedEnglish($stripped)) {
-                    $violations++;
-                }
-            }
+            $violations += $this->countViolationsInTemplate($template);
         }
 
         return $violations;
+    }
+
+    private function normalizeTemplateComments(string $template): string
+    {
+        // Strip HTML comments first BUT preserve i18n-ignore
+        // markers as a single-line placeholder so the
+        // line-walker below still notices them.
+        return preg_replace_callback(
+            '/<!--(.*?)-->/s',
+            static fn (array $m) => str_contains($m[1], 'i18n-ignore') ? '<!-- i18n-ignore -->' : '',
+            $template,
+        ) ?? $template;
+    }
+
+    private function countViolationsInTemplate(string $template): int
+    {
+        $template = $this->normalizeTemplateComments($template);
+        $lines = preg_split('/\r?\n/', $template);
+        $violations = 0;
+        $skipNext = false;
+        // Collapse same-line opt-outs first: a line that carries
+        // both an i18n-ignore comment and English text counts as
+        // a single line; we treat the ignore as scoping the
+        // whole line.
+        foreach ($lines as $rawLine) {
+            $violations += $this->processLine($rawLine, $skipNext);
+        }
+
+        return $violations;
+    }
+
+    private function processLine(string $rawLine, bool &$skipNext): int
+    {
+        if ($skipNext) {
+            $skipNext = false;
+
+            return 0;
+        }
+        $line = trim($rawLine);
+        if ($line === '') {
+            return 0;
+        }
+        if (str_contains($line, 'i18n-ignore')) {
+            // Two valid placements: previous-line comment OR
+            // inline same-line. Either way, skip this line.
+            $skipNext = ! preg_match('/i18n-ignore.*?[A-Za-z]/', $line);
+
+            return 0;
+        }
+        $stripped = trim($this->stripNoise($line));
+        if ($stripped === '') {
+            return 0;
+        }
+
+        return $this->lineHasUnwrappedEnglish($stripped) ? 1 : 0;
     }
 
     /**

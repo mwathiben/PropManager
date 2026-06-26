@@ -87,6 +87,23 @@ class BudgetEnforcementService
             return 0.0;
         }
 
+        [$finiteBuckets, $total] = $this->separateAndTotal($bucketsForClass);
+
+        if ($total <= 0) {
+            return 0.0;
+        }
+
+        return $this->interpolateP95($finiteBuckets, 0.95 * $total);
+    }
+
+    /**
+     * Split raw buckets into sorted finite-bound buckets and resolve the total count.
+     *
+     * @param  array<string, int>  $bucketsForClass
+     * @return array{array<float, int>, int} [finiteBuckets sorted by bound asc, total]
+     */
+    private function separateAndTotal(array $bucketsForClass): array
+    {
         $finiteBuckets = [];
         $infCount = 0;
         foreach ($bucketsForClass as $le => $count) {
@@ -100,11 +117,17 @@ class BudgetEnforcementService
         ksort($finiteBuckets);
 
         $total = $infCount > 0 ? $infCount : max(array_values($finiteBuckets) ?: [0]);
-        if ($total <= 0) {
-            return 0.0;
-        }
 
-        $target = 0.95 * $total;
+        return [$finiteBuckets, $total];
+    }
+
+    /**
+     * Walk sorted cumulative buckets and return the linearly-interpolated value at $target count.
+     *
+     * @param  array<float, int>  $finiteBuckets  sorted by bound ascending
+     */
+    private function interpolateP95(array $finiteBuckets, float $target): float
+    {
         $prevBound = 0.0;
         $prevCount = 0;
         foreach ($finiteBuckets as $upperBound => $cumulative) {

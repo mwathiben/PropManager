@@ -44,13 +44,8 @@ class TempFileHandle
         }
 
         try {
-            if (is_file($this->absolutePath)) {
-                @unlink($this->absolutePath);
-            }
-            $dir = dirname($this->absolutePath);
-            if (is_dir($dir) && str_contains($dir, sys_get_temp_dir())) {
-                @rmdir($dir);
-            }
+            $this->unlinkFileIfExists();
+            $this->rmdirIfTempDir();
         } catch (Throwable $e) {
             Log::warning('temp_file_handle_cleanup_failed', [
                 'path' => $this->absolutePath,
@@ -58,6 +53,21 @@ class TempFileHandle
             ]);
         } finally {
             $this->cleaned = true;
+        }
+    }
+
+    private function unlinkFileIfExists(): void
+    {
+        if (is_file($this->absolutePath)) {
+            @unlink($this->absolutePath);
+        }
+    }
+
+    private function rmdirIfTempDir(): void
+    {
+        $dir = dirname($this->absolutePath);
+        if (is_dir($dir) && str_contains($dir, sys_get_temp_dir())) {
+            @rmdir($dir);
         }
     }
 

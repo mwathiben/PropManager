@@ -72,17 +72,28 @@ class MessageContentPolicy
     private static function matchesSpamToken(string $body): bool
     {
         $tokens = config('inbox.content.spam_tokens', []);
-        if (! is_array($tokens) || $tokens === []) {
+        if (! self::hasValidTokenList($tokens)) {
             return false;
         }
 
         $lower = mb_strtolower($body, 'UTF-8');
+
+        return self::bodyContainsAnyToken($lower, $tokens);
+    }
+
+    private static function hasValidTokenList(mixed $tokens): bool
+    {
+        return is_array($tokens) && $tokens !== [];
+    }
+
+    private static function bodyContainsAnyToken(string $lowerBody, array $tokens): bool
+    {
         foreach ($tokens as $token) {
             if (! is_string($token) || $token === '') {
                 continue;
             }
 
-            if (str_contains($lower, mb_strtolower($token, 'UTF-8'))) {
+            if (str_contains($lowerBody, mb_strtolower($token, 'UTF-8'))) {
                 return true;
             }
         }

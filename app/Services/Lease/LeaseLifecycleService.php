@@ -26,9 +26,26 @@ class LeaseLifecycleService
      */
     public function timeline(Lease $lease): array
     {
+        $events = array_merge(
+            $this->rentChangeEvents($lease->id),
+            $this->escalationEvents($lease->id),
+            $this->renewalEvents($lease->id),
+            $this->terminationEvents($lease->id),
+            $this->transferEvents($lease->id),
+            $this->pauseEvents($lease->id),
+        );
+
+        usort($events, fn ($a, $b) => strcmp($b['date'], $a['date']));
+
+        return $events;
+    }
+
+    /** @return list<array{type:string, date:string, title:string, detail:string}> */
+    private function rentChangeEvents(int $leaseId): array
+    {
         $events = [];
 
-        foreach ($this->rows(RentHistory::class, $lease->id) as $row) {
+        foreach ($this->rows(RentHistory::class, $leaseId) as $row) {
             $events[] = [
                 'type' => 'rent_change',
                 'date' => $this->date($row->effective_date),
@@ -37,7 +54,15 @@ class LeaseLifecycleService
             ];
         }
 
-        foreach ($this->rows(RentEscalation::class, $lease->id) as $row) {
+        return $events;
+    }
+
+    /** @return list<array{type:string, date:string, title:string, detail:string}> */
+    private function escalationEvents(int $leaseId): array
+    {
+        $events = [];
+
+        foreach ($this->rows(RentEscalation::class, $leaseId) as $row) {
             $events[] = [
                 'type' => 'escalation',
                 'date' => $this->date($row->effective_date),
@@ -46,7 +71,15 @@ class LeaseLifecycleService
             ];
         }
 
-        foreach ($this->rows(LeaseRenewal::class, $lease->id) as $row) {
+        return $events;
+    }
+
+    /** @return list<array{type:string, date:string, title:string, detail:string}> */
+    private function renewalEvents(int $leaseId): array
+    {
+        $events = [];
+
+        foreach ($this->rows(LeaseRenewal::class, $leaseId) as $row) {
             $events[] = [
                 'type' => 'renewal',
                 'date' => $this->date($row->proposed_at ?? $row->created_at),
@@ -55,7 +88,15 @@ class LeaseLifecycleService
             ];
         }
 
-        foreach ($this->rows(LeaseTermination::class, $lease->id) as $row) {
+        return $events;
+    }
+
+    /** @return list<array{type:string, date:string, title:string, detail:string}> */
+    private function terminationEvents(int $leaseId): array
+    {
+        $events = [];
+
+        foreach ($this->rows(LeaseTermination::class, $leaseId) as $row) {
             $events[] = [
                 'type' => 'termination',
                 'date' => $this->date($row->notice_given_at ?? $row->created_at),
@@ -64,7 +105,15 @@ class LeaseLifecycleService
             ];
         }
 
-        foreach ($this->rows(LeaseTransfer::class, $lease->id) as $row) {
+        return $events;
+    }
+
+    /** @return list<array{type:string, date:string, title:string, detail:string}> */
+    private function transferEvents(int $leaseId): array
+    {
+        $events = [];
+
+        foreach ($this->rows(LeaseTransfer::class, $leaseId) as $row) {
             $events[] = [
                 'type' => 'transfer',
                 'date' => $this->date($row->transfer_date ?? $row->created_at),
@@ -73,7 +122,15 @@ class LeaseLifecycleService
             ];
         }
 
-        foreach ($this->rows(LeasePause::class, $lease->id) as $row) {
+        return $events;
+    }
+
+    /** @return list<array{type:string, date:string, title:string, detail:string}> */
+    private function pauseEvents(int $leaseId): array
+    {
+        $events = [];
+
+        foreach ($this->rows(LeasePause::class, $leaseId) as $row) {
             $events[] = [
                 'type' => 'pause',
                 'date' => $this->date($row->pause_start ?? $row->created_at),
@@ -81,8 +138,6 @@ class LeaseLifecycleService
                 'detail' => (string) $row->status,
             ];
         }
-
-        usort($events, fn ($a, $b) => strcmp($b['date'], $a['date']));
 
         return $events;
     }

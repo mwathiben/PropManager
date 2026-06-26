@@ -29,23 +29,42 @@ final class RouteClassResolver
         $name = strtolower($routeName ?? '');
         $method = strtoupper($method);
 
-        if ($name !== '' && str_contains($name, 'webhook')) {
+        if (self::isWebhookRoute($name)) {
             return 'webhook';
         }
 
-        if ($name !== '' && (str_starts_with($name, 'reports.') || str_contains($name, 'report') || str_contains($name, 'export'))) {
+        if (self::isReportRoute($name)) {
             return 'report';
         }
 
-        if ($name !== '' && (str_ends_with($name, '.store') || str_ends_with($name, '.update') || str_ends_with($name, '.destroy'))) {
-            return 'write_path';
-        }
-
-        if (in_array($method, self::WRITE_METHODS, true)) {
+        if (self::isWriteRouteName($name) || in_array($method, self::WRITE_METHODS, true)) {
             return 'write_path';
         }
 
         return 'read_path';
+    }
+
+    private static function isWebhookRoute(string $name): bool
+    {
+        return $name !== '' && str_contains($name, 'webhook');
+    }
+
+    private static function isReportRoute(string $name): bool
+    {
+        return $name !== '' && (
+            str_starts_with($name, 'reports.')
+            || str_contains($name, 'report')
+            || str_contains($name, 'export')
+        );
+    }
+
+    private static function isWriteRouteName(string $name): bool
+    {
+        return $name !== '' && (
+            str_ends_with($name, '.store')
+            || str_ends_with($name, '.update')
+            || str_ends_with($name, '.destroy')
+        );
     }
 
     /**
