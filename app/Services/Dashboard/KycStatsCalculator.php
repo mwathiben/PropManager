@@ -71,25 +71,52 @@ class KycStatsCalculator
         // Step 4: in-memory completion check per tenant.
         $complete = 0;
         foreach ($tenantContext as $tenantId => $ctx) {
-            $applicable = $requirements->filter(function ($req) use ($ctx) {
-                $landlordOk = $req->landlord_id === null || $req->landlord_id === $ctx->landlord_id;
-                $buildingOk = $req->building_id === null || $req->building_id === $ctx->building_id;
+            $applicable = $this->filterApplicableRequirements($requirements, $ctx);
 
-                return $landlordOk && $buildingOk;
-            });
-
-            if ($applicable->isEmpty()) {
-                $complete++;
-
-                continue;
-            }
-
-            $approvedRequirementIds = ($approved[$tenantId] ?? collect())->pluck('requirement_id')->unique();
-            if ($approvedRequirementIds->intersect($applicable->pluck('id'))->count() >= $applicable->count()) {
+            if ($this->isTenantKycComplete($applicable, $approved, $tenantId)) {
                 $complete++;
             }
         }
 
+        return $this->buildKycStats($total, $complete);
+    }
+
+    /**
+     * Filter requirements that apply to the given tenant context.
+     * landlord_id null = platform default; building_id null = applies to all.
+     */
+    private function filterApplicableRequirements(Collection $requirements, object $ctx): Collection
+    {
+        return $requirements->filter(function ($req) use ($ctx) {
+            $landlordOk = $req->landlord_id === null || $req->landlord_id === $ctx->landlord_id;
+            $buildingOk = $req->building_id === null || $req->building_id === $ctx->building_id;
+
+            return $landlordOk && $buildingOk;
+        });
+    }
+
+    /**
+     * Determine whether a tenant has approved submissions for all applicable requirements.
+     * Tenants with no applicable requirements are considered complete.
+     */
+    private function isTenantKycComplete(Collection $applicable, Collection $approved, int|string $tenantId): bool
+    {
+        if ($applicable->isEmpty()) {
+            return true;
+        }
+
+        $approvedRequirementIds = ($approved[$tenantId] ?? collect())->pluck('requirement_id')->unique();
+
+        return $approvedRequirementIds->intersect($applicable->pluck('id'))->count() >= $applicable->count();
+    }
+
+    /**
+     * Assemble the final KYC stats array from aggregate counts.
+     *
+     * @return array{total: int, complete: int, incomplete: int, rate: int|float}
+     */
+    private function buildKycStats(int $total, int $complete): array
+    {
         return [
             'total' => $total,
             'complete' => $complete,

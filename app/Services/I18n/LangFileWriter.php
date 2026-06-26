@@ -103,24 +103,41 @@ final class LangFileWriter
     private function varExport(mixed $value, int $depth = 0): string
     {
         if (is_array($value)) {
-            $indent = str_repeat('    ', $depth);
-            $inner = str_repeat('    ', $depth + 1);
-            $lines = ['['];
-            $isList = array_keys($value) === range(0, count($value) - 1);
-            foreach ($value as $k => $v) {
-                $rendered = $this->varExport($v, $depth + 1);
-                if ($isList) {
-                    $lines[] = "{$inner}{$rendered},";
-
-                    continue;
-                }
-                $lines[] = sprintf("%s'%s' => %s,", $inner, addcslashes((string) $k, "\\'"), $rendered);
-            }
-            $lines[] = "{$indent}]";
-
-            return implode("\n", $lines);
+            return $this->exportArray($value, $depth);
         }
 
+        return $this->exportScalar($value);
+    }
+
+    private function exportArray(array $value, int $depth): string
+    {
+        $indent = str_repeat('    ', $depth);
+        $isList = array_keys($value) === range(0, count($value) - 1);
+        $lines = ['['];
+
+        foreach ($value as $k => $v) {
+            $lines[] = $this->exportArrayEntry($k, $v, $depth + 1, $isList);
+        }
+
+        $lines[] = "{$indent}]";
+
+        return implode("\n", $lines);
+    }
+
+    private function exportArrayEntry(mixed $k, mixed $v, int $depth, bool $isList): string
+    {
+        $inner = str_repeat('    ', $depth);
+        $rendered = $this->varExport($v, $depth);
+
+        if ($isList) {
+            return "{$inner}{$rendered},";
+        }
+
+        return sprintf("%s'%s' => %s,", $inner, addcslashes((string) $k, "\\'"), $rendered);
+    }
+
+    private function exportScalar(mixed $value): string
+    {
         if (is_string($value)) {
             return "'".addcslashes($value, "\\'")."'";
         }

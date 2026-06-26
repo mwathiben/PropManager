@@ -127,36 +127,63 @@ class ReferralLeaderboardService
 
         $scored = [];
         foreach ($aggregates as $agg) {
-            $userId = (int) $agg->referrer_user_id;
+            $entry = $this->scoreAggregate($agg, $eligibleUsers, $rewardWeight);
 
-            if (! $eligibleUsers->has($userId)) {
-                continue; // opted-out or missing user
+            if ($entry !== null) {
+                $scored[] = $entry;
             }
-
-            $attributed = (int) $agg->attributed_count;
-            $rewarded = (int) $agg->rewarded_count;
-            $score = $attributed + ($rewarded * $rewardWeight);
-
-            if ($score <= 0) {
-                continue;
-            }
-
-            $scored[] = [
-                'user_id' => $userId,
-                'name' => (string) $eligibleUsers->get($userId),
-                'score' => $score,
-                'attributed' => $attributed,
-                'rewarded' => $rewarded,
-            ];
         }
 
         // Rank by score desc, then attributed desc, then user_id asc so
         // ties are deterministic regardless of aggregate row order.
-        usort($scored, fn ($a, $b) => ($b['score'] <=> $a['score'])
-            ?: ($b['attributed'] <=> $a['attributed'])
-            ?: ($a['user_id'] <=> $b['user_id']));
+        usort($scored, $this->rankingComparator());
 
         return $scored;
+    }
+
+    /**
+     * Score a single aggregate row, returning null when the user is
+     * opted-out, missing, or has a non-positive score.
+     *
+     * @param  \Illuminate\Support\Collection<int,string>  $eligibleUsers
+     * @return array{user_id:int, name:string, score:int, attributed:int, rewarded:int}|null
+     */
+    private function scoreAggregate(mixed $agg, \Illuminate\Support\Collection $eligibleUsers, int $rewardWeight): ?array
+    {
+        $userId = (int) $agg->referrer_user_id;
+
+        if (! $eligibleUsers->has($userId)) {
+            return null; // opted-out or missing user
+        }
+
+        $attributed = (int) $agg->attributed_count;
+        $rewarded = (int) $agg->rewarded_count;
+        $score = $attributed + ($rewarded * $rewardWeight);
+
+        if ($score <= 0) {
+            return null;
+        }
+
+        return [
+            'user_id' => $userId,
+            'name' => (string) $eligibleUsers->get($userId),
+            'score' => $score,
+            'attributed' => $attributed,
+            'rewarded' => $rewarded,
+        ];
+    }
+
+    /**
+     * Comparator for usort: score desc, then attributed desc, then
+     * user_id asc — ties are deterministic regardless of aggregate row order.
+     *
+     * @return callable(array{user_id:int,score:int,attributed:int}, array{user_id:int,score:int,attributed:int}): int
+     */
+    private function rankingComparator(): callable
+    {
+        return fn ($a, $b) => ($b['score'] <=> $a['score'])
+            ?: ($b['attributed'] <=> $a['attributed'])
+            ?: ($a['user_id'] <=> $b['user_id']);
     }
 
     /**
