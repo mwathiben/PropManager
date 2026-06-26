@@ -74,6 +74,12 @@ return [
         'document_hash' => 'Alama ya hati',
         'signed_title' => 'Mkataba umesainiwa',
         'signed_body' => 'Asante. Mkataba huu umesainiwa na unatumika — hakuna hatua zaidi inayohitajika.',
+        'documenso' => [
+            'heading' => 'Weka saini yako iliyothibitishwa',
+            'intro' => 'Utambulisho wako umethibitishwa. Kamilisha saini yako kwenye paneli salama hapa chini.',
+            'loading' => 'Inapakia paneli salama ya kusaini…',
+            'finalizing' => 'Saini imepokelewa — inakamilisha mkataba wako. Hii inachukua muda mfupi tu…',
+        ],
         'errors' => [
             'not_sendable' => 'Rasimu pekee ndiyo inaweza kutumwa kusaini.',
             'owner_contact_missing' => 'Ongeza anwani ya barua pepe na namba ya simu ya mmiliki kabla ya kutuma mkataba kusaini.',

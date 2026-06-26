@@ -74,6 +74,12 @@ return [
         'document_hash' => 'Document fingerprint',
         'signed_title' => 'Agreement signed',
         'signed_body' => 'Thank you. This agreement is signed and active — no further action is needed.',
+        'documenso' => [
+            'heading' => 'Apply your certified signature',
+            'intro' => 'Your identity is verified. Complete your signature in the secure panel below.',
+            'loading' => 'Loading the secure signing panel…',
+            'finalizing' => 'Signature received — finalizing your agreement. This only takes a moment…',
+        ],
         'errors' => [
             'not_sendable' => 'Only a draft agreement can be sent for signature.',
             'owner_contact_missing' => 'Add an email address and phone number for this owner before sending the agreement for signature.',
