@@ -7,6 +7,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Jobs\FinalizeDocumensoSignatureJob;
 use App\Models\AgreementSignature;
+use App\Models\WebhookLog;
+use App\Services\Payment\WebhookLogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -24,8 +26,24 @@ use Illuminate\Support\Facades\Log;
  */
 class DocumensoWebhookController extends Controller
 {
+    public function __construct(
+        protected WebhookLogService $webhookLogService
+    ) {}
+
     public function handle(Request $request): JsonResponse
     {
+        // Forensic parity with the IntaSend/M-Pesa money webhooks: one WebhookLog
+        // row per delivery for replay/audit. Processing is async (the finalize job
+        // is the timed/hardened path), so this records the hit and does not time it.
+        $this->webhookLogService->recordHit(
+            WebhookLog::PROVIDER_DOCUMENSO,
+            (string) $request->input('payload.id'),
+            'document_completed',
+            json_encode($request->all()),
+            null,
+            $request->ip()
+        );
+
         if ((string) $request->input('event') !== 'DOCUMENT_COMPLETED') {
             return response()->json(['status' => 'ignored']);
         }

@@ -20,6 +20,8 @@ class WebhookLog extends Model
 
     public const PROVIDER_BANK = 'bank';
 
+    public const PROVIDER_DOCUMENSO = 'documenso';
+
     public const STATUS_PENDING = 'pending';
 
     public const STATUS_PROCESSED = 'processed';
