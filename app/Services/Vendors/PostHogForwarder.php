@@ -67,30 +67,40 @@ class PostHogForwarder implements AnalyticsForwarderInterface
                 ];
             }
 
-            $status = $response->status();
-            $retryable = $status >= 500 || $response->header('Retry-After') !== null;
-
-            Log::warning('PostHog forwarder non-2xx', [
-                'status' => $status,
-                'retryable' => $retryable,
-                'body' => $response->body(),
-            ]);
-
-            return [
-                'accepted' => 0,
-                'rejected' => $retryable ? 0 : count($events),
-                'retryable' => $retryable ? count($events) : 0,
-                'vendor' => 'posthog',
-            ];
+            return $this->handleNon2xxResponse($response, $events);
         } catch (\Throwable $e) {
-            Log::warning('PostHog forwarder threw', ['error' => $e->getMessage()]);
-
-            return [
-                'accepted' => 0,
-                'rejected' => 0,
-                'retryable' => count($events),
-                'vendor' => 'posthog',
-            ];
+            return $this->handleTransportException($e, $events);
         }
+    }
+
+    private function handleNon2xxResponse(\Illuminate\Http\Client\Response $response, array $events): array
+    {
+        $status = $response->status();
+        $retryable = $status >= 500 || $response->header('Retry-After') !== null;
+
+        Log::warning('PostHog forwarder non-2xx', [
+            'status' => $status,
+            'retryable' => $retryable,
+            'body' => $response->body(),
+        ]);
+
+        return [
+            'accepted' => 0,
+            'rejected' => $retryable ? 0 : count($events),
+            'retryable' => $retryable ? count($events) : 0,
+            'vendor' => 'posthog',
+        ];
+    }
+
+    private function handleTransportException(\Throwable $e, array $events): array
+    {
+        Log::warning('PostHog forwarder threw', ['error' => $e->getMessage()]);
+
+        return [
+            'accepted' => 0,
+            'rejected' => 0,
+            'retryable' => count($events),
+            'vendor' => 'posthog',
+        ];
     }
 }

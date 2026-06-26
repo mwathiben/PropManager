@@ -145,19 +145,11 @@ class XlsxExportService
         switch ($type) {
             case 'currency':
             case 'integer':
-                $sheet->setCellValue($coord, (float) $value);
-                $sheet->getStyle($coord)->getNumberFormat()->setFormatCode(self::FORMAT_MASKS[$type]);
+                $this->writeNumericCell($sheet, $coord, $value, $type);
                 break;
 
             case 'date':
-                // Accept Carbon, DateTime, or ISO string.
-                if ($value instanceof \DateTimeInterface) {
-                    $serial = XlsxDate::PHPToExcel($value);
-                } else {
-                    $serial = XlsxDate::PHPToExcel(new \DateTimeImmutable((string) $value));
-                }
-                $sheet->setCellValue($coord, $serial);
-                $sheet->getStyle($coord)->getNumberFormat()->setFormatCode(self::FORMAT_MASKS['date']);
+                $this->writeDateCell($sheet, $coord, $value);
                 break;
 
             case 'string':
@@ -165,6 +157,24 @@ class XlsxExportService
                 $sheet->setCellValue($coord, (string) $value);
                 break;
         }
+    }
+
+    private function writeNumericCell(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $sheet, string $coord, mixed $value, string $type): void
+    {
+        $sheet->setCellValue($coord, (float) $value);
+        $sheet->getStyle($coord)->getNumberFormat()->setFormatCode(self::FORMAT_MASKS[$type]);
+    }
+
+    private function writeDateCell(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $sheet, string $coord, mixed $value): void
+    {
+        // Accept Carbon, DateTime, or ISO string.
+        if ($value instanceof \DateTimeInterface) {
+            $serial = XlsxDate::PHPToExcel($value);
+        } else {
+            $serial = XlsxDate::PHPToExcel(new \DateTimeImmutable((string) $value));
+        }
+        $sheet->setCellValue($coord, $serial);
+        $sheet->getStyle($coord)->getNumberFormat()->setFormatCode(self::FORMAT_MASKS['date']);
     }
 
     /**

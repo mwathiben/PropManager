@@ -43,17 +43,11 @@ class ConnectionRouter
     {
         $first = $queryFactory();
 
-        $isEmpty = $first === null
-            || $first === []
-            || (is_object($first) && method_exists($first, 'isEmpty') && $first->isEmpty());
-
-        if (! $isEmpty) {
+        if (! $this->resultIsEmpty($first)) {
             return $first;
         }
 
-        $connection = DB::connection();
-        $recentlyWrote = method_exists($connection, 'getRecordsModified') && $connection->getRecordsModified();
-        if (! $recentlyWrote) {
+        if (! $this->connectionHadRecentWrite()) {
             return $first;
         }
 
@@ -65,5 +59,32 @@ class ConnectionRouter
         return DB::transaction(function () use ($queryFactory) {
             return $queryFactory();
         });
+    }
+
+    /**
+     * Return true when the query result is empty (null, empty array, or an
+     * Eloquent Collection that reports isEmpty()).
+     */
+    private function resultIsEmpty(mixed $result): bool
+    {
+        if ($result === null || $result === []) {
+            return true;
+        }
+
+        return is_object($result)
+            && method_exists($result, 'isEmpty')
+            && $result->isEmpty();
+    }
+
+    /**
+     * Return true when the current DB connection reports that records were
+     * modified earlier in this request (indicating a write occurred).
+     */
+    private function connectionHadRecentWrite(): bool
+    {
+        $connection = DB::connection();
+
+        return method_exists($connection, 'getRecordsModified')
+            && $connection->getRecordsModified();
     }
 }

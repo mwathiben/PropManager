@@ -22,6 +22,21 @@ class TextCardRenderer extends AbstractCardRenderer
 
     public function validate(int $index, array $card, int $landlordId): array
     {
+        $body = $this->requireValidBody($index, $card);
+
+        $normalised = [
+            'type' => 'text',
+            'body' => $body,
+            'size' => $this->validateSize($card['size'] ?? 'wide'),
+        ];
+
+        $this->applyOptionalTitle($normalised, $card);
+
+        return $normalised;
+    }
+
+    private function requireValidBody(int $index, array $card): string
+    {
         $body = $card['body'] ?? null;
         if (! is_string($body) || trim($body) === '') {
             throw ValidationException::withMessages([
@@ -34,16 +49,14 @@ class TextCardRenderer extends AbstractCardRenderer
             ]);
         }
 
-        $normalised = [
-            'type' => 'text',
-            'body' => $body,
-            'size' => $this->validateSize($card['size'] ?? 'wide'),
-        ];
+        return $body;
+    }
+
+    private function applyOptionalTitle(array &$normalised, array $card): void
+    {
         if (isset($card['title']) && is_string($card['title']) && $card['title'] !== '') {
             $normalised['title'] = mb_substr($card['title'], 0, 200);
         }
-
-        return $normalised;
     }
 
     public function render(int $index, array $card, int $landlordId): array

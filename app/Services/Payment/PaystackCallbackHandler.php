@@ -58,12 +58,62 @@ class PaystackCallbackHandler
     ): PaystackHandlerResult {
         $this->overpaymentHandler = $overpaymentHandler;
 
+        $signatureCheck = $this->requireWebhookSignature($signature);
+        if ($signatureCheck !== null) {
+            return $signatureCheck;
+        }
+
+        $decodeResult = $this->decodeWebhookPayload($payload);
+        if ($decodeResult instanceof PaystackHandlerResult) {
+            return $decodeResult;
+        }
+
+        [$decoded, $data, $landlordId] = $decodeResult;
+
+        $configResult = $this->resolveWebhookLandlordConfig($landlordId, $data);
+        if ($configResult instanceof PaystackHandlerResult) {
+            return $configResult;
+        }
+
+        $paymentConfig = $configResult;
+
+        $signatureVerifyResult = $this->verifyWebhookHmac(
+            $paymentConfig,
+            $payload,
+            $signature,
+            ['landlord_id' => $landlordId, 'reference' => $data['reference'] ?? 'unknown']
+        );
+        if ($signatureVerifyResult !== null) {
+            return $signatureVerifyResult;
+        }
+
+        $event = $decoded['event'] ?? null;
+
+        Log::info('Paystack webhook received', ['event' => $event, 'reference' => $data['reference'] ?? null]);
+
+        if ($event === 'charge.success') {
+            return $this->processChargeSuccess($data);
+        }
+
+        return PaystackHandlerResult::ignored();
+    }
+
+    private function requireWebhookSignature(?string $signature): ?PaystackHandlerResult
+    {
         if (! $signature) {
             Log::warning('Paystack webhook missing signature');
 
             return PaystackHandlerResult::unauthorized('Invalid signature');
         }
 
+        return null;
+    }
+
+    /**
+     * @return PaystackHandlerResult|array{array, array, mixed}
+     */
+    private function decodeWebhookPayload(string $payload): PaystackHandlerResult|array
+    {
         $decoded = json_decode($payload, true);
         if (! is_array($decoded)) {
             Log::error('Paystack webhook payload is not valid JSON', [
@@ -72,6 +122,7 @@ class PaystackCallbackHandler
 
             return PaystackHandlerResult::badRequest('Invalid JSON payload');
         }
+
         $data = $decoded['data'] ?? [];
         $metadata = $data['metadata'] ?? [];
         $landlordId = $metadata['landlord_id'] ?? null;
@@ -84,6 +135,11 @@ class PaystackCallbackHandler
             return PaystackHandlerResult::badRequest('Missing landlord context');
         }
 
+        return [$decoded, $data, $landlordId];
+    }
+
+    private function resolveWebhookLandlordConfig(mixed $landlordId, array $data): PaystackHandlerResult|PaymentConfiguration
+    {
         $paymentConfig = $this->loadPaystackConfig((int) $landlordId);
 
         if (! $paymentConfig) {
@@ -94,24 +150,22 @@ class PaystackCallbackHandler
             return PaystackHandlerResult::badRequest('Landlord not configured');
         }
 
+        return $paymentConfig;
+    }
+
+    private function verifyWebhookHmac(
+        PaymentConfiguration $paymentConfig,
+        string $payload,
+        string $signature,
+        array $logContext
+    ): ?PaystackHandlerResult {
         if (! (new PaystackService($paymentConfig))->verifyWebhookSignature($payload, $signature)) {
-            Log::warning('Paystack webhook signature verification failed', [
-                'landlord_id' => $landlordId,
-                'reference' => $data['reference'] ?? 'unknown',
-            ]);
+            Log::warning('Paystack webhook signature verification failed', $logContext);
 
             return PaystackHandlerResult::unauthorized('Invalid signature');
         }
 
-        $event = $decoded['event'] ?? null;
-
-        Log::info('Paystack webhook received', ['event' => $event, 'reference' => $data['reference'] ?? null]);
-
-        if ($event === 'charge.success') {
-            return $this->processChargeSuccess($data);
-        }
-
-        return PaystackHandlerResult::ignored();
+        return null;
     }
 
     private function verifyPaystackTransaction(PaymentConfiguration $config, string $reference): ?array

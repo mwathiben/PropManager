@@ -58,7 +58,27 @@ class MessageSearchService
 
         $words = array_values(array_filter(explode(' ', $sanitised), fn (string $w) => $w !== ''));
 
-        $matches = Message::query()
+        $matches = $this->fetchMatchingMessages($visibleThreadIds, $words);
+        $bestPerThread = $this->pickBestMessagePerThread($matches);
+        $rows = $this->buildResultRows($bestPerThread);
+
+        $slice = array_slice($rows, ($page - 1) * $perPage, $perPage);
+
+        return new LengthAwarePaginator($slice, count($rows), $perPage, $page, [
+            'path' => Paginator::resolveCurrentPath(),
+        ]);
+    }
+
+    /**
+     * Query messages within the given thread IDs that contain all supplied words.
+     *
+     * @param  \Illuminate\Support\Collection<int, int>  $visibleThreadIds
+     * @param  array<int, string>  $words
+     * @return \Illuminate\Database\Eloquent\Collection<int, Message>
+     */
+    private function fetchMatchingMessages(\Illuminate\Support\Collection $visibleThreadIds, array $words): \Illuminate\Database\Eloquent\Collection
+    {
+        return Message::query()
             ->whereIn('thread_id', $visibleThreadIds)
             ->where(function ($builder) use ($words) {
                 // All words must appear (AND). Wildcards are escaped so a
@@ -69,8 +89,16 @@ class MessageSearchService
             })
             ->orderByDesc('created_at')
             ->get(['id', 'thread_id', 'body', 'created_at']);
+    }
 
-        // Most-recent matching message per thread.
+    /**
+     * Keep only the most-recent matching message per thread.
+     *
+     * @param  \Illuminate\Database\Eloquent\Collection<int, Message>  $matches
+     * @return array<int|string, Message>
+     */
+    private function pickBestMessagePerThread(\Illuminate\Database\Eloquent\Collection $matches): array
+    {
         $bestPerThread = [];
         foreach ($matches as $message) {
             if (! isset($bestPerThread[$message->thread_id])) {
@@ -78,6 +106,18 @@ class MessageSearchService
             }
         }
 
+        return $bestPerThread;
+    }
+
+    /**
+     * Join best-messages with their threads and shape the result rows,
+     * sorted by most-recent thread activity first.
+     *
+     * @param  array<int|string, Message>  $bestPerThread
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildResultRows(array $bestPerThread): array
+    {
         $threads = MessageThread::query()
             ->whereIn('id', array_keys($bestPerThread))
             ->get(['id', 'title', 'status', 'last_message_at'])
@@ -102,11 +142,7 @@ class MessageSearchService
         // Most recent thread activity first.
         usort($rows, fn (array $a, array $b) => ($b['last_message_at'] ?? '') <=> ($a['last_message_at'] ?? ''));
 
-        $slice = array_slice($rows, ($page - 1) * $perPage, $perPage);
-
-        return new LengthAwarePaginator($slice, count($rows), $perPage, $page, [
-            'path' => Paginator::resolveCurrentPath(),
-        ]);
+        return $rows;
     }
 
     /**

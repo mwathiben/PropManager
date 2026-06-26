@@ -110,16 +110,33 @@ class VendorStatementService
             return '';
         }
 
-        // CSV-injection guard (Phase-65 convention): neutralise formula-leading
-        // characters so a malicious title/description can't execute in Excel.
-        if (in_array($value[0], ['=', '+', '-', '@', "\t", "\r"], true)) {
-            $value = "'".$value;
-        }
+        $value = $this->neutraliseFormulaLeadingChar($value);
 
-        if (str_contains($value, ',') || str_contains($value, '"') || str_contains($value, "\n") || str_contains($value, "\r")) {
+        if ($this->requiresQuoting($value)) {
             return '"'.str_replace('"', '""', $value).'"';
         }
 
         return $value;
+    }
+
+    /**
+     * CSV-injection guard (Phase-65 convention): neutralise formula-leading
+     * characters so a malicious title/description can't execute in Excel.
+     */
+    private function neutraliseFormulaLeadingChar(string $value): string
+    {
+        if (in_array($value[0], ['=', '+', '-', '@', "\t", "\r"], true)) {
+            return "'".$value;
+        }
+
+        return $value;
+    }
+
+    private function requiresQuoting(string $value): bool
+    {
+        return str_contains($value, ',')
+            || str_contains($value, '"')
+            || str_contains($value, "\n")
+            || str_contains($value, "\r");
     }
 }
