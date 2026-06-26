@@ -7,6 +7,8 @@ namespace App\Services\Reports;
 use App\Models\Lease;
 use App\Models\Payment;
 use Carbon\Carbon;
+use Carbon\CarbonInterface;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -46,7 +48,6 @@ class CohortService
     public function retentionMatrix(int $landlordId, int $lookbackMonths = 12): array
     {
         $start = Carbon::now()->subMonths($lookbackMonths - 1)->startOfMonth();
-        $end = Carbon::now()->startOfMonth();
 
         $leases = Lease::query()
             ->where('landlord_id', $landlordId)
@@ -54,38 +55,13 @@ class CohortService
             ->select('id', 'tenant_id', 'start_date', 'end_date', 'is_active')
             ->get();
 
-        // Group leases by cohort month (YYYY-MM of start_date).
         $cohorts = $leases->groupBy(fn ($lease) => $lease->start_date->format('Y-m'));
 
         $matrix = [];
         foreach ($cohorts as $cohortMonth => $cohortLeases) {
-            $cohortStart = Carbon::parse($cohortMonth.'-01');
-            $size = $cohortLeases->count();
-            if ($size === 0) {
-                continue;
-            }
-
-            for ($offset = 0; $offset <= $lookbackMonths; $offset++) {
-                $observationDate = $cohortStart->copy()->addMonths($offset)->endOfMonth();
-
-                // Observation is in the future — leave NULL.
-                if ($observationDate->isFuture()) {
-                    $matrix[$cohortMonth][$offset] = null;
-
-                    continue;
-                }
-
-                $alive = $cohortLeases->filter(function ($lease) use ($observationDate) {
-                    // end_date is a date cast (00:00:00). Compare at
-                    // end-of-day so a lease ending ON the observation
-                    // date is still considered alive through that day.
-                    $endsAfter = $lease->end_date === null
-                        || $lease->end_date->copy()->endOfDay()->greaterThanOrEqualTo($observationDate);
-
-                    return $lease->start_date->lessThanOrEqualTo($observationDate) && $endsAfter;
-                })->count();
-
-                $matrix[$cohortMonth][$offset] = round($alive / $size, 4);
+            $row = $this->buildCohortRow($cohortMonth, $cohortLeases, $lookbackMonths);
+            if ($row !== null) {
+                $matrix[$cohortMonth] = $row;
             }
         }
 
@@ -129,44 +105,7 @@ class CohortService
 
         $rows = [];
         for ($i = 0; $i < $months; $i++) {
-            $monthStart = $start->copy()->addMonths($i);
-            $monthKey = $monthStart->format('Y-m');
-            $monthEnd = $monthStart->copy()->endOfMonth();
-
-            $startedThisMonth = $leases->filter(
-                fn ($l) => $l->start_date->betweenIncluded($monthStart, $monthEnd),
-            );
-
-            $new = 0;
-            $reactivated = 0;
-            foreach ($startedThisMonth as $lease) {
-                $firstStart = $firstLeasePerTenant->get($lease->tenant_id);
-                if ($firstStart === null) {
-                    $new++;
-
-                    continue;
-                }
-                $firstStartCarbon = $firstStart instanceof \Carbon\CarbonInterface
-                    ? $firstStart
-                    : Carbon::parse((string) $firstStart);
-                if ($firstStartCarbon->equalTo($lease->start_date)) {
-                    $new++;
-                } else {
-                    $reactivated++;
-                }
-            }
-
-            $churned = $leases->filter(
-                fn ($l) => $l->end_date !== null && $l->end_date->betweenIncluded($monthStart, $monthEnd),
-            )->count();
-
-            $rows[] = [
-                'month' => $monthKey,
-                'new' => $new,
-                'reactivated' => $reactivated,
-                'churned' => $churned,
-                'net_delta' => $new + $reactivated - $churned,
-            ];
+            $rows[] = $this->buildAcquisitionRow($i, $start, $leases, $firstLeasePerTenant);
         }
 
         return $rows;
@@ -247,5 +186,142 @@ class CohortService
             'mean_ltv' => round($mean, 2),
             'median_ltv' => round($median, 2),
         ];
+    }
+
+    /**
+     * Build the survival-rate row for one cohort month.
+     *
+     * Returns null when the cohort has no leases (caller skips it).
+     *
+     * @param  Collection<int, \App\Models\Lease>  $cohortLeases
+     * @return array<int, float|null>|null
+     */
+    private function buildCohortRow(int|string $cohortMonth, Collection $cohortLeases, int $lookbackMonths): ?array
+    {
+        $size = $cohortLeases->count();
+        if ($size === 0) {
+            return null;
+        }
+
+        $cohortStart = Carbon::parse($cohortMonth.'-01');
+        $row = [];
+        for ($offset = 0; $offset <= $lookbackMonths; $offset++) {
+            $row[$offset] = $this->survivalRateAtOffset($cohortStart, $offset, $cohortLeases, $size);
+        }
+
+        return $row;
+    }
+
+    /**
+     * Survival rate for a cohort at a given month offset.
+     *
+     * Returns null when the observation date is in the future.
+     *
+     * @param  Collection<int, \App\Models\Lease>  $cohortLeases
+     */
+    private function survivalRateAtOffset(
+        Carbon $cohortStart,
+        int $offset,
+        Collection $cohortLeases,
+        int $size,
+    ): ?float {
+        $observationDate = $cohortStart->copy()->addMonths($offset)->endOfMonth();
+
+        if ($observationDate->isFuture()) {
+            return null;
+        }
+
+        $alive = $cohortLeases->filter(
+            fn ($lease) => $this->isLeaseAliveAt($lease, $observationDate),
+        )->count();
+
+        return round($alive / $size, 4);
+    }
+
+    /**
+     * Whether a lease was active on a given observation date.
+     *
+     * end_date is a date cast (00:00:00). We compare at end-of-day so a
+     * lease ending ON the observation date is still considered alive
+     * through that day.
+     */
+    private function isLeaseAliveAt(mixed $lease, Carbon $observationDate): bool
+    {
+        $endsAfter = $lease->end_date === null
+            || $lease->end_date->copy()->endOfDay()->greaterThanOrEqualTo($observationDate);
+
+        return $lease->start_date->lessThanOrEqualTo($observationDate) && $endsAfter;
+    }
+
+    /**
+     * Build one row of the acquisition table for month offset $i.
+     *
+     * @param  Collection<int, \App\Models\Lease>  $leases
+     * @param  Collection<int|string, mixed>  $firstLeasePerTenant
+     * @return array{month: string, new: int, reactivated: int, churned: int, net_delta: int}
+     */
+    private function buildAcquisitionRow(
+        int $i,
+        Carbon $start,
+        Collection $leases,
+        Collection $firstLeasePerTenant,
+    ): array {
+        $monthStart = $start->copy()->addMonths($i);
+        $monthKey = $monthStart->format('Y-m');
+        $monthEnd = $monthStart->copy()->endOfMonth();
+
+        $startedThisMonth = $leases->filter(
+            fn ($l) => $l->start_date->betweenIncluded($monthStart, $monthEnd),
+        );
+
+        [$new, $reactivated] = $this->classifyStartedLeases($startedThisMonth, $firstLeasePerTenant);
+
+        $churned = $leases->filter(
+            fn ($l) => $l->end_date !== null && $l->end_date->betweenIncluded($monthStart, $monthEnd),
+        )->count();
+
+        return [
+            'month' => $monthKey,
+            'new' => $new,
+            'reactivated' => $reactivated,
+            'churned' => $churned,
+            'net_delta' => $new + $reactivated - $churned,
+        ];
+    }
+
+    /**
+     * Count new vs reactivated tenants among leases that started this month.
+     *
+     * @param  Collection<int, \App\Models\Lease>  $startedThisMonth
+     * @param  Collection<int|string, mixed>  $firstLeasePerTenant
+     * @return array{int, int} [$new, $reactivated]
+     */
+    private function classifyStartedLeases(
+        Collection $startedThisMonth,
+        Collection $firstLeasePerTenant,
+    ): array {
+        $new = 0;
+        $reactivated = 0;
+
+        foreach ($startedThisMonth as $lease) {
+            $firstStart = $firstLeasePerTenant->get($lease->tenant_id);
+            if ($firstStart === null) {
+                $new++;
+
+                continue;
+            }
+
+            $firstStartCarbon = $firstStart instanceof CarbonInterface
+                ? $firstStart
+                : Carbon::parse((string) $firstStart);
+
+            if ($firstStartCarbon->equalTo($lease->start_date)) {
+                $new++;
+            } else {
+                $reactivated++;
+            }
+        }
+
+        return [$new, $reactivated];
     }
 }

@@ -180,8 +180,6 @@
   <violation rule="PHPMD\Rule\ExcessivePublicCount" file="app/Models/Refund.php"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Models/Setting.php" method="set"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Models/Setting.php" method="setSystem"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Models/SubscriptionPlan.php" method="getFeaturesList"/>
-  <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Models/SubscriptionPlan.php" method="getFeaturesList"/>
   <violation rule="PHPMD\Rule\ExcessivePublicCount" file="app/Models/TenantInvitation.php"/>
   <violation rule="PHPMD\Rule\ExcessivePublicCount" file="app/Models/TenantPaymentVerification.php"/>
   <violation rule="PHPMD\Rule\Design\LongClass" file="app/Models/Ticket.php"/>
@@ -240,13 +238,7 @@
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/FinanceReportService.php" method="getTopPerformingUnitsReportFiltered"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/FinanceReportService.php" method="getReportDateRange"/>
   <violation rule="PHPMD\Rule\Design\LongClass" file="app/Services/FinanceStatsService.php"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/Finance/DepositSettlementService.php" method="settle"/>
-  <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Services/Finance/DepositSettlementService.php" method="settle"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Services/Growth/AttributionTouchpointRecorder.php" method="record"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/Growth/ChurnService.php" method="subscriptionCohorts"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/Growth/ChurnService.php" method="cohortsBySource"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/Growth/NpsEligibilityService.php" method="shouldPrompt"/>
-  <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Services/Growth/NpsEligibilityService.php" method="shouldPrompt"/>
   <violation rule="PHPMD\Rule\Design\LongClass" file="app/Services/ImportService.php"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/ImportService.php" method="parseSpreadsheet"/>
   <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Services/ImportService.php" method="parseSpreadsheet"/>
@@ -259,8 +251,6 @@
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/Inbox/MessageAttachmentService.php" method="scan"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/Inbox/MessageAttachmentService.php" method="persist"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Services/Inbox/MessageAttachmentService.php" method="recordInfection"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/Inbox/Scanning/ClamavScanner.php" method="scan"/>
-  <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Services/Inbox/Scanning/ClamavScanner.php" method="scan"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Services/IncidentDetector.php" method="createIncident"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/InvoiceService.php" method="generateInvoiceForLease"/>
   <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Services/InvoiceService.php" method="generateInvoiceForLease"/>
@@ -293,14 +283,10 @@
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Services/Notification/DeferredNotificationHandler.php" method="defer"/>
   <violation rule="PHPMD\Rule\Design\LongClass" file="app/Services/OcrService.php"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/OcrService.php" method="processWithAzureVision"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/Onboarding/SampleDataSeederService.php" method="populate"/>
-  <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Services/Onboarding/SampleDataSeederService.php" method="populate"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Services/Payment/BulkPaymentResult.php" method="__construct"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Services/Payment/BulkPaymentResult.php" method="partial"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Services/Payment/InitialPaymentResult.php" method="__construct"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Services/Payment/ManualPaymentHandler.php" method="updateInvoiceAndHandleOverpayment"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/Payment/PaymentCallbackProcessor.php" method="process"/>
-  <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Services/Payment/PaymentCallbackProcessor.php" method="process"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Services/Payment/PaymentProcessResult.php" method="__construct"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Services/Payment/PaystackHandlerResult.php" method="__construct"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Services/Payment/WebhookDeadLetterService.php" method="capture"/>
@@ -324,8 +310,6 @@
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Services/PushNotificationService.php" method="sendToMultiple"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Services/PushNotificationService.php" method="sendToSubscription"/>
   <violation rule="PHPMD\Rule\Design\LongClass" file="app/Services/ReportService.php"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/Reports/CohortService.php" method="retentionMatrix"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/Reports/CohortService.php" method="acquisitionTable"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/Reports/NoiService.php" method="allocatedExpensesPerProperty"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Services/Reports/NoiService.php" method="allocatedExpensesPerProperty"/>
   <violation rule="PHPMD\Rule\Design\LongClass" file="app/Services/SecurityLogger.php"/>
@@ -335,19 +319,11 @@
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Services/Storage/FileAccessRecorder.php" method="record"/>
   <violation rule="PHPMD\Rule\ExcessivePublicCount" file="app/Services/Storage/PrefixedDisk.php"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Services/Storage/TenantDiskResolver.php" method="temporaryUrl"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/StripeService.php" method="createPaymentIntent"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/StripeService.php" method="listCharges"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/SubscriptionService.php" method="create"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/SubscriptionService.php" method="changePlan"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/TenantMessageService.php" method="processInbound"/>
-  <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Services/TenantMessageService.php" method="processInbound"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Services/Tickets/TicketAnnotationService.php" method="storeAnnotation"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Services/Wallet/WalletService.php" method="credit"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Services/Wallet/WalletService.php" method="apply"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/Wallet/WalletService.php" method="applyToInvoice"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Services/Wallet/WalletService.php" method="mutateNonDefault"/>
-  <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Services/WaterReadingService.php" method="processReading"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/WaterReadingService.php" method="processOcr"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Services/Water/MeterReplacementService.php" method="replace"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Services/Water/WaterAccountService.php" method="historyFor"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Services/Water/WaterAccountService.php" method="summaryFor"/>

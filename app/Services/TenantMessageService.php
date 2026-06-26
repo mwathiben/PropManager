@@ -22,23 +22,44 @@ class TenantMessageService
 
     public function processInbound(array $payload): TenantMessage
     {
-        $messageSid = $payload['MessageSid'] ?? null;
         $from = $this->normalizePhone($payload['From'] ?? '');
-        $body = $payload['Body'] ?? '';
         $numMedia = (int) ($payload['NumMedia'] ?? 0);
-        $source = str_contains($payload['From'] ?? '', 'whatsapp')
-            ? TenantMessage::SOURCE_WHATSAPP
-            : TenantMessage::SOURCE_SMS;
+
+        $ctx = [
+            'message_sid' => $payload['MessageSid'] ?? null,
+            'from' => $from,
+            'body' => $payload['Body'] ?? '',
+            'num_media' => $numMedia,
+            'source' => $this->resolveSource($payload),
+            'media_urls' => $this->extractMediaUrls($payload, $numMedia),
+            'metadata' => $this->extractMetadata($payload),
+        ];
 
         Log::channel('whatsapp')->info('Processing inbound message', [
-            'message_sid' => $messageSid,
-            'from' => $from,
-            'source' => $source,
-            'body_length' => strlen($body),
-            'num_media' => $numMedia,
+            'message_sid' => $ctx['message_sid'],
+            'from' => $ctx['from'],
+            'source' => $ctx['source'],
+            'body_length' => strlen($ctx['body']),
+            'num_media' => $ctx['num_media'],
         ]);
 
         $tenant = $this->findTenantByPhone($from);
+        $landlordId = $this->resolveLandlordId($tenant, $from, $ctx['message_sid']);
+
+        return DB::transaction(function () use ($ctx, $tenant, $landlordId) {
+            return $this->persistInboundMessage($ctx, $tenant, $landlordId);
+        });
+    }
+
+    private function resolveSource(array $payload): string
+    {
+        return str_contains($payload['From'] ?? '', 'whatsapp')
+            ? TenantMessage::SOURCE_WHATSAPP
+            : TenantMessage::SOURCE_SMS;
+    }
+
+    private function resolveLandlordId(?User $tenant, string $from, ?string $messageSid): int
+    {
         $landlordId = $tenant?->landlord_id;
 
         if (! $landlordId && ! $tenant) {
@@ -58,55 +79,58 @@ class TenantMessageService
             throw new \RuntimeException('Cannot determine landlord for message');
         }
 
-        $mediaUrls = $this->extractMediaUrls($payload, $numMedia);
+        return $landlordId;
+    }
 
-        return DB::transaction(function () use ($messageSid, $from, $body, $mediaUrls, $source, $payload, $tenant, $landlordId) {
-            $existingMessage = TenantMessage::where('twilio_message_sid', $messageSid)
-                ->lockForUpdate()
-                ->first();
+    private function persistInboundMessage(array $ctx, ?User $tenant, int $landlordId): TenantMessage
+    {
+        $messageSid = $ctx['message_sid'];
 
-            if ($existingMessage) {
-                Log::channel('whatsapp')->info('Duplicate message ignored', [
-                    'message_sid' => $messageSid,
-                ]);
+        $existingMessage = TenantMessage::where('twilio_message_sid', $messageSid)
+            ->lockForUpdate()
+            ->first();
 
-                return $existingMessage;
-            }
-
-            $notification = $tenant ? $this->findOriginalNotification($tenant, $from) : null;
-
-            $message = TenantMessage::create([
-                'landlord_id' => $landlordId,
-                'user_id' => $tenant?->id,
-                'notification_id' => $notification?->id,
-                'twilio_message_sid' => $messageSid,
-                'from_number' => $from,
-                'body' => $body,
-                'media_urls' => $mediaUrls,
-                'source' => $source,
-                'status' => TenantMessage::STATUS_RECEIVED,
-                'metadata' => $this->extractMetadata($payload),
+        if ($existingMessage) {
+            Log::channel('whatsapp')->info('Duplicate message ignored', [
+                'message_sid' => $messageSid,
             ]);
 
-            $actionType = $this->detectActionKeyword($body);
+            return $existingMessage;
+        }
 
-            if ($actionType) {
-                $this->executeAction($message, $actionType, $tenant);
-            }
+        $notification = $tenant ? $this->findOriginalNotification($tenant, $ctx['from']) : null;
 
-            $message->markAsProcessed($actionType);
+        $message = TenantMessage::create([
+            'landlord_id' => $landlordId,
+            'user_id' => $tenant?->id,
+            'notification_id' => $notification?->id,
+            'twilio_message_sid' => $messageSid,
+            'from_number' => $ctx['from'],
+            'body' => $ctx['body'],
+            'media_urls' => $ctx['media_urls'],
+            'source' => $ctx['source'],
+            'status' => TenantMessage::STATUS_RECEIVED,
+            'metadata' => $ctx['metadata'],
+        ]);
 
-            $this->notifyLandlord($message, $tenant);
+        $actionType = $this->detectActionKeyword($ctx['body']);
 
-            Log::channel('whatsapp')->info('Inbound message processed', [
-                'message_id' => $message->id,
-                'tenant_id' => $tenant?->id,
-                'action_type' => $actionType,
-                'is_reply' => $message->isReply(),
-            ]);
+        if ($actionType) {
+            $this->executeAction($message, $actionType, $tenant);
+        }
 
-            return $message;
-        });
+        $message->markAsProcessed($actionType);
+
+        $this->notifyLandlord($message, $tenant);
+
+        Log::channel('whatsapp')->info('Inbound message processed', [
+            'message_id' => $message->id,
+            'tenant_id' => $tenant?->id,
+            'action_type' => $actionType,
+            'is_reply' => $message->isReply(),
+        ]);
+
+        return $message;
     }
 
     public function findTenantByPhone(string $phone): ?User

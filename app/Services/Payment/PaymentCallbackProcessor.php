@@ -126,114 +126,123 @@ class PaymentCallbackProcessor
         }
 
         try {
-            $result = DB::transaction(function () {
-                $pendingOverpayments = [];
+            $result = DB::transaction(fn () => $this->executeTransaction());
 
-                $existingPayment = Payment::where('paystack_reference', $this->reference)
-                    ->lockForUpdate()
-                    ->first();
-
-                if ($existingPayment) {
-                    return PaymentProcessResult::alreadyProcessed($existingPayment);
-                }
-
-                $invoice = Invoice::where('id', $this->invoiceId)->lockForUpdate()->first();
-
-                if (! $invoice) {
-                    return PaymentProcessResult::invoiceNotFound();
-                }
-
-                $payment = $this->createPaymentRecord($invoice);
-                $this->recordPlatformFee($payment, $invoice);
-                $this->receiptService->createReceipt($payment, $invoice);
-
-                $overpayment = $this->updateInvoiceAndHandleOverpayment(
-                    $invoice,
-                    $payment,
-                    $pendingOverpayments
-                );
-
-                return PaymentProcessResult::success(
-                    payment: $payment,
-                    invoice: $invoice,
-                    overpayment: $overpayment,
-                    pendingOverpayments: $pendingOverpayments
-                );
-            });
-
-            $this->idempotencyService->release($this->idempotencyKey, [
-                'status' => $result->isSuccess() ? 'success' : ($result->isAlreadyProcessed() ? 'duplicate' : 'error'),
-                'payment_id' => $result->payment?->id,
-            ]);
-
-            // OBS-11: counter for payment-callback outcomes; the
-            // 'duplicate' bucket is the canary for replay storms.
-            $outcome = $result->isSuccess()
-                ? 'success'
-                : ($result->isAlreadyProcessed() ? 'duplicate' : 'error');
-            app(MetricsService::class)->increment(
-                'payment.callback',
-                labels: ['source' => $this->source ?? 'paystack', 'outcome' => $outcome]
-            );
+            $this->releaseIdempotencyKey($result);
+            $this->recordCallbackMetric($result->isSuccess() ? 'success' : ($result->isAlreadyProcessed() ? 'duplicate' : 'error'));
 
             return $result;
         } catch (\Illuminate\Database\QueryException $e) {
-            if ($e->errorInfo[1] === 1062) {
-                $this->idempotencyService->release($this->idempotencyKey, ['status' => 'duplicate']);
-                Log::info('Paystack duplicate payment ignored (idempotent)', [
-                    'paystack_reference' => $this->reference,
-                ]);
-
-                $existingPayment = Payment::where('paystack_reference', $this->reference)->first();
-
-                return PaymentProcessResult::alreadyProcessed($existingPayment);
-            }
-
-            $this->idempotencyService->fail($this->idempotencyKey, $e->getMessage());
-            Log::error('Payment processing database error', [
-                'reference' => $this->reference,
-                'error' => $e->getMessage(),
-            ]);
-
-            $this->deadLetterService->capture(
-                WebhookDeadLetter::PROVIDER_PAYSTACK,
-                'charge.success',
-                $this->paymentData,
-                $e->getMessage(),
-                WebhookDeadLetter::ERROR_TRANSIENT,
-                $this->resolvePaymentLandlordId()
-            );
-
-            app(MetricsService::class)->increment(
-                'payment.callback',
-                labels: ['source' => $this->source ?? 'paystack', 'outcome' => 'db_error']
-            );
-
-            return PaymentProcessResult::error($e->getMessage());
+            return $this->handleQueryException($e);
         } catch (\Exception $e) {
-            $this->idempotencyService->fail($this->idempotencyKey, $e->getMessage());
-            Log::error('Payment processing failed', [
-                'reference' => $this->reference,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
+            return $this->handleGenericException($e);
+        }
+    }
+
+    private function executeTransaction(): PaymentProcessResult
+    {
+        $pendingOverpayments = [];
+
+        $existingPayment = Payment::where('paystack_reference', $this->reference)
+            ->lockForUpdate()
+            ->first();
+
+        if ($existingPayment) {
+            return PaymentProcessResult::alreadyProcessed($existingPayment);
+        }
+
+        $invoice = Invoice::where('id', $this->invoiceId)->lockForUpdate()->first();
+
+        if (! $invoice) {
+            return PaymentProcessResult::invoiceNotFound();
+        }
+
+        $payment = $this->createPaymentRecord($invoice);
+        $this->recordPlatformFee($payment, $invoice);
+        $this->receiptService->createReceipt($payment, $invoice);
+
+        $overpayment = $this->updateInvoiceAndHandleOverpayment($invoice, $payment, $pendingOverpayments);
+
+        return PaymentProcessResult::success(
+            payment: $payment,
+            invoice: $invoice,
+            overpayment: $overpayment,
+            pendingOverpayments: $pendingOverpayments
+        );
+    }
+
+    private function releaseIdempotencyKey(PaymentProcessResult $result): void
+    {
+        $this->idempotencyService->release($this->idempotencyKey, [
+            'status' => $result->isSuccess() ? 'success' : ($result->isAlreadyProcessed() ? 'duplicate' : 'error'),
+            'payment_id' => $result->payment?->id,
+        ]);
+    }
+
+    private function recordCallbackMetric(string $outcome): void
+    {
+        // OBS-11: counter for payment-callback outcomes; the
+        // 'duplicate' bucket is the canary for replay storms.
+        app(MetricsService::class)->increment(
+            'payment.callback',
+            labels: ['source' => $this->source ?? 'paystack', 'outcome' => $outcome]
+        );
+    }
+
+    private function handleQueryException(\Illuminate\Database\QueryException $e): PaymentProcessResult
+    {
+        if ($e->errorInfo[1] === 1062) {
+            $this->idempotencyService->release($this->idempotencyKey, ['status' => 'duplicate']);
+            Log::info('Paystack duplicate payment ignored (idempotent)', [
+                'paystack_reference' => $this->reference,
             ]);
 
-            $this->deadLetterService->capture(
-                WebhookDeadLetter::PROVIDER_PAYSTACK,
-                'charge.success',
-                $this->paymentData,
-                $e->getMessage(),
-                WebhookDeadLetter::ERROR_PERMANENT,
-                $this->resolvePaymentLandlordId()
-            );
+            $existingPayment = Payment::where('paystack_reference', $this->reference)->first();
 
-            app(MetricsService::class)->increment(
-                'payment.callback',
-                labels: ['source' => $this->source ?? 'paystack', 'outcome' => 'exception']
-            );
-
-            return PaymentProcessResult::error($e->getMessage());
+            return PaymentProcessResult::alreadyProcessed($existingPayment);
         }
+
+        $this->idempotencyService->fail($this->idempotencyKey, $e->getMessage());
+        Log::error('Payment processing database error', [
+            'reference' => $this->reference,
+            'error' => $e->getMessage(),
+        ]);
+
+        $this->deadLetterService->capture(
+            WebhookDeadLetter::PROVIDER_PAYSTACK,
+            'charge.success',
+            $this->paymentData,
+            $e->getMessage(),
+            WebhookDeadLetter::ERROR_TRANSIENT,
+            $this->resolvePaymentLandlordId()
+        );
+
+        $this->recordCallbackMetric('db_error');
+
+        return PaymentProcessResult::error($e->getMessage());
+    }
+
+    private function handleGenericException(\Exception $e): PaymentProcessResult
+    {
+        $this->idempotencyService->fail($this->idempotencyKey, $e->getMessage());
+        Log::error('Payment processing failed', [
+            'reference' => $this->reference,
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+        ]);
+
+        $this->deadLetterService->capture(
+            WebhookDeadLetter::PROVIDER_PAYSTACK,
+            'charge.success',
+            $this->paymentData,
+            $e->getMessage(),
+            WebhookDeadLetter::ERROR_PERMANENT,
+            $this->resolvePaymentLandlordId()
+        );
+
+        $this->recordCallbackMetric('exception');
+
+        return PaymentProcessResult::error($e->getMessage());
     }
 
     private function createPaymentRecord(Invoice $invoice): Payment

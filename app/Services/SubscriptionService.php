@@ -21,27 +21,43 @@ class SubscriptionService
         string $billingCycle = 'monthly',
         bool $withTrial = true
     ): Subscription {
-        // Cancel any existing active subscription
-        if ($existingSub = $user->subscription) {
-            if ($existingSub->isActive()) {
-                $this->cancel($existingSub, true);
-            }
-        }
+        $this->cancelActiveSubscriptionIfExists($user);
 
         $now = now();
-        $periodEnd = $billingCycle === 'yearly' ? $now->copy()->addYear() : $now->copy()->addMonth();
 
-        $subscription = Subscription::create([
+        return Subscription::create([
             'user_id' => $user->id,
             'plan_id' => $plan->id,
             'billing_cycle' => $billingCycle,
-            'status' => $withTrial && ! $plan->isFree() ? 'trialing' : 'active',
-            'trial_ends_at' => $withTrial && ! $plan->isFree() ? $now->copy()->addDays(14) : null,
+            'status' => $this->resolveInitialStatus($plan, $withTrial),
+            'trial_ends_at' => $this->resolveTrialEndsAt($plan, $withTrial, $now),
             'current_period_start' => $now,
-            'current_period_end' => $periodEnd,
+            'current_period_end' => $this->resolvePeriodEnd($billingCycle, $now),
         ]);
+    }
 
-        return $subscription;
+    private function cancelActiveSubscriptionIfExists(User $user): void
+    {
+        $existingSub = $user->subscription;
+
+        if ($existingSub && $existingSub->isActive()) {
+            $this->cancel($existingSub, true);
+        }
+    }
+
+    private function resolveInitialStatus(SubscriptionPlan $plan, bool $withTrial): string
+    {
+        return $withTrial && ! $plan->isFree() ? 'trialing' : 'active';
+    }
+
+    private function resolveTrialEndsAt(SubscriptionPlan $plan, bool $withTrial, \Illuminate\Support\Carbon $now): ?\Illuminate\Support\Carbon
+    {
+        return $withTrial && ! $plan->isFree() ? $now->copy()->addDays(14) : null;
+    }
+
+    private function resolvePeriodEnd(string $billingCycle, \Illuminate\Support\Carbon $now): \Illuminate\Support\Carbon
+    {
+        return $billingCycle === 'yearly' ? $now->copy()->addYear() : $now->copy()->addMonth();
     }
 
     /**
@@ -63,11 +79,8 @@ class SubscriptionService
     ): Subscription {
         $oldPlan = $subscription->plan()->first();
         $changeType = $this->classifyChange($oldPlan, $newPlan);
-
-        $proratedAmount = 0.0;
-        if ($prorate && $changeType === \App\Models\SubscriptionChange::TYPE_UPGRADE && $oldPlan) {
-            $proratedAmount = $this->computeProratedAmount($subscription, $oldPlan, $newPlan);
-        }
+        $isProratableUpgrade = $prorate && $changeType === \App\Models\SubscriptionChange::TYPE_UPGRADE;
+        $proratedAmount = $this->resolveProratedAmount($subscription, $oldPlan, $newPlan, $isProratableUpgrade);
 
         $change = null;
         \DB::transaction(function () use ($subscription, $oldPlan, $newPlan, $changeType, $proratedAmount, &$change) {
@@ -85,35 +98,61 @@ class SubscriptionService
             ]);
         });
 
-        // Phase-37 PWA-GATEWAY-1: push the plan change to Paystack on
-        // upgrade when the subscription is wired to a gateway code.
-        // Gateway failures are swallowed here so the user-facing
-        // operation stays atomic on the DB side; gateway:proration-
-        // audit nightly reconciliation catches drift via the
-        // gateway_response audit column.
-        if (
-            $change
-            && $changeType === \App\Models\SubscriptionChange::TYPE_UPGRADE
-            && ! empty($subscription->paystack_subscription_code)
-            && ! empty($newPlan->paystack_plan_code)
-        ) {
-            try {
-                $paystack = app(\App\Services\PaystackSubscriptionService::class);
-                $response = $paystack->updateSubscription(
-                    $subscription->paystack_subscription_code,
-                    $newPlan->paystack_plan_code,
-                );
-                $change->update(['gateway_response' => $response]);
-            } catch (\Throwable $e) {
-                $change->update(['gateway_response' => [
-                    'success' => false,
-                    'http_status' => 0,
-                    'message' => $e->getMessage(),
-                ]]);
-            }
-        }
+        $this->syncGatewayPlanIfUpgrade($subscription, $newPlan, $changeType, $change);
 
         return $subscription->fresh();
+    }
+
+    private function resolveProratedAmount(
+        Subscription $subscription,
+        ?SubscriptionPlan $oldPlan,
+        SubscriptionPlan $newPlan,
+        bool $isProratableUpgrade,
+    ): float {
+        if ($isProratableUpgrade && $oldPlan) {
+            return $this->computeProratedAmount($subscription, $oldPlan, $newPlan);
+        }
+
+        return 0.0;
+    }
+
+    /**
+     * Phase-37 PWA-GATEWAY-1: push the plan change to Paystack on
+     * upgrade when the subscription is wired to a gateway code.
+     * Gateway failures are swallowed here so the user-facing
+     * operation stays atomic on the DB side; gateway:proration-
+     * audit nightly reconciliation catches drift via the
+     * gateway_response audit column.
+     */
+    private function syncGatewayPlanIfUpgrade(
+        Subscription $subscription,
+        SubscriptionPlan $newPlan,
+        string $changeType,
+        ?\App\Models\SubscriptionChange $change,
+    ): void {
+        if (
+            ! $change
+            || $changeType !== \App\Models\SubscriptionChange::TYPE_UPGRADE
+            || empty($subscription->paystack_subscription_code)
+            || empty($newPlan->paystack_plan_code)
+        ) {
+            return;
+        }
+
+        try {
+            $paystack = app(\App\Services\PaystackSubscriptionService::class);
+            $response = $paystack->updateSubscription(
+                $subscription->paystack_subscription_code,
+                $newPlan->paystack_plan_code,
+            );
+            $change->update(['gateway_response' => $response]);
+        } catch (\Throwable $e) {
+            $change->update(['gateway_response' => [
+                'success' => false,
+                'http_status' => 0,
+                'message' => $e->getMessage(),
+            ]]);
+        }
     }
 
     /**

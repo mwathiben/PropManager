@@ -66,79 +66,135 @@ class DepositSettlementService
         }
 
         return DB::transaction(function () use ($moveOut, $lease, $actor) {
-            $moveOut->calculateRefund(); // refresh total_deductions + refund_amount
+            $moveOut->calculateRefund();
 
-            $held = (float) $moveOut->deposit_held;
             $arrears = (float) $moveOut->arrears_balance;
-            $deductions = (float) $moveOut->total_deductions;
-            $withheld = $deductions + $arrears;
+            $withheld = (float) $moveOut->total_deductions + $arrears;
             $refund = max(0.0, (float) $moveOut->refund_amount);
-            $landlordId = (int) $moveOut->landlord_id;
 
-            $running = $held;
+            $ctx = [
+                'moveOut' => $moveOut,
+                'lease' => $lease,
+                'actor' => $actor,
+                'landlordId' => (int) $moveOut->landlord_id,
+            ];
 
-            // Itemise each move-out deduction into the deposit ledger.
-            foreach ($moveOut->deductions as $deduction) {
-                $running = max(0.0, $running - (float) $deduction->amount);
-                DepositTransaction::create([
-                    'lease_id' => $lease->id,
-                    'landlord_id' => $landlordId,
-                    'processed_by' => $actor->id,
-                    'type' => DepositTransaction::TYPE_DEDUCTION,
-                    'amount' => (float) $deduction->amount,
-                    'balance_after' => $running,
-                    'reason' => $deduction->description,
-                    'notes' => $deduction->notes,
-                    'move_out_id' => $moveOut->id,
-                ]);
-            }
-
-            // Offset outstanding arrears against the deposit.
-            if ($arrears > 0) {
-                $running = max(0.0, $running - $arrears);
-                DepositTransaction::create([
-                    'lease_id' => $lease->id,
-                    'landlord_id' => $landlordId,
-                    'processed_by' => $actor->id,
-                    'type' => DepositTransaction::TYPE_DEDUCTION,
-                    'amount' => $arrears,
-                    'balance_after' => $running,
-                    'reason' => __('finance.deposit_settlement.arrears_offset'),
-                    'move_out_id' => $moveOut->id,
-                ]);
-            }
-
-            // Terminal disposition of the remaining balance.
-            if ($refund > 0) {
-                DepositTransaction::create([
-                    'lease_id' => $lease->id,
-                    'landlord_id' => $landlordId,
-                    'processed_by' => $actor->id,
-                    'type' => $withheld > 0 ? DepositTransaction::TYPE_PARTIAL_REFUND : DepositTransaction::TYPE_FULL_REFUND,
-                    'amount' => $refund,
-                    'balance_after' => 0,
-                    'reason' => __('finance.deposit_settlement.refund_reason'),
-                    'payment_method' => $moveOut->settlement_method,
-                    'reference' => $moveOut->settlement_reference,
-                    'move_out_id' => $moveOut->id,
-                ]);
-            }
-
-            $status = $withheld <= 0 ? 'refunded' : ($refund > 0 ? 'partial_refund' : 'forfeited');
-            $previous = $lease->deposit_status;
-
-            $lease->update([
-                'deposit_status' => $status,
-                'deposit_refund_amount' => $refund,
-                'deposit_deductions' => $withheld,
-                'deposit_deduction_reason' => __('finance.deposit_settlement.move_out_reason', ['id' => $moveOut->id]),
-                'deposit_processed_at' => now(),
-                'deposit_processed_by' => $actor->id,
-            ]);
-
-            $lease->logStatusChange("deposit:{$previous}", "deposit:{$status}", __('finance.deposit_settlement.move_out_reason', ['id' => $moveOut->id]));
+            $running = $this->journalDeductions($ctx, (float) $moveOut->deposit_held);
+            $running = $this->journalArrearsOffset($ctx, $running, $arrears);
+            $this->journalTerminalDisposition($ctx, $refund, $withheld);
+            $this->finaliseLeaseDepositStatus($ctx, $refund, $withheld);
 
             return true;
         });
+    }
+
+    /**
+     * Journal each itemised move-out deduction to the deposit ledger.
+     * Returns the running balance after all deductions.
+     *
+     * @param  array{moveOut: MoveOut, lease: Lease, actor: User, landlordId: int}  $ctx
+     */
+    private function journalDeductions(array $ctx, float $running): float
+    {
+        /** @var MoveOut $moveOut */
+        $moveOut = $ctx['moveOut'];
+        /** @var Lease $lease */
+        $lease = $ctx['lease'];
+
+        foreach ($moveOut->deductions as $deduction) {
+            $running = max(0.0, $running - (float) $deduction->amount);
+            DepositTransaction::create([
+                'lease_id' => $lease->id,
+                'landlord_id' => $ctx['landlordId'],
+                'processed_by' => $ctx['actor']->id,
+                'type' => DepositTransaction::TYPE_DEDUCTION,
+                'amount' => (float) $deduction->amount,
+                'balance_after' => $running,
+                'reason' => $deduction->description,
+                'notes' => $deduction->notes,
+                'move_out_id' => $moveOut->id,
+            ]);
+        }
+
+        return $running;
+    }
+
+    /**
+     * Offset outstanding arrears against the deposit balance.
+     * Returns the running balance after the offset (unchanged if no arrears).
+     *
+     * @param  array{moveOut: MoveOut, lease: Lease, actor: User, landlordId: int}  $ctx
+     */
+    private function journalArrearsOffset(array $ctx, float $running, float $arrears): float
+    {
+        if ($arrears <= 0) {
+            return $running;
+        }
+
+        $running = max(0.0, $running - $arrears);
+        DepositTransaction::create([
+            'lease_id' => $ctx['lease']->id,
+            'landlord_id' => $ctx['landlordId'],
+            'processed_by' => $ctx['actor']->id,
+            'type' => DepositTransaction::TYPE_DEDUCTION,
+            'amount' => $arrears,
+            'balance_after' => $running,
+            'reason' => __('finance.deposit_settlement.arrears_offset'),
+            'move_out_id' => $ctx['moveOut']->id,
+        ]);
+
+        return $running;
+    }
+
+    /**
+     * Write the terminal refund or partial-refund row when a refund is due.
+     *
+     * @param  array{moveOut: MoveOut, lease: Lease, actor: User, landlordId: int}  $ctx
+     */
+    private function journalTerminalDisposition(array $ctx, float $refund, float $withheld): void
+    {
+        if ($refund <= 0) {
+            return;
+        }
+
+        /** @var MoveOut $moveOut */
+        $moveOut = $ctx['moveOut'];
+
+        DepositTransaction::create([
+            'lease_id' => $ctx['lease']->id,
+            'landlord_id' => $ctx['landlordId'],
+            'processed_by' => $ctx['actor']->id,
+            'type' => $withheld > 0 ? DepositTransaction::TYPE_PARTIAL_REFUND : DepositTransaction::TYPE_FULL_REFUND,
+            'amount' => $refund,
+            'balance_after' => 0,
+            'reason' => __('finance.deposit_settlement.refund_reason'),
+            'payment_method' => $moveOut->settlement_method,
+            'reference' => $moveOut->settlement_reference,
+            'move_out_id' => $moveOut->id,
+        ]);
+    }
+
+    /**
+     * Flip the lease deposit_status and log the change.
+     *
+     * @param  array{moveOut: MoveOut, lease: Lease, actor: User, landlordId: int}  $ctx
+     */
+    private function finaliseLeaseDepositStatus(array $ctx, float $refund, float $withheld): void
+    {
+        $status = $withheld <= 0 ? 'refunded' : ($refund > 0 ? 'partial_refund' : 'forfeited');
+        $lease = $ctx['lease'];
+        $previous = $lease->deposit_status;
+        $reason = __('finance.deposit_settlement.move_out_reason', ['id' => $ctx['moveOut']->id]);
+
+        $lease->update([
+            'deposit_status' => $status,
+            'deposit_refund_amount' => $refund,
+            'deposit_deductions' => $withheld,
+            'deposit_deduction_reason' => $reason,
+            'deposit_processed_at' => now(),
+            'deposit_processed_by' => $ctx['actor']->id,
+        ]);
+
+        $lease->logStatusChange("deposit:{$previous}", "deposit:{$status}", $reason);
     }
 }

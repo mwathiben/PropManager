@@ -32,6 +32,21 @@ class NpsEligibilityService
 {
     public function shouldPrompt(User $user): bool
     {
+        if (! $this->passesGlobalAndUserChecks($user)) {
+            return false;
+        }
+
+        $state = $this->stateFor($user);
+
+        if (! $this->passesStateChecks($state)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private function passesGlobalAndUserChecks(User $user): bool
+    {
         if (! (bool) config('nps.enabled', true)) {
             return false;
         }
@@ -45,8 +60,20 @@ class NpsEligibilityService
             return false;
         }
 
-        $state = $this->stateFor($user);
+        return true;
+    }
 
+    private function passesStateChecks(NpsPromptState $state): bool
+    {
+        if (! $this->passesOptOutAndSnoozeChecks($state)) {
+            return false;
+        }
+
+        return $this->passesCadenceAndCooldownChecks($state);
+    }
+
+    private function passesOptOutAndSnoozeChecks(NpsPromptState $state): bool
+    {
         if ($state->opted_out_at !== null) {
             return false;
         }
@@ -59,6 +86,11 @@ class NpsEligibilityService
             return false;
         }
 
+        return true;
+    }
+
+    private function passesCadenceAndCooldownChecks(NpsPromptState $state): bool
+    {
         $cadence = (int) config('nps.cadence_days', 90);
         if ($state->last_responded_at !== null && $state->last_responded_at->greaterThan(now()->subDays($cadence))) {
             return false;

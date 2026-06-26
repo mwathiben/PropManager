@@ -34,42 +34,64 @@ class ChurnService
             ->where('created_at', '>=', $start)
             ->get(['id', 'created_at', 'cancelled_at']);
 
-        $cohorts = [];
-        foreach ($subs as $sub) {
-            $cohortMonth = $sub->created_at->copy()->startOfMonth();
-            $key = $cohortMonth->format('Y-m');
-            $cohorts[$key] ??= ['cohort_month' => $key, 'size' => 0, 'subs' => []];
-            $cohorts[$key]['size']++;
-            $cohorts[$key]['subs'][] = $sub;
-        }
+        $cohorts = $this->groupSubsByCohortMonth($subs);
 
         ksort($cohorts);
 
         $matrix = [];
         foreach ($cohorts as $key => $cohort) {
-            $cohortMonth = Carbon::parse($key.'-01');
-            $monthsSinceCohort = $cohortMonth->diffInMonths($now);
-            $retention = [];
-            for ($m = 0; $m <= $monthsSinceCohort; $m++) {
-                $boundary = $cohortMonth->copy()->addMonthsNoOverflow($m)->endOfMonth();
-                $stillActive = 0;
-                foreach ($cohort['subs'] as $sub) {
-                    if ($sub->cancelled_at === null || $sub->cancelled_at->greaterThan($boundary)) {
-                        $stillActive++;
-                    }
-                }
-                $retention[] = $cohort['size'] > 0
-                    ? round($stillActive / $cohort['size'], 4)
-                    : 0.0;
-            }
-            $matrix[] = [
-                'cohort_month' => $key,
-                'size' => $cohort['size'],
-                'retention' => $retention,
-            ];
+            $matrix[] = $this->buildSubscriptionCohortRow($key, $cohort, $now);
         }
 
         return $matrix;
+    }
+
+    /** @param  iterable<mixed>  $subs */
+    private function groupSubsByCohortMonth(iterable $subs): array
+    {
+        $cohorts = [];
+        foreach ($subs as $sub) {
+            $key = $sub->created_at->copy()->startOfMonth()->format('Y-m');
+            $cohorts[$key] ??= ['cohort_month' => $key, 'size' => 0, 'subs' => []];
+            $cohorts[$key]['size']++;
+            $cohorts[$key]['subs'][] = $sub;
+        }
+
+        return $cohorts;
+    }
+
+    private function buildSubscriptionCohortRow(string $key, array $cohort, Carbon $now): array
+    {
+        $cohortMonth = Carbon::parse($key.'-01');
+        $monthsSinceCohort = $cohortMonth->diffInMonths($now);
+        $retention = [];
+
+        for ($m = 0; $m <= $monthsSinceCohort; $m++) {
+            $boundary = $cohortMonth->copy()->addMonthsNoOverflow($m)->endOfMonth();
+            $retention[] = $this->subscriptionRetentionRate($cohort['subs'], $cohort['size'], $boundary);
+        }
+
+        return [
+            'cohort_month' => $key,
+            'size' => $cohort['size'],
+            'retention' => $retention,
+        ];
+    }
+
+    private function subscriptionRetentionRate(array $subs, int $cohortSize, Carbon $boundary): float
+    {
+        if ($cohortSize === 0) {
+            return 0.0;
+        }
+
+        $stillActive = 0;
+        foreach ($subs as $sub) {
+            if ($sub->cancelled_at === null || $sub->cancelled_at->greaterThan($boundary)) {
+                $stillActive++;
+            }
+        }
+
+        return round($stillActive / $cohortSize, 4);
     }
 
     /**
@@ -92,6 +114,26 @@ class ChurnService
         $start = Carbon::now()->subMonthsNoOverflow($monthsBack)->startOfMonth();
         $now = Carbon::now()->startOfMonth();
 
+        $users = $this->fetchUsersForCohorts($start, $restrictToUserIds);
+
+        if ($users->isEmpty()) {
+            return [];
+        }
+
+        $cohorts = $this->groupUsersBySourceCohort($users);
+
+        ksort($cohorts);
+
+        $matrix = [];
+        foreach ($cohorts as $cohort) {
+            $matrix[] = $this->buildSourceCohortRow($cohort, $now);
+        }
+
+        return $matrix;
+    }
+
+    private function fetchUsersForCohorts(Carbon $start, ?array $restrictToUserIds): \Illuminate\Support\Collection
+    {
         // Phase-57 READ-REPLICAS-3: heavy aggregate, eventual consistency OK.
         // Phase-66 COHORT-RETENTION-1: the optional id restriction lets the
         // landlord-scoped variant reuse this exact cohort SQL for just its
@@ -103,12 +145,12 @@ class ChurnService
             $usersQuery->whereIn('id', $restrictToUserIds);
         }
 
-        $users = $usersQuery->get(['id', 'created_at', 'acquisition_source']);
+        return $usersQuery->get(['id', 'created_at', 'acquisition_source']);
+    }
 
-        if ($users->isEmpty()) {
-            return [];
-        }
-
+    /** @param  iterable<mixed>  $users */
+    private function groupUsersBySourceCohort(iterable $users): array
+    {
         $cohorts = [];
         foreach ($users as $user) {
             $cohortMonth = $user->created_at->copy()->startOfMonth()->format('Y-m');
@@ -122,35 +164,44 @@ class ChurnService
             $cohorts[$key]['user_ids'][] = $user->id;
         }
 
-        ksort($cohorts);
+        return $cohorts;
+    }
 
-        $matrix = [];
-        foreach ($cohorts as $cohort) {
-            $cohortStart = Carbon::parse($cohort['cohort_month'].'-01')->startOfMonth();
-            $monthsSinceCohort = $cohortStart->diffInMonths($now);
-            $retention = [];
-            for ($m = 0; $m <= $monthsSinceCohort; $m++) {
-                $boundaryStart = $cohortStart->copy()->addMonthsNoOverflow($m)->startOfMonth();
-                $boundaryEnd = $boundaryStart->copy()->endOfMonth();
+    private function buildSourceCohortRow(array $cohort, Carbon $now): array
+    {
+        $cohortStart = Carbon::parse($cohort['cohort_month'].'-01')->startOfMonth();
+        $monthsSinceCohort = $cohortStart->diffInMonths($now);
+        $size = count($cohort['user_ids']);
+        $retention = [];
 
-                $activeCount = ProductEvent::query()->withoutGlobalScopes()
-                    ->whereIn('user_id', $cohort['user_ids'])
-                    ->whereBetween('created_at', [$boundaryStart, $boundaryEnd])
-                    ->distinct('user_id')
-                    ->count('user_id');
-
-                $size = count($cohort['user_ids']);
-                $retention[] = $size > 0 ? round($activeCount / $size, 4) : 0.0;
-            }
-            $matrix[] = [
-                'cohort_month' => $cohort['cohort_month'],
-                'source' => $cohort['source'],
-                'size' => count($cohort['user_ids']),
-                'retention' => $retention,
-            ];
+        for ($m = 0; $m <= $monthsSinceCohort; $m++) {
+            $retention[] = $this->sourceActivityRetentionRate($cohort['user_ids'], $size, $cohortStart, $m);
         }
 
-        return $matrix;
+        return [
+            'cohort_month' => $cohort['cohort_month'],
+            'source' => $cohort['source'],
+            'size' => $size,
+            'retention' => $retention,
+        ];
+    }
+
+    private function sourceActivityRetentionRate(array $userIds, int $size, Carbon $cohortStart, int $m): float
+    {
+        if ($size === 0) {
+            return 0.0;
+        }
+
+        $boundaryStart = $cohortStart->copy()->addMonthsNoOverflow($m)->startOfMonth();
+        $boundaryEnd = $boundaryStart->copy()->endOfMonth();
+
+        $activeCount = ProductEvent::query()->withoutGlobalScopes()
+            ->whereIn('user_id', $userIds)
+            ->whereBetween('created_at', [$boundaryStart, $boundaryEnd])
+            ->distinct('user_id')
+            ->count('user_id');
+
+        return round($activeCount / $size, 4);
     }
 
     public function monthlyChurnRate(?Carbon $month = null): float

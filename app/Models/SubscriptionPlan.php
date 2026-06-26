@@ -90,12 +90,25 @@ class SubscriptionPlan extends Model
 
     public function getFeaturesList(): array
     {
-        $features = [];
+        return array_merge(
+            $this->capacityFeatures(),
+            $this->enabledFeatures(),
+        );
+    }
 
-        $features[] = "{$this->max_properties} ".($this->max_properties === 1 ? 'property' : 'properties');
-        $features[] = "{$this->max_buildings} ".($this->max_buildings === 1 ? 'building' : 'buildings');
-        $features[] = "{$this->max_units} units";
-        $features[] = "{$this->max_caretakers} ".($this->max_caretakers === 1 ? 'caretaker' : 'caretakers');
+    private function capacityFeatures(): array
+    {
+        return [
+            "{$this->max_properties} ".($this->max_properties === 1 ? 'property' : 'properties'),
+            "{$this->max_buildings} ".($this->max_buildings === 1 ? 'building' : 'buildings'),
+            "{$this->max_units} units",
+            "{$this->max_caretakers} ".($this->max_caretakers === 1 ? 'caretaker' : 'caretakers'),
+        ];
+    }
+
+    private function enabledFeatures(): array
+    {
+        $features = [];
 
         if ($this->water_billing_enabled) {
             $features[] = 'Water billing';
@@ -112,6 +125,14 @@ class SubscriptionPlan extends Model
         if ($this->document_storage_enabled) {
             $features[] = "Document storage ({$this->document_storage_mb}MB)";
         }
+
+        return array_merge($features, $this->notificationFeatures());
+    }
+
+    private function notificationFeatures(): array
+    {
+        $features = [];
+
         if ($this->email_notifications_enabled) {
             $features[] = 'Email notifications';
         }
