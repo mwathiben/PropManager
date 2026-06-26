@@ -57,33 +57,64 @@ class CryptRotate extends Command
 
     public function handle(): int
     {
+        $oldEncrypter = $this->buildOldEncrypter();
+        if ($oldEncrypter === null) {
+            return self::FAILURE;
+        }
+
+        if (! $this->guardRunMode()) {
+            return self::FAILURE;
+        }
+
+        ['changed' => $totalChanged, 'skipped' => $totalSkipped] = $this->rotateAllTables($oldEncrypter);
+
+        $this->info("Done. Rows changed: {$totalChanged}. Rows skipped (already current or unparseable): {$totalSkipped}.");
+
+        return self::SUCCESS;
+    }
+
+    private function buildOldEncrypter(): ?Encrypter
+    {
         $oldKeyRaw = (string) env('APP_KEY_OLD', '');
         if ($oldKeyRaw === '') {
             $this->error('APP_KEY_OLD is not set. Put the previous key in .env and re-run.');
 
-            return self::FAILURE;
+            return null;
         }
 
         $newKeyRaw = (string) Config::get('app.key');
         if ($newKeyRaw === '' || $oldKeyRaw === $newKeyRaw) {
             $this->error('APP_KEY_OLD must differ from the current APP_KEY.');
 
-            return self::FAILURE;
+            return null;
         }
 
         $cipher = (string) Config::get('app.cipher', 'AES-256-CBC');
-        $oldEncrypter = new Encrypter($this->parseKey($oldKeyRaw), $cipher);
 
+        return new Encrypter($this->parseKey($oldKeyRaw), $cipher);
+    }
+
+    private function guardRunMode(): bool
+    {
         if ($this->option('dry-run')) {
             $this->info('Dry run — counting rows that need re-encryption.');
-        } elseif (! $this->option('confirm')) {
-            $this->error('Refusing to mutate without --confirm. Pass --dry-run first to preview.');
 
-            return self::FAILURE;
+            return true;
         }
 
-        $totalChanged = 0;
-        $totalSkipped = 0;
+        if (! $this->option('confirm')) {
+            $this->error('Refusing to mutate without --confirm. Pass --dry-run first to preview.');
+
+            return false;
+        }
+
+        return true;
+    }
+
+    /** @return array{changed: int, skipped: int} */
+    private function rotateAllTables(Encrypter $oldEncrypter): array
+    {
+        $counters = ['changed' => 0, 'skipped' => 0];
 
         foreach ($this->columns as $table => $fields) {
             if (! DB::getSchemaBuilder()->hasTable($table)) {
@@ -92,52 +123,75 @@ class CryptRotate extends Command
                 continue;
             }
 
-            $existingFields = array_values(array_filter(
-                $fields,
-                fn (string $f) => DB::getSchemaBuilder()->hasColumn($table, $f),
-            ));
+            $existingFields = $this->resolveExistingFields($table, $fields);
             if ($existingFields === []) {
                 continue;
             }
 
             $this->line("Scanning {$table} ({".implode(',', $existingFields).'}) ...');
 
-            DB::table($table)
-                ->select(array_merge(['id'], $existingFields))
-                ->orderBy('id')
-                ->chunkById(500, function ($rows) use ($table, $existingFields, $oldEncrypter, &$totalChanged, &$totalSkipped) {
-                    foreach ($rows as $row) {
-                        $update = [];
-
-                        foreach ($existingFields as $field) {
-                            $value = $row->{$field};
-                            if (! $value) {
-                                continue;
-                            }
-
-                            $plain = $this->decryptWithOldKey($oldEncrypter, (string) $value);
-                            if ($plain === null) {
-                                $totalSkipped++;
-
-                                continue;
-                            }
-
-                            $update[$field] = Crypt::encryptString($plain);
-                        }
-
-                        if ($update !== []) {
-                            $totalChanged++;
-                            if (! $this->option('dry-run')) {
-                                DB::table($table)->where('id', $row->id)->update($update);
-                            }
-                        }
-                    }
-                });
+            $this->rotateTableChunks($table, $existingFields, $oldEncrypter, $counters);
         }
 
-        $this->info("Done. Rows changed: {$totalChanged}. Rows skipped (already current or unparseable): {$totalSkipped}.");
+        return $counters;
+    }
 
-        return self::SUCCESS;
+    /** @return string[] */
+    private function resolveExistingFields(string $table, array $fields): array
+    {
+        return array_values(array_filter(
+            $fields,
+            fn (string $f) => DB::getSchemaBuilder()->hasColumn($table, $f),
+        ));
+    }
+
+    private function rotateTableChunks(string $table, array $existingFields, Encrypter $oldEncrypter, array &$counters): void
+    {
+        $context = ['fields' => $existingFields, 'encrypter' => $oldEncrypter];
+
+        DB::table($table)
+            ->select(array_merge(['id'], $existingFields))
+            ->orderBy('id')
+            ->chunkById(500, function ($rows) use ($table, $context, &$counters) {
+                foreach ($rows as $row) {
+                    $this->rotateRow($table, $row, $context, $counters);
+                }
+            });
+    }
+
+    private function rotateRow(string $table, object $row, array $context, array &$counters): void
+    {
+        $update = $this->buildFieldUpdates($row, $context, $counters);
+
+        if ($update !== []) {
+            $counters['changed']++;
+            if (! $this->option('dry-run')) {
+                DB::table($table)->where('id', $row->id)->update($update);
+            }
+        }
+    }
+
+    private function buildFieldUpdates(object $row, array $context, array &$counters): array
+    {
+        $update = [];
+
+        foreach ($context['fields'] as $field) {
+            $value = $row->{$field};
+            if (! $value) {
+                continue;
+            }
+
+            $plain = $this->decryptWithOldKey($context['encrypter'], (string) $value);
+            if ($plain === null) {
+                $counters['skipped']++;
+
+                continue;
+            }
+
+            $update[$field] = Crypt::encryptString($plain);
+        }
+
+        return $update;
     }
 
     private function decryptWithOldKey(Encrypter $oldEncrypter, string $value): ?string

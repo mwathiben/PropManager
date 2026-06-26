@@ -2,37 +2,6 @@
 <phpmd-baseline>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/AnalyticsReplayBatch.php" method="handle"/>
   <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Console/Commands/AnalyticsReplayBatch.php" method="handle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/ArchiveRehydrate.php" method="handle"/>
-  <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Console/Commands/ArchiveRehydrate.php" method="handle"/>
-  <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Console/Commands/ArchiveRehydrate.php" method="handle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/AutoOrganizeBuildings.php" method="handle"/>
-  <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Console/Commands/AutoOrganizeBuildings.php" method="handle"/>
-  <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Console/Commands/AutoOrganizeBuildings.php" method="handle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/AutoOrganizeBuildings.php" method="generateUniquePrefix"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/BackfillNotificationConfiguration.php" method="handle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/BackfillNotificationConfiguration.php" method="migrateNotificationDefaults"/>
-  <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Console/Commands/BackfillNotificationConfiguration.php" method="migrateNotificationDefaults"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/BackupVerify.php" method="handle"/>
-  <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Console/Commands/BackupVerify.php" method="handle"/>
-  <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Console/Commands/BackupVerify.php" method="handle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/CleanupExpiredInvitations.php" method="handle"/>
-  <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Console/Commands/CleanupExpiredInvitations.php" method="handle"/>
-  <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Console/Commands/CleanupExpiredInvitations.php" method="handle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/ConvertBuildingsToWings.php" method="handle"/>
-  <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Console/Commands/ConvertBuildingsToWings.php" method="handle"/>
-  <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Console/Commands/ConvertBuildingsToWings.php" method="handle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/CryptRotate.php" method="handle"/>
-  <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Console/Commands/CryptRotate.php" method="handle"/>
-  <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Console/Commands/CryptRotate.php" method="handle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/EnforceRetention.php" method="handle"/>
-  <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Console/Commands/EnforceRetention.php" method="handle"/>
-  <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Console/Commands/EnforceRetention.php" method="handle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/FixBuildingArchitecture.php" method="handle"/>
-  <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Console/Commands/FixBuildingArchitecture.php" method="handle"/>
-  <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Console/Commands/FixBuildingArchitecture.php" method="handle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/FixUnitPrefixes.php" method="handle"/>
-  <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Console/Commands/FixUnitPrefixes.php" method="handle"/>
-  <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Console/Commands/FixUnitPrefixes.php" method="handle"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/GenerateMonthlyInvoices.php" method="handle"/>
   <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Console/Commands/GenerateMonthlyInvoices.php" method="handle"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/LangCoverage.php" method="handle"/>
@@ -43,10 +12,6 @@
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Console/Commands/LangSuggest.php" method="applyToLangFile"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/LogsPrune.php" method="handle"/>
   <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Console/Commands/LogsPrune.php" method="handle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/MigrateToMysql.php" method="handle"/>
-  <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Console/Commands/MigrateToMysql.php" method="handle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/MigrateToMysql.php" method="getOrderedTables"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/MigrateToMysql.php" method="migrateTable"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/OnboardingFunnelRollup.php" method="handle"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Console/Commands/OnboardingFunnelRollup.php" method="handle"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/PartsReorderSuggest.php" method="handle"/>
@@ -55,16 +20,8 @@
   <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Console/Commands/PaymentsGatewayReconcile.php" method="handle"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/ProcessFailedNotifications.php" method="handle"/>
   <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Console/Commands/ProcessFailedNotifications.php" method="handle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/RentRemindersDispatch.php" method="handle"/>
-  <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Console/Commands/RentRemindersDispatch.php" method="handle"/>
-  <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Console/Commands/RentRemindersDispatch.php" method="handle"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/SendScheduledReports.php" method="handle"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/SendScheduledReports.php" method="inferType"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/SloReport.php" method="handle"/>
-  <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Console/Commands/SloReport.php" method="handle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/SloReport.php" method="aggregatePerRoute"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/SloReport.php" method="percentile"/>
-  <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Console/Commands/SloReport.php" method="percentile"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/SweepStaleHolds.php" method="handle"/>
   <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Console/Commands/SweepStaleHolds.php" method="handle"/>
   <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Console/Commands/SweepStaleHolds.php" method="handle"/>
@@ -401,20 +358,8 @@
   <violation rule="PHPMD\Rule\Design\LongClass" file="app/Services/ReportService.php"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/Reports/CohortService.php" method="retentionMatrix"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/Reports/CohortService.php" method="acquisitionTable"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/Reports/MetricFormulaService.php" method="evaluate"/>
-  <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Services/Reports/MetricFormulaService.php" method="evaluate"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/Reports/MetricFormulaService.php" method="tokenise"/>
-  <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Services/Reports/MetricFormulaService.php" method="tokenise"/>
-  <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Services/Reports/MetricFormulaService.php" method="tokenise"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/Reports/MetricFormulaService.php" method="validateTokenSequence"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/Reports/MetricFormulaService.php" method="shuntingYard"/>
-  <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Services/Reports/MetricFormulaService.php" method="shuntingYard"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/Reports/NoiService.php" method="allocatedExpensesPerProperty"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Services/Reports/NoiService.php" method="allocatedExpensesPerProperty"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/Reports/ReportBuilderService.php" method="run"/>
-  <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Services/Reports/ReportBuilderService.php" method="run"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/Reports/ReportBuilderService.php" method="validateFilters"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/Reports/ReportBuilderService.php" method="validateScalar"/>
   <violation rule="PHPMD\Rule\Design\LongClass" file="app/Services/SecurityLogger.php"/>
   <violation rule="PHPMD\Rule\ExcessivePublicCount" file="app/Services/SecurityLogger.php"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Services/SecurityLogger.php" method="log"/>
@@ -454,14 +399,6 @@
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Services/WorkflowLogger.php" method="log"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Services/WorkflowLogger.php" method="measure"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Support/CacheStampedeGuard.php" method="remember"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Support/ProductionSecurityValidator.php" method="validateProductionSecurity"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Support/ProductionSecurityValidator.php" method="collectCriticalProductionMisconfig"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Support/ProductionSecurityValidator.php" method="collectProductionWarnings"/>
-  <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Support/ProductionSecurityValidator.php" method="collectProductionWarnings"/>
-  <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Support/ProductionSecurityValidator.php" method="collectProductionWarnings"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Support/ProductionSecurityValidator.php" method="collectCrossBorderTransferWarnings"/>
-  <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Support/ProductionSecurityValidator.php" method="collectCrossBorderTransferWarnings"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Support/ProductionSecurityValidator.php" method="sentryHostToCountryCode"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Support/RateLimiterConfigurator.php" method="configure"/>
   <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Support/RateLimiterConfigurator.php" method="configure"/>
   <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Support/RateLimiterConfigurator.php" method="configure"/>

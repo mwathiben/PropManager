@@ -10,73 +10,44 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Phase-27 BI-BUILDER-3: SAFE SQL generator for the custom report
- * builder.
+ * Phase-27 BI-BUILDER-3: SAFE SQL generator for the custom report builder.
  *
- * Critical security surface. The builder UI lets a landlord pick
- * fields / filters / group-by from a curated list; this service
- * compiles that picker output into a query. Two defence-in-depth
- * rules govern this file:
+ * Security contract (enforced by Phase27BuilderInjectionTest):
+ *   1. Every field/table/operator/group-by key is validated against the
+ *      in-file allowlists below; anything unknown throws before the query starts.
+ *   2. Every user-supplied value is bound via ->where() / ->whereIn() — no
+ *      DB::raw() with request input anywhere in this file.
  *
- *   1. EVERY field name, table name, operator, and group-by reference
- *      is validated against an in-file allowlist (the constants
- *      below). Anything not on the list throws ValidationException
- *      at the entrance — the query never starts.
- *   2. EVERY user-supplied value flows through ->where() / ->wherein()
- *      binding parameters — never string-concatenated into SQL. The
- *      service NEVER calls DB::raw() with any value from the request.
- *
- * If a future contributor edits this file: those two rules are the
- * contract. The Phase27BuilderInjectionTest watchdog fires 20+
- * classic injection payloads at every input slot and asserts each
- * is rejected. A failing case there means a security regression —
- * fix the validation, do not loosen the test.
- *
- * Allowlist extension protocol:
- *   - Add the field to ALLOWED_FIELDS with its (table, column) pair.
- *   - Add the table to ALLOWED_TABLES if new.
- *   - Add the join shape to JOINS if it crosses tables.
- *   - Update docs/runbooks/bi.md "Field allowlist" section.
- *   - Phase27BuilderInjectionTest covers the new field automatically
- *     via test_field_allowlist_is_locked.
+ * Allowlist extension: add field → ALLOWED_FIELDS, table → ALLOWED_TABLES,
+ * join shape → JOINS, then update docs/runbooks/bi.md.
  */
 class ReportBuilderService
 {
     public const ALLOWED_TABLES = ['payments', 'invoices', 'leases'];
 
     /**
-     * field_key => [table, column, type, label]
-     * - field_key is the public-facing identifier the UI picker sends
-     * - table must be in ALLOWED_TABLES
-     * - column must match a real DB column (validated against schema)
-     * - type drives operator restrictions (numeric vs date vs string)
+     * field_key => [table, column, type, label]. type drives operator restrictions.
+     * Phase-73 METRICS-DEPTH-1 extended this list; MetricFormulaService reads it automatically.
      */
     public const ALLOWED_FIELDS = [
-        'payment.amount' => ['table' => 'payments', 'column' => 'amount', 'type' => 'numeric', 'label' => 'Payment amount'],
-        'payment.payment_date' => ['table' => 'payments', 'column' => 'payment_date', 'type' => 'date', 'label' => 'Payment date'],
-        'payment.payment_method' => ['table' => 'payments', 'column' => 'payment_method', 'type' => 'string', 'label' => 'Payment method'],
-        'invoice.total_due' => ['table' => 'invoices', 'column' => 'total_due', 'type' => 'numeric', 'label' => 'Invoice total'],
-        'invoice.amount_paid' => ['table' => 'invoices', 'column' => 'amount_paid', 'type' => 'numeric', 'label' => 'Invoice amount paid'],
-        'invoice.status' => ['table' => 'invoices', 'column' => 'status', 'type' => 'string', 'label' => 'Invoice status'],
-        'invoice.due_date' => ['table' => 'invoices', 'column' => 'due_date', 'type' => 'date', 'label' => 'Invoice due date'],
-        'lease.rent_amount' => ['table' => 'leases', 'column' => 'rent_amount', 'type' => 'numeric', 'label' => 'Lease rent amount'],
-        'lease.start_date' => ['table' => 'leases', 'column' => 'start_date', 'type' => 'date', 'label' => 'Lease start date'],
-        'lease.is_active' => ['table' => 'leases', 'column' => 'is_active', 'type' => 'boolean', 'label' => 'Lease active'],
-
-        // Phase-73 METRICS-DEPTH-1: additional safe, parameterised
-        // dimensions. Each maps to a real column on an ALLOWED_TABLES
-        // table; group-by + filters stay validated against this list and
-        // values stay parameterised (no DB::raw). Numeric entries become
-        // available to MetricFormulaService automatically (it reads this
-        // same allow-list).
-        'payment.reconciliation_status' => ['table' => 'payments', 'column' => 'reconciliation_status', 'type' => 'string', 'label' => 'Payment reconciliation status'],
-        'invoice.rent_due' => ['table' => 'invoices', 'column' => 'rent_due', 'type' => 'numeric', 'label' => 'Invoice rent due'],
-        'invoice.arrears' => ['table' => 'invoices', 'column' => 'arrears', 'type' => 'numeric', 'label' => 'Invoice arrears'],
-        'invoice.late_fees_total' => ['table' => 'invoices', 'column' => 'late_fees_total', 'type' => 'numeric', 'label' => 'Invoice late fees'],
-        'invoice.billing_period_start' => ['table' => 'invoices', 'column' => 'billing_period_start', 'type' => 'date', 'label' => 'Invoice billing period start'],
-        'lease.end_date' => ['table' => 'leases', 'column' => 'end_date', 'type' => 'date', 'label' => 'Lease end date'],
-        'lease.deposit_amount' => ['table' => 'leases', 'column' => 'deposit_amount', 'type' => 'numeric', 'label' => 'Lease deposit amount'],
-        'lease.service_charge' => ['table' => 'leases', 'column' => 'service_charge', 'type' => 'numeric', 'label' => 'Lease service charge'],
+        'payment.amount' => ['table' => 'payments', 'column' => 'amount',                 'type' => 'numeric', 'label' => 'Payment amount'],
+        'payment.payment_date' => ['table' => 'payments', 'column' => 'payment_date',           'type' => 'date',    'label' => 'Payment date'],
+        'payment.payment_method' => ['table' => 'payments', 'column' => 'payment_method',         'type' => 'string',  'label' => 'Payment method'],
+        'payment.reconciliation_status' => ['table' => 'payments', 'column' => 'reconciliation_status',  'type' => 'string',  'label' => 'Payment reconciliation status'],
+        'invoice.total_due' => ['table' => 'invoices', 'column' => 'total_due',              'type' => 'numeric', 'label' => 'Invoice total'],
+        'invoice.amount_paid' => ['table' => 'invoices', 'column' => 'amount_paid',            'type' => 'numeric', 'label' => 'Invoice amount paid'],
+        'invoice.status' => ['table' => 'invoices', 'column' => 'status',                 'type' => 'string',  'label' => 'Invoice status'],
+        'invoice.due_date' => ['table' => 'invoices', 'column' => 'due_date',               'type' => 'date',    'label' => 'Invoice due date'],
+        'invoice.rent_due' => ['table' => 'invoices', 'column' => 'rent_due',               'type' => 'numeric', 'label' => 'Invoice rent due'],
+        'invoice.arrears' => ['table' => 'invoices', 'column' => 'arrears',                'type' => 'numeric', 'label' => 'Invoice arrears'],
+        'invoice.late_fees_total' => ['table' => 'invoices', 'column' => 'late_fees_total',        'type' => 'numeric', 'label' => 'Invoice late fees'],
+        'invoice.billing_period_start' => ['table' => 'invoices', 'column' => 'billing_period_start',   'type' => 'date',    'label' => 'Invoice billing period start'],
+        'lease.rent_amount' => ['table' => 'leases',   'column' => 'rent_amount',            'type' => 'numeric', 'label' => 'Lease rent amount'],
+        'lease.start_date' => ['table' => 'leases',   'column' => 'start_date',             'type' => 'date',    'label' => 'Lease start date'],
+        'lease.end_date' => ['table' => 'leases',   'column' => 'end_date',               'type' => 'date',    'label' => 'Lease end date'],
+        'lease.is_active' => ['table' => 'leases',   'column' => 'is_active',              'type' => 'boolean', 'label' => 'Lease active'],
+        'lease.deposit_amount' => ['table' => 'leases',   'column' => 'deposit_amount',         'type' => 'numeric', 'label' => 'Lease deposit amount'],
+        'lease.service_charge' => ['table' => 'leases',   'column' => 'service_charge',         'type' => 'numeric', 'label' => 'Lease service charge'],
     ];
 
     public const NUMERIC_OPERATORS = ['=', '!=', '<', '<=', '>', '>='];
@@ -89,11 +60,7 @@ class ReportBuilderService
 
     public const SORT_DIRECTIONS = ['asc', 'desc'];
 
-    /**
-     * Pre-defined joins, keyed by (root_table → joined_table). Only
-     * these table-pairs are allowed to be joined; the builder cannot
-     * synthesise arbitrary JOINs.
-     */
+    /** Pre-defined join shapes keyed by root_table to joined_table. */
     private const JOINS = [
         'payments' => [
             'leases' => ['payments.lease_id', '=', 'leases.id'],
@@ -104,12 +71,6 @@ class ReportBuilderService
         ],
     ];
 
-    /**
-     * Compile + execute the report. Returns the rows as plain arrays.
-     *
-     * @param  array{table: string, fields: list<string>, filters?: list<array{field: string, op: string, value: mixed}>, group_by?: list<string>, sort_by?: list<array{field: string, direction: string}>, limit?: int}  $config
-     * @return list<array<string, mixed>>
-     */
     public function __construct(
         protected ?MetricFormulaService $metricFormulas = null,
     ) {
@@ -128,47 +89,13 @@ class ReportBuilderService
 
         $query = DB::table($table);
 
-        // Joins are only added for tables that actually need them
-        // (i.e. fields reference a different table from $table).
-        $neededTables = collect($fields)->map(fn ($f) => self::ALLOWED_FIELDS[$f]['table'])->unique()->all();
-        foreach ($neededTables as $needed) {
-            if ($needed === $table) {
-                continue;
-            }
-            $join = self::JOINS[$table][$needed] ?? null;
-            if ($join === null) {
-                throw ValidationException::withMessages([
-                    'fields' => "Field crossing from {$table} to {$needed} is not in the join allowlist.",
-                ]);
-            }
-            $query->join($needed, $join[0], $join[1], $join[2]);
-        }
+        $this->applyRequiredJoins($query, $table, $fields);
 
-        // CRITICAL: landlord scoping is mandatory. The Phase27Builder
-        // tests assert this — there is no escape hatch.
+        // CRITICAL: landlord scoping — no escape hatch (asserted by Phase27BuilderInjectionTest).
         $query->where("{$table}.landlord_id", '=', $landlordId);
 
-        // Filters. Every filter is parameterised through Eloquent's
-        // builder — no DB::raw() with user input anywhere.
-        foreach ($filters as $filter) {
-            $meta = self::ALLOWED_FIELDS[$filter['field']];
-            $qualifiedField = "{$meta['table']}.{$meta['column']}";
+        $this->applyFiltersToQuery($query, $filters);
 
-            if ($filter['op'] === 'in' || $filter['op'] === 'not_in') {
-                $values = (array) $filter['value'];
-                if ($filter['op'] === 'in') {
-                    $query->whereIn($qualifiedField, $values);
-                } else {
-                    $query->whereNotIn($qualifiedField, $values);
-                }
-
-                continue;
-            }
-
-            $query->where($qualifiedField, $filter['op'], $filter['value']);
-        }
-
-        // Select list — always qualified, always from the allowlist.
         $selects = array_map(function (string $field) {
             $meta = self::ALLOWED_FIELDS[$field];
 
@@ -194,10 +121,48 @@ class ReportBuilderService
         return $this->applyCustomMetrics($rows, $customMetrics);
     }
 
+    /** @param list<string> $fields */
+    private function applyRequiredJoins(Builder $query, string $table, array $fields): void
+    {
+        $neededTables = collect($fields)->map(fn ($f) => self::ALLOWED_FIELDS[$f]['table'])->unique()->all();
+        foreach ($neededTables as $needed) {
+            if ($needed === $table) {
+                continue;
+            }
+            $join = self::JOINS[$table][$needed] ?? null;
+            if ($join === null) {
+                throw ValidationException::withMessages([
+                    'fields' => "Field crossing from {$table} to {$needed} is not in the join allowlist.",
+                ]);
+            }
+            $query->join($needed, $join[0], $join[1], $join[2]);
+        }
+    }
+
+    /** @param list<array{field: string, op: string, value: mixed}> $filters */
+    private function applyFiltersToQuery(Builder $query, array $filters): void
+    {
+        foreach ($filters as $filter) {
+            $meta = self::ALLOWED_FIELDS[$filter['field']];
+            $qualifiedField = "{$meta['table']}.{$meta['column']}";
+
+            if ($filter['op'] === 'in' || $filter['op'] === 'not_in') {
+                $values = (array) $filter['value'];
+                if ($filter['op'] === 'in') {
+                    $query->whereIn($qualifiedField, $values);
+                } else {
+                    $query->whereNotIn($qualifiedField, $values);
+                }
+
+                continue;
+            }
+
+            $query->where($qualifiedField, $filter['op'], $filter['value']);
+        }
+    }
+
     /**
-     * Phase-50 CUSTOM-METRICS-3: filter the supplied metric slugs down
-     * to ACTIVE landlord-owned metrics with cached parsed_rpn. Unknown
-     * slugs throw — caller must clean up its config.
+     * Phase-50 CUSTOM-METRICS-3: resolve active landlord metrics. Unknown slugs throw.
      *
      * @param  list<mixed>  $slugs
      * @return list<array{slug: string, name: string, rpn: array}>
@@ -238,15 +203,7 @@ class ReportBuilderService
         ])->all();
     }
 
-    /**
-     * Append a derived column per metric to each row. The metric is
-     * evaluated row-by-row using the cached RPN — never the raw
-     * expression.
-     *
-     * @param  list<array<string, mixed>>  $rows
-     * @param  list<array{slug: string, name: string, rpn: array}>  $metrics
-     * @return list<array<string, mixed>>
-     */
+    /** @return list<array<string, mixed>> */
     private function applyCustomMetrics(array $rows, array $metrics): array
     {
         if ($metrics === [] || $rows === []) {
@@ -277,10 +234,7 @@ class ReportBuilderService
         return $table;
     }
 
-    /**
-     * @param  list<mixed>  $fields
-     * @return list<string>
-     */
+    /** @return list<string> */
     private function requireFields(array $fields): array
     {
         if ($fields === []) {
@@ -294,53 +248,63 @@ class ReportBuilderService
             ]);
         }
 
-        /** @var list<string> $cleaned */
-        $cleaned = array_values(array_unique($fields));
-
-        return $cleaned;
+        return array_values(array_unique($fields));
     }
 
-    /**
-     * @param  list<mixed>  $filters
-     * @return list<array{field: string, op: string, value: mixed}>
-     */
+    /** @return list<array{field: string, op: string, value: mixed}> */
     private function validateFilters(array $filters): array
     {
         $out = [];
         foreach ($filters as $i => $filter) {
-            if (! is_array($filter)) {
-                throw ValidationException::withMessages(["filters.{$i}" => 'Filter must be an object.']);
-            }
-            $field = $filter['field'] ?? null;
-            $op = $filter['op'] ?? null;
-            $value = $filter['value'] ?? null;
-
-            if (! is_string($field) || ! array_key_exists($field, self::ALLOWED_FIELDS)) {
-                throw ValidationException::withMessages(["filters.{$i}.field" => 'Unknown field.']);
-            }
-
-            $type = self::ALLOWED_FIELDS[$field]['type'];
-            $allowedOps = match ($type) {
-                'numeric' => self::NUMERIC_OPERATORS,
-                'date' => self::DATE_OPERATORS,
-                'string' => self::STRING_OPERATORS,
-                'boolean' => self::BOOLEAN_OPERATORS,
-                default => [],
-            };
-
-            if (! is_string($op) || ! in_array($op, $allowedOps, true)) {
-                throw ValidationException::withMessages([
-                    "filters.{$i}.op" => "Operator '{$op}' is not allowed for {$type} field.",
-                ]);
-            }
-
-            // Value-side validation by type.
-            $this->validateFilterValue($i, $type, $op, $value);
-
-            $out[] = ['field' => $field, 'op' => $op, 'value' => $value];
+            $out[] = $this->validateSingleFilter($i, $filter);
         }
 
         return $out;
+    }
+
+    /** @return array{field: string, op: string, value: mixed} */
+    private function validateSingleFilter(int $i, mixed $filter): array
+    {
+        if (! is_array($filter)) {
+            throw ValidationException::withMessages(["filters.{$i}" => 'Filter must be an object.']);
+        }
+        $field = $filter['field'] ?? null;
+        $op = $filter['op'] ?? null;
+        $value = $filter['value'] ?? null;
+
+        if (! is_string($field) || ! array_key_exists($field, self::ALLOWED_FIELDS)) {
+            throw ValidationException::withMessages(["filters.{$i}.field" => 'Unknown field.']);
+        }
+
+        $type = self::ALLOWED_FIELDS[$field]['type'];
+        $this->requireAllowedOperator($i, $type, $op);
+
+        $this->validateFilterValue($i, $type, $op, $value);
+
+        return ['field' => $field, 'op' => $op, 'value' => $value];
+    }
+
+    private function requireAllowedOperator(int $i, string $type, mixed $op): void
+    {
+        $allowedOps = $this->allowedOperatorsForType($type);
+
+        if (! is_string($op) || ! in_array($op, $allowedOps, true)) {
+            throw ValidationException::withMessages([
+                "filters.{$i}.op" => "Operator '{$op}' is not allowed for {$type} field.",
+            ]);
+        }
+    }
+
+    /** @return list<string> */
+    private function allowedOperatorsForType(string $type): array
+    {
+        return match ($type) {
+            'numeric' => self::NUMERIC_OPERATORS,
+            'date' => self::DATE_OPERATORS,
+            'string' => self::STRING_OPERATORS,
+            'boolean' => self::BOOLEAN_OPERATORS,
+            default => [],
+        };
     }
 
     private function validateFilterValue(int $i, string $type, string $op, mixed $value): void
@@ -360,23 +324,45 @@ class ReportBuilderService
 
     private function validateScalar(string $type, mixed $value, string $key): void
     {
-        $ok = match ($type) {
-            'numeric' => is_int($value) || is_float($value) || (is_string($value) && is_numeric($value)),
-            'date' => is_string($value) && preg_match('/^\d{4}-\d{2}-\d{2}(T.*)?$/', $value) === 1,
-            'string' => is_string($value) && mb_strlen($value) <= 100,
-            'boolean' => is_bool($value) || $value === 0 || $value === 1,
-            default => false,
-        };
+        $ok = $this->isValidScalarForType($type, $value);
 
         if (! $ok) {
             throw ValidationException::withMessages([$key => "Value is not a valid {$type}."]);
         }
     }
 
-    /**
-     * @param  list<mixed>  $groupBy
-     * @return list<string>
-     */
+    private function isValidScalarForType(string $type, mixed $value): bool
+    {
+        return match ($type) {
+            'numeric' => $this->isValidNumeric($value),
+            'date' => $this->isValidDate($value),
+            'string' => $this->isValidString($value),
+            'boolean' => $this->isValidBoolean($value),
+            default => false,
+        };
+    }
+
+    private function isValidNumeric(mixed $value): bool
+    {
+        return is_int($value) || is_float($value) || (is_string($value) && is_numeric($value));
+    }
+
+    private function isValidDate(mixed $value): bool
+    {
+        return is_string($value) && preg_match('/^\d{4}-\d{2}-\d{2}(T.*)?$/', $value) === 1;
+    }
+
+    private function isValidString(mixed $value): bool
+    {
+        return is_string($value) && mb_strlen($value) <= 100;
+    }
+
+    private function isValidBoolean(mixed $value): bool
+    {
+        return is_bool($value) || $value === 0 || $value === 1;
+    }
+
+    /** @return list<string> */
     private function validateGroupBy(array $groupBy): array
     {
         $out = [];
@@ -390,10 +376,7 @@ class ReportBuilderService
         return $out;
     }
 
-    /**
-     * @param  list<mixed>  $sortBy
-     * @return list<array{field: string, direction: string}>
-     */
+    /** @return list<array{field: string, direction: string}> */
     private function validateSortBy(array $sortBy): array
     {
         $out = [];
@@ -428,9 +411,7 @@ class ReportBuilderService
         return $limit;
     }
 
-    /**
-     * @return list<array<string, mixed>>
-     */
+    /** @return list<array<string, mixed>> */
     private function rowsToArrays(Builder $query): array
     {
         return $query->get()->map(fn ($row) => (array) $row)->all();

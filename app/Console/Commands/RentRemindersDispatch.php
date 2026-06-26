@@ -37,9 +37,14 @@ class RentRemindersDispatch extends Command
 
     protected $description = 'Phase-29 WF-RENT-REMIND-1: tiered rent reminder dispatcher.';
 
+    private bool $dryRun;
+
+    private NotificationService $notifications;
+
     public function handle(NotificationService $notifications, \App\Services\WorkflowLogger $workflowLogger): int
     {
-        $dryRun = (bool) $this->option('dry-run');
+        $this->notifications = $notifications;
+        $this->dryRun = (bool) $this->option('dry-run');
         $today = CarbonImmutable::now()->startOfDay();
         $dispatched = 0;
 
@@ -51,72 +56,83 @@ class RentRemindersDispatch extends Command
             ->get();
 
         foreach ($invoices as $invoice) {
-            $lease = $invoice->lease;
-            if (! $lease || ! $lease->tenant) {
-                continue;
-            }
-
-            $policy = $this->resolvePolicy($invoice->landlord_id, $lease->reminder_tier);
-            if (! $policy) {
-                continue;
-            }
-
-            $offsets = $policy->resolveOffsets();
-            if ($offsets === []) {
-                continue;
-            }
-
-            $dueDate = CarbonImmutable::parse($invoice->due_date)->startOfDay();
-            // diffInDays(today, dueDate, false): positive when due_date
-            // is in the future. offset is relative to due_date:
-            // negative = days BEFORE due, positive = days AFTER.
-            // Match: today + (-offset days) = due_date.
-            $daysUntilDue = (int) $today->diffInDays($dueDate, false);
-
-            foreach ($offsets as $offset) {
-                if ($daysUntilDue !== -(int) $offset) {
-                    continue;
-                }
-
-                $key = sprintf('rent-reminder:%d:%d', $invoice->id, $offset);
-                if (! Cache::add($key, true, now()->addDays(60))) {
-                    continue;
-                }
-
-                if ($dryRun) {
-                    $dispatched++;
-
-                    continue;
-                }
-
-                $notifications->send(
-                    recipientId: $lease->tenant_id,
-                    type: 'rent_reminder',
-                    subject: __('workflow.rent_reminder.subject', [
-                        'number' => $invoice->invoice_number,
-                    ]),
-                    message: $this->messageForOffset($offset, $invoice),
-                    data: [
-                        'invoice_id' => $invoice->id,
-                        'offset' => $offset,
-                        'days_until_due' => $daysUntilDue,
-                    ],
-                    landlordId: $invoice->landlord_id,
-                );
-                $dispatched++;
-            }
+            $dispatched += $this->remindForInvoice($invoice, $today);
         }
 
-        $this->info("rent-reminders:dispatch: {$dispatched} reminder(s) dispatched".($dryRun ? ' (dry-run)' : ''));
+        $this->info("rent-reminders:dispatch: {$dispatched} reminder(s) dispatched".($this->dryRun ? ' (dry-run)' : ''));
 
         // Phase-30 INT-CI-1: WorkflowLogger silent-failure audit trail.
         $workflowLogger->log(
             workflowName: 'rent-reminders:dispatch',
             action: 'completed',
-            metadata: ['dispatched' => $dispatched, 'dry_run' => $dryRun],
+            metadata: ['dispatched' => $dispatched, 'dry_run' => $this->dryRun],
         );
 
         return self::SUCCESS;
+    }
+
+    private function remindForInvoice(Invoice $invoice, CarbonImmutable $today): int
+    {
+        $lease = $invoice->lease;
+        if (! $lease || ! $lease->tenant) {
+            return 0;
+        }
+
+        $policy = $this->resolvePolicy($invoice->landlord_id, $lease->reminder_tier);
+        if (! $policy) {
+            return 0;
+        }
+
+        $offsets = $policy->resolveOffsets();
+        if ($offsets === []) {
+            return 0;
+        }
+
+        $dueDate = CarbonImmutable::parse($invoice->due_date)->startOfDay();
+        // diffInDays(today, dueDate, false): positive when due_date is in the
+        // future. offset is relative to due_date: negative = days BEFORE due,
+        // positive = days AFTER. Match: today + (-offset days) = due_date.
+        $daysUntilDue = (int) $today->diffInDays($dueDate, false);
+
+        $dispatched = 0;
+        foreach ($offsets as $offset) {
+            $dispatched += $this->dispatchForOffset($invoice, $lease, $offset, $daysUntilDue);
+        }
+
+        return $dispatched;
+    }
+
+    private function dispatchForOffset(Invoice $invoice, \App\Models\Lease $lease, int|string $offset, int $daysUntilDue): int
+    {
+        if ($daysUntilDue !== -(int) $offset) {
+            return 0;
+        }
+
+        $key = sprintf('rent-reminder:%d:%d', $invoice->id, $offset);
+        if (! Cache::add($key, true, now()->addDays(60))) {
+            return 0;
+        }
+
+        if ($this->dryRun) {
+            return 1;
+        }
+
+        $this->notifications->send(
+            recipientId: $lease->tenant_id,
+            type: 'rent_reminder',
+            subject: __('workflow.rent_reminder.subject', [
+                'number' => $invoice->invoice_number,
+            ]),
+            message: $this->messageForOffset((int) $offset, $invoice),
+            data: [
+                'invoice_id' => $invoice->id,
+                'offset' => $offset,
+                'days_until_due' => $daysUntilDue,
+            ],
+            landlordId: $invoice->landlord_id,
+        );
+
+        return 1;
     }
 
     private function resolvePolicy(int $landlordId, ?string $tier): ?RentReminderPolicy

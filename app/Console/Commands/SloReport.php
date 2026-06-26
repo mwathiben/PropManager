@@ -37,10 +37,9 @@ class SloReport extends Command
 
     public function handle(MetricsService $metrics): int
     {
-        $sinceDays = (int) ($this->option('since') ?: config('observability.slo.evaluation_window_days', 1));
-        $sinceDays = max(1, $sinceDays);
-
+        $sinceDays = $this->resolveSinceDays();
         $buckets = $this->mergeBuckets($metrics, $sinceDays);
+
         if ($buckets === []) {
             $this->info("slo:report: no http_request_ms samples in the last {$sinceDays} day-bucket(s).");
 
@@ -51,35 +50,106 @@ class SloReport extends Command
         // routes up into their SLO route class.
         $perRoute = $this->aggregatePerRoute($buckets);
         $perClass = $this->aggregatePerClass($perRoute);
+        $perClass = $this->applyClassFilter($perClass);
 
-        $filterClass = $this->option('route-class');
-        if ($filterClass !== null) {
-            $perClass = array_filter(
-                $perClass,
-                fn (string $class) => $class === $filterClass,
-                ARRAY_FILTER_USE_KEY,
-            );
+        [$rows, $anyBreach] = $this->buildRows($perClass);
+
+        $this->emitOutput($rows, $anyBreach, $sinceDays);
+
+        return $this->resolveExitCode($anyBreach);
+    }
+
+    /**
+     * Group the http_request_ms_bucket / _count fields by route.
+     *
+     * @param  array<string, int|float>  $fields
+     * @return array<string, array{class:string, buckets:array<string,int>, count:int}>
+     */
+    private function aggregatePerRoute(array $fields): array
+    {
+        $routes = [];
+        foreach ($fields as $field => $value) {
+            [$metric, $labels] = $this->parseField($field);
+            $route = $labels['route'] ?? 'unmatched';
+            $method = $labels['method'] ?? 'GET';
+
+            $this->ensureRouteEntry($routes, $route, $method);
+            $this->accumulateRouteValue($routes, $route, ['metric' => $metric, 'labels' => $labels, 'value' => $value]);
         }
 
+        return $routes;
+    }
+
+    /**
+     * Prometheus-style histogram_quantile: the bucket counts are
+     * cumulative (MetricsService::observe increments every bucket whose
+     * le >= value), so find the bucket where the cumulative count
+     * crosses the target rank and linear-interpolate within it.
+     *
+     * @param  array<string, int>  $buckets  le => cumulative count
+     */
+    private function percentile(array $buckets, int $count, float $q): ?float
+    {
+        if ($count <= 0 || $buckets === []) {
+            return null;
+        }
+
+        $bounds = $this->sortedBounds($buckets);
+        $rank = $q * $count;
+
+        return $this->walkBoundsForRank($buckets, $bounds, $rank);
+    }
+
+    private function resolveSinceDays(): int
+    {
+        $sinceDays = (int) ($this->option('since') ?: config('observability.slo.evaluation_window_days', 1));
+
+        return max(1, $sinceDays);
+    }
+
+    /**
+     * @param  array<string, array{buckets:array<string,int>, count:int}>  $perClass
+     * @return array{0: list<array<string,mixed>>, 1: bool}
+     */
+    private function buildRows(array $perClass): array
+    {
         $rows = [];
         $anyBreach = false;
+
         foreach ($perClass as $class => $hist) {
             $budget = RouteClassResolver::budgetMsFor($class);
             $p95 = $this->percentile($hist['buckets'], $hist['count'], 0.95);
             $breached = $budget !== null && $p95 !== null && $p95 > $budget;
             $anyBreach = $anyBreach || $breached;
-
-            $rows[] = [
-                'route_class' => $class,
-                'count' => $hist['count'],
-                'p50_ms' => $this->fmt($this->percentile($hist['buckets'], $hist['count'], 0.50)),
-                'p95_ms' => $this->fmt($p95),
-                'p99_ms' => $this->fmt($this->percentile($hist['buckets'], $hist['count'], 0.99)),
-                'budget_ms' => $budget ?? '—',
-                'slo' => $budget === null ? 'n/a' : ($breached ? 'OUT OF SLO' : 'IN SLO'),
-            ];
+            $rows[] = $this->buildRow($class, $hist, ['budget' => $budget, 'p95' => $p95, 'breached' => $breached]);
         }
 
+        return [$rows, $anyBreach];
+    }
+
+    /**
+     * @param  array{buckets:array<string,int>, count:int}  $hist
+     * @param  array{budget:?int, p95:?float, breached:bool}  $slo
+     * @return array<string, mixed>
+     */
+    private function buildRow(string $class, array $hist, array $slo): array
+    {
+        return [
+            'route_class' => $class,
+            'count' => $hist['count'],
+            'p50_ms' => $this->fmt($this->percentile($hist['buckets'], $hist['count'], 0.50)),
+            'p95_ms' => $this->fmt($slo['p95']),
+            'p99_ms' => $this->fmt($this->percentile($hist['buckets'], $hist['count'], 0.99)),
+            'budget_ms' => $slo['budget'] ?? '—',
+            'slo' => $slo['budget'] === null ? 'n/a' : ($slo['breached'] ? 'OUT OF SLO' : 'IN SLO'),
+        ];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $rows
+     */
+    private function emitOutput(array $rows, bool $anyBreach, int $sinceDays): void
+    {
         if ($this->option('json')) {
             $this->line((string) json_encode([
                 'since_days' => $sinceDays,
@@ -92,7 +162,10 @@ class SloReport extends Command
                 array_map('array_values', $rows),
             );
         }
+    }
 
+    private function resolveExitCode(bool $anyBreach): int
+    {
         if ($anyBreach && $this->option('fail-on-breach')) {
             $this->error('slo:report: one or more route classes are OUT OF SLO.');
 
@@ -100,6 +173,24 @@ class SloReport extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * @param  array<string, array{class:string, buckets:array<string,int>, count:int}>  $perClass
+     * @return array<string, array{buckets:array<string,int>, count:int}>
+     */
+    private function applyClassFilter(array $perClass): array
+    {
+        $filterClass = $this->option('route-class');
+        if ($filterClass === null) {
+            return $perClass;
+        }
+
+        return array_filter(
+            $perClass,
+            fn (string $class) => $class === $filterClass,
+            ARRAY_FILTER_USE_KEY,
+        );
     }
 
     /**
@@ -126,39 +217,6 @@ class SloReport extends Command
     }
 
     /**
-     * Group the http_request_ms_bucket / _count fields by route.
-     *
-     * @param  array<string, int|float>  $fields
-     * @return array<string, array{class:string, buckets:array<string,int>, count:int}>
-     */
-    private function aggregatePerRoute(array $fields): array
-    {
-        $routes = [];
-        foreach ($fields as $field => $value) {
-            [$metric, $labels] = $this->parseField($field);
-            $route = $labels['route'] ?? 'unmatched';
-            $method = $labels['method'] ?? 'GET';
-
-            if (! isset($routes[$route])) {
-                $routes[$route] = [
-                    'class' => RouteClassResolver::classify($route === 'unmatched' ? null : $route, $method),
-                    'buckets' => [],
-                    'count' => 0,
-                ];
-            }
-
-            if ($metric === 'http_request_ms_bucket' && isset($labels['le'])) {
-                $le = $labels['le'];
-                $routes[$route]['buckets'][$le] = ($routes[$route]['buckets'][$le] ?? 0) + (int) $value;
-            } elseif ($metric === 'http_request_ms_count') {
-                $routes[$route]['count'] += (int) $value;
-            }
-        }
-
-        return $routes;
-    }
-
-    /**
      * Roll per-route histograms up into per-route-class histograms.
      *
      * @param  array<string, array{class:string, buckets:array<string,int>, count:int}>  $perRoute
@@ -179,59 +237,6 @@ class SloReport extends Command
         }
 
         return $classes;
-    }
-
-    /**
-     * Prometheus-style histogram_quantile: the bucket counts are
-     * cumulative (MetricsService::observe increments every bucket whose
-     * le >= value), so find the bucket where the cumulative count
-     * crosses the target rank and linear-interpolate within it.
-     *
-     * @param  array<string, int>  $buckets  le => cumulative count
-     */
-    private function percentile(array $buckets, int $count, float $q): ?float
-    {
-        if ($count <= 0 || $buckets === []) {
-            return null;
-        }
-
-        // Numeric bucket bounds, ascending; '+Inf' sorts last.
-        $bounds = array_keys($buckets);
-        usort($bounds, function ($a, $b) {
-            if ($a === '+Inf') {
-                return 1;
-            }
-            if ($b === '+Inf') {
-                return -1;
-            }
-
-            return (float) $a <=> (float) $b;
-        });
-
-        $rank = $q * $count;
-        $prevBound = 0.0;
-        $prevCum = 0;
-
-        foreach ($bounds as $bound) {
-            $cum = $buckets[$bound];
-            if ($cum >= $rank) {
-                if ($bound === '+Inf') {
-                    return $prevBound > 0 ? $prevBound : null;
-                }
-                $upper = (float) $bound;
-                $spanCount = $cum - $prevCum;
-                if ($spanCount <= 0) {
-                    return $upper;
-                }
-
-                // Linear interpolation between prevBound and upper.
-                return $prevBound + ($upper - $prevBound) * (($rank - $prevCum) / $spanCount);
-            }
-            $prevBound = $bound === '+Inf' ? $prevBound : (float) $bound;
-            $prevCum = $cum;
-        }
-
-        return $prevBound > 0 ? $prevBound : null;
     }
 
     /**
@@ -263,5 +268,111 @@ class SloReport extends Command
     private function fmt(?float $value): string
     {
         return $value === null ? '—' : number_format($value, 1);
+    }
+
+    /**
+     * @param  array<string, array{class:string, buckets:array<string,int>, count:int}>  $routes
+     */
+    private function ensureRouteEntry(array &$routes, string $route, string $method): void
+    {
+        if (! isset($routes[$route])) {
+            $routes[$route] = [
+                'class' => RouteClassResolver::classify($route === 'unmatched' ? null : $route, $method),
+                'buckets' => [],
+                'count' => 0,
+            ];
+        }
+    }
+
+    /**
+     * Accumulate a parsed histogram field (bucket or count) into the route entry.
+     *
+     * @param  array<string, array{class:string, buckets:array<string,int>, count:int}>  $routes
+     * @param  array{metric:string, labels:array<string,string>, value:mixed}  $parsed
+     */
+    private function accumulateRouteValue(array &$routes, string $route, array $parsed): void
+    {
+        $metric = $parsed['metric'];
+        $labels = $parsed['labels'];
+        $value = $parsed['value'];
+
+        if ($metric === 'http_request_ms_bucket' && isset($labels['le'])) {
+            $le = $labels['le'];
+            $routes[$route]['buckets'][$le] = ($routes[$route]['buckets'][$le] ?? 0) + (int) $value;
+        } elseif ($metric === 'http_request_ms_count') {
+            $routes[$route]['count'] += (int) $value;
+        }
+    }
+
+    /**
+     * Return bucket bounds sorted ascending with +Inf last.
+     *
+     * @param  array<string, int>  $buckets
+     * @return list<string>
+     */
+    private function sortedBounds(array $buckets): array
+    {
+        $bounds = array_keys($buckets);
+        usort($bounds, function ($a, $b) {
+            if ($a === '+Inf') {
+                return 1;
+            }
+            if ($b === '+Inf') {
+                return -1;
+            }
+
+            return (float) $a <=> (float) $b;
+        });
+
+        return $bounds;
+    }
+
+    /**
+     * Walk sorted bucket bounds to find the bound where cumulative count
+     * crosses the target rank, then interpolate.
+     *
+     * @param  array<string, int>  $buckets
+     * @param  list<string>  $bounds
+     */
+    private function walkBoundsForRank(array $buckets, array $bounds, float $rank): ?float
+    {
+        $prevBound = 0.0;
+        $prevCum = 0;
+
+        foreach ($bounds as $bound) {
+            $cum = $buckets[$bound];
+            if ($cum >= $rank) {
+                return $this->interpolateWithinBucket($bound, $prevBound, ['prevCum' => $prevCum, 'cum' => $cum, 'rank' => $rank]);
+            }
+            $prevBound = $this->advanceBound($bound, $prevBound);
+            $prevCum = $cum;
+        }
+
+        return $prevBound > 0 ? $prevBound : null;
+    }
+
+    /** Advance the lower-bound tracker, keeping +Inf bounds from changing it. */
+    private function advanceBound(int|string $bound, float $prevBound): float
+    {
+        return $bound === '+Inf' ? $prevBound : (float) $bound;
+    }
+
+    /**
+     * Linear-interpolate the quantile within a histogram bucket.
+     *
+     * @param  array{prevCum:int, cum:int, rank:float}  $span
+     */
+    private function interpolateWithinBucket(int|string $bound, float $prevBound, array $span): ?float
+    {
+        if ($bound === '+Inf') {
+            return $prevBound > 0 ? $prevBound : null;
+        }
+        $upper = (float) $bound;
+        $spanCount = $span['cum'] - $span['prevCum'];
+        if ($spanCount <= 0) {
+            return $upper;
+        }
+
+        return $prevBound + ($upper - $prevBound) * (($span['rank'] - $span['prevCum']) / $spanCount);
     }
 }

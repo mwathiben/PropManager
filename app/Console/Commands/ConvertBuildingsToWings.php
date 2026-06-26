@@ -37,7 +37,47 @@ class ConvertBuildingsToWings extends Command
         $prefix = strtoupper($this->option('prefix') ?? '');
         $dryRun = $this->option('dry-run');
 
-        // Validate required options
+        if ($this->validateOptions($parentId, $childId, $prefix) !== 0) {
+            return 1;
+        }
+
+        $buildings = $this->validateBuildings($parentId, $childId, $prefix);
+        if ($buildings === null) {
+            return 1;
+        }
+
+        [$parent, $child] = $buildings;
+        $units = Unit::where('building_id', $child->id)->get();
+
+        $this->displayPreview($parent, $child, $prefix, $units);
+
+        if ($dryRun) {
+            $this->warn('');
+            $this->warn('DRY RUN - No changes made. Remove --dry-run to execute.');
+
+            return 0;
+        }
+
+        if (! $this->confirm('Do you want to proceed with this conversion?')) {
+            $this->info('Conversion cancelled.');
+
+            return 0;
+        }
+
+        $this->executeConversion($parent, $child, $prefix, $units);
+
+        $this->info('');
+        $this->info("Successfully converted '{$child->name}' to a wing under '{$parent->name}'.");
+        $this->info("Renamed {$units->count()} units with prefix '{$prefix}'.");
+
+        return 0;
+    }
+
+    /**
+     * Validate required options and prefix format.
+     */
+    private function validateOptions(?string $parentId, ?string $childId, string $prefix): int
+    {
         if (! $parentId || ! $childId || ! $prefix) {
             $this->error('All options are required: --parent, --child, --prefix');
             $this->line('');
@@ -48,61 +88,95 @@ class ConvertBuildingsToWings extends Command
             return 1;
         }
 
-        // Validate prefix length
         if (strlen($prefix) < 1 || strlen($prefix) > 3) {
             $this->error('Prefix must be 1-3 characters.');
 
             return 1;
         }
 
-        // Find parent building
-        $parent = Building::find($parentId);
-        if (! $parent) {
-            $this->error("Parent building with ID {$parentId} not found.");
+        return 0;
+    }
 
-            return 1;
+    /**
+     * Find and validate parent and child buildings.
+     *
+     * @return array{0: Building, 1: Building}|null
+     */
+    private function validateBuildings(string $parentId, string $childId, string $prefix): ?array
+    {
+        $parent = $this->resolveParentBuilding($parentId);
+        if ($parent === null) {
+            return null;
         }
 
-        // Parent should not be a wing itself
-        if ($parent->is_wing) {
-            $this->error('Parent building cannot be a wing itself.');
-
-            return 1;
+        $child = $this->resolveChildBuilding($childId);
+        if ($child === null) {
+            return null;
         }
 
-        // Find child building
-        $child = Building::find($childId);
-        if (! $child) {
-            $this->error("Child building with ID {$childId} not found.");
-
-            return 1;
-        }
-
-        // Child should not already be a wing
-        if ($child->is_wing) {
-            $this->error('This building is already a wing.');
-
-            return 1;
-        }
-
-        // Child should be in the same property
         if ($parent->property_id !== $child->property_id) {
             $this->error('Parent and child buildings must belong to the same property.');
 
-            return 1;
+            return null;
         }
 
-        // Check prefix uniqueness among existing wings
         $existingPrefixes = $parent->wings()->pluck('unit_prefix')->toArray();
         if (in_array($prefix, $existingPrefixes)) {
             $this->error("Prefix '{$prefix}' is already in use by another wing.");
 
-            return 1;
+            return null;
         }
 
-        // Get units to be renamed
-        $units = Unit::where('building_id', $child->id)->get();
+        return [$parent, $child];
+    }
 
+    /**
+     * Find and validate the parent building.
+     */
+    private function resolveParentBuilding(string $parentId): ?Building
+    {
+        $parent = Building::find($parentId);
+        if (! $parent) {
+            $this->error("Parent building with ID {$parentId} not found.");
+
+            return null;
+        }
+
+        if ($parent->is_wing) {
+            $this->error('Parent building cannot be a wing itself.');
+
+            return null;
+        }
+
+        return $parent;
+    }
+
+    /**
+     * Find and validate the child building.
+     */
+    private function resolveChildBuilding(string $childId): ?Building
+    {
+        $child = Building::find($childId);
+        if (! $child) {
+            $this->error("Child building with ID {$childId} not found.");
+
+            return null;
+        }
+
+        if ($child->is_wing) {
+            $this->error('This building is already a wing.');
+
+            return null;
+        }
+
+        return $child;
+    }
+
+    /**
+     * Display the conversion preview table and unit renaming samples.
+     */
+    private function displayPreview(Building $parent, Building $child, string $prefix, $units): void
+    {
         $this->info('Conversion Preview:');
         $this->line('');
         $this->table(['Property', 'Value'], [
@@ -115,12 +189,10 @@ class ConvertBuildingsToWings extends Command
         $this->line('');
         $this->info('Unit Renaming:');
 
-        // Show sample renames
         $samples = $units->take(5);
         $sampleRenames = [];
         foreach ($samples as $unit) {
             $oldNumber = $unit->unit_number;
-            // Strip any existing prefix (letters at the start)
             $numericPart = preg_replace('/^[A-Z]+/', '', $oldNumber);
             $newNumber = $prefix.$numericPart;
             $sampleRenames[] = [$oldNumber, $newNumber];
@@ -129,31 +201,20 @@ class ConvertBuildingsToWings extends Command
             $sampleRenames[] = ['...', '...'];
         }
         $this->table(['Current', 'New'], $sampleRenames);
+    }
 
-        if ($dryRun) {
-            $this->warn('');
-            $this->warn('DRY RUN - No changes made. Remove --dry-run to execute.');
-
-            return 0;
-        }
-
-        // Confirm execution
-        if (! $this->confirm('Do you want to proceed with this conversion?')) {
-            $this->info('Conversion cancelled.');
-
-            return 0;
-        }
-
-        // Execute conversion
+    /**
+     * Execute the building conversion in a transaction.
+     */
+    private function executeConversion(Building $parent, Building $child, string $prefix, $units): void
+    {
         DB::transaction(function () use ($parent, $child, $prefix, $units) {
-            // 1. Update child building to be a wing
             $child->update([
                 'parent_building_id' => $parent->id,
                 'is_wing' => true,
                 'unit_prefix' => $prefix,
             ]);
 
-            // 2. Rename all units with the prefix
             foreach ($units as $unit) {
                 $numericPart = preg_replace('/^[A-Z]+/', '', $unit->unit_number);
                 $unit->update([
@@ -161,12 +222,6 @@ class ConvertBuildingsToWings extends Command
                 ]);
             }
         });
-
-        $this->info('');
-        $this->info("Successfully converted '{$child->name}' to a wing under '{$parent->name}'.");
-        $this->info("Renamed {$units->count()} units with prefix '{$prefix}'.");
-
-        return 0;
     }
 
     /**

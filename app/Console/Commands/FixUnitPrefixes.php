@@ -29,7 +29,7 @@ class FixUnitPrefixes extends Command
     /**
      * Execute the console command.
      */
-    public function handle()
+    public function handle(): int
     {
         $dryRun = $this->option('dry-run');
         $propertyId = $this->option('property');
@@ -40,7 +40,37 @@ class FixUnitPrefixes extends Command
         $this->info('========================');
         $this->info('');
 
-        // Find properties with wings (already organized)
+        $properties = $this->queryProperties($propertyId);
+
+        if ($properties->isEmpty()) {
+            $this->info('No properties found with wings to fix.');
+
+            return 0;
+        }
+
+        $propertyChanges = $this->buildPropertyChanges($properties);
+
+        $this->displayChanges($propertyChanges);
+
+        if ($dryRun) {
+            $this->warn('DRY RUN - No changes made. Remove --dry-run to execute.');
+
+            return 0;
+        }
+
+        if (! $force && ! $this->confirm('Do you want to proceed with these changes?')) {
+            $this->info('Operation cancelled.');
+
+            return 0;
+        }
+
+        $this->applyChanges($propertyChanges);
+
+        return 0;
+    }
+
+    private function queryProperties(?string $propertyId): \Illuminate\Database\Eloquent\Collection
+    {
         $query = Property::whereHas('buildings', function ($q) {
             $q->where('is_wing', true);
         })->with(['buildings' => function ($q) {
@@ -51,95 +81,82 @@ class FixUnitPrefixes extends Command
             $query->where('id', $propertyId);
         }
 
-        $properties = $query->get();
+        return $query->get();
+    }
 
-        if ($properties->isEmpty()) {
-            $this->info('No properties found with wings to fix.');
-
-            return 0;
-        }
-
-        // Show what will be changed
+    private function buildPropertyChanges(\Illuminate\Database\Eloquent\Collection $properties): array
+    {
         $propertyChanges = [];
 
         foreach ($properties as $property) {
-            // Get main building and wings
             $mainBuilding = $property->buildings->where('is_wing', false)->first();
-            $wings = $property->buildings->where('is_wing', true)->sortBy('id');
 
             if (! $mainBuilding) {
                 continue;
             }
 
-            $changes = [
-                'property' => $property,
-                'main_building' => $mainBuilding,
-                'buildings' => [],
-            ];
-
-            // Main building gets prefix "A" if it has units
-            $prefix = 'A';
-
-            // Handle main building's units
-            if ($mainBuilding->units->count() > 0) {
-                $oldPrefix = $mainBuilding->unit_prefix ?? '';
-                $sampleUnits = $mainBuilding->units->take(3);
-                $sampleRenames = [];
-
-                foreach ($sampleUnits as $unit) {
-                    $numericPart = preg_replace('/^[A-Z]+/', '', $unit->unit_number);
-                    $sampleRenames[] = $unit->unit_number.' -> '.$prefix.$numericPart;
-                }
-
-                $changes['buildings'][] = [
-                    'building' => $mainBuilding,
-                    'old_prefix' => $oldPrefix,
-                    'new_prefix' => $prefix,
-                    'old_name' => $mainBuilding->name,
-                    'new_name' => 'Block '.$prefix,
-                    'unit_count' => $mainBuilding->units->count(),
-                    'sample_renames' => implode(', ', $sampleRenames),
-                    'is_main' => true,
-                ];
-
-                $prefix++;
-            }
-
-            // Handle wings
-            foreach ($wings as $wing) {
-                $oldPrefix = $wing->unit_prefix ?? '';
-                $sampleUnits = $wing->units->take(3);
-                $sampleRenames = [];
-
-                foreach ($sampleUnits as $unit) {
-                    $numericPart = preg_replace('/^[A-Z]+/', '', $unit->unit_number);
-                    $sampleRenames[] = $unit->unit_number.' -> '.$prefix.$numericPart;
-                }
-
-                // Determine new name - if it's like "Block B" keep the letter, otherwise use new prefix
-                $newName = $wing->name;
-                if (preg_match('/^Block\s+[A-Z]$/i', $wing->name)) {
-                    $newName = 'Block '.$prefix;
-                }
-
-                $changes['buildings'][] = [
-                    'building' => $wing,
-                    'old_prefix' => $oldPrefix,
-                    'new_prefix' => $prefix,
-                    'old_name' => $wing->name,
-                    'new_name' => $newName,
-                    'unit_count' => $wing->units->count(),
-                    'sample_renames' => implode(', ', $sampleRenames),
-                    'is_main' => false,
-                ];
-
-                $prefix++;
-            }
-
-            $propertyChanges[] = $changes;
+            $wings = $property->buildings->where('is_wing', true)->sortBy('id');
+            $propertyChanges[] = $this->buildChangesForProperty($property, $mainBuilding, $wings);
         }
 
-        // Display changes
+        return $propertyChanges;
+    }
+
+    private function buildChangesForProperty(Property $property, Building $mainBuilding, \Illuminate\Support\Collection $wings): array
+    {
+        $changes = [
+            'property' => $property,
+            'main_building' => $mainBuilding,
+            'buildings' => [],
+        ];
+
+        $prefix = 'A';
+
+        if ($mainBuilding->units->count() > 0) {
+            $changes['buildings'][] = $this->buildingChangeEntry($mainBuilding, $prefix, 'Block '.$prefix, true);
+            $prefix++;
+        }
+
+        foreach ($wings as $wing) {
+            $newName = preg_match('/^Block\s+[A-Z]$/i', $wing->name) ? 'Block '.$prefix : $wing->name;
+            $changes['buildings'][] = $this->buildingChangeEntry($wing, $prefix, $newName, false);
+            $prefix++;
+        }
+
+        return $changes;
+    }
+
+    private function buildingChangeEntry(Building $building, string $newPrefix, string $newName, bool $isMain): array
+    {
+        $oldPrefix = $building->unit_prefix ?? '';
+        $sampleRenames = $this->buildSampleRenames($building, $newPrefix);
+
+        return [
+            'building' => $building,
+            'old_prefix' => $oldPrefix,
+            'new_prefix' => $newPrefix,
+            'old_name' => $building->name,
+            'new_name' => $newName,
+            'unit_count' => $building->units->count(),
+            'sample_renames' => implode(', ', $sampleRenames),
+            'is_main' => $isMain,
+        ];
+    }
+
+    private function buildSampleRenames(Building $building, string $newPrefix): array
+    {
+        $sampleRenames = [];
+
+        foreach ($building->units->take(3) as $unit) {
+            $numericPart = preg_replace('/^[A-Z]+/', '', $unit->unit_number);
+            $sampleRenames[] = $unit->unit_number.' -> '.$newPrefix.$numericPart;
+        }
+
+        return $sampleRenames;
+    }
+
+    private function displayChanges(array $propertyChanges): void
+    {
         foreach ($propertyChanges as $changes) {
             $this->line("Property: {$changes['property']->name} (ID: {$changes['property']->id})");
             $this->line('');
@@ -157,21 +174,10 @@ class FixUnitPrefixes extends Command
             $this->table(['Current Name', 'New Name', 'Prefix Change', 'Units', 'Sample Renames'], $tableData);
             $this->line('');
         }
+    }
 
-        if ($dryRun) {
-            $this->warn('DRY RUN - No changes made. Remove --dry-run to execute.');
-
-            return 0;
-        }
-
-        // Confirm before executing
-        if (! $force && ! $this->confirm('Do you want to proceed with these changes?')) {
-            $this->info('Operation cancelled.');
-
-            return 0;
-        }
-
-        // Execute the changes
+    private function applyChanges(array $propertyChanges): void
+    {
         $this->info('Applying changes...');
         $bar = $this->output->createProgressBar(count($propertyChanges));
         $bar->start();
@@ -179,21 +185,7 @@ class FixUnitPrefixes extends Command
         foreach ($propertyChanges as $changes) {
             DB::transaction(function () use ($changes) {
                 foreach ($changes['buildings'] as $buildingChange) {
-                    $building = $buildingChange['building'];
-                    $newPrefix = $buildingChange['new_prefix'];
-                    $newName = $buildingChange['new_name'];
-
-                    // Update building name and prefix
-                    $building->update([
-                        'name' => $newName,
-                        'unit_prefix' => $newPrefix,
-                    ]);
-
-                    // Rename all units
-                    foreach ($building->units as $unit) {
-                        $numericPart = preg_replace('/^[A-Z]+/', '', $unit->unit_number);
-                        $unit->update(['unit_number' => $newPrefix.$numericPart]);
-                    }
+                    $this->applyBuildingChange($buildingChange);
                 }
             });
 
@@ -204,7 +196,21 @@ class FixUnitPrefixes extends Command
         $this->line('');
         $this->line('');
         $this->info('Successfully fixed unit prefixes for '.count($propertyChanges).' properties.');
+    }
 
-        return 0;
+    private function applyBuildingChange(array $buildingChange): void
+    {
+        $building = $buildingChange['building'];
+        $newPrefix = $buildingChange['new_prefix'];
+
+        $building->update([
+            'name' => $buildingChange['new_name'],
+            'unit_prefix' => $newPrefix,
+        ]);
+
+        foreach ($building->units as $unit) {
+            $numericPart = preg_replace('/^[A-Z]+/', '', $unit->unit_number);
+            $unit->update(['unit_number' => $newPrefix.$numericPart]);
+        }
     }
 }
