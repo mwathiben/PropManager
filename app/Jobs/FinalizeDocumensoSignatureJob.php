@@ -101,30 +101,49 @@ class FinalizeDocumensoSignatureJob implements ShouldQueue
     {
         $disk = (string) config('documenso.storage_disk', 'private');
 
-        // The sealed PDF is THE integrity artifact: a download failure must stay
-        // loud (throws DocumensoException -> the job retries), never silent.
+        // The sealed PDF is THE integrity artifact: a download OR a write failure
+        // must stay loud (throws -> the job retries), never silently sealing a
+        // signature that points at a missing file.
         $pdf = $documenso->downloadSignedPdf($this->documentId);
         $pdfPath = "agreements/signed/{$this->signatureId}.pdf";
-        Storage::disk($disk)->put($pdfPath, $pdf);
-
-        // The certificate is supplementary evidence — a fetch failure must NOT
-        // block activating the fee. Degrade to "no certificate" and warn for backfill.
-        $certificatePath = null;
-        if ($this->envelopeId !== null && $this->envelopeId !== '') {
-            try {
-                $certificatePath = "agreements/signed/{$this->signatureId}-certificate.pdf";
-                Storage::disk($disk)->put($certificatePath, $documenso->downloadCertificate($this->envelopeId));
-            } catch (DocumensoException $e) {
-                $certificatePath = null;
-                Log::warning('Documenso certificate download failed; sealing PDF + activating without it', [
-                    'signature_id' => $this->signatureId,
-                    'envelope_id' => $this->envelopeId,
-                    'error' => $e->getMessage(),
-                ]);
-            }
+        if (! Storage::disk($disk)->put($pdfPath, $pdf)) {
+            throw new DocumensoException("Failed to store the sealed PDF for signature {$this->signatureId}.");
         }
 
-        return new SealedAgreementArtifacts($pdfPath, $certificatePath, hash('sha256', $pdf));
+        return new SealedAgreementArtifacts($pdfPath, $this->storeCertificate($documenso, $disk), hash('sha256', $pdf));
+    }
+
+    /**
+     * The certificate is supplementary evidence — a fetch OR write failure must
+     * NOT block activating the fee. Degrade to "no certificate" and warn.
+     */
+    private function storeCertificate(DocumensoService $documenso, string $disk): ?string
+    {
+        if ($this->envelopeId === null || $this->envelopeId === '') {
+            return null;
+        }
+
+        try {
+            $path = "agreements/signed/{$this->signatureId}-certificate.pdf";
+            if (Storage::disk($disk)->put($path, $documenso->downloadCertificate($this->envelopeId))) {
+                return $path;
+            }
+        } catch (DocumensoException $e) {
+            Log::warning('Documenso certificate download failed; sealing PDF without it', [
+                'signature_id' => $this->signatureId,
+                'envelope_id' => $this->envelopeId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+
+        Log::warning('Documenso certificate store failed; sealing PDF without it', [
+            'signature_id' => $this->signatureId,
+            'envelope_id' => $this->envelopeId,
+        ]);
+
+        return null;
     }
 
     private function sealAndActivate(AgreementApplicator $applicator, SealedAgreementArtifacts $artifacts): void
@@ -191,15 +210,24 @@ class FinalizeDocumensoSignatureJob implements ShouldQueue
 
     private function discardArtifacts(SealedAgreementArtifacts $artifacts): void
     {
+        $paths = array_values(array_filter([
+            $artifacts->signedPdfPath,
+            $artifacts->certificatePath,
+        ]));
+
         try {
             $disk = (string) config('documenso.storage_disk', 'private');
-            Storage::disk($disk)->delete(array_values(array_filter([
-                $artifacts->signedPdfPath,
-                $artifacts->certificatePath,
-            ])));
-        } catch (Throwable) {
-            // Best-effort cleanup — it must never mask the terminal failure we are
+            Storage::disk($disk)->delete($paths);
+        } catch (Throwable $e) {
+            // Best-effort cleanup — it must NEVER mask the terminal failure we are
             // failing the job on (that exception carries the money-integrity alert).
+            // Mirror TracksFailures::recordJobFailure: swallow, but surface enough
+            // context to backfill the orphaned artifacts later.
+            Log::warning('Documenso artifact cleanup failed after a terminal seal error; orphaned artifacts may remain', [
+                'signature_id' => $this->signatureId,
+                'paths' => $paths,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 

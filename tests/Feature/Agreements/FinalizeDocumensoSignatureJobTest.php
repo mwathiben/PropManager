@@ -8,6 +8,7 @@ use App\Enums\AgreementSignatureMethod;
 use App\Enums\AgreementSignatureStatus;
 use App\Enums\AgreementStatus;
 use App\Enums\ManagementFeeType;
+use App\Exceptions\DataIntegrityException;
 use App\Jobs\FinalizeDocumensoSignatureJob;
 use App\Models\AgreementSignature;
 use App\Models\Clause;
@@ -16,10 +17,13 @@ use App\Models\PropertyOwner;
 use App\Models\User;
 use App\Services\Agreements\AgreementApplicator;
 use App\Services\Documenso\DocumensoService;
+use Illuminate\Contracts\Filesystem\Filesystem;
+use Illuminate\Contracts\Queue\Job as QueueJob;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Mockery;
 use Tests\TestCase;
 
 /**
@@ -175,6 +179,57 @@ class FinalizeDocumensoSignatureJobTest extends TestCase
 
         $this->assertSame(AgreementSignatureStatus::Pending, $signature->fresh()->status);
         $this->assertSame(AgreementStatus::Sent, $agreement->fresh()->status);
+    }
+
+    public function test_artifact_cleanup_failure_never_masks_the_money_integrity_failure(): void
+    {
+        // No fee clause -> AgreementApplicator fails closed with a terminal
+        // DataIntegrityException. The best-effort artifact cleanup then runs; if the
+        // disk throws (misconfigured/unavailable disk, S3 outage), that MUST be
+        // swallowed so it can never replace the terminal exception. The job still
+        // fails loudly via fail() so failed() raises the money-integrity alert
+        // (the failed()->critical leg is covered by test_permanent_failure_*).
+        $manager = User::factory()->create(['role' => 'manager']);
+        $owner = PropertyOwner::factory()->create(['landlord_id' => $manager->id]);
+        $agreement = ManagementAgreement::factory()->create([
+            'landlord_id' => $manager->id,
+            'property_owner_id' => $owner->id,
+            'status' => AgreementStatus::Sent,
+        ]);
+        $signature = AgreementSignature::factory()->create([
+            'management_agreement_id' => $agreement->id,
+            'landlord_id' => $manager->id,
+            'status' => AgreementSignatureStatus::Pending,
+            'documenso_document_id' => 42,
+        ]);
+        $this->fakeDownloads();
+
+        // Artifact storage (put) succeeds, but cleanup (delete) blows up.
+        $disk = Mockery::mock(Filesystem::class);
+        $disk->shouldReceive('put')->andReturnTrue();
+        $disk->shouldReceive('delete')->andThrow(new \RuntimeException('disk unavailable during cleanup'));
+        Storage::shouldReceive('disk')->with('private')->andReturn($disk);
+
+        Log::spy();
+
+        // Inject a queue job so $this->fail() is observable: the terminal exception
+        // must reach it, never be supplanted by the cleanup RuntimeException.
+        $queueJob = Mockery::mock(QueueJob::class);
+        $queueJob->shouldReceive('fail')->once()->with(Mockery::type(DataIntegrityException::class));
+
+        $job = new FinalizeDocumensoSignatureJob($signature->id, 42, 'env_abc');
+        $job->setJob($queueJob);
+        $job->handle(app(DocumensoService::class), app(AgreementApplicator::class));
+
+        // The swallowed cleanup error is surfaced as a warning with enough context to backfill.
+        Log::shouldHaveReceived('warning')
+            ->withArgs(function (string $message, array $context) use ($signature): bool {
+                return str_contains($message, 'cleanup')
+                    && ($context['signature_id'] ?? null) === $signature->id
+                    && array_key_exists('paths', $context)
+                    && array_key_exists('error', $context);
+            })
+            ->once();
     }
 
     public function test_permanent_failure_raises_a_critical_alert(): void

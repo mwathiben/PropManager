@@ -12,6 +12,7 @@ use App\Services\Resilience\CircuitBreaker;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
 class DocumensoServiceTest extends TestCase
@@ -180,5 +181,39 @@ class DocumensoServiceTest extends TestCase
         } catch (DocumensoException) {
             Http::assertNotSent(fn (Request $r) => str_ends_with($r->url(), '/send'));
         }
+    }
+
+    public function test_create_throws_when_signing_url_missing(): void
+    {
+        Http::fake([
+            'docs.example.test/api/v1/documents' => Http::response([
+                'uploadUrl' => 'https://s3.example.test/upload?sig=abc',
+                'documentId' => 42,
+                'recipients' => [['token' => 'rtok', 'role' => 'SIGNER']], // no signingUrl
+            ], 200),
+        ]);
+
+        $this->expectException(DocumensoException::class);
+
+        app(DocumensoService::class)->createSigningEnvelope('pdf', new DocumensoSigner('n', 'e@e.test'), 't', 'ext');
+    }
+
+    public function test_connection_error_log_redacts_url_query(): void
+    {
+        Log::spy();
+        Http::fake(fn () => throw new ConnectionException(
+            'cURL error 7 for https://s3.example.test/up?X-Amz-Signature=SECRETSIG&a=1'
+        ));
+
+        try {
+            app(DocumensoService::class)->downloadSignedPdf(42);
+        } catch (DocumensoException) {
+            // expected
+        }
+
+        Log::shouldHaveReceived('error')->withArgs(
+            fn (string $message, array $context = []): bool => $message === 'Documenso request unreachable'
+                && ! str_contains($context['error'] ?? '', 'SECRETSIG')
+        )->once();
     }
 }

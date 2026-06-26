@@ -30,10 +30,11 @@ class DocumensoWebhookController extends Controller
             return response()->json(['status' => 'ignored']);
         }
 
-        $documentId = (int) $request->input('payload.id');
-        if ($documentId === 0) {
-            // A completion event we cannot correlate is abnormal — never drop it silently.
-            Log::warning('Documenso completion event missing document id', ['payload' => $request->input('payload')]);
+        $documentId = $this->resolveDocumentId($request);
+        if ($documentId <= 0) {
+            // A completion we cannot correlate (missing or malformed id, e.g. "42abc")
+            // is abnormal — never drop it silently.
+            Log::warning('Documenso completion event with missing or malformed document id', ['payload' => $request->input('payload')]);
 
             return response()->json(['status' => 'ignored']);
         }
@@ -62,5 +63,13 @@ class DocumensoWebhookController extends Controller
         );
 
         return response()->json(['status' => 'accepted']);
+    }
+
+    /** Coerce payload.id to a positive int, rejecting malformed values like "42abc" (returns 0). */
+    private function resolveDocumentId(Request $request): int
+    {
+        $raw = $request->input('payload.id');
+
+        return is_numeric($raw) ? (int) $raw : 0;
     }
 }

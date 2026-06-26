@@ -56,6 +56,7 @@ class DocumensoService
             = $this->parseCreateResponse($create);
 
         $upload = $this->guardedRequest('s3-upload', fn () => Http::timeout($this->timeout())
+            ->retry($this->retryAttempts(), $this->retryDelayMs(), fn ($e) => $e instanceof ConnectionException, throw: false)
             ->withBody($pdfBytes, 'application/pdf')
             ->put($uploadUrl));
         $this->assertSuccessful($upload, 'upload pdf', 's3-upload');
@@ -77,7 +78,7 @@ class DocumensoService
         $token = (string) $create->json('recipients.0.token');
         $signingUrl = (string) $create->json('recipients.0.signingUrl');
 
-        if ($uploadUrl === '' || $documentId === 0 || $token === '') {
+        if ($uploadUrl === '' || $documentId === 0 || $token === '' || $signingUrl === '') {
             $this->fail('create document (malformed response)', '/api/v1/documents', $create->status(), $create->body());
         }
 
@@ -143,7 +144,7 @@ class DocumensoService
             // must be caught explicitly or it would leak past the signing path.
             Log::error('Documenso request unreachable', [
                 'endpoint' => $endpoint,
-                'error' => $e->getMessage(),
+                'error' => $this->sanitizeError($e->getMessage()),
             ]);
 
             throw new DocumensoException("Documenso unreachable at {$endpoint}.", previous: $e);
@@ -159,6 +160,16 @@ class DocumensoService
         ]);
 
         throw new DocumensoException("Documenso {$action} failed with status {$status}.");
+    }
+
+    /**
+     * Strip URL query strings from a connection-error message before logging.
+     * cURL errors embed the failing URL, and the S3 upload hop's presigned URL
+     * carries a short-lived signature that must never land in logs.
+     */
+    private function sanitizeError(string $message): string
+    {
+        return preg_replace('#(https?://[^\s?]+)\?\S*#i', '$1?[REDACTED]', $message) ?? $message;
     }
 
     private function assertConfigured(): void
