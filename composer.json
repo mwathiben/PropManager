@@ -94,6 +94,9 @@
         "phpmd": [
             "@php vendor/bin/phpmd app text phpmd.xml --baseline-file phpmd.baseline.xml"
         ],
+        "phpmd:baseline": [
+            "@php scripts/regen-phpmd-baseline.php"
+        ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi"
