@@ -55,8 +55,9 @@ class FinalizeDocumensoSignatureJob implements ShouldQueue
         public int $documentId,
         public ?string $envelopeId,
     ) {
-        // Only enqueue after the surrounding DB transaction commits (the
-        // verify-OTP envelope-creation path in 2.4b-ii dispatches inside one).
+        // Dispatched by the DOCUMENT_COMPLETED webhook (DocumensoWebhookController).
+        // afterCommit() is a safe no-op there (no surrounding transaction) and keeps
+        // the job correct should a future caller ever dispatch it inside one.
         $this->afterCommit();
     }
 

@@ -37,6 +37,42 @@ jobs:
       - name: Run Pint
         run: ./vendor/bin/pint --test
 
+  phpmd:
+    name: Code Complexity (PHPMD)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer:v2
+
+      - name: Get Composer Cache Directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress --no-scripts
+
+      # Shrink-only complexity ratchet (mirrors lint:baseline). The pre-existing
+      # violations are captured in phpmd.baseline.xml; this fails ONLY on a NEW one.
+      # Lower the baseline as files are cleaned (fix, then regenerate) — never
+      # regenerate to bake in a new violation.
+      - name: Run PHPMD (shrink-only baseline)
+        run: php -d error_reporting='E_ALL & ~E_DEPRECATED' vendor/bin/phpmd app text phpmd.xml --baseline-file phpmd.baseline.xml
+
   test:
     name: Tests (PHPUnit)
     runs-on: ubuntu-latest

@@ -18,67 +18,78 @@ class SecurityHeaders
     {
         $config = config('security.headers');
 
-        // Generate CSP nonce BEFORE processing request
-        // This makes it available to @vite directive which auto-adds nonce attributes
+        // Generate the CSP nonce BEFORE the request so the @vite directive can stamp it.
         if ($config['csp_enabled']) {
             Vite::useCspNonce();
         }
 
         $response = $next($request);
 
-        // Prevent clickjacking attacks
-        if ($config['x_frame_options']) {
-            $response->headers->set('X-Frame-Options', $config['x_frame_options']);
-        }
+        $this->applyConfiguredHeaders($response, $config);
+        $this->applyHsts($response, $config, $request);
 
-        // Prevent MIME type sniffing
-        if ($config['x_content_type_options']) {
-            $response->headers->set('X-Content-Type-Options', $config['x_content_type_options']);
-        }
-
-        // XSS Protection (legacy but still useful for older browsers)
-        if ($config['x_xss_protection']) {
-            $response->headers->set('X-XSS-Protection', $config['x_xss_protection']);
-        }
-
-        // Referrer Policy
-        if ($config['referrer_policy']) {
-            $response->headers->set('Referrer-Policy', $config['referrer_policy']);
-        }
-
-        // Permissions Policy (formerly Feature-Policy)
-        if ($config['permissions_policy']) {
-            $response->headers->set('Permissions-Policy', $config['permissions_policy']);
-        }
-
-        // HSTS - HTTP Strict Transport Security (only for HTTPS)
-        if ($config['hsts_enabled'] && $request->secure()) {
-            $hsts = 'max-age='.$config['hsts_max_age'];
-
-            if ($config['hsts_include_subdomains']) {
-                $hsts .= '; includeSubDomains';
-            }
-
-            if ($config['hsts_preload']) {
-                $hsts .= '; preload';
-            }
-
-            $response->headers->set('Strict-Transport-Security', $hsts);
-        }
-
-        // Content Security Policy with nonce support
         if ($config['csp_enabled']) {
-            $csp = $this->buildCspHeader();
-            $response->headers->set('Content-Security-Policy', $csp);
+            $response->headers->set('Content-Security-Policy', $this->buildCspHeader());
         }
 
-        // Additional security headers
+        $this->applyStaticHeaders($response);
+
+        return $response;
+    }
+
+    /**
+     * The simple config-gated headers (each set only when configured truthy).
+     *
+     * @param  array<string, mixed>  $config
+     */
+    private function applyConfiguredHeaders(Response $response, array $config): void
+    {
+        $headers = [
+            'x_frame_options' => 'X-Frame-Options',              // clickjacking
+            'x_content_type_options' => 'X-Content-Type-Options', // MIME sniffing
+            'x_xss_protection' => 'X-XSS-Protection',             // legacy XSS
+            'referrer_policy' => 'Referrer-Policy',
+            'permissions_policy' => 'Permissions-Policy',         // formerly Feature-Policy
+        ];
+
+        foreach ($headers as $key => $header) {
+            if (! empty($config[$key])) {
+                $response->headers->set($header, $config[$key]);
+            }
+        }
+    }
+
+    /**
+     * HTTP Strict Transport Security — HTTPS responses only.
+     *
+     * @param  array<string, mixed>  $config
+     */
+    private function applyHsts(Response $response, array $config, Request $request): void
+    {
+        if (! $config['hsts_enabled'] || ! $request->secure()) {
+            return;
+        }
+
+        $hsts = 'max-age='.$config['hsts_max_age'];
+
+        if ($config['hsts_include_subdomains']) {
+            $hsts .= '; includeSubDomains';
+        }
+
+        if ($config['hsts_preload']) {
+            $hsts .= '; preload';
+        }
+
+        $response->headers->set('Strict-Transport-Security', $hsts);
+    }
+
+    /** Always-on cross-origin isolation headers. */
+    private function applyStaticHeaders(Response $response): void
+    {
         $response->headers->set('X-Permitted-Cross-Domain-Policies', 'none');
         $response->headers->set('Cross-Origin-Embedder-Policy', 'unsafe-none');
         $response->headers->set('Cross-Origin-Opener-Policy', 'same-origin');
         $response->headers->set('Cross-Origin-Resource-Policy', 'same-origin');
-
-        return $response;
     }
 
     /**
@@ -115,6 +126,13 @@ class SecurityHeaders
         // webfont returns is already covered by style-src/font-src.
         $mapOrigins = 'https://*.tile.openstreetmap.org https://cdnjs.cloudflare.com';
 
+        // Slice-2 PR-2.4b-ii: the owner signs in an embedded Documenso iframe, so the
+        // self-hosted Documenso origin must be an allowed frame source — default-src
+        // 'self' (the frame-src fallback) would otherwise block it. Scoped to the
+        // configured host; 'none' when Documenso is not configured.
+        $documensoOrigin = rtrim((string) config('documenso.base_url', ''), '/');
+        $frameSrc = $documensoOrigin !== '' ? "frame-src {$documensoOrigin}" : "frame-src 'none'";
+
         $directives = [
             "default-src 'self'",
             "script-src 'self' 'nonce-{$nonce}'",
@@ -123,6 +141,7 @@ class SecurityHeaders
             "img-src 'self' data: blob: https://imgs.paystack.co {$mapOrigins}",
             "font-src 'self' data: https://fonts.bunny.net",
             "connect-src 'self' ws: wss: https://api.paystack.co https://nominatim.openstreetmap.org https://fonts.bunny.net {$mapOrigins}",
+            $frameSrc,
             "frame-ancestors 'none'",
             "base-uri 'self'",
             "form-action 'self'",

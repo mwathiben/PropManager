@@ -74,6 +74,14 @@ return [
         'document_hash' => 'Alama ya hati',
         'signed_title' => 'Mkataba umesainiwa',
         'signed_body' => 'Asante. Mkataba huu umesainiwa na unatumika — hakuna hatua zaidi inayohitajika.',
+        'documenso' => [
+            'heading' => 'Weka saini yako iliyothibitishwa',
+            'intro' => 'Utambulisho wako umethibitishwa. Kamilisha saini yako kwenye paneli salama hapa chini.',
+            'loading' => 'Inapakia paneli salama ya kusaini…',
+            'finalizing' => 'Saini imepokelewa — inakamilisha mkataba wako. Hii inachukua muda mfupi tu…',
+            'finalize_timeout' => 'Hii inachukua muda mrefu kuliko ilivyotarajiwa. Saini yako iko salama — onyesha upya ukurasa huu baada ya muda, au wasiliana nasi ikiendelea.',
+            'unavailable' => 'Paneli salama ya kusaini haipatikani kwa sasa. Tafadhali wasiliana nasi ili tukamilishe saini yako.',
+        ],
         'errors' => [
             'not_sendable' => 'Rasimu pekee ndiyo inaweza kutumwa kusaini.',
             'owner_contact_missing' => 'Ongeza anwani ya barua pepe na namba ya simu ya mmiliki kabla ya kutuma mkataba kusaini.',
