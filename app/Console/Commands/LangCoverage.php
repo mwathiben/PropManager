@@ -28,7 +28,6 @@ class LangCoverage extends Command
     {
         $locale = (string) $this->option('locale');
         $dir = (string) ($this->option('dir') ?: resource_path('js'));
-        $jsonOut = (bool) $this->option('json');
 
         $bundle = $this->loadBundle($locale);
         if ($bundle === []) {
@@ -38,6 +37,15 @@ class LangCoverage extends Command
         }
 
         $keys = $extractor->extractFromDirectory($dir);
+        $missing = $this->collectMissingKeys($bundle, $keys);
+
+        $this->reportResults($locale, $dir, $keys, $missing);
+
+        return count($missing) === 0 ? self::SUCCESS : self::FAILURE;
+    }
+
+    private function collectMissingKeys(array $bundle, array $keys): array
+    {
         $missing = [];
         foreach ($keys as $key) {
             if (! $this->bundleHas($bundle, $key)) {
@@ -45,27 +53,40 @@ class LangCoverage extends Command
             }
         }
 
-        if ($jsonOut) {
-            $this->line(json_encode([
-                'locale' => $locale,
-                'directory' => $dir,
-                'total_keys' => count($keys),
-                'missing_count' => count($missing),
-                'missing' => $missing,
-            ], JSON_PRETTY_PRINT));
-        } else {
-            $this->info(sprintf(
-                'lang:coverage locale=%s scanned=%d missing=%d',
-                $locale,
-                count($keys),
-                count($missing),
-            ));
-            foreach ($missing as $key) {
-                $this->warn("  missing: {$key}");
-            }
-        }
+        return $missing;
+    }
 
-        return count($missing) === 0 ? self::SUCCESS : self::FAILURE;
+    private function reportResults(string $locale, string $dir, array $keys, array $missing): void
+    {
+        if ((bool) $this->option('json')) {
+            $this->reportJson($locale, $dir, $keys, $missing);
+        } else {
+            $this->reportText($locale, $keys, $missing);
+        }
+    }
+
+    private function reportJson(string $locale, string $dir, array $keys, array $missing): void
+    {
+        $this->line(json_encode([
+            'locale' => $locale,
+            'directory' => $dir,
+            'total_keys' => count($keys),
+            'missing_count' => count($missing),
+            'missing' => $missing,
+        ], JSON_PRETTY_PRINT));
+    }
+
+    private function reportText(string $locale, array $keys, array $missing): void
+    {
+        $this->info(sprintf(
+            'lang:coverage locale=%s scanned=%d missing=%d',
+            $locale,
+            count($keys),
+            count($missing),
+        ));
+        foreach ($missing as $key) {
+            $this->warn("  missing: {$key}");
+        }
     }
 
     /**
@@ -73,25 +94,38 @@ class LangCoverage extends Command
      */
     private function loadBundle(string $locale): array
     {
-        $bundle = [];
+        $bundle = $this->loadJsonBundle($locale);
+        $bundle = $this->mergeNamespaceFiles($bundle, $locale);
 
+        return $bundle;
+    }
+
+    private function loadJsonBundle(string $locale): array
+    {
         $jsonPath = base_path("lang/{$locale}.json");
         if (is_file($jsonPath)) {
-            $bundle = json_decode((string) file_get_contents($jsonPath), true) ?: [];
+            return json_decode((string) file_get_contents($jsonPath), true) ?: [];
         }
 
+        return [];
+    }
+
+    private function mergeNamespaceFiles(array $bundle, string $locale): array
+    {
         $namespaceDir = base_path("lang/{$locale}");
-        if (is_dir($namespaceDir)) {
-            foreach (glob($namespaceDir.'/*.php') ?: [] as $file) {
-                $namespace = basename($file, '.php');
-                // MERGE (not overwrite) — mirrors HandleInertiaRequests::getI18nBundle: a
-                // namespace present in both lang/{locale}.json and lang/{locale}/<ns>.php
-                // (e.g. `common`) must keep BOTH sets of keys.
-                $bundle[$namespace] = array_replace_recursive(
-                    is_array($bundle[$namespace] ?? null) ? $bundle[$namespace] : [],
-                    require $file,
-                );
-            }
+        if (! is_dir($namespaceDir)) {
+            return $bundle;
+        }
+
+        foreach (glob($namespaceDir.'/*.php') ?: [] as $file) {
+            $namespace = basename($file, '.php');
+            // MERGE (not overwrite) — mirrors HandleInertiaRequests::getI18nBundle: a
+            // namespace present in both lang/{locale}.json and lang/{locale}/<ns>.php
+            // (e.g. `common`) must keep BOTH sets of keys.
+            $bundle[$namespace] = array_replace_recursive(
+                is_array($bundle[$namespace] ?? null) ? $bundle[$namespace] : [],
+                require $file,
+            );
         }
 
         return $bundle;

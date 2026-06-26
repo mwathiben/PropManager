@@ -105,11 +105,33 @@ class LogsPrune extends Command
 
     public function handle(): int
     {
+        $targets = $this->resolveTargets();
+        if ($targets === null) {
+            return self::INVALID;
+        }
+
+        $confirmed = (bool) $this->option('confirm');
+        [$totalDeleted, $totalRetained] = $this->processTargets($targets, $confirmed);
+
+        $this->outputSummary($confirmed, $totalDeleted, $totalRetained);
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * Parse and validate the --table option, returning the list of keys to process,
+     * or null if the option is missing/invalid (error already printed).
+     *
+     * @return list<string>|null
+     */
+    private function resolveTargets(): ?array
+    {
         $tableOption = (string) ($this->option('table') ?? '');
+
         if ($tableOption === '') {
             $this->error('--table is required. Use --table=audit, --table=security, or --table=all.');
 
-            return self::INVALID;
+            return null;
         }
 
         $targets = $tableOption === 'all'
@@ -120,64 +142,111 @@ class LogsPrune extends Command
             if (! array_key_exists($key, self::TABLES)) {
                 $this->error("Unknown --table value '{$key}'. Supported: ".implode(', ', array_keys(self::TABLES)).', all.');
 
-                return self::INVALID;
+                return null;
             }
         }
 
+        return $targets;
+    }
+
+    /**
+     * Process each target key, printing per-table info and optionally deleting rows.
+     *
+     * @param  list<string>  $targets
+     * @return array{int, int} [totalDeleted, totalRetained]
+     */
+    private function processTargets(array $targets, bool $confirmed): array
+    {
         $totalDeleted = 0;
         $totalRetained = 0;
-        $confirmed = (bool) $this->option('confirm');
 
         foreach ($targets as $key) {
-            $spec = self::TABLES[$key];
-            $retentionDays = (int) config($spec['config'], $spec['default']);
-            $cutoff = now()->subDays($retentionDays);
-
-            $column = $spec['column'];
-            $candidateQuery = DB::table($spec['table'])->where($column, '<', $cutoff);
-            if ($spec['where_not_null'] !== null) {
-                $candidateQuery->whereNotNull($spec['where_not_null']);
-            }
-            $candidateCount = $candidateQuery->count();
-
-            $this->info(sprintf(
-                '[%s] retention=%d days, cutoff=%s, candidates=%d',
-                $spec['table'],
-                $retentionDays,
-                $cutoff->toDateTimeString(),
-                $candidateCount,
-            ));
-
-            if (! $confirmed) {
-                $totalRetained += $candidateCount;
-
-                continue;
-            }
-
-            // Chunk the delete so a very large prune does not lock the
-            // table for too long. 1000 rows per batch is the spatie/
-            // laravel-backup convention.
-            $deleted = 0;
-            do {
-                $deleteQuery = DB::table($spec['table'])->where($column, '<', $cutoff);
-                if ($spec['where_not_null'] !== null) {
-                    $deleteQuery->whereNotNull($spec['where_not_null']);
-                }
-                $batch = $deleteQuery->limit(1000)->delete();
-                $deleted += $batch;
-            } while ($batch > 0);
-
-            $this->line("  deleted: {$deleted}");
+            [$deleted, $retained] = $this->processOneTarget($key, $confirmed);
             $totalDeleted += $deleted;
+            $totalRetained += $retained;
         }
 
+        return [$totalDeleted, $totalRetained];
+    }
+
+    /**
+     * Process a single table key: count candidates, optionally delete, and log progress.
+     *
+     * @return array{int, int} [deleted, retained]
+     */
+    private function processOneTarget(string $key, bool $confirmed): array
+    {
+        $spec = self::TABLES[$key];
+        $retentionDays = (int) config($spec['config'], $spec['default']);
+        $cutoff = now()->subDays($retentionDays);
+        $column = $spec['column'];
+
+        $candidateCount = $this->countCandidates($spec, $column, $cutoff);
+
+        $this->info(sprintf(
+            '[%s] retention=%d days, cutoff=%s, candidates=%d',
+            $spec['table'],
+            $retentionDays,
+            $cutoff->toDateTimeString(),
+            $candidateCount,
+        ));
+
+        if (! $confirmed) {
+            return [0, $candidateCount];
+        }
+
+        $deleted = $this->deleteInChunks($spec, $column, $cutoff);
+        $this->line("  deleted: {$deleted}");
+
+        return [$deleted, 0];
+    }
+
+    /**
+     * Count candidate rows for pruning (respects where_not_null guard).
+     *
+     * @param  array<string, mixed>  $spec
+     */
+    private function countCandidates(array $spec, string $column, \Illuminate\Support\Carbon $cutoff): int
+    {
+        $query = DB::table($spec['table'])->where($column, '<', $cutoff);
+        if ($spec['where_not_null'] !== null) {
+            $query->whereNotNull($spec['where_not_null']);
+        }
+
+        return $query->count();
+    }
+
+    /**
+     * Delete matching rows in 1 000-row chunks to avoid long table locks.
+     *
+     * @param  array<string, mixed>  $spec
+     */
+    private function deleteInChunks(array $spec, string $column, \Illuminate\Support\Carbon $cutoff): int
+    {
+        $deleted = 0;
+
+        do {
+            $query = DB::table($spec['table'])->where($column, '<', $cutoff);
+            if ($spec['where_not_null'] !== null) {
+                $query->whereNotNull($spec['where_not_null']);
+            }
+            $batch = $query->limit(1000)->delete();
+            $deleted += $batch;
+        } while ($batch > 0);
+
+        return $deleted;
+    }
+
+    /**
+     * Print the final summary line (dry-run warning or total deleted).
+     */
+    private function outputSummary(bool $confirmed, int $totalDeleted, int $totalRetained): void
+    {
         if ($confirmed) {
             $this->info("Total deleted: {$totalDeleted}");
         } else {
             $this->warn('DRY RUN — pass --confirm to apply.');
             $this->info("Total candidates: {$totalRetained}");
         }
-
-        return self::SUCCESS;
     }
 }

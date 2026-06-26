@@ -1,34 +1,11 @@
 <?xml version="1.0"?>
 <phpmd-baseline>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/AnalyticsReplayBatch.php" method="handle"/>
-  <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Console/Commands/AnalyticsReplayBatch.php" method="handle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/GenerateMonthlyInvoices.php" method="handle"/>
-  <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Console/Commands/GenerateMonthlyInvoices.php" method="handle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/LangCoverage.php" method="handle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/LangCoverage.php" method="loadBundle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/LangReview.php" method="handle"/>
-  <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Console/Commands/LangReview.php" method="handle"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/LangSuggest.php" method="handle"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Console/Commands/LangSuggest.php" method="applyToLangFile"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/LogsPrune.php" method="handle"/>
-  <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Console/Commands/LogsPrune.php" method="handle"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/OnboardingFunnelRollup.php" method="handle"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Console/Commands/OnboardingFunnelRollup.php" method="handle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/PartsReorderSuggest.php" method="handle"/>
-  <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Console/Commands/PartsReorderSuggest.php" method="handle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/PaymentsGatewayReconcile.php" method="handle"/>
-  <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Console/Commands/PaymentsGatewayReconcile.php" method="handle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/ProcessFailedNotifications.php" method="handle"/>
-  <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Console/Commands/ProcessFailedNotifications.php" method="handle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/SendScheduledReports.php" method="handle"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/SendScheduledReports.php" method="inferType"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/SweepStaleHolds.php" method="handle"/>
-  <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Console/Commands/SweepStaleHolds.php" method="handle"/>
-  <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Console/Commands/SweepStaleHolds.php" method="handle"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/WaterReviewWindow.php" method="processBuilding"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Console/Commands/WaterReviewWindow.php" method="processBuilding"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Console/Commands/WebhookRotateSecret.php" method="handle"/>
-  <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Console/Commands/WebhookRotateSecret.php" method="handle"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Events/IntaSendPaymentStatusChanged.php" method="__construct"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Events/MessageReacted.php" method="__construct"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Events/MessageRead.php" method="__construct"/>
@@ -212,9 +189,6 @@
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Models/Ticket.php" method="logActivity"/>
   <violation rule="PHPMD\Rule\Design\LongClass" file="app/Models/User.php"/>
   <violation rule="PHPMD\Rule\ExcessivePublicCount" file="app/Models/User.php"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Observers/TicketObserver.php" method="creating"/>
-  <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Observers/TicketObserver.php" method="creating"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Observers/TicketObserver.php" method="created"/>
   <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Providers/AppServiceProvider.php" method="register"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Providers/AppServiceProvider.php" method="boot"/>
   <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Providers/AppServiceProvider.php" method="boot"/>
@@ -271,9 +245,6 @@
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Services/Growth/AttributionTouchpointRecorder.php" method="record"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/Growth/ChurnService.php" method="subscriptionCohorts"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/Growth/ChurnService.php" method="cohortsBySource"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/Growth/FunnelRollupService.php" method="computeSankeyPayload"/>
-  <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Services/Growth/FunnelRollupService.php" method="computeSankeyPayload"/>
-  <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Services/Growth/FunnelRollupService.php" method="computeSankeyPayload"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/Growth/NpsEligibilityService.php" method="shouldPrompt"/>
   <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Services/Growth/NpsEligibilityService.php" method="shouldPrompt"/>
   <violation rule="PHPMD\Rule\Design\LongClass" file="app/Services/ImportService.php"/>
@@ -326,9 +297,6 @@
   <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Services/Onboarding/SampleDataSeederService.php" method="populate"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Services/Payment/BulkPaymentResult.php" method="__construct"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Services/Payment/BulkPaymentResult.php" method="partial"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/Payment/InitialPaymentCallbackHandler.php" method="process"/>
-  <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Services/Payment/InitialPaymentCallbackHandler.php" method="process"/>
-  <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Services/Payment/InitialPaymentCallbackHandler.php" method="process"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Services/Payment/InitialPaymentResult.php" method="__construct"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Services/Payment/ManualPaymentHandler.php" method="updateInvoiceAndHandleOverpayment"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/Payment/PaymentCallbackProcessor.php" method="process"/>
@@ -373,9 +341,6 @@
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/SubscriptionService.php" method="changePlan"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/TenantMessageService.php" method="processInbound"/>
   <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Services/TenantMessageService.php" method="processInbound"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Services/Tenant/StatementService.php" method="forTenant"/>
-  <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Services/Tenant/StatementService.php" method="forTenant"/>
-  <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Services/Tenant/StatementService.php" method="forTenant"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Services/Tickets/TicketAnnotationService.php" method="storeAnnotation"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Services/Wallet/WalletService.php" method="credit"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Services/Wallet/WalletService.php" method="apply"/>
@@ -399,9 +364,6 @@
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Services/WorkflowLogger.php" method="log"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Services/WorkflowLogger.php" method="measure"/>
   <violation rule="PHPMD\Rule\Design\LongParameterList" file="app/Support/CacheStampedeGuard.php" method="remember"/>
-  <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/Support/RateLimiterConfigurator.php" method="configure"/>
-  <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/Support/RateLimiterConfigurator.php" method="configure"/>
-  <violation rule="PHPMD\Rule\Design\LongMethod" file="app/Support/RateLimiterConfigurator.php" method="configure"/>
   <violation rule="PHPMD\Rule\ExcessivePublicCount" file="app/ValueObjects/Money.php"/>
   <violation rule="PHPMD\Rule\CyclomaticComplexity" file="app/ValueObjects/Money.php" method="roundHalfEven"/>
   <violation rule="PHPMD\Rule\Design\NpathComplexity" file="app/ValueObjects/Money.php" method="roundHalfEven"/>

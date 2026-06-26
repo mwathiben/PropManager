@@ -28,6 +28,16 @@ class PaymentsGatewayReconcile extends Command
 
     protected $description = 'Phase-40 GATEWAY-RECONCILE-2: reconcile Paystack + Stripe ledgers against local payments per landlord.';
 
+    /** @var array<string, int> */
+    private array $perGatewayDrift = ['paystack' => 0, 'stripe' => 0];
+
+    /** @var array<string, int> */
+    private array $perGatewayLandlords = ['paystack' => 0, 'stripe' => 0];
+
+    private CarbonImmutable $from;
+
+    private CarbonImmutable $to;
+
     public function handle(
         PaymentReconciliationService $service,
         MetricsService $metrics,
@@ -36,74 +46,105 @@ class PaymentsGatewayReconcile extends Command
         $gatewayFilter = $this->option('gateway');
         $landlordFilter = $this->option('landlord');
 
+        $this->from = CarbonImmutable::now()->subDay()->startOfDay();
+        $this->to = CarbonImmutable::now()->subDay()->endOfDay();
+
         $configs = PaymentConfiguration::query()
             ->when($landlordFilter, fn ($q) => $q->where('landlord_id', (int) $landlordFilter))
             ->get();
 
-        $from = CarbonImmutable::now()->subDay()->startOfDay();
-        $to = CarbonImmutable::now()->subDay()->endOfDay();
-
-        $perGatewayDrift = ['paystack' => 0, 'stripe' => 0];
-        $perGatewayLandlords = ['paystack' => 0, 'stripe' => 0];
-
         foreach ($configs as $config) {
-            $gateways = [];
-            if (($gatewayFilter === null || $gatewayFilter === 'paystack') && $config->hasPaystackConfig()) {
-                $gateways[] = 'paystack';
-            }
-            if (($gatewayFilter === null || $gatewayFilter === 'stripe') && $config->hasStripeConfig()) {
-                $gateways[] = 'stripe';
-            }
-
-            foreach ($gateways as $gateway) {
-                try {
-                    $result = $service->reconcile($gateway, (int) $config->landlord_id, $from, $to);
-                    $driftCount = count($result->discrepancies);
-                    $perGatewayDrift[$gateway] += $driftCount;
-                    $perGatewayLandlords[$gateway]++;
-
-                    $metrics->gauge('gateway_reconcile_drift_count', $driftCount, [
-                        'gateway' => $gateway,
-                        'landlord_id' => (string) $config->landlord_id,
-                    ]);
-                } catch (\Throwable $e) {
-                    $this->error(sprintf(
-                        'reconcile gateway=%s landlord=%d failed: %s',
-                        $gateway,
-                        $config->landlord_id,
-                        $e->getMessage(),
-                    ));
-                }
+            foreach ($this->resolveGateways($config, $gatewayFilter) as $gateway) {
+                $this->reconcileGateway($service, $metrics, $config, $gateway);
             }
         }
 
-        foreach ($perGatewayDrift as $gateway => $totalDrift) {
+        $this->reportAndAlert($metrics, $recorder);
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * Determine which gateways to run for this config based on the filter and available credentials.
+     */
+    private function resolveGateways(PaymentConfiguration $config, ?string $gatewayFilter): array
+    {
+        $gateways = [];
+
+        if ($this->gatewayAllowed('paystack', $gatewayFilter) && $config->hasPaystackConfig()) {
+            $gateways[] = 'paystack';
+        }
+
+        if ($this->gatewayAllowed('stripe', $gatewayFilter) && $config->hasStripeConfig()) {
+            $gateways[] = 'stripe';
+        }
+
+        return $gateways;
+    }
+
+    private function gatewayAllowed(string $gateway, ?string $filter): bool
+    {
+        return $filter === null || $filter === $gateway;
+    }
+
+    /**
+     * Run reconciliation for one gateway + landlord and accumulate drift counters.
+     */
+    private function reconcileGateway(
+        PaymentReconciliationService $service,
+        MetricsService $metrics,
+        PaymentConfiguration $config,
+        string $gateway,
+    ): void {
+        try {
+            $result = $service->reconcile($gateway, (int) $config->landlord_id, $this->from, $this->to);
+            $driftCount = count($result->discrepancies);
+            $this->perGatewayDrift[$gateway] += $driftCount;
+            $this->perGatewayLandlords[$gateway]++;
+
+            $metrics->gauge('gateway_reconcile_drift_count', $driftCount, [
+                'gateway' => $gateway,
+                'landlord_id' => (string) $config->landlord_id,
+            ]);
+        } catch (\Throwable $e) {
+            $this->error(sprintf(
+                'reconcile gateway=%s landlord=%d failed: %s',
+                $gateway,
+                $config->landlord_id,
+                $e->getMessage(),
+            ));
+        }
+    }
+
+    /**
+     * Emit per-gateway metrics, log summary lines, fire/resolve the drift alert.
+     */
+    private function reportAndAlert(MetricsService $metrics, AlertFiringRecorder $recorder): void
+    {
+        foreach ($this->perGatewayDrift as $gateway => $totalDrift) {
             $metrics->gauge('gateway_reconcile_drift_total', $totalDrift, ['gateway' => $gateway]);
             $this->line(sprintf(
                 'gateway=%s landlords=%d total_drift=%d',
                 $gateway,
-                $perGatewayLandlords[$gateway],
+                $this->perGatewayLandlords[$gateway],
                 $totalDrift,
             ));
 
-            if ($perGatewayLandlords[$gateway] > 0 && $totalDrift > self::DRIFT_THRESHOLD) {
+            if ($this->perGatewayLandlords[$gateway] > 0 && $totalDrift > self::DRIFT_THRESHOLD) {
                 $recorder->record(
                     alertKey: 'gateway_drift',
                     value: (float) $totalDrift,
                     threshold: (float) self::DRIFT_THRESHOLD,
                     metadata: [
                         'gateway' => $gateway,
-                        'landlords_audited' => $perGatewayLandlords[$gateway],
+                        'landlords_audited' => $this->perGatewayLandlords[$gateway],
                     ],
                 );
             }
         }
 
-        $totalDrift = array_sum($perGatewayDrift);
-        if ($totalDrift <= self::DRIFT_THRESHOLD) {
+        if (array_sum($this->perGatewayDrift) <= self::DRIFT_THRESHOLD) {
             $recorder->resolve('gateway_drift');
         }
-
-        return self::SUCCESS;
     }
 }
