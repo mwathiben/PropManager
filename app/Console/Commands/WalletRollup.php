@@ -33,69 +33,10 @@ class WalletRollup extends Command
         $emitted = 0;
 
         try {
-            // Default-currency credit lives in the leases.wallet_balance scalar.
-            $defaultByLandlord = DB::table('leases')
-                ->whereNull('deleted_at')
-                ->where('wallet_balance', '!=', 0)
-                ->groupBy('landlord_id')
-                ->selectRaw('landlord_id, SUM(wallet_balance) as total')
-                ->orderByDesc('total')
-                ->limit(50)
-                ->get();
-
-            foreach ($defaultByLandlord as $row) {
-                $currency = (PaymentConfiguration::where('landlord_id', $row->landlord_id)->value('default_currency') ?? Currency::default());
-                $code = $currency instanceof Currency ? $currency->value : (string) $currency;
-                $metrics->gauge('wallet_total_credit_balance', (float) $row->total, [
-                    'landlord_id' => (string) $row->landlord_id,
-                    'currency' => $code,
-                ]);
-                $emitted++;
-            }
-
-            // Non-default currencies live in lease_wallet_balances.
-            LeaseWalletBalance::query()
-                ->where('balance', '!=', 0)
-                ->groupBy('landlord_id', 'currency')
-                ->selectRaw('landlord_id, currency, SUM(balance) as total')
-                ->limit(50)
-                ->get()
-                ->each(function ($row) use ($metrics, &$emitted) {
-                    $metrics->gauge('wallet_total_credit_balance', (float) $row->total, [
-                        'landlord_id' => (string) $row->landlord_id,
-                        'currency' => (string) $row->currency,
-                    ]);
-                    $emitted++;
-                });
-
-            CreditNote::query()
-                ->where('status', CreditNote::STATUS_PENDING)
-                ->groupBy('landlord_id')
-                ->selectRaw('landlord_id, COUNT(*) as cnt')
-                ->orderByDesc('cnt')
-                ->limit(50)
-                ->get()
-                ->each(function ($row) use ($metrics, &$emitted) {
-                    $metrics->gauge('credit_notes_pending_count', (float) $row->cnt, [
-                        'landlord_id' => (string) $row->landlord_id,
-                    ]);
-                    $emitted++;
-                });
-
-            // Wallet credit applied to invoices in the last 24h (sweep + tenant + auto).
-            WalletTransaction::query()
-                ->where('type', 'debit')
-                ->where('created_at', '>=', now()->subDay())
-                ->groupBy('landlord_id')
-                ->selectRaw('landlord_id, COUNT(*) as cnt')
-                ->limit(50)
-                ->get()
-                ->each(function ($row) use ($metrics, &$emitted) {
-                    $metrics->gauge('wallet_applied_24h_count', (float) $row->cnt, [
-                        'landlord_id' => (string) $row->landlord_id,
-                    ]);
-                    $emitted++;
-                });
+            $emitted += $this->emitDefaultCurrencyBalances($metrics);
+            $emitted += $this->emitNonDefaultCurrencyBalances($metrics);
+            $emitted += $this->emitPendingCreditNotes($metrics);
+            $emitted += $this->emitWalletApplied24h($metrics);
         } catch (\Throwable $e) {
             Log::warning('wallet:rollup gauge emit failed', ['error' => $e->getMessage()]);
         }
@@ -109,5 +50,97 @@ class WalletRollup extends Command
         );
 
         return self::SUCCESS;
+    }
+
+    /** Default-currency credit lives in the leases.wallet_balance scalar. */
+    private function emitDefaultCurrencyBalances(MetricsService $metrics): int
+    {
+        $emitted = 0;
+
+        $defaultByLandlord = DB::table('leases')
+            ->whereNull('deleted_at')
+            ->where('wallet_balance', '!=', 0)
+            ->groupBy('landlord_id')
+            ->selectRaw('landlord_id, SUM(wallet_balance) as total')
+            ->orderByDesc('total')
+            ->limit(50)
+            ->get();
+
+        foreach ($defaultByLandlord as $row) {
+            $currency = (PaymentConfiguration::where('landlord_id', $row->landlord_id)->value('default_currency') ?? Currency::default());
+            $code = $currency instanceof Currency ? $currency->value : (string) $currency;
+            $metrics->gauge('wallet_total_credit_balance', (float) $row->total, [
+                'landlord_id' => (string) $row->landlord_id,
+                'currency' => $code,
+            ]);
+            $emitted++;
+        }
+
+        return $emitted;
+    }
+
+    /** Non-default currencies live in lease_wallet_balances. */
+    private function emitNonDefaultCurrencyBalances(MetricsService $metrics): int
+    {
+        $emitted = 0;
+
+        LeaseWalletBalance::query()
+            ->where('balance', '!=', 0)
+            ->groupBy('landlord_id', 'currency')
+            ->selectRaw('landlord_id, currency, SUM(balance) as total')
+            ->limit(50)
+            ->get()
+            ->each(function ($row) use ($metrics, &$emitted) {
+                $metrics->gauge('wallet_total_credit_balance', (float) $row->total, [
+                    'landlord_id' => (string) $row->landlord_id,
+                    'currency' => (string) $row->currency,
+                ]);
+                $emitted++;
+            });
+
+        return $emitted;
+    }
+
+    private function emitPendingCreditNotes(MetricsService $metrics): int
+    {
+        $emitted = 0;
+
+        CreditNote::query()
+            ->where('status', CreditNote::STATUS_PENDING)
+            ->groupBy('landlord_id')
+            ->selectRaw('landlord_id, COUNT(*) as cnt')
+            ->orderByDesc('cnt')
+            ->limit(50)
+            ->get()
+            ->each(function ($row) use ($metrics, &$emitted) {
+                $metrics->gauge('credit_notes_pending_count', (float) $row->cnt, [
+                    'landlord_id' => (string) $row->landlord_id,
+                ]);
+                $emitted++;
+            });
+
+        return $emitted;
+    }
+
+    /** Wallet credit applied to invoices in the last 24h (sweep + tenant + auto). */
+    private function emitWalletApplied24h(MetricsService $metrics): int
+    {
+        $emitted = 0;
+
+        WalletTransaction::query()
+            ->where('type', 'debit')
+            ->where('created_at', '>=', now()->subDay())
+            ->groupBy('landlord_id')
+            ->selectRaw('landlord_id, COUNT(*) as cnt')
+            ->limit(50)
+            ->get()
+            ->each(function ($row) use ($metrics, &$emitted) {
+                $metrics->gauge('wallet_applied_24h_count', (float) $row->cnt, [
+                    'landlord_id' => (string) $row->landlord_id,
+                ]);
+                $emitted++;
+            });
+
+        return $emitted;
     }
 }

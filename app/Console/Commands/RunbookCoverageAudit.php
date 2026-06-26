@@ -29,28 +29,61 @@ class RunbookCoverageAudit extends Command
 
     public function handle(AlertRegistry $registry, MetricsService $metrics): int
     {
-        $broken = [];
-        foreach ($registry->all() as $alert) {
-            $ref = (string) ($alert['runbook'] ?? '');
-            if ($ref === '') {
-                $broken[] = ['alert' => $alert['key'], 'reason' => 'empty runbook ref'];
-
-                continue;
-            }
-            [$path, $anchor] = $this->splitRef($ref);
-            $abs = base_path($path);
-            if (! file_exists($abs)) {
-                $broken[] = ['alert' => $alert['key'], 'reason' => "file not found: {$path}"];
-
-                continue;
-            }
-            if ($anchor !== null && ! $this->anchorExists($abs, $anchor)) {
-                $broken[] = ['alert' => $alert['key'], 'reason' => "anchor #{$anchor} not in {$path}"];
-            }
-        }
+        $alerts = $registry->all();
+        $broken = $this->collectBrokenRefs($alerts);
 
         $metrics->gauge('runbook_coverage_broken_links_count', (float) count($broken));
 
+        return $this->reportResults($broken, count($alerts));
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $alerts
+     * @return array<int, array{alert: string, reason: string}>
+     */
+    private function collectBrokenRefs(array $alerts): array
+    {
+        $broken = [];
+        foreach ($alerts as $alert) {
+            $entry = $this->validateAlertRef($alert);
+            if ($entry !== null) {
+                $broken[] = $entry;
+            }
+        }
+
+        return $broken;
+    }
+
+    /**
+     * @param  array<string, mixed>  $alert
+     * @return array{alert: string, reason: string}|null
+     */
+    private function validateAlertRef(array $alert): ?array
+    {
+        $ref = (string) ($alert['runbook'] ?? '');
+        if ($ref === '') {
+            return ['alert' => $alert['key'], 'reason' => 'empty runbook ref'];
+        }
+
+        [$path, $anchor] = $this->splitRef($ref);
+        $abs = base_path($path);
+
+        if (! file_exists($abs)) {
+            return ['alert' => $alert['key'], 'reason' => "file not found: {$path}"];
+        }
+
+        if ($anchor !== null && ! $this->anchorExists($abs, $anchor)) {
+            return ['alert' => $alert['key'], 'reason' => "anchor #{$anchor} not in {$path}"];
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<int, array{alert: string, reason: string}>  $broken
+     */
+    private function reportResults(array $broken, int $totalCount): int
+    {
         if ($broken !== []) {
             $this->error('Broken runbook references:');
             foreach ($broken as $row) {
@@ -60,7 +93,7 @@ class RunbookCoverageAudit extends Command
                 return self::FAILURE;
             }
         } else {
-            $this->info('All '.count($registry->all()).' alert runbook references resolve.');
+            $this->info("All {$totalCount} alert runbook references resolve.");
         }
 
         return self::SUCCESS;

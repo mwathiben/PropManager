@@ -38,31 +38,13 @@ class OutboundHealthCheck extends Command
         foreach ($deps as $dep) {
             $result = $checker->check($dep);
             $status = (string) $result['status'];
-            $score = match ($status) {
-                DependencyHealthService::STATUS_UP => 1.0,
-                DependencyHealthService::STATUS_DEGRADED => 0.5,
-                DependencyHealthService::STATUS_DOWN => 0.0,
-                default => 0.0,
-            };
 
-            $metrics->gauge('dependency_up', $score, ['dep' => $dep]);
-            $metrics->gauge('dependency_latency_ms', (float) $result['latency_ms'], ['dep' => $dep]);
-
-            $stateKey = "sre:dep-prev-status:{$dep}";
-            $previous = Cache::get($stateKey);
-            if ($previous !== null && $previous !== $status) {
-                DegradationDetected::dispatch($dep, (string) $previous, $status, (int) $result['latency_ms']);
-            }
-            Cache::put($stateKey, $status, now()->addHours(24));
+            $this->emitMetrics($metrics, $dep, $status, $result);
+            $this->dispatchDegradationIfTransitioned($dep, $status, (int) $result['latency_ms']);
 
             if ($status === DependencyHealthService::STATUS_DOWN) {
                 $downAny = true;
-                $recorder->record(
-                    alertKey: 'dependency_down',
-                    value: 0.0,
-                    threshold: 0.0,
-                    metadata: ['dep' => $dep, 'latency_ms' => $result['latency_ms'], 'error' => $result['error']],
-                );
+                $this->recordDownAlert($recorder, $dep, $result);
             }
 
             $this->line(sprintf('%-12s status=%-8s latency=%dms%s', $dep, $status, $result['latency_ms'], $result['error'] ? ' error='.$result['error'] : ''));
@@ -73,5 +55,39 @@ class OutboundHealthCheck extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    private function emitMetrics(MetricsService $metrics, string $dep, string $status, array $result): void
+    {
+        $score = match ($status) {
+            DependencyHealthService::STATUS_UP => 1.0,
+            DependencyHealthService::STATUS_DEGRADED => 0.5,
+            default => 0.0,
+        };
+
+        $metrics->gauge('dependency_up', $score, ['dep' => $dep]);
+        $metrics->gauge('dependency_latency_ms', (float) $result['latency_ms'], ['dep' => $dep]);
+    }
+
+    private function dispatchDegradationIfTransitioned(string $dep, string $status, int $latencyMs): void
+    {
+        $stateKey = "sre:dep-prev-status:{$dep}";
+        $previous = Cache::get($stateKey);
+
+        if ($previous !== null && $previous !== $status) {
+            DegradationDetected::dispatch($dep, (string) $previous, $status, $latencyMs);
+        }
+
+        Cache::put($stateKey, $status, now()->addHours(24));
+    }
+
+    private function recordDownAlert(AlertFiringRecorder $recorder, string $dep, array $result): void
+    {
+        $recorder->record(
+            alertKey: 'dependency_down',
+            value: 0.0,
+            threshold: 0.0,
+            metadata: ['dep' => $dep, 'latency_ms' => $result['latency_ms'], 'error' => $result['error']],
+        );
     }
 }

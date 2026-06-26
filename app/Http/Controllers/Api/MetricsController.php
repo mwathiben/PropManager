@@ -36,29 +36,42 @@ class MetricsController extends Controller
                 ->header('Content-Type', 'text/plain; version=0.0.4');
         }
 
-        if ($bearer !== '') {
-            $supplied = (string) $request->bearerToken();
-            if (! hash_equals($bearer, $supplied)) {
-                abort(401, 'invalid bearer');
-            }
-        }
-
-        if ($allowList !== '') {
-            $ip = (string) $request->ip();
-            $allowed = false;
-            foreach (explode(',', $allowList) as $cidr) {
-                if ($this->ipInCidr($ip, trim($cidr))) {
-                    $allowed = true;
-                    break;
-                }
-            }
-            if (! $allowed) {
-                abort(403, 'caller IP not on METRICS_ALLOW_IPS');
-            }
-        }
+        $this->enforceBearer($request, $bearer);
+        $this->enforceAllowList($request, $allowList);
 
         return response($metrics->exportPrometheus(), 200)
             ->header('Content-Type', 'text/plain; version=0.0.4');
+    }
+
+    private function enforceBearer(Request $request, string $bearer): void
+    {
+        if ($bearer === '') {
+            return;
+        }
+
+        $supplied = (string) $request->bearerToken();
+        if (! hash_equals($bearer, $supplied)) {
+            abort(401, 'invalid bearer');
+        }
+    }
+
+    private function enforceAllowList(Request $request, string $allowList): void
+    {
+        if ($allowList === '') {
+            return;
+        }
+
+        $ip = (string) $request->ip();
+        $allowed = false;
+        foreach (explode(',', $allowList) as $cidr) {
+            if ($this->ipInCidr($ip, trim($cidr))) {
+                $allowed = true;
+                break;
+            }
+        }
+        if (! $allowed) {
+            abort(403, 'caller IP not on METRICS_ALLOW_IPS');
+        }
     }
 
     private function ipInCidr(string $ip, string $cidr): bool

@@ -40,43 +40,65 @@ class ProcessScheduledNotifications extends Command
 
         $this->info("Found {$totalCount} scheduled notification(s) ready to send.");
 
-        $sent = 0;
-        $failed = 0;
+        $counters = ['sent' => 0, 'failed' => 0];
 
         Notification::readyToSend()
             ->with('recipient:id,name')
-            ->chunkById(100, function ($notifications) use ($notificationService, $dryRun, &$sent, &$failed) {
+            ->chunkById(100, function ($notifications) use ($notificationService, $dryRun, &$counters) {
                 foreach ($notifications as $notification) {
-                    $this->line("Processing notification #{$notification->id} for {$notification->recipient?->name}...");
-
-                    if ($dryRun) {
-                        $this->info("  [DRY RUN] Would send: {$notification->subject}");
-
-                        continue;
-                    }
-
-                    try {
-                        $success = $notificationService->sendDeferredNotification($notification);
-
-                        if ($success) {
-                            $sent++;
-                            $this->info("  Sent successfully via {$notification->channel}");
-                        } else {
-                            $failed++;
-                            $this->warn('  Failed to send');
-                        }
-                    } catch (\Exception $e) {
-                        $failed++;
-                        $this->error("  Error: {$e->getMessage()}");
-                    }
+                    $this->processNotification($notification, $notificationService, $dryRun, $counters);
                 }
             });
 
         if (! $dryRun) {
             $this->newLine();
-            $this->info("Completed: {$sent} sent, {$failed} failed.");
+            $this->info("Completed: {$counters['sent']} sent, {$counters['failed']} failed.");
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * @param  array{sent: int, failed: int}  $counters
+     */
+    private function processNotification(
+        Notification $notification,
+        NotificationService $notificationService,
+        bool $dryRun,
+        array &$counters,
+    ): void {
+        $this->line("Processing notification #{$notification->id} for {$notification->recipient?->name}...");
+
+        if ($dryRun) {
+            $this->info("  [DRY RUN] Would send: {$notification->subject}");
+
+            return;
+        }
+
+        $this->attemptSend($notification, $notificationService, $counters);
+    }
+
+    /**
+     * @param  array{sent: int, failed: int}  $counters
+     */
+    private function attemptSend(
+        Notification $notification,
+        NotificationService $notificationService,
+        array &$counters,
+    ): void {
+        try {
+            $success = $notificationService->sendDeferredNotification($notification);
+
+            if ($success) {
+                $counters['sent']++;
+                $this->info("  Sent successfully via {$notification->channel}");
+            } else {
+                $counters['failed']++;
+                $this->warn('  Failed to send');
+            }
+        } catch (\Exception $e) {
+            $counters['failed']++;
+            $this->error("  Error: {$e->getMessage()}");
+        }
     }
 }

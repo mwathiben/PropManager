@@ -38,34 +38,42 @@ class WaterReadingReminders extends Command
                 continue;
             }
 
-            if ($dryRun) {
+            if ($this->dispatchReminder($notifications, $building, $dryRun)) {
                 $sent++;
-
-                continue;
-            }
-
-            try {
-                $notifications->send(
-                    recipientId: (int) $building->caretaker_id,
-                    type: Notification::TYPE_WATER_READING_DUE,
-                    subject: __('water.notify.reading_due_subject'),
-                    message: __('water.notify.reading_due_body', ['building' => $building->name]),
-                    data: ['building_id' => $building->id],
-                    landlordId: (int) $building->landlord_id,
-                );
-                $sent++;
-            } catch (\Throwable $e) {
-                // One bad recipient must not abort reminders for other buildings.
-                Log::error('water:reading-reminders building failed', [
-                    'building_id' => $building->id,
-                    'exception' => $e::class,
-                    'message' => $e->getMessage(),
-                ]);
             }
         }
 
         $this->info("water:reading-reminders: {$sent} reminder(s) dispatched");
 
         return self::SUCCESS;
+    }
+
+    private function dispatchReminder(NotificationService $notifications, mixed $building, bool $dryRun): bool
+    {
+        if ($dryRun) {
+            return true;
+        }
+
+        try {
+            $notifications->send(
+                recipientId: (int) $building->caretaker_id,
+                type: Notification::TYPE_WATER_READING_DUE,
+                subject: __('water.notify.reading_due_subject'),
+                message: __('water.notify.reading_due_body', ['building' => $building->name]),
+                data: ['building_id' => $building->id],
+                landlordId: (int) $building->landlord_id,
+            );
+
+            return true;
+        } catch (\Throwable $e) {
+            // One bad recipient must not abort reminders for other buildings.
+            Log::error('water:reading-reminders building failed', [
+                'building_id' => $building->id,
+                'exception' => $e::class,
+                'message' => $e->getMessage(),
+            ]);
+
+            return false;
+        }
     }
 }
