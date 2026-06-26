@@ -48,7 +48,7 @@ class FallbackNotificationJob implements ShouldQueue
             return;
         }
 
-        if ($notification->status === \App\Enums\NotificationStatus::Delivered || $notification->status === \App\Enums\NotificationStatus::Read) {
+        if ($this->isAlreadyDelivered($notification)) {
             Log::info('FallbackNotificationJob: Notification already delivered, skipping fallback', [
                 'notification_id' => $this->notificationId,
                 'status' => $notification->status,
@@ -71,6 +71,26 @@ class FallbackNotificationJob implements ShouldQueue
             'to_channel' => $nextChannel,
         ]);
 
+        $this->attemptFallbackSend($notification, $notificationService, $nextChannel);
+    }
+
+    /**
+     * Return true when the notification has already reached the recipient and no fallback is needed.
+     */
+    private function isAlreadyDelivered(Notification $notification): bool
+    {
+        return $notification->status === \App\Enums\NotificationStatus::Delivered
+            || $notification->status === \App\Enums\NotificationStatus::Read;
+    }
+
+    /**
+     * Try to deliver the notification via the given channel, marking success or failure and re-throwing on error.
+     */
+    private function attemptFallbackSend(
+        Notification $notification,
+        NotificationService $notificationService,
+        string $nextChannel
+    ): void {
         try {
             $recipient = $notification->recipient;
 

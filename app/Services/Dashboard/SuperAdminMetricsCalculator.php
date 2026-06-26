@@ -34,79 +34,96 @@ class SuperAdminMetricsCalculator
         // bound to {now()->month, now()->year}, but the cache key wasn't).
         $monthSuffix = now()->format('Y-m');
 
-        return FinanceCacheService::rememberSuperAdminStats("metrics:{$monthSuffix}", function () {
-            $systemHealth = [
-                'active_landlords' => User::where('role', 'landlord')->count(),
-                'total_properties' => Property::withoutGlobalScope('landlord')->count(),
-                'total_units' => Unit::withoutGlobalScope('landlord')->count(),
-                'total_tenants' => User::where('role', 'tenant')->count(),
-                'monthly_revenue' => Payment::withoutGlobalScope('landlord')
-                    ->whereMonth('payment_date', now()->month)
-                    ->whereYear('payment_date', now()->year)
-                    ->sum('amount'),
-                'total_revenue' => Payment::withoutGlobalScope('landlord')->withArchived()->sum('amount'),
-            ];
+        return FinanceCacheService::rememberSuperAdminStats("metrics:{$monthSuffix}", fn (): array => [
+            'systemHealth' => $this->buildSystemHealth(),
+            'actionItems' => $this->buildActionItems(),
+            'landlords' => $this->buildLandlords(),
+            'topLandlords' => $this->buildTopLandlords(),
+        ]);
+    }
 
-            $actionItems = [
-                'inactive_landlords' => User::where('role', 'landlord')
-                    ->whereDoesntHave('properties')
-                    ->count(),
-                'new_signups' => User::where('role', 'landlord')
-                    ->where('created_at', '>=', now()->subDays(7))
-                    ->count(),
-            ];
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildSystemHealth(): array
+    {
+        return [
+            'active_landlords' => User::where('role', 'landlord')->count(),
+            'total_properties' => Property::withoutGlobalScope('landlord')->count(),
+            'total_units' => Unit::withoutGlobalScope('landlord')->count(),
+            'total_tenants' => User::where('role', 'tenant')->count(),
+            'monthly_revenue' => Payment::withoutGlobalScope('landlord')
+                ->whereMonth('payment_date', now()->month)
+                ->whereYear('payment_date', now()->year)
+                ->sum('amount'),
+            'total_revenue' => Payment::withoutGlobalScope('landlord')->withArchived()->sum('amount'),
+        ];
+    }
 
-            $landlords = User::where('role', 'landlord')
-                ->withCount(['properties'])
-                ->select(['users.id', 'users.name', 'users.email', 'users.created_at'])
-                ->selectSub(
-                    Unit::withoutGlobalScope('landlord')
-                        ->selectRaw('COUNT(*)')
-                        ->whereColumn('landlord_id', 'users.id'),
-                    'units_count'
-                )
-                ->selectSub(
-                    Unit::withoutGlobalScope('landlord')
-                        ->selectRaw('COUNT(*)')
-                        ->whereColumn('landlord_id', 'users.id')
-                        ->where('status', 'occupied'),
-                    'occupied_units'
-                )
-                ->orderBy('created_at', 'desc')
-                ->limit(10)
-                ->get();
+    /**
+     * @return array<string, int>
+     */
+    private function buildActionItems(): array
+    {
+        return [
+            'inactive_landlords' => User::where('role', 'landlord')
+                ->whereDoesntHave('properties')
+                ->count(),
+            'new_signups' => User::where('role', 'landlord')
+                ->where('created_at', '>=', now()->subDays(7))
+                ->count(),
+        ];
+    }
 
-            $landlordIds = $landlords->pluck('id');
-            $monthlyRevenues = $this->landlordsMonthlyRevenue($landlordIds);
-            $landlords->each(fn ($l) => $l->monthly_revenue = $monthlyRevenues[$l->id] ?? 0);
+    private function buildLandlords(): Collection
+    {
+        $landlords = User::where('role', 'landlord')
+            ->withCount(['properties'])
+            ->select(['users.id', 'users.name', 'users.email', 'users.created_at'])
+            ->selectSub(
+                Unit::withoutGlobalScope('landlord')
+                    ->selectRaw('COUNT(*)')
+                    ->whereColumn('landlord_id', 'users.id'),
+                'units_count'
+            )
+            ->selectSub(
+                Unit::withoutGlobalScope('landlord')
+                    ->selectRaw('COUNT(*)')
+                    ->whereColumn('landlord_id', 'users.id')
+                    ->where('status', 'occupied'),
+                'occupied_units'
+            )
+            ->orderBy('created_at', 'desc')
+            ->limit(10)
+            ->get();
 
-            $month = (int) now()->format('m');
-            $year = (int) now()->format('Y');
-            $monthSql = $this->getMonthSql('p.payment_date');
-            $yearSql = $this->getYearSql('p.payment_date');
+        $monthlyRevenues = $this->landlordsMonthlyRevenue($landlords->pluck('id'));
+        $landlords->each(fn ($l) => $l->monthly_revenue = $monthlyRevenues[$l->id] ?? 0);
 
-            $topLandlords = User::where('role', 'landlord')
-                ->select(['users.id', 'users.name', 'users.email', 'users.created_at'])
-                ->selectRaw("COALESCE((
-                    SELECT SUM(p.amount)
-                    FROM payments p
-                    INNER JOIN leases l ON p.lease_id = l.id
-                    INNER JOIN units u ON l.unit_id = u.id
-                    WHERE u.landlord_id = users.id
-                    AND {$monthSql} = ?
-                    AND {$yearSql} = ?
-                ), 0) as monthly_revenue", [$month, $year])
-                ->orderByDesc('monthly_revenue')
-                ->limit(5)
-                ->get();
+        return $landlords;
+    }
 
-            return [
-                'systemHealth' => $systemHealth,
-                'actionItems' => $actionItems,
-                'landlords' => $landlords,
-                'topLandlords' => $topLandlords,
-            ];
-        });
+    private function buildTopLandlords(): Collection
+    {
+        $month = (int) now()->format('m');
+        $year = (int) now()->format('Y');
+        $monthSql = $this->getMonthSql('p.payment_date');
+        $yearSql = $this->getYearSql('p.payment_date');
+
+        return User::where('role', 'landlord')
+            ->select(['users.id', 'users.name', 'users.email', 'users.created_at'])
+            ->selectRaw("COALESCE((
+                SELECT SUM(p.amount)
+                FROM payments p
+                INNER JOIN leases l ON p.lease_id = l.id
+                INNER JOIN units u ON l.unit_id = u.id
+                WHERE u.landlord_id = users.id
+                AND {$monthSql} = ?
+                AND {$yearSql} = ?
+            ), 0) as monthly_revenue", [$month, $year])
+            ->orderByDesc('monthly_revenue')
+            ->limit(5)
+            ->get();
     }
 
     private function landlordsMonthlyRevenue(Collection $landlordIds): Collection

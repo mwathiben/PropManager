@@ -114,22 +114,23 @@ class MpesaGateway implements PaymentGatewayInterface
             );
         }
 
+        return $this->buildResultFromStkResponse($reference, $response);
+    }
+
+    /**
+     * Map an STK status response to the appropriate PaymentResult.
+     *
+     * @param  array<string, mixed>  $response
+     */
+    private function buildResultFromStkResponse(string $reference, array $response): PaymentResult
+    {
         $resultCode = $response['ResultCode'] ?? null;
 
-        if ($resultCode === '0' || $resultCode === 0) {
-            $callbackMetadata = $response['CallbackMetadata']['Item'] ?? [];
-            $amount = $this->extractCallbackValue($callbackMetadata, 'Amount');
-
-            return PaymentResult::verified(
-                reference: $reference,
-                status: 'success',
-                amount: Money::fromFloat((float) ($amount ?? 0), 'KES'),
-                transactionId: $this->extractCallbackValue($callbackMetadata, 'MpesaReceiptNumber'),
-                rawResponse: $response,
-            );
+        if ($this->isStkSuccess($resultCode)) {
+            return $this->buildVerifiedResult($reference, $response);
         }
 
-        if ($resultCode === '1032' || $resultCode === 1032) {
+        if ($this->isStkCancelledByUser($resultCode)) {
             return PaymentResult::failed(
                 error: 'Transaction cancelled by user',
                 errorCode: (string) $resultCode,
@@ -140,6 +141,41 @@ class MpesaGateway implements PaymentGatewayInterface
 
         return PaymentResult::pending(
             reference: $reference,
+            rawResponse: $response,
+        );
+    }
+
+    /**
+     * Return true when the STK result code represents a successful payment.
+     */
+    private function isStkSuccess(mixed $resultCode): bool
+    {
+        return $resultCode === '0' || $resultCode === 0;
+    }
+
+    /**
+     * Return true when the STK result code indicates the user cancelled.
+     */
+    private function isStkCancelledByUser(mixed $resultCode): bool
+    {
+        return $resultCode === '1032' || $resultCode === 1032;
+    }
+
+    /**
+     * Build a verified PaymentResult from a successful STK callback response.
+     *
+     * @param  array<string, mixed>  $response
+     */
+    private function buildVerifiedResult(string $reference, array $response): PaymentResult
+    {
+        $callbackMetadata = $response['CallbackMetadata']['Item'] ?? [];
+        $amount = $this->extractCallbackValue($callbackMetadata, 'Amount');
+
+        return PaymentResult::verified(
+            reference: $reference,
+            status: 'success',
+            amount: Money::fromFloat((float) ($amount ?? 0), 'KES'),
+            transactionId: $this->extractCallbackValue($callbackMetadata, 'MpesaReceiptNumber'),
             rawResponse: $response,
         );
     }

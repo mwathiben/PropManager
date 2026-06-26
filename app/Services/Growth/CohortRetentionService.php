@@ -75,48 +75,100 @@ class CohortRetentionService
     private function aggregate(array $rows, int $monthsBack): array
     {
         $minSample = (int) config('growth.cohort.min_sample', 20);
+        $bySource = $this->groupRowsBySource($rows);
+        $sources = $this->blendSourceRetentionCurves($bySource, $monthsBack, $minSample);
+        $baseline = $sources['organic']['retention'] ?? [];
+        $sources = $this->attachDeltaVsOrganic($sources, $baseline);
 
-        /** @var array<string, list<array{size:int, retention: array<int, float>}>> $bySource */
+        return [
+            'sources' => $this->organicFirst($sources),
+            'baseline' => $baseline,
+            'month_range' => $monthsBack,
+            'min_sample' => $minSample,
+        ];
+    }
+
+    /**
+     * Group flat cohort rows into a map keyed by source name.
+     *
+     * @param  array<int, array{cohort_month: string, source: string, size: int, retention: array<int, float>}>  $rows
+     * @return array<string, list<array{cohort_month: string, source: string, size: int, retention: array<int, float>}>>
+     */
+    private function groupRowsBySource(array $rows): array
+    {
         $bySource = [];
         foreach ($rows as $row) {
             $bySource[$row['source']][] = $row;
         }
 
+        return $bySource;
+    }
+
+    /**
+     * For each source, blend all cohort months into one size-weighted
+     * retention curve capped at $monthsBack offsets.
+     *
+     * @param  array<string, list<array{cohort_month: string, source: string, size: int, retention: array<int, float>}>>  $bySource
+     * @return array<string, array<string, mixed>>
+     */
+    private function blendSourceRetentionCurves(array $bySource, int $monthsBack, int $minSample): array
+    {
         $sources = [];
         foreach ($bySource as $source => $cohortRows) {
-            $totalSize = 0;
-            $num = []; // offset => Σ(size · retention)
-            $den = []; // offset => Σ(size) over cohorts old enough to have that offset
-
-            foreach ($cohortRows as $cohort) {
-                $totalSize += $cohort['size'];
-                foreach ($cohort['retention'] as $offset => $rate) {
-                    if ($offset > $monthsBack) {
-                        break;
-                    }
-                    $num[$offset] = ($num[$offset] ?? 0.0) + $cohort['size'] * $rate;
-                    $den[$offset] = ($den[$offset] ?? 0) + $cohort['size'];
-                }
-            }
-
-            ksort($num);
-            $retention = [];
-            // Key by true month-offset (not a dense push) so a future
-            // sparse-offset cohort can't desync index from offset.
-            foreach ($num as $offset => $weighted) {
-                $retention[$offset] = $den[$offset] > 0 ? round($weighted / $den[$offset], 4) : 0.0;
-            }
-
-            $sources[$source] = [
-                'source' => $source,
-                'total_size' => $totalSize,
-                'retention' => $retention,
-                'insufficient_sample' => $totalSize < $minSample,
-            ];
+            $sources[$source] = $this->blendCohortRows($source, $cohortRows, $monthsBack, $minSample);
         }
 
-        $baseline = $sources['organic']['retention'] ?? [];
+        return $sources;
+    }
 
+    /**
+     * Blend one source's cohort rows into a size-weighted retention curve.
+     *
+     * @param  list<array{cohort_month: string, source: string, size: int, retention: array<int, float>}>  $cohortRows
+     * @return array<string, mixed>
+     */
+    private function blendCohortRows(string $source, array $cohortRows, int $monthsBack, int $minSample): array
+    {
+        $totalSize = 0;
+        $num = []; // offset => Σ(size · retention)
+        $den = []; // offset => Σ(size) over cohorts old enough to have that offset
+
+        foreach ($cohortRows as $cohort) {
+            $totalSize += $cohort['size'];
+            foreach ($cohort['retention'] as $offset => $rate) {
+                if ($offset > $monthsBack) {
+                    break;
+                }
+                $num[$offset] = ($num[$offset] ?? 0.0) + $cohort['size'] * $rate;
+                $den[$offset] = ($den[$offset] ?? 0) + $cohort['size'];
+            }
+        }
+
+        ksort($num);
+        $retention = [];
+        // Key by true month-offset (not a dense push) so a future
+        // sparse-offset cohort can't desync index from offset.
+        foreach ($num as $offset => $weighted) {
+            $retention[$offset] = $den[$offset] > 0 ? round($weighted / $den[$offset], 4) : 0.0;
+        }
+
+        return [
+            'source' => $source,
+            'total_size' => $totalSize,
+            'retention' => $retention,
+            'insufficient_sample' => $totalSize < $minSample,
+        ];
+    }
+
+    /**
+     * Attach a delta_vs_organic series to every source entry.
+     *
+     * @param  array<string, array<string, mixed>>  $sources
+     * @param  array<int, float>  $baseline
+     * @return array<string, array<string, mixed>>
+     */
+    private function attachDeltaVsOrganic(array $sources, array $baseline): array
+    {
         foreach ($sources as &$data) {
             $delta = [];
             foreach ($data['retention'] as $offset => $rate) {
@@ -126,12 +178,7 @@ class CohortRetentionService
         }
         unset($data);
 
-        return [
-            'sources' => $this->organicFirst($sources),
-            'baseline' => $baseline,
-            'month_range' => $monthsBack,
-            'min_sample' => $minSample,
-        ];
+        return $sources;
     }
 
     /**

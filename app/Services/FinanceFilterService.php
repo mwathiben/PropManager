@@ -178,9 +178,29 @@ class FinanceFilterService
 
     public function getPaginatedExpenses(Request $request, int $landlordId): LengthAwarePaginator
     {
-        $query = Expense::where('landlord_id', $landlordId)
-            ->with(['category', 'vendor', 'property', 'building', 'unit']);
+        $query = $this->buildExpensesQuery($landlordId);
+        $this->applyExpenseFilters($query, $request);
 
+        return $query->orderBy('expense_date', 'desc')
+            ->paginate(20)
+            ->through(fn ($e) => $this->transformExpense($e))
+            ->withQueryString();
+    }
+
+    private function buildExpensesQuery(int $landlordId): Builder
+    {
+        return Expense::where('landlord_id', $landlordId)
+            ->with(['category', 'vendor', 'property', 'building', 'unit']);
+    }
+
+    private function applyExpenseFilters(Builder $query, Request $request): void
+    {
+        $this->applyExpenseLookupFilters($query, $request);
+        $this->applyExpenseDateFilters($query, $request);
+    }
+
+    private function applyExpenseLookupFilters(Builder $query, Request $request): void
+    {
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
@@ -201,7 +221,10 @@ class FinanceFilterService
         if ($request->filled('building_id')) {
             $query->where('building_id', $request->building_id);
         }
+    }
 
+    private function applyExpenseDateFilters(Builder $query, Request $request): void
+    {
         if ($request->filled('date_from')) {
             $query->whereDate('expense_date', '>=', $request->date_from);
         }
@@ -209,23 +232,23 @@ class FinanceFilterService
         if ($request->filled('date_to')) {
             $query->whereDate('expense_date', '<=', $request->date_to);
         }
+    }
 
-        return $query->orderBy('expense_date', 'desc')
-            ->paginate(20)
-            ->through(fn ($e) => [
-                'id' => $e->id,
-                'description' => $e->description,
-                'amount' => $e->amount,
-                'expense_date' => $e->expense_date->format('Y-m-d'),
-                'payment_method' => $e->payment_method,
-                'reference' => $e->reference,
-                'category' => $e->category?->name,
-                'category_color' => $e->category?->color,
-                'vendor' => $e->vendor?->name,
-                'location' => $e->getLocationLabel(),
-                'is_recurring' => $e->is_recurring,
-            ])
-            ->withQueryString();
+    private function transformExpense(Expense $expense): array
+    {
+        return [
+            'id' => $expense->id,
+            'description' => $expense->description,
+            'amount' => $expense->amount,
+            'expense_date' => $expense->expense_date->format('Y-m-d'),
+            'payment_method' => $expense->payment_method,
+            'reference' => $expense->reference,
+            'category' => $expense->category?->name,
+            'category_color' => $expense->category?->color,
+            'vendor' => $expense->vendor?->name,
+            'location' => $expense->getLocationLabel(),
+            'is_recurring' => $expense->is_recurring,
+        ];
     }
 
     public function getArrearsData(Request $request, int $landlordId): array
