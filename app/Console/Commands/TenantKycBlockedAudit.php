@@ -29,6 +29,27 @@ class TenantKycBlockedAudit extends Command
     {
         $dryRun = (bool) $this->option('dry-run');
 
+        $blocked = $this->countBlockedTenants();
+
+        $this->emitGaugeUnlessDryRun($metrics, $blocked, $dryRun);
+
+        $this->info(sprintf(
+            'tenant-kyc:blocked-audit: %d tenant(s) blocked at step-2 gate%s',
+            $blocked,
+            $dryRun ? ' (dry-run)' : '',
+        ));
+
+        $workflowLogger->log(
+            workflowName: 'tenant-kyc:blocked-audit',
+            action: 'completed',
+            metadata: ['blocked' => $blocked, 'dry_run' => $dryRun],
+        );
+
+        return self::SUCCESS;
+    }
+
+    private function countBlockedTenants(): int
+    {
         $blocked = 0;
 
         User::query()
@@ -44,26 +65,19 @@ class TenantKycBlockedAudit extends Command
                 }
             });
 
-        if (! $dryRun) {
-            try {
-                $metrics->gauge('tenant_kyc_blocked_count', (float) $blocked);
-            } catch (\Throwable) {
-                // best-effort
-            }
+        return $blocked;
+    }
+
+    private function emitGaugeUnlessDryRun(MetricsService $metrics, int $blocked, bool $dryRun): void
+    {
+        if ($dryRun) {
+            return;
         }
 
-        $this->info(sprintf(
-            'tenant-kyc:blocked-audit: %d tenant(s) blocked at step-2 gate%s',
-            $blocked,
-            $dryRun ? ' (dry-run)' : '',
-        ));
-
-        $workflowLogger->log(
-            workflowName: 'tenant-kyc:blocked-audit',
-            action: 'completed',
-            metadata: ['blocked' => $blocked, 'dry_run' => $dryRun],
-        );
-
-        return self::SUCCESS;
+        try {
+            $metrics->gauge('tenant_kyc_blocked_count', (float) $blocked);
+        } catch (\Throwable) {
+            // best-effort
+        }
     }
 }

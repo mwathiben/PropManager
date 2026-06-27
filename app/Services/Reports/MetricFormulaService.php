@@ -80,38 +80,16 @@ class MetricFormulaService
 
         $stack = [];
         foreach ($rpn as $token) {
-            if ($token['type'] === 'number') {
-                $stack[] = (float) $token['value'];
-
-                continue;
-            }
-            if ($token['type'] === 'field') {
-                $key = (string) $token['value'];
-                if (! array_key_exists($key, $row)) {
-                    throw ValidationException::withMessages([
-                        'expression' => "Row missing field '{$key}'.",
-                    ]);
+            if (in_array($token['type'], ['number', 'field'], true)) {
+                $stack[] = $this->resolveTokenValue($token, $row);
+            } else {
+                if (count($stack) < 2) {
+                    throw ValidationException::withMessages(['expression' => 'Malformed expression.']);
                 }
-                $stack[] = is_numeric($row[$key]) ? (float) $row[$key] : 0.0;
-
-                continue;
+                $b = array_pop($stack);
+                $a = array_pop($stack);
+                $stack[] = $this->applyOperator((string) $token['value'], $a, $b);
             }
-            // op
-            if (count($stack) < 2) {
-                throw ValidationException::withMessages(['expression' => 'Malformed expression.']);
-            }
-            $b = array_pop($stack);
-            $a = array_pop($stack);
-            $stack[] = match ($token['value']) {
-                '+' => $a + $b,
-                '-' => $a - $b,
-                '*' => $a * $b,
-                '/' => $b === 0.0 ? 0.0 : $a / $b,
-                '%' => $b === 0.0 ? 0.0 : fmod($a, $b),
-                default => throw ValidationException::withMessages([
-                    'expression' => "Unknown operator '{$token['value']}'.",
-                ]),
-            };
         }
 
         if (count($stack) !== 1) {
@@ -121,187 +99,103 @@ class MetricFormulaService
         return $stack[0];
     }
 
-    /**
-     * @return list<array{type: string, value: mixed}>
-     */
     private function tokenise(string $expression): array
     {
         $len = strlen($expression);
-        if ($len === 0) {
-            throw ValidationException::withMessages(['expression' => 'Expression is empty.']);
-        }
-        if ($len > 1024) {
-            throw ValidationException::withMessages(['expression' => 'Expression exceeds 1024 characters.']);
-        }
-
         $tokens = [];
         $i = 0;
         $parenDepth = 0;
-        $maxParenDepth = 0;
 
         while ($i < $len) {
-            $char = $expression[$i];
-
-            if ($char === ' ' || $char === "\t") {
-                $i++;
-
-                continue;
+            [$token, $i, $parenDepth] = $this->lexOneChar($expression, $i, $len, $parenDepth);
+            if ($token !== null) {
+                $tokens[] = $token;
             }
-
-            if (isset(self::OPERATORS[$char])) {
-                $tokens[] = ['type' => 'op', 'value' => $char];
-                $i++;
-
-                continue;
-            }
-
-            if ($char === '(') {
-                $tokens[] = ['type' => 'lparen', 'value' => '('];
-                $parenDepth++;
-                $maxParenDepth = max($maxParenDepth, $parenDepth);
-                if ($parenDepth > self::MAX_PAREN_DEPTH) {
-                    throw ValidationException::withMessages([
-                        'expression' => 'Parenthesis depth exceeds '.self::MAX_PAREN_DEPTH,
-                    ]);
-                }
-                $i++;
-
-                continue;
-            }
-            if ($char === ')') {
-                if ($parenDepth === 0) {
-                    throw ValidationException::withMessages(['expression' => 'Unbalanced ) at position '.$i]);
-                }
-                $tokens[] = ['type' => 'rparen', 'value' => ')'];
-                $parenDepth--;
-                $i++;
-
-                continue;
-            }
-
-            // field reference: {table.col}
-            if ($char === '{') {
-                $close = strpos($expression, '}', $i + 1);
-                if ($close === false) {
-                    throw ValidationException::withMessages(['expression' => 'Unterminated field reference starting at '.$i]);
-                }
-                $inner = substr($expression, $i + 1, $close - $i - 1);
-                if (! preg_match('/^[a-z_][a-z0-9_]*\.[a-z_][a-z0-9_]*$/', $inner)) {
-                    throw ValidationException::withMessages([
-                        'expression' => "Field reference '{$inner}' is malformed.",
-                    ]);
-                }
-                $tokens[] = ['type' => 'field', 'value' => $inner];
-                $i = $close + 1;
-
-                continue;
-            }
-
-            // number literal (integer or decimal; no scientific, no signs — unary handled below)
-            if (ctype_digit($char) || $char === '.') {
-                $j = $i;
-                $sawDot = false;
-                while ($j < $len && (ctype_digit($expression[$j]) || ($expression[$j] === '.' && ! $sawDot))) {
-                    if ($expression[$j] === '.') {
-                        $sawDot = true;
-                    }
-                    $j++;
-                }
-                $literal = substr($expression, $i, $j - $i);
-                if (! is_numeric($literal) || strlen($literal) > 20) {
-                    throw ValidationException::withMessages([
-                        'expression' => "Invalid or oversize number literal '{$literal}'.",
-                    ]);
-                }
-                $tokens[] = ['type' => 'number', 'value' => (float) $literal];
-                $i = $j;
-
-                continue;
-            }
-
-            throw ValidationException::withMessages([
-                'expression' => "Unexpected character '{$char}' at position {$i}.",
-            ]);
         }
 
-        if ($parenDepth !== 0) {
-            throw ValidationException::withMessages(['expression' => 'Unbalanced ( in expression.']);
-        }
-
-        if (count($tokens) > self::MAX_TOKENS) {
-            throw ValidationException::withMessages([
-                'expression' => 'Expression exceeds '.self::MAX_TOKENS.' tokens.',
-            ]);
-        }
-
-        if ($tokens === []) {
-            throw ValidationException::withMessages(['expression' => 'Expression had no tokens.']);
-        }
-
+        $this->assertTokenConstraints($expression, $parenDepth, $tokens);
         $this->validateTokenSequence($tokens);
 
         return $tokens;
     }
 
+    private function assertTokenConstraints(string $expression, int $parenDepth, array $tokens): void
+    {
+        if (strlen($expression) === 0) {
+            throw ValidationException::withMessages(['expression' => 'Expression is empty.']);
+        }
+        if (strlen($expression) > 1024) {
+            throw ValidationException::withMessages(['expression' => 'Expression exceeds 1024 characters.']);
+        }
+        if ($parenDepth !== 0) {
+            throw ValidationException::withMessages(['expression' => 'Unbalanced ( in expression.']);
+        }
+        if (count($tokens) > self::MAX_TOKENS) {
+            throw ValidationException::withMessages(['expression' => 'Expression exceeds '.self::MAX_TOKENS.' tokens.']);
+        }
+        if ($tokens === []) {
+            throw ValidationException::withMessages(['expression' => 'Expression had no tokens.']);
+        }
+    }
+
     /**
-     * Reject malformed adjacencies that the Shunting-Yard would happily
-     * pass through (e.g. "1++2", "1 1", ") (", trailing op). The
-     * acceptable transitions are:
-     *
-     *   value  → op | rparen | EOF       (value = number, field, rparen)
-     *   op     → value | lparen
-     *   lparen → value | lparen
-     *   start  → value | lparen
-     *
-     * @param  list<array{type: string, value: mixed}>  $tokens
+     * Consume one character at position $i and return [token|null, nextI, parenDepth].
+     * Throws ValidationException for unrecognised characters.
+     */
+    private function lexOneChar(string $expression, int $i, int $len, int $parenDepth): array
+    {
+        $char = $expression[$i];
+
+        if (strpos(" \t", $char) !== false) {
+            return [null, $i + 1, $parenDepth];
+        }
+        if (isset(self::OPERATORS[$char])) {
+            return [['type' => 'op', 'value' => $char], $i + 1, $parenDepth];
+        }
+        if (strpos('()', $char) !== false) {
+            [$token, $parenDepth] = $this->tokeniseParen($char, $parenDepth, $i);
+
+            return [$token, $i + 1, $parenDepth];
+        }
+        if ($char === '{') {
+            [$token, $advance] = $this->tokeniseFieldRef($expression, $i);
+
+            return [$token, $advance, $parenDepth];
+        }
+        if ($this->isNumberStart($char)) {
+            [$token, $advance] = $this->tokeniseNumber($expression, $i, $len);
+
+            return [$token, $advance, $parenDepth];
+        }
+
+        throw ValidationException::withMessages([
+            'expression' => "Unexpected character '{$char}' at position {$i}.",
+        ]);
+    }
+
+    /**
+     * Reject malformed adjacencies (e.g. "1++2", "1 1", trailing op).
+     * Transitions: value→op|rparen|EOF, op→value|lparen, lparen→value|lparen.
      */
     private function validateTokenSequence(array $tokens): void
     {
-        $isValue = fn (?array $t) => $t !== null && in_array($t['type'], ['number', 'field', 'rparen'], true);
-        $isOp = fn (?array $t) => $t !== null && $t['type'] === 'op';
-        $isOpener = fn (?array $t) => $t !== null && $t['type'] === 'lparen';
-
         $prev = null;
         foreach ($tokens as $i => $token) {
-            $type = $token['type'];
             if ($prev === null) {
-                if (! ($type === 'number' || $type === 'field' || $type === 'lparen')) {
-                    throw ValidationException::withMessages([
-                        'expression' => "Expression cannot start with '{$token['value']}'.",
-                    ]);
-                }
-            } elseif ($isValue($prev)) {
-                if (! ($type === 'op' || $type === 'rparen')) {
-                    throw ValidationException::withMessages([
-                        'expression' => "Unexpected '{$token['value']}' after value at token {$i}.",
-                    ]);
-                }
-            } elseif ($isOp($prev)) {
-                if (! ($type === 'number' || $type === 'field' || $type === 'lparen')) {
-                    throw ValidationException::withMessages([
-                        'expression' => "Unexpected '{$token['value']}' after operator at token {$i}.",
-                    ]);
-                }
-            } elseif ($isOpener($prev)) {
-                if (! ($type === 'number' || $type === 'field' || $type === 'lparen')) {
-                    throw ValidationException::withMessages([
-                        'expression' => "Unexpected '{$token['value']}' after ( at token {$i}.",
-                    ]);
-                }
+                $this->assertValidFirstToken($token);
+            } else {
+                $this->assertValidTransition($prev, $token, $i);
             }
             $prev = $token;
         }
 
-        if ($prev !== null && ! $isValue($prev)) {
+        if ($prev !== null && ! in_array($prev['type'], ['number', 'field', 'rparen'], true)) {
             throw ValidationException::withMessages([
                 'expression' => 'Expression cannot end with an operator or opening parenthesis.',
             ]);
         }
     }
 
-    /**
-     * @param  list<array{type: string, value: mixed}>  $tokens
-     */
     private function assertFieldRefsInAllowlist(array $tokens): void
     {
         foreach ($tokens as $token) {
@@ -323,60 +217,213 @@ class MetricFormulaService
         }
     }
 
-    /**
-     * Shunting-Yard: infix tokens → RPN output queue.
-     *
-     * @param  list<array{type: string, value: mixed}>  $tokens
-     * @return list<array{type: string, value: mixed}>
-     */
+    /** Shunting-Yard: infix tokens → RPN output queue. */
     private function shuntingYard(array $tokens): array
     {
         $output = [];
         $opStack = [];
 
         foreach ($tokens as $token) {
-            if ($token['type'] === 'number' || $token['type'] === 'field') {
+            if (in_array($token['type'], ['number', 'field'], true)) {
                 $output[] = $token;
-
-                continue;
-            }
-            if ($token['type'] === 'op') {
-                $op = self::OPERATORS[(string) $token['value']];
-                while (
-                    ! empty($opStack)
-                    && end($opStack)['type'] === 'op'
-                    && (
-                        self::OPERATORS[(string) end($opStack)['value']]['precedence'] > $op['precedence']
-                        || (
-                            self::OPERATORS[(string) end($opStack)['value']]['precedence'] === $op['precedence']
-                            && ! $op['right_assoc']
-                        )
-                    )
-                ) {
-                    $output[] = array_pop($opStack);
-                }
+            } elseif ($token['type'] === 'op') {
+                $output = $this->drainHigherPrecedenceOps($output, $opStack, $token);
                 $opStack[] = $token;
-
-                continue;
-            }
-            if ($token['type'] === 'lparen') {
+            } elseif ($token['type'] === 'lparen') {
                 $opStack[] = $token;
-
-                continue;
-            }
-            if ($token['type'] === 'rparen') {
-                while (! empty($opStack) && end($opStack)['type'] !== 'lparen') {
-                    $output[] = array_pop($opStack);
-                }
-                if (empty($opStack)) {
-                    throw ValidationException::withMessages(['expression' => 'Mismatched ) — stack drained.']);
-                }
-                array_pop($opStack);
-
-                continue;
+            } elseif ($token['type'] === 'rparen') {
+                [$output, $opStack] = $this->processRparen($output, $opStack);
             }
         }
 
+        return $this->drainOpStack($output, $opStack);
+    }
+
+    /** Resolve a number or field token to its float value for the given row. */
+    private function resolveTokenValue(array $token, array $row): float
+    {
+        if ($token['type'] === 'number') {
+            return (float) $token['value'];
+        }
+
+        $key = (string) $token['value'];
+        if (! array_key_exists($key, $row)) {
+            throw ValidationException::withMessages([
+                'expression' => "Row missing field '{$key}'.",
+            ]);
+        }
+
+        return is_numeric($row[$key]) ? (float) $row[$key] : 0.0;
+    }
+
+    private function applyOperator(string $op, float $a, float $b): float
+    {
+        return match ($op) {
+            '+' => $a + $b,
+            '-' => $a - $b,
+            '*' => $a * $b,
+            '/' => $b === 0.0 ? 0.0 : $a / $b,
+            '%' => $b === 0.0 ? 0.0 : fmod($a, $b),
+            default => throw ValidationException::withMessages([
+                'expression' => "Unknown operator '{$op}'.",
+            ]),
+        };
+    }
+
+    private function isNumberStart(string $char): bool
+    {
+        return ctype_digit($char) || $char === '.';
+    }
+
+    /** Tokenise a single parenthesis, returning [token, updated-depth]. */
+    private function tokeniseParen(string $char, int $parenDepth, int $position): array
+    {
+        if ($char === '(') {
+            $parenDepth++;
+            if ($parenDepth > self::MAX_PAREN_DEPTH) {
+                throw ValidationException::withMessages([
+                    'expression' => 'Parenthesis depth exceeds '.self::MAX_PAREN_DEPTH,
+                ]);
+            }
+
+            return [['type' => 'lparen', 'value' => '('], $parenDepth];
+        }
+
+        if ($parenDepth === 0) {
+            throw ValidationException::withMessages(['expression' => 'Unbalanced ) at position '.$position]);
+        }
+
+        return [['type' => 'rparen', 'value' => ')'], $parenDepth - 1];
+    }
+
+    /** Tokenise a {table.col} field reference starting at position $i. */
+    private function tokeniseFieldRef(string $expression, int $i): array
+    {
+        $close = strpos($expression, '}', $i + 1);
+        if ($close === false) {
+            throw ValidationException::withMessages(['expression' => 'Unterminated field reference starting at '.$i]);
+        }
+        $inner = substr($expression, $i + 1, $close - $i - 1);
+        if (! preg_match('/^[a-z_][a-z0-9_]*\.[a-z_][a-z0-9_]*$/', $inner)) {
+            throw ValidationException::withMessages([
+                'expression' => "Field reference '{$inner}' is malformed.",
+            ]);
+        }
+
+        return [['type' => 'field', 'value' => $inner], $close + 1];
+    }
+
+    /** Tokenise a number literal starting at position $i, returning [token, next-i]. */
+    private function tokeniseNumber(string $expression, int $i, int $len): array
+    {
+        $j = $this->scanNumberSpan($expression, $i, $len);
+        $literal = substr($expression, $i, $j - $i);
+        if (! is_numeric($literal) || strlen($literal) > 20) {
+            throw ValidationException::withMessages([
+                'expression' => "Invalid or oversize number literal '{$literal}'.",
+            ]);
+        }
+
+        return [['type' => 'number', 'value' => (float) $literal], $j];
+    }
+
+    /** Advance past digit/dot characters; permits at most one dot. */
+    private function scanNumberSpan(string $expression, int $i, int $len): int
+    {
+        $j = $i;
+        $sawDot = false;
+        while ($j < $len && (ctype_digit($expression[$j]) || ($expression[$j] === '.' && ! $sawDot))) {
+            if ($expression[$j] === '.') {
+                $sawDot = true;
+            }
+            $j++;
+        }
+
+        return $j;
+    }
+
+    private function assertValidFirstToken(array $token): void
+    {
+        $type = $token['type'];
+        if (! ($type === 'number' || $type === 'field' || $type === 'lparen')) {
+            throw ValidationException::withMessages([
+                'expression' => "Expression cannot start with '{$token['value']}'.",
+            ]);
+        }
+    }
+
+    private function assertValidTransition(array $prev, array $token, int $i): void
+    {
+        $allowed = [
+            'value' => ['op', 'rparen'],
+            'op' => ['number', 'field', 'lparen'],
+            'opener' => ['number', 'field', 'lparen'],
+        ];
+
+        $category = $this->transitionCategory($prev['type']);
+        if ($category === null || in_array($token['type'], $allowed[$category], true)) {
+            return;
+        }
+
+        $after = match ($category) {
+            'value' => 'value',
+            'op' => 'operator',
+            'opener' => '(',
+            default => $prev['type'],
+        };
+        throw ValidationException::withMessages([
+            'expression' => "Unexpected '{$token['value']}' after {$after} at token {$i}.",
+        ]);
+    }
+
+    /** Map a token type to its sequence-validation category, or null if not checked. */
+    private function transitionCategory(string $type): ?string
+    {
+        return match ($type) {
+            'number', 'field', 'rparen' => 'value',
+            'op' => 'op',
+            'lparen' => 'opener',
+            default => null,
+        };
+    }
+
+    /**
+     * Pop operators from $opStack to $output while their precedence dominates
+     * the current operator (higher precedence, or equal + left-associative).
+     */
+    private function drainHigherPrecedenceOps(array $output, array &$opStack, array $token): array
+    {
+        $op = self::OPERATORS[(string) $token['value']];
+        while (! empty($opStack) && end($opStack)['type'] === 'op') {
+            $topPrec = self::OPERATORS[(string) end($opStack)['value']]['precedence'];
+            $dominated = $topPrec > $op['precedence']
+                || ($topPrec === $op['precedence'] && ! $op['right_assoc']);
+            if (! $dominated) {
+                break;
+            }
+            $output[] = array_pop($opStack);
+        }
+
+        return $output;
+    }
+
+    /** Drain opStack into output up to the matching lparen, then discard it. */
+    private function processRparen(array $output, array $opStack): array
+    {
+        while (! empty($opStack) && end($opStack)['type'] !== 'lparen') {
+            $output[] = array_pop($opStack);
+        }
+        if (empty($opStack)) {
+            throw ValidationException::withMessages(['expression' => 'Mismatched ) — stack drained.']);
+        }
+        array_pop($opStack);
+
+        return [$output, $opStack];
+    }
+
+    /** Drain any remaining operators after all tokens are processed. */
+    private function drainOpStack(array $output, array $opStack): array
+    {
         while (! empty($opStack)) {
             $top = array_pop($opStack);
             if ($top['type'] === 'lparen' || $top['type'] === 'rparen') {

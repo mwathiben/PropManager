@@ -28,25 +28,16 @@ class RunbookStalenessAudit extends Command
         $reported = [];
 
         foreach ($registry->all() as $alert) {
-            $ref = (string) ($alert['runbook'] ?? '');
-            if ($ref === '') {
+            $result = $this->resolveRunbookPath($alert, $reported, $now);
+            if ($result === null) {
                 continue;
             }
-            $path = strpos($ref, '#') !== false ? substr($ref, 0, strpos($ref, '#')) : $ref;
-            $abs = base_path($path);
-            if (! file_exists($abs)) {
-                continue;
-            }
-            if (isset($reported[$path])) {
-                continue;
-            }
-            $reported[$path] = true;
-            $mtime = (int) filemtime($abs);
-            $days = (int) floor(($now - $mtime) / 86_400);
-            $metrics->gauge('runbook_staleness_days', (float) $days, ['runbook' => $path]);
+            $reported[$result['path']] = true;
+            $days = $result['days_since_mtime'];
+            $metrics->gauge('runbook_staleness_days', (float) $days, ['runbook' => $result['path']]);
             if ($days > $threshold) {
                 $stale++;
-                $this->warn(sprintf('STALE %d days: %s', $days, $path));
+                $this->warn(sprintf('STALE %d days: %s', $days, $result['path']));
             }
         }
 
@@ -54,5 +45,29 @@ class RunbookStalenessAudit extends Command
         $this->info(sprintf('Audited %d runbook(s), %d stale (> %d days).', count($reported), $stale, $threshold));
 
         return self::SUCCESS;
+    }
+
+    /**
+     * @param  array<string, bool>  $reported
+     * @return array{path: string, days_since_mtime: int}|null
+     */
+    private function resolveRunbookPath(array $alert, array $reported, int $now): ?array
+    {
+        $ref = (string) ($alert['runbook'] ?? '');
+        if ($ref === '') {
+            return null;
+        }
+        $path = strpos($ref, '#') !== false ? substr($ref, 0, strpos($ref, '#')) : $ref;
+        $abs = base_path($path);
+        if (! file_exists($abs)) {
+            return null;
+        }
+        if (isset($reported[$path])) {
+            return null;
+        }
+        $mtime = (int) filemtime($abs);
+        $days = (int) floor(($now - $mtime) / 86_400);
+
+        return ['path' => $path, 'days_since_mtime' => $days];
     }
 }

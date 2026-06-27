@@ -29,23 +29,9 @@ class PaystackWebhookController extends Controller
     public function handle(Request $request): JsonResponse
     {
         $rawBody = $request->getContent();
-        $signature = (string) $request->header('x-paystack-signature', '');
-        $secret = (string) config('services.paystack.secret_key', '');
-
-        if ($secret === '') {
-            Log::warning('Paystack webhook rejected — secret_key not configured');
-
-            return response()->json(['error' => 'not_configured'], 503);
-        }
-
-        $expected = hash_hmac('sha512', $rawBody, $secret);
-        if (! hash_equals($expected, $signature)) {
-            Log::warning('Paystack webhook rejected — signature mismatch', [
-                'ip' => $request->ip(),
-                'bytes' => strlen($rawBody),
-            ]);
-
-            return response()->json(['error' => 'invalid_signature'], 401);
+        $signatureError = $this->verifySignature($rawBody, $request);
+        if ($signatureError !== null) {
+            return $signatureError;
         }
 
         $payload = json_decode($rawBody, true) ?? [];
@@ -55,9 +41,7 @@ class PaystackWebhookController extends Controller
         // subscription_code instead of reference. Charge events still
         // dedup on reference; sub events dedup on subscription_code.
         $isSubscriptionEvent = str_starts_with($event, 'subscription.');
-        $dedupId = $isSubscriptionEvent
-            ? (string) ($payload['data']['subscription_code'] ?? '')
-            : (string) ($payload['data']['reference'] ?? '');
+        $dedupId = $this->resolveDedupId($isSubscriptionEvent, $payload);
 
         if ($event === '' || $dedupId === '') {
             return response()->json(['error' => 'invalid_payload'], 422);
@@ -78,6 +62,47 @@ class PaystackWebhookController extends Controller
         ]);
 
         return response()->json(['status' => 'accepted'], 200);
+    }
+
+    /**
+     * Verify the HMAC-SHA512 signature from Paystack.
+     * Returns a JsonResponse on failure, null on success.
+     */
+    private function verifySignature(string $rawBody, Request $request): ?JsonResponse
+    {
+        $secret = (string) config('services.paystack.secret_key', '');
+
+        if ($secret === '') {
+            Log::warning('Paystack webhook rejected — secret_key not configured');
+
+            return response()->json(['error' => 'not_configured'], 503);
+        }
+
+        $signature = (string) $request->header('x-paystack-signature', '');
+        $expected = hash_hmac('sha512', $rawBody, $secret);
+        if (! hash_equals($expected, $signature)) {
+            Log::warning('Paystack webhook rejected — signature mismatch', [
+                'ip' => $request->ip(),
+                'bytes' => strlen($rawBody),
+            ]);
+
+            return response()->json(['error' => 'invalid_signature'], 401);
+        }
+
+        return null;
+    }
+
+    /**
+     * Resolve the deduplication ID from the payload.
+     * Subscription events use subscription_code; charge events use reference.
+     */
+    private function resolveDedupId(bool $isSubscriptionEvent, array $payload): string
+    {
+        if ($isSubscriptionEvent) {
+            return (string) ($payload['data']['subscription_code'] ?? '');
+        }
+
+        return (string) ($payload['data']['reference'] ?? '');
     }
 
     /**

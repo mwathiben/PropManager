@@ -113,10 +113,35 @@ class ForecastService
             return 1.0;
         }
 
+        $monthly = $this->fetchMonthlyPaymentTotals($landlordId);
+
+        if ($monthly->count() < 12) {
+            return 1.0;
+        }
+
+        $annualMean = $monthly->avg('total');
+        if (! $this->isValidMean($annualMean)) {
+            return 1.0;
+        }
+
+        $forMonth = $monthly->where('m', $month);
+        if ($forMonth->isEmpty()) {
+            return 1.0;
+        }
+
+        return (float) $forMonth->avg('total') / (float) $annualMean;
+    }
+
+    /**
+     * Fetch per-year/month payment totals for the landlord over the
+     * last 3 years, excluding voided payments.
+     */
+    private function fetchMonthlyPaymentTotals(int $landlordId): \Illuminate\Support\Collection
+    {
         $lookbackStart = Carbon::now()->subYears(3)->startOfDay();
         $lookbackEnd = Carbon::now()->subDay();
 
-        $monthly = Payment::query()
+        return Payment::query()
             ->where('landlord_id', $landlordId)
             ->where(function ($q) {
                 $q->whereNull('is_voided')->orWhere('is_voided', false);
@@ -129,22 +154,15 @@ class ForecastService
             )
             ->groupBy('y', 'm')
             ->get();
+    }
 
-        if ($monthly->count() < 12) {
-            return 1.0;
-        }
-
-        $annualMean = $monthly->avg('total');
-        if ($annualMean === null || (float) $annualMean === 0.0) {
-            return 1.0;
-        }
-
-        $forMonth = $monthly->where('m', $month);
-        if ($forMonth->isEmpty()) {
-            return 1.0;
-        }
-
-        return (float) $forMonth->avg('total') / (float) $annualMean;
+    /**
+     * Returns true when the mean value is non-null and non-zero,
+     * making it safe to use as a divisor in the seasonality ratio.
+     */
+    private function isValidMean(mixed $mean): bool
+    {
+        return $mean !== null && (float) $mean !== 0.0;
     }
 
     /**

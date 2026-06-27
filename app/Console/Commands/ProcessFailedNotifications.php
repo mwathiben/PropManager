@@ -22,7 +22,29 @@ class ProcessFailedNotifications extends Command
 
         $this->info('Processing stuck/failed notifications...');
 
-        $stuckNotifications = Notification::query()
+        $stuckNotifications = $this->fetchStuckNotifications($limit);
+
+        if ($stuckNotifications->isEmpty()) {
+            $this->info('No stuck notifications found.');
+
+            return self::SUCCESS;
+        }
+
+        $stats = $this->processNotifications($stuckNotifications, $dryRun);
+
+        $this->printSummary($stats);
+
+        Log::channel('notifications')->info('ProcessFailedNotifications completed', [
+            'stats' => $stats,
+            'dry_run' => $dryRun,
+        ]);
+
+        return self::SUCCESS;
+    }
+
+    private function fetchStuckNotifications(int $limit): \Illuminate\Database\Eloquent\Collection
+    {
+        return Notification::query()
             ->where(function ($query) {
                 $query->where('status', 'failed')
                     ->orWhere(function ($q) {
@@ -37,52 +59,81 @@ class ProcessFailedNotifications extends Command
             })
             ->limit($limit)
             ->get();
+    }
 
-        if ($stuckNotifications->isEmpty()) {
-            $this->info('No stuck notifications found.');
-
-            return self::SUCCESS;
-        }
-
+    private function processNotifications(\Illuminate\Database\Eloquent\Collection $notifications, bool $dryRun): array
+    {
         $stats = [
-            'total' => $stuckNotifications->count(),
+            'total' => $notifications->count(),
             'dispatched' => 0,
             'skipped' => 0,
             'by_channel' => [],
         ];
 
-        foreach ($stuckNotifications as $notification) {
-            $currentChannel = $notification->fallback_channel ?? $notification->channel;
-
-            if (! $notification->shouldFallback()) {
-                if ($notification->retry_count < (Notification::CHANNEL_MAX_RETRIES[$currentChannel] ?? 0)) {
-                    $stats['skipped']++;
-                    $this->line("  Skipping #{$notification->id}: still has retries left on {$currentChannel}");
-
-                    continue;
-                }
-            }
-
-            $nextChannel = $notification->getNextFallbackChannel();
-
-            if ($nextChannel === null && $notification->hasExhaustedAllChannels()) {
-                $this->warn("  Notification #{$notification->id}: All channels exhausted");
-                $stats['skipped']++;
-
-                continue;
-            }
-
-            $stats['by_channel'][$currentChannel] = ($stats['by_channel'][$currentChannel] ?? 0) + 1;
-
-            if ($dryRun) {
-                $this->line("  [DRY RUN] Would dispatch fallback for #{$notification->id}: {$currentChannel} → {$nextChannel}");
-            } else {
-                FallbackNotificationJob::dispatch($notification->id);
-                $stats['dispatched']++;
-                $this->line("  Dispatched fallback for #{$notification->id}: {$currentChannel} → {$nextChannel}");
-            }
+        foreach ($notifications as $notification) {
+            $this->processOneNotification($notification, $dryRun, $stats);
         }
 
+        return $stats;
+    }
+
+    private function processOneNotification(Notification $notification, bool $dryRun, array &$stats): void
+    {
+        $currentChannel = $notification->fallback_channel ?? $notification->channel;
+
+        if ($this->shouldSkipNotification($notification, $currentChannel)) {
+            $stats['skipped']++;
+
+            return;
+        }
+
+        $nextChannel = $notification->getNextFallbackChannel();
+
+        if ($nextChannel === null && $notification->hasExhaustedAllChannels()) {
+            $this->warn("  Notification #{$notification->id}: All channels exhausted");
+            $stats['skipped']++;
+
+            return;
+        }
+
+        $stats['by_channel'][$currentChannel] = ($stats['by_channel'][$currentChannel] ?? 0) + 1;
+
+        if ($this->dispatchFallback($notification, $currentChannel, $nextChannel, $dryRun)) {
+            $stats['dispatched']++;
+        }
+    }
+
+    private function shouldSkipNotification(Notification $notification, string $currentChannel): bool
+    {
+        if ($notification->shouldFallback()) {
+            return false;
+        }
+
+        if ($notification->retry_count < (Notification::CHANNEL_MAX_RETRIES[$currentChannel] ?? 0)) {
+            $this->line("  Skipping #{$notification->id}: still has retries left on {$currentChannel}");
+
+            return true;
+        }
+
+        return false;
+    }
+
+    private function dispatchFallback(Notification $notification, string $currentChannel, ?string $nextChannel, bool $dryRun): bool
+    {
+        if ($dryRun) {
+            $this->line("  [DRY RUN] Would dispatch fallback for #{$notification->id}: {$currentChannel} → {$nextChannel}");
+
+            return false;
+        }
+
+        FallbackNotificationJob::dispatch($notification->id);
+        $this->line("  Dispatched fallback for #{$notification->id}: {$currentChannel} → {$nextChannel}");
+
+        return true;
+    }
+
+    private function printSummary(array $stats): void
+    {
         $this->newLine();
         $this->info('Summary:');
         $this->table(
@@ -95,20 +146,18 @@ class ProcessFailedNotifications extends Command
         );
 
         if (! empty($stats['by_channel'])) {
-            $this->newLine();
-            $this->info('By Original Channel:');
-            $channelRows = [];
-            foreach ($stats['by_channel'] as $channel => $count) {
-                $channelRows[] = [$channel, $count];
-            }
-            $this->table(['Channel', 'Count'], $channelRows);
+            $this->printChannelTable($stats['by_channel']);
         }
+    }
 
-        Log::channel('notifications')->info('ProcessFailedNotifications completed', [
-            'stats' => $stats,
-            'dry_run' => $dryRun,
-        ]);
-
-        return self::SUCCESS;
+    private function printChannelTable(array $byChannel): void
+    {
+        $this->newLine();
+        $this->info('By Original Channel:');
+        $channelRows = [];
+        foreach ($byChannel as $channel => $count) {
+            $channelRows[] = [$channel, $count];
+        }
+        $this->table(['Channel', 'Count'], $channelRows);
     }
 }

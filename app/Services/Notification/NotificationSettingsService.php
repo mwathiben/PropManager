@@ -141,26 +141,38 @@ class NotificationSettingsService
 
         // Just verify credentials exist for now
         if ($provider === 'twilio') {
-            $credentials = $this->configRepository->getTwilioCredentials($landlordId);
-            $hasCredentials = ! empty($credentials['account_sid']) && ! empty($credentials['auth_token']);
-
-            return [
-                'success' => $hasCredentials,
-                'message' => $hasCredentials ? 'Twilio credentials configured' : 'Twilio credentials missing',
-            ];
+            return $this->testTwilioCredentials($landlordId);
         }
 
         if ($provider === 'africas_talking') {
-            $credentials = $this->configRepository->getAfricasTalkingCredentials($landlordId);
-            $hasCredentials = ! empty($credentials['api_key']) && ! empty($credentials['username']);
-
-            return [
-                'success' => $hasCredentials,
-                'message' => $hasCredentials ? "Africa's Talking credentials configured" : "Africa's Talking credentials missing",
-            ];
+            return $this->testAfricasTalkingCredentials($landlordId);
         }
 
         return ['success' => false, 'message' => 'Unknown provider'];
+    }
+
+    /** @return array{success: bool, message: string} */
+    private function testTwilioCredentials(int $landlordId): array
+    {
+        $credentials = $this->configRepository->getTwilioCredentials($landlordId);
+        $hasCredentials = ! empty($credentials['account_sid']) && ! empty($credentials['auth_token']);
+
+        return [
+            'success' => $hasCredentials,
+            'message' => $hasCredentials ? 'Twilio credentials configured' : 'Twilio credentials missing',
+        ];
+    }
+
+    /** @return array{success: bool, message: string} */
+    private function testAfricasTalkingCredentials(int $landlordId): array
+    {
+        $credentials = $this->configRepository->getAfricasTalkingCredentials($landlordId);
+        $hasCredentials = ! empty($credentials['api_key']) && ! empty($credentials['username']);
+
+        return [
+            'success' => $hasCredentials,
+            'message' => $hasCredentials ? "Africa's Talking credentials configured" : "Africa's Talking credentials missing",
+        ];
     }
 
     private function updateEmailSettings(Request $request, int $landlordId): void

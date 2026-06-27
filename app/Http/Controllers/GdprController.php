@@ -81,16 +81,7 @@ class GdprController extends Controller
         }
 
         $userId = (int) $request->user()->id;
-        $expectedPrefix = "exports/{$userId}/";
-
-        if (
-            ! str_starts_with($path, $expectedPrefix)
-            || str_contains($path, '..')
-            || str_contains($path, "\0")
-            || str_contains($path, '\\')
-        ) {
-            abort(403, 'Unauthorized access');
-        }
+        $this->assertExportPathAuthorized($path, $userId);
 
         // Phase-59 PATH-CAVEAT-2: switch from absolute-path
         // response()->download to a tenant-disk signed URL so the
@@ -107,6 +98,24 @@ class GdprController extends Controller
             app(\App\Services\Storage\TenantDiskResolver::class)
                 ->temporaryUrl($path, $request->user()->landlord_id ?? $userId, 5, basename($path)),
         );
+    }
+
+    /**
+     * Abort with 403 if $path is not safely within the user's export subtree.
+     * Checks: correct prefix, no traversal sequences, no null bytes, no backslashes.
+     */
+    private function assertExportPathAuthorized(string $path, int $userId): void
+    {
+        $expectedPrefix = "exports/{$userId}/";
+
+        if (
+            ! str_starts_with($path, $expectedPrefix)
+            || str_contains($path, '..')
+            || str_contains($path, "\0")
+            || str_contains($path, '\\')
+        ) {
+            abort(403, 'Unauthorized access');
+        }
     }
 
     /**

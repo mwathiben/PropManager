@@ -90,38 +90,31 @@ class SensitiveDataMaskingProcessor implements ProcessorInterface
 
         $masked = [];
         foreach ($data as $key => $value) {
-            if (is_string($key)) {
-                $lowerKey = strtolower($key);
-
-                if ($this->keyIsSecret($lowerKey)) {
-                    $masked[$key] = '[REDACTED]';
-
-                    continue;
-                }
-
-                if ($this->keyIsSensitiveCategory($lowerKey)) {
-                    $masked[$key] = '[REDACTED]';
-
-                    continue;
-                }
-
-                if ($this->keyIsPii($lowerKey)) {
-                    $masked[$key] = $this->maskScalar($value);
-
-                    continue;
-                }
-            }
-
-            if (is_array($value)) {
-                $masked[$key] = $this->maskRecursive($value, $depth + 1);
-
-                continue;
-            }
-
-            $masked[$key] = $value;
+            $masked[$key] = $this->maskEntry($key, $value, $depth);
         }
 
         return $masked;
+    }
+
+    private function maskEntry(int|string $key, mixed $value, int $depth): mixed
+    {
+        if (is_string($key)) {
+            $lowerKey = strtolower($key);
+
+            if ($this->keyIsSecret($lowerKey) || $this->keyIsSensitiveCategory($lowerKey)) {
+                return '[REDACTED]';
+            }
+
+            if ($this->keyIsPii($lowerKey)) {
+                return $this->maskScalar($value);
+            }
+        }
+
+        if (is_array($value)) {
+            return $this->maskRecursive($value, $depth + 1);
+        }
+
+        return $value;
     }
 
     private function keyIsSecret(string $lowerKey): bool

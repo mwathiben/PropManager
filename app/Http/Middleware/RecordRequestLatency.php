@@ -80,18 +80,12 @@ class RecordRequestLatency
         if ($status >= 400) {
             return;
         }
-        if (in_array($routeName, ['unmatched', 'api.health', 'api.v1.health'], true)) {
-            return;
-        }
-        if (str_contains($routeName, 'health')) {
+        if ($this->isNoiseRoute($routeName)) {
             return;
         }
 
         $sampleRate = (float) config('platform.analytics_sample_rate', 0.1);
-        if ($sampleRate <= 0.0) {
-            return;
-        }
-        if ($sampleRate < 1.0 && mt_rand(1, 10000) > (int) ($sampleRate * 10000)) {
+        if (! $this->passesSampleRate($sampleRate)) {
             return;
         }
 
@@ -104,6 +98,27 @@ class RecordRequestLatency
             ],
             $request->user(),
         );
+    }
+
+    private function isNoiseRoute(string $routeName): bool
+    {
+        if (in_array($routeName, ['unmatched', 'api.health', 'api.v1.health'], true)) {
+            return true;
+        }
+
+        return str_contains($routeName, 'health');
+    }
+
+    private function passesSampleRate(float $sampleRate): bool
+    {
+        if ($sampleRate <= 0.0) {
+            return false;
+        }
+        if ($sampleRate < 1.0 && mt_rand(1, 10000) > (int) ($sampleRate * 10000)) {
+            return false;
+        }
+
+        return true;
     }
 
     private function statusClass(int $status): string

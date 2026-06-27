@@ -113,45 +113,20 @@ class PaymentReconciliationService
         $matchedCount = 0;
 
         foreach ($remoteNormalised as $reference => $remote) {
-            $remoteAmountMajor = ($currency = Currency::tryFrom($remote['currency']))
-                ? $currency->fromMinorUnits($remote['amount_minor'])
-                : ($remote['amount_minor'] / 100);
+            $outcome = $this->compareRemoteEntry($reference, $remote, $localPayments);
 
-            if (! isset($localPayments[$reference])) {
-                $discrepancies[] = ReconciliationDiscrepancy::missingLocally(
-                    reference: $reference,
-                    remoteAmount: $remoteAmountMajor,
-                    currency: $remote['currency'],
-                    remoteStatus: $remote['status'],
-                );
-
-                continue;
+            if ($outcome === null) {
+                $matchedCount++;
+            } else {
+                $discrepancies[] = $outcome;
             }
-
-            $localAmount = (float) $localPayments[$reference]->amount;
-
-            if (abs($localAmount - $remoteAmountMajor) > ReconciliationResult::TOLERANCE) {
-                $discrepancies[] = ReconciliationDiscrepancy::amountMismatch(
-                    reference: $reference,
-                    localAmount: $localAmount,
-                    remoteAmount: $remoteAmountMajor,
-                    currency: $remote['currency'],
-                    remoteStatus: $remote['status'],
-                );
-
-                continue;
-            }
-
-            $matchedCount++;
         }
 
         foreach ($localPayments as $reference => $localPayment) {
-            if (! isset($remoteNormalised[$reference])) {
-                $discrepancies[] = ReconciliationDiscrepancy::missingRemotely(
-                    reference: $reference,
-                    localAmount: (float) $localPayment->amount,
-                    currency: $localPayment->currency?->value ?? 'KES',
-                );
+            $discrepancy = $this->detectLocalOnly($reference, $localPayment, $remoteNormalised);
+
+            if ($discrepancy !== null) {
+                $discrepancies[] = $discrepancy;
             }
         }
 
@@ -161,6 +136,59 @@ class PaymentReconciliationService
             remoteCount: count($remoteNormalised),
             matchedCount: $matchedCount,
             reconciledAt: now()->toIso8601String(),
+        );
+    }
+
+    /**
+     * Compares one remote entry against the local ledger.
+     * Returns a discrepancy when the entry is missing locally or the amount
+     * differs beyond tolerance; returns null when fully matched.
+     */
+    private function compareRemoteEntry(string $reference, array $remote, array $localPayments): ?ReconciliationDiscrepancy
+    {
+        $remoteAmountMajor = ($currency = Currency::tryFrom($remote['currency']))
+            ? $currency->fromMinorUnits($remote['amount_minor'])
+            : ($remote['amount_minor'] / 100);
+
+        if (! isset($localPayments[$reference])) {
+            return ReconciliationDiscrepancy::missingLocally(
+                reference: $reference,
+                remoteAmount: $remoteAmountMajor,
+                currency: $remote['currency'],
+                remoteStatus: $remote['status'],
+            );
+        }
+
+        $localAmount = (float) $localPayments[$reference]->amount;
+
+        if (abs($localAmount - $remoteAmountMajor) > ReconciliationResult::TOLERANCE) {
+            return ReconciliationDiscrepancy::amountMismatch(
+                reference: $reference,
+                localAmount: $localAmount,
+                remoteAmount: $remoteAmountMajor,
+                currency: $remote['currency'],
+                remoteStatus: $remote['status'],
+            );
+        }
+
+        return null;
+    }
+
+    /**
+     * Returns a missing-remotely discrepancy when a local payment has no
+     * corresponding remote entry; returns null when the reference is present
+     * on both sides.
+     */
+    private function detectLocalOnly(string $reference, Payment $localPayment, array $remoteNormalised): ?ReconciliationDiscrepancy
+    {
+        if (isset($remoteNormalised[$reference])) {
+            return null;
+        }
+
+        return ReconciliationDiscrepancy::missingRemotely(
+            reference: $reference,
+            localAmount: (float) $localPayment->amount,
+            currency: $localPayment->currency?->value ?? 'KES',
         );
     }
 

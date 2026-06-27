@@ -33,10 +33,7 @@ class ClamavScanner implements AttachmentScannerInterface
             return ScanResult::error('unreadable');
         }
 
-        $remote = $this->socket !== null && $this->socket !== ''
-            ? 'unix://'.$this->socket
-            : 'tcp://'.$this->host.':'.$this->port;
-
+        $remote = $this->buildRemoteAddress();
         $errno = 0;
         $errstr = '';
         $connection = @stream_socket_client($remote, $errno, $errstr, $this->timeout);
@@ -51,24 +48,10 @@ class ClamavScanner implements AttachmentScannerInterface
             stream_set_timeout($connection, $this->timeout);
             fwrite($connection, "zINSTREAM\0");
 
-            $handle = fopen($absolutePath, 'rb');
-            if ($handle === false) {
+            $response = $this->streamFileAndReadResponse($connection, $absolutePath);
+            if ($response === false) {
                 return ScanResult::error('open_failed');
             }
-
-            while (! feof($handle)) {
-                $chunk = fread($handle, self::CHUNK);
-                if ($chunk === '' || $chunk === false) {
-                    break;
-                }
-                fwrite($connection, pack('N', strlen($chunk)).$chunk);
-            }
-            fclose($handle);
-
-            // Zero-length chunk terminates the stream.
-            fwrite($connection, pack('N', 0));
-
-            $response = trim((string) fgets($connection));
         } catch (\Throwable $e) {
             Log::warning('clamav scan error', ['error' => $e->getMessage()]);
 
@@ -77,6 +60,46 @@ class ClamavScanner implements AttachmentScannerInterface
             fclose($connection);
         }
 
+        return $this->parseResponse($response);
+    }
+
+    private function buildRemoteAddress(): string
+    {
+        if ($this->socket !== null && $this->socket !== '') {
+            return 'unix://'.$this->socket;
+        }
+
+        return 'tcp://'.$this->host.':'.$this->port;
+    }
+
+    /**
+     * @param  resource  $connection
+     * @return string|false Response string, or false if the file could not be opened.
+     */
+    private function streamFileAndReadResponse($connection, string $absolutePath): string|false
+    {
+        $handle = fopen($absolutePath, 'rb');
+        if ($handle === false) {
+            return false;
+        }
+
+        while (! feof($handle)) {
+            $chunk = fread($handle, self::CHUNK);
+            if ($chunk === '' || $chunk === false) {
+                break;
+            }
+            fwrite($connection, pack('N', strlen($chunk)).$chunk);
+        }
+        fclose($handle);
+
+        // Zero-length chunk terminates the stream.
+        fwrite($connection, pack('N', 0));
+
+        return trim((string) fgets($connection));
+    }
+
+    private function parseResponse(string $response): ScanResult
+    {
         // clamd replies "stream: OK" or "stream: <Signature> FOUND".
         if (str_contains($response, 'FOUND')) {
             $signature = trim(str_replace(['stream:', 'FOUND'], '', $response));

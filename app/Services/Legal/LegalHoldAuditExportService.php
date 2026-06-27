@@ -163,25 +163,37 @@ class LegalHoldAuditExportService
             return '';
         }
 
-        // CSV-injection guard: a reason like `=HYPERLINK(...)` is executed
-        // as a formula when Excel/Sheets opens the file. Prefix with a
-        // leading apostrophe so the cell renders as text. Apply BEFORE
-        // quoting so the escaped string is itself quoted when needed.
-        $first = $value[0];
-        if (in_array($first, ['=', '+', '-', '@', "\t", "\r"], true)) {
-            $value = "'".$value;
-        }
+        $value = $this->guardCsvInjection($value);
 
-        $needsQuoting = str_contains($value, ',')
-            || str_contains($value, '"')
-            || str_contains($value, "\n")
-            || str_contains($value, "\r");
-
-        if (! $needsQuoting) {
+        if (! $this->requiresCsvQuoting($value)) {
             return $value;
         }
 
         return '"'.str_replace('"', '""', $value).'"';
+    }
+
+    /**
+     * CSV-injection guard: a reason like `=HYPERLINK(...)` is executed
+     * as a formula when Excel/Sheets opens the file. Prefix with a
+     * leading apostrophe so the cell renders as text. Apply BEFORE
+     * quoting so the escaped string is itself quoted when needed.
+     */
+    private function guardCsvInjection(string $value): string
+    {
+        $first = $value[0];
+        if (in_array($first, ['=', '+', '-', '@', "\t", "\r"], true)) {
+            return "'".$value;
+        }
+
+        return $value;
+    }
+
+    private function requiresCsvQuoting(string $value): bool
+    {
+        return str_contains($value, ',')
+            || str_contains($value, '"')
+            || str_contains($value, "\n")
+            || str_contains($value, "\r");
     }
 
     private function shortType(string $fqcn): string

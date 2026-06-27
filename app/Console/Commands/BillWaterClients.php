@@ -43,15 +43,9 @@ class BillWaterClients extends Command
         $skipped = 0;
 
         foreach ($landlordIds as $landlordId) {
-            try {
-                $result = $billing->billForPeriod((int) $landlordId, $period);
-            } catch (\Throwable $e) {
-                Log::error('water:bill-clients landlord failed', [
-                    'landlord_id' => $landlordId,
-                    'exception' => $e::class,
-                    'message' => $e->getMessage(),
-                ]);
+            $result = $this->billLandlord($billing, (int) $landlordId, $period);
 
+            if ($result === null) {
                 continue;
             }
 
@@ -62,22 +56,54 @@ class BillWaterClients extends Command
                 $this->emailInvoice($invoice);
             }
 
-            foreach ($result['skipped'] as $skip) {
-                // A misconfigured line the landlord must fix (vs. just "nothing read").
-                if (in_array($skip['reason'], ['no_rate', 'metered_no_meter', 'error'], true)) {
-                    Log::warning('water:bill-clients connection needs attention', [
-                        'landlord_id' => $landlordId,
-                        'connection_id' => $skip['connection_id'],
-                        'identifier' => $skip['identifier'],
-                        'reason' => $skip['reason'],
-                    ]);
-                }
-            }
+            $this->logSkippedConnections((int) $landlordId, $result['skipped']);
         }
 
         $this->info("water:bill-clients: {$billed} invoice(s) created, {$skipped} skipped, period {$period->format('Y-m')}");
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Bill one landlord for the given period. Returns the result array on success,
+     * or null when the service throws (already logged).
+     *
+     * @return array{billed: array<Invoice>, skipped: array<array<string, mixed>>}|null
+     */
+    private function billLandlord(WaterClientBillingService $billing, int $landlordId, CarbonImmutable $period): ?array
+    {
+        try {
+            return $billing->billForPeriod($landlordId, $period);
+        } catch (\Throwable $e) {
+            Log::error('water:bill-clients landlord failed', [
+                'landlord_id' => $landlordId,
+                'exception' => $e::class,
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Log any skipped connections that require landlord attention (misconfigured,
+     * not simply "no readings yet").
+     *
+     * @param  array<array<string, mixed>>  $skipped
+     */
+    private function logSkippedConnections(int $landlordId, array $skipped): void
+    {
+        foreach ($skipped as $skip) {
+            // A misconfigured line the landlord must fix (vs. just "nothing read").
+            if (in_array($skip['reason'], ['no_rate', 'metered_no_meter', 'error'], true)) {
+                Log::warning('water:bill-clients connection needs attention', [
+                    'landlord_id' => $landlordId,
+                    'connection_id' => $skip['connection_id'],
+                    'identifier' => $skip['identifier'],
+                    'reason' => $skip['reason'],
+                ]);
+            }
+        }
     }
 
     /**

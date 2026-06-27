@@ -96,35 +96,16 @@ class WaterClientBillingService
             return ['status' => 'skipped', 'reason' => 'no_rate'];
         }
 
-        if ($connection->billing_mode === 'metered') {
-            // GUARD B: metered requires a readable meter (scoped, soft-delete-aware).
-            $meter = $connection->meter;
-            if ($meter === null) {
-                return ['status' => 'skipped', 'reason' => 'metered_no_meter'];
-            }
-
-            $consumption = $this->periodConsumption($connection, $meter->id, $period);
-            if ($consumption <= 0) {
-                // Nothing read this period — no charge (no minimum floor, like tenants).
-                return ['status' => 'skipped', 'reason' => 'no_consumption'];
-            }
-
-            $waterDue = $this->tariffService->computeConsumptionCharge($consumption, ['unit_rate' => $rate]);
-        } else {
-            // Flat-rate line: the agreed rate is the period charge; no meter needed.
-            $consumption = null;
-            $waterDue = round($rate, 2);
-        }
-
-        if ($waterDue <= 0) {
-            return ['status' => 'skipped', 'reason' => 'nothing_to_bill'];
+        $chargeResult = $this->resolveCharge($connection, $rate, $period);
+        if ($chargeResult['status'] !== 'ok') {
+            return ['status' => 'skipped', 'reason' => $chargeResult['reason']];
         }
 
         $invoice = $this->invoiceService->generateInvoiceForWaterConnection(
             $connection,
             Carbon::parse($period->toDateString()),
-            (float) $waterDue,
-            $consumption,
+            (float) $chargeResult['waterDue'],
+            $chargeResult['consumption'],
         );
 
         return ['status' => 'billed', 'invoice' => $invoice];
@@ -147,6 +128,56 @@ class WaterClientBillingService
         $rate = PaymentConfiguration::where('landlord_id', $connection->landlord_id)->value('water_client_rate');
 
         return ($rate !== null && (float) $rate > 0) ? (float) $rate : null;
+    }
+
+    /**
+     * Resolve the charge (waterDue + consumption) for a connection in a period.
+     * Returns ['status' => 'ok', 'waterDue' => float, 'consumption' => ?float]
+     * or      ['status' => 'skip', 'reason' => string].
+     *
+     * @return array{status:string, reason?:string, waterDue?:float, consumption?:float|null}
+     */
+    private function resolveCharge(WaterConnection $connection, float $rate, CarbonImmutable $period): array
+    {
+        if ($connection->billing_mode === 'metered') {
+            return $this->resolveMeteredCharge($connection, $rate, $period);
+        }
+
+        // Flat-rate line: the agreed rate is the period charge; no meter needed.
+        $waterDue = round($rate, 2);
+        if ($waterDue <= 0) {
+            return ['status' => 'skip', 'reason' => 'nothing_to_bill'];
+        }
+
+        return ['status' => 'ok', 'waterDue' => $waterDue, 'consumption' => null];
+    }
+
+    /**
+     * Resolve charge for a metered connection: requires a readable meter and
+     * positive consumption. Returns a skip reason when either guard fails.
+     *
+     * @return array{status:string, reason?:string, waterDue?:float, consumption?:float}
+     */
+    private function resolveMeteredCharge(WaterConnection $connection, float $rate, CarbonImmutable $period): array
+    {
+        // GUARD B: metered requires a readable meter (scoped, soft-delete-aware).
+        $meter = $connection->meter;
+        if ($meter === null) {
+            return ['status' => 'skip', 'reason' => 'metered_no_meter'];
+        }
+
+        $consumption = $this->periodConsumption($connection, $meter->id, $period);
+        if ($consumption <= 0) {
+            // Nothing read this period — no charge (no minimum floor, like tenants).
+            return ['status' => 'skip', 'reason' => 'no_consumption'];
+        }
+
+        $waterDue = $this->tariffService->computeConsumptionCharge($consumption, ['unit_rate' => $rate]);
+        if ($waterDue <= 0) {
+            return ['status' => 'skip', 'reason' => 'nothing_to_bill'];
+        }
+
+        return ['status' => 'ok', 'waterDue' => (float) $waterDue, 'consumption' => $consumption];
     }
 
     /**

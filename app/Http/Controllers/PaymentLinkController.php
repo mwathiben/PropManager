@@ -21,6 +21,47 @@ class PaymentLinkController extends Controller
     {
         $link = $this->paymentLinkService->resolve($token);
 
+        $invalidResponse = $this->resolveInvalidLinkResponse($link, $request, $token);
+        if ($invalidResponse !== null) {
+            return $invalidResponse;
+        }
+
+        $invoice = $link->invoice;
+
+        $unavailableResponse = $this->resolveUnavailableInvoiceResponse($invoice);
+        if ($unavailableResponse !== null) {
+            return $unavailableResponse;
+        }
+
+        $this->paymentLinkService->trackClick($link, $request);
+
+        $authRedirect = $this->resolveAuthenticatedRedirect($invoice);
+        if ($authRedirect !== null) {
+            return $authRedirect;
+        }
+
+        session(['intended_payment_invoice' => $invoice->id]);
+
+        $currency = $invoice->currency ?? Currency::default();
+
+        return Inertia::render('PaymentLink/Show', [
+            'invoice' => $this->buildInvoicePayload($invoice, $currency),
+            'tenant' => [
+                'name' => $invoice->lease?->tenant?->name,
+                'unit' => $invoice->lease?->unit?->unit_number,
+                'building' => $invoice->lease?->unit?->building?->name,
+            ],
+            'landlord' => [
+                'name' => $invoice->landlord?->name,
+                'business_name' => $invoice->landlord?->business_name,
+            ],
+            'token' => $token,
+            'loginUrl' => route('login', ['redirect' => route('payment.link', $token)]),
+        ]);
+    }
+
+    private function resolveInvalidLinkResponse(mixed $link, Request $request, string $token): ?Response
+    {
         if (! $link) {
             Log::channel('security')->warning('Invalid payment link token accessed', [
                 'ip' => $request->ip(),
@@ -60,61 +101,58 @@ class PaymentLinkController extends Controller
             ]);
         }
 
-        $invoice = $link->invoice;
+        return null;
+    }
 
-        if (! $invoice || in_array($invoice->status, [InvoiceStatus::Paid, InvoiceStatus::Cancelled, InvoiceStatus::Voided])) {
-            $reason = $invoice?->status === InvoiceStatus::Paid ? 'paid' : 'unavailable';
-            $message = $invoice?->status === InvoiceStatus::Paid
-                ? 'This invoice has already been paid. Thank you!'
-                : 'This invoice is no longer available.';
+    private function resolveUnavailableInvoiceResponse(mixed $invoice): ?Response
+    {
+        $terminalStatuses = [InvoiceStatus::Paid, InvoiceStatus::Cancelled, InvoiceStatus::Voided];
+
+        if (! $invoice || in_array($invoice->status, $terminalStatuses)) {
+            $isPaid = $invoice?->status === InvoiceStatus::Paid;
 
             return Inertia::render('PaymentLink/Invalid', [
-                'reason' => $reason,
-                'message' => $message,
+                'reason' => $isPaid ? 'paid' : 'unavailable',
+                'message' => $isPaid
+                    ? 'This invoice has already been paid. Thank you!'
+                    : 'This invoice is no longer available.',
             ]);
         }
 
-        $this->paymentLinkService->trackClick($link, $request);
+        return null;
+    }
 
-        if (auth()->check()) {
-            $user = auth()->user();
-
-            if ($user->id === $invoice->lease?->tenant_id) {
-                return redirect()->route('tenant.finances.pay', $invoice->id);
-            }
-
-            if ($user->id === $invoice->landlord_id || $user->landlord_id === $invoice->landlord_id) {
-                return redirect()->route('invoices.show', $invoice->id);
-            }
+    private function resolveAuthenticatedRedirect(mixed $invoice): ?RedirectResponse
+    {
+        if (! auth()->check()) {
+            return null;
         }
 
-        session(['intended_payment_invoice' => $invoice->id]);
+        $user = auth()->user();
 
-        $currency = $invoice->currency ?? Currency::default();
+        if ($user->id === $invoice->lease?->tenant_id) {
+            return redirect()->route('tenant.finances.pay', $invoice->id);
+        }
 
-        return Inertia::render('PaymentLink/Show', [
-            'invoice' => [
-                'id' => $invoice->id,
-                'invoice_number' => $invoice->invoice_number,
-                'total_due' => $invoice->total_due,
-                'amount_paid' => $invoice->amount_paid,
-                'balance' => $invoice->total_due - $invoice->amount_paid,
-                'status' => $invoice->status,
-                'due_date' => $invoice->due_date?->format('Y-m-d'),
-                'currency' => $currency->value,
-                'currency_symbol' => $currency->symbol(),
-            ],
-            'tenant' => [
-                'name' => $invoice->lease?->tenant?->name,
-                'unit' => $invoice->lease?->unit?->unit_number,
-                'building' => $invoice->lease?->unit?->building?->name,
-            ],
-            'landlord' => [
-                'name' => $invoice->landlord?->name,
-                'business_name' => $invoice->landlord?->business_name,
-            ],
-            'token' => $token,
-            'loginUrl' => route('login', ['redirect' => route('payment.link', $token)]),
-        ]);
+        if ($user->id === $invoice->landlord_id || $user->landlord_id === $invoice->landlord_id) {
+            return redirect()->route('invoices.show', $invoice->id);
+        }
+
+        return null;
+    }
+
+    private function buildInvoicePayload(mixed $invoice, Currency $currency): array
+    {
+        return [
+            'id' => $invoice->id,
+            'invoice_number' => $invoice->invoice_number,
+            'total_due' => $invoice->total_due,
+            'amount_paid' => $invoice->amount_paid,
+            'balance' => $invoice->total_due - $invoice->amount_paid,
+            'status' => $invoice->status,
+            'due_date' => $invoice->due_date?->format('Y-m-d'),
+            'currency' => $currency->value,
+            'currency_symbol' => $currency->symbol(),
+        ];
     }
 }

@@ -19,8 +19,13 @@ class UpdateTicketRequest extends FormRequest
             return false;
         }
 
+        return $this->authorizeByRole($user, $ticket);
+    }
+
+    private function authorizeByRole(mixed $user, mixed $ticket): bool
+    {
         if ($user->isTenant()) {
-            return (int) $ticket->reporter_id === (int) $user->id && $ticket->canBeEdited();
+            return $this->authorizeTenant($user, $ticket);
         }
 
         if ($user->isScopeOwner()) {
@@ -32,6 +37,11 @@ class UpdateTicketRequest extends FormRequest
         }
 
         return false;
+    }
+
+    private function authorizeTenant(mixed $user, mixed $ticket): bool
+    {
+        return (int) $ticket->reporter_id === (int) $user->id && $ticket->canBeEdited();
     }
 
     public function rules(): array

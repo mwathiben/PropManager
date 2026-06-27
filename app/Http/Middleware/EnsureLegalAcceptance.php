@@ -43,23 +43,31 @@ class EnsureLegalAcceptance
         $missingConsents = Consent::getMissingConsents($request->user());
 
         if (! empty($missingConsents)) {
-            // JSON 403 only for true non-Inertia API/JSON clients.
-            // Inertia requests use X-Inertia header — redirect those so the
-            // SPA router picks up the consent page correctly (mirrors EnsureTenantKycComplete).
-            if ($request->expectsJson() && ! $request->header('X-Inertia')) {
-                return response()->json([
-                    'message' => 'Legal acceptance required',
-                    'missing_consents' => $missingConsents,
-                    'redirect_url' => route('consent.required'),
-                ], 403);
-            }
-
-            // For web and Inertia requests, redirect to consent page
-            return redirect()->route('consent.required')
-                ->with('missing_consents', $missingConsents);
+            return $this->missingConsentsResponse($request, $missingConsents);
         }
 
         return $next($request);
+    }
+
+    /**
+     * Build the appropriate response when required consents are missing.
+     *
+     * JSON 403 only for true non-Inertia API/JSON clients.
+     * Inertia requests use X-Inertia header — redirect those so the
+     * SPA router picks up the consent page correctly (mirrors EnsureTenantKycComplete).
+     */
+    private function missingConsentsResponse(Request $request, array $missingConsents): Response
+    {
+        if ($request->expectsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'message' => 'Legal acceptance required',
+                'missing_consents' => $missingConsents,
+                'redirect_url' => route('consent.required'),
+            ], 403);
+        }
+
+        return redirect()->route('consent.required')
+            ->with('missing_consents', $missingConsents);
     }
 
     /**

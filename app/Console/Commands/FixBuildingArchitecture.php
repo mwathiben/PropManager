@@ -33,15 +33,45 @@ class FixBuildingArchitecture extends Command
     public function handle()
     {
         $dryRun = $this->option('dry-run');
-        $propertyId = $this->option('property');
-        $force = $this->option('force');
 
         $this->info('');
         $this->info($dryRun ? 'Building Architecture Fix Preview' : 'Building Architecture Fix');
         $this->info('===================================');
         $this->info('');
 
-        // Find main buildings that have units directly (they should be containers only)
+        $mainBuildings = $this->findMainBuildingsNeedingFix($this->option('property'));
+
+        if ($mainBuildings->isEmpty()) {
+            $this->info('No buildings found that need architecture fixes.');
+            $this->info('(Main buildings should have no direct units when they have wings)');
+
+            return 0;
+        }
+
+        $this->previewChanges($mainBuildings);
+
+        if ($dryRun) {
+            $this->warn('DRY RUN - No changes made. Remove --dry-run to execute.');
+
+            return 0;
+        }
+
+        if (! $this->option('force') && ! $this->confirm('Do you want to proceed with these changes?')) {
+            $this->info('Operation cancelled.');
+
+            return 0;
+        }
+
+        $this->applyChanges($mainBuildings);
+
+        return 0;
+    }
+
+    /**
+     * Main buildings that hold units directly while also having wings — they should be containers only.
+     */
+    private function findMainBuildingsNeedingFix(?string $propertyId): \Illuminate\Support\Collection
+    {
         $query = Building::where('is_wing', false)
             ->whereNull('parent_building_id')
             ->whereHas('units')
@@ -52,93 +82,51 @@ class FixBuildingArchitecture extends Command
             $query->where('property_id', $propertyId);
         }
 
-        $mainBuildings = $query->get();
+        return $query->get();
+    }
 
-        if ($mainBuildings->isEmpty()) {
-            $this->info('No buildings found that need architecture fixes.');
-            $this->info('(Main buildings should have no direct units when they have wings)');
-
-            return 0;
-        }
-
-        // Show what will be changed
+    private function previewChanges(\Illuminate\Support\Collection $mainBuildings): void
+    {
         foreach ($mainBuildings as $mainBuilding) {
-            $property = $mainBuilding->property;
+            $this->previewBuilding($mainBuilding);
+        }
+    }
 
-            $this->line("Property: {$property->name} (ID: {$property->id})");
-            $this->line('');
-            $this->line('  Current State (WRONG):');
-            $this->line("  ├── Building ID={$mainBuilding->id}: \"{$mainBuilding->name}\" [MAIN with units]");
-            $this->line("  │   └── Units: {$mainBuilding->units->count()} (e.g., ".$mainBuilding->units->take(3)->pluck('unit_number')->implode(', ').')');
+    private function previewBuilding(Building $mainBuilding): void
+    {
+        $property = $mainBuilding->property;
 
-            foreach ($mainBuilding->wings as $wing) {
-                $this->line("  └── Building ID={$wing->id}: \"{$wing->name}\" [WING]");
-                $this->line("      └── Units: {$wing->units->count()} (e.g., ".$wing->units->take(3)->pluck('unit_number')->implode(', ').')');
-            }
+        $this->line("Property: {$property->name} (ID: {$property->id})");
+        $this->line('');
+        $this->line('  Current State (WRONG):');
+        $this->line("  ├── Building ID={$mainBuilding->id}: \"{$mainBuilding->name}\" [MAIN with units]");
+        $this->line("  │   └── Units: {$mainBuilding->units->count()} (e.g., ".$mainBuilding->units->take(3)->pluck('unit_number')->implode(', ').')');
 
-            $this->line('');
-            $this->line('  Target State (CORRECT):');
-            $this->line("  ├── Building: \"{$property->name}\" [MAIN CONTAINER, no units]");
-            $this->line('  │   ├── Wing: "Block A" [NEW] - Units moved here');
-
-            foreach ($mainBuilding->wings as $wing) {
-                $this->line("  │   └── Wing: \"{$wing->name}\" [EXISTING]");
-            }
-
-            $this->line('');
+        foreach ($mainBuilding->wings as $wing) {
+            $this->line("  └── Building ID={$wing->id}: \"{$wing->name}\" [WING]");
+            $this->line("      └── Units: {$wing->units->count()} (e.g., ".$wing->units->take(3)->pluck('unit_number')->implode(', ').')');
         }
 
-        if ($dryRun) {
-            $this->warn('DRY RUN - No changes made. Remove --dry-run to execute.');
+        $this->line('');
+        $this->line('  Target State (CORRECT):');
+        $this->line("  ├── Building: \"{$property->name}\" [MAIN CONTAINER, no units]");
+        $this->line('  │   ├── Wing: "Block A" [NEW] - Units moved here');
 
-            return 0;
+        foreach ($mainBuilding->wings as $wing) {
+            $this->line("  │   └── Wing: \"{$wing->name}\" [EXISTING]");
         }
 
-        // Confirm before executing
-        if (! $force && ! $this->confirm('Do you want to proceed with these changes?')) {
-            $this->info('Operation cancelled.');
+        $this->line('');
+    }
 
-            return 0;
-        }
-
-        // Execute the changes
+    private function applyChanges(\Illuminate\Support\Collection $mainBuildings): void
+    {
         $this->info('Applying changes...');
         $bar = $this->output->createProgressBar(count($mainBuildings));
         $bar->start();
 
         foreach ($mainBuildings as $mainBuilding) {
-            DB::transaction(function () use ($mainBuilding) {
-                $property = $mainBuilding->property;
-
-                // 1. Rename main building back to property name
-                $mainBuilding->update([
-                    'name' => $property->name,
-                    'unit_prefix' => null,
-                ]);
-
-                // 2. Create new wing "Block A" for the main building's units
-                $blockA = Building::create([
-                    'property_id' => $property->id,
-                    'landlord_id' => $mainBuilding->landlord_id,
-                    'parent_building_id' => $mainBuilding->id,
-                    'name' => 'Block A',
-                    'unit_prefix' => 'A',
-                    'is_wing' => true,
-                    'total_floors' => $mainBuilding->total_floors,
-                    'units_per_floor' => $mainBuilding->units_per_floor,
-                ]);
-
-                // 3. Move units from main building to Block A wing
-                Unit::where('building_id', $mainBuilding->id)
-                    ->update(['building_id' => $blockA->id]);
-
-                // 4. Clear main building's floor/unit counts (it's now just a container)
-                $mainBuilding->update([
-                    'total_floors' => 0,
-                    'units_per_floor' => 0,
-                ]);
-            });
-
+            DB::transaction(fn () => $this->moveUnitsToNewWing($mainBuilding));
             $bar->advance();
         }
 
@@ -146,7 +134,38 @@ class FixBuildingArchitecture extends Command
         $this->line('');
         $this->line('');
         $this->info('Successfully fixed architecture for '.count($mainBuildings).' buildings.');
+    }
 
-        return 0;
+    private function moveUnitsToNewWing(Building $mainBuilding): void
+    {
+        $property = $mainBuilding->property;
+
+        // 1. Rename main building back to property name
+        $mainBuilding->update([
+            'name' => $property->name,
+            'unit_prefix' => null,
+        ]);
+
+        // 2. Create new wing "Block A" for the main building's units
+        $blockA = Building::create([
+            'property_id' => $property->id,
+            'landlord_id' => $mainBuilding->landlord_id,
+            'parent_building_id' => $mainBuilding->id,
+            'name' => 'Block A',
+            'unit_prefix' => 'A',
+            'is_wing' => true,
+            'total_floors' => $mainBuilding->total_floors,
+            'units_per_floor' => $mainBuilding->units_per_floor,
+        ]);
+
+        // 3. Move units from main building to Block A wing
+        Unit::where('building_id', $mainBuilding->id)
+            ->update(['building_id' => $blockA->id]);
+
+        // 4. Clear main building's floor/unit counts (it's now just a container)
+        $mainBuilding->update([
+            'total_floors' => 0,
+            'units_per_floor' => 0,
+        ]);
     }
 }

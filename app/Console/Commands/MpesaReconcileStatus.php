@@ -56,52 +56,75 @@ class MpesaReconcileStatus extends Command
         $failed = 0;
 
         foreach ($query->cursor() as $row) {
-            $row->update(['last_polled_at' => now()]);
-
-            if ($row->conversation_id === null) {
-                continue;
-            }
-
-            $config = PaymentConfiguration::query()
-                ->withoutGlobalScopes()
-                ->where('landlord_id', $row->landlord_id)
-                ->first();
-            if ($config === null || ! $config->hasMpesaApiConfig()) {
-                continue;
-            }
-            $mpesa->withConfig($config);
-
-            $response = $mpesa->queryTransactionStatus($row->conversation_id);
-            $reconciled++;
-
-            if ($response === null) {
-                continue;
-            }
-
-            $resultCode = $response['Result']['ResultCode'] ?? $response['ResultCode'] ?? null;
-            $row->update(['last_response' => $response]);
-
-            if ((string) $resultCode === '0') {
-                $row->update([
-                    'status' => MpesaB2cRequest::STATUS_SUCCEEDED,
-                    'transaction_id' => $response['Result']['TransactionID'] ?? $response['TransactionID'] ?? null,
-                    'confirmed_at' => now(),
-                ]);
-                $confirmed++;
-                $this->confirmLinkedRefund($row);
-            } elseif ($resultCode !== null) {
-                $row->update([
-                    'status' => MpesaB2cRequest::STATUS_FAILED,
-                    'failure_reason' => $response['Result']['ResultDesc'] ?? $response['ResultDesc'] ?? 'Daraja reported failure',
-                    'confirmed_at' => now(),
-                ]);
-                $failed++;
-            }
+            $counts = $this->reconcileRow($row, $mpesa);
+            $reconciled += $counts['reconciled'];
+            $confirmed += $counts['confirmed'];
+            $failed += $counts['failed'];
         }
 
         $this->info("Reconciled: {$reconciled}, confirmed: {$confirmed}, failed: {$failed}");
 
         return self::SUCCESS;
+    }
+
+    /**
+     * @return array{reconciled: int, confirmed: int, failed: int}
+     */
+    private function reconcileRow(MpesaB2cRequest $row, MpesaService $mpesa): array
+    {
+        $row->update(['last_polled_at' => now()]);
+
+        if ($row->conversation_id === null) {
+            return ['reconciled' => 0, 'confirmed' => 0, 'failed' => 0];
+        }
+
+        $config = PaymentConfiguration::query()
+            ->withoutGlobalScopes()
+            ->where('landlord_id', $row->landlord_id)
+            ->first();
+        if ($config === null || ! $config->hasMpesaApiConfig()) {
+            return ['reconciled' => 0, 'confirmed' => 0, 'failed' => 0];
+        }
+        $mpesa->withConfig($config);
+
+        $response = $mpesa->queryTransactionStatus($row->conversation_id);
+        if ($response === null) {
+            return ['reconciled' => 1, 'confirmed' => 0, 'failed' => 0];
+        }
+
+        $resultCode = $response['Result']['ResultCode'] ?? $response['ResultCode'] ?? null;
+        $row->update(['last_response' => $response]);
+
+        return $this->applyTransactionResult($row, $response, $resultCode);
+    }
+
+    /**
+     * @return array{reconciled: int, confirmed: int, failed: int}
+     */
+    private function applyTransactionResult(MpesaB2cRequest $row, array $response, mixed $resultCode): array
+    {
+        if ((string) $resultCode === '0') {
+            $row->update([
+                'status' => MpesaB2cRequest::STATUS_SUCCEEDED,
+                'transaction_id' => $response['Result']['TransactionID'] ?? $response['TransactionID'] ?? null,
+                'confirmed_at' => now(),
+            ]);
+            $this->confirmLinkedRefund($row);
+
+            return ['reconciled' => 1, 'confirmed' => 1, 'failed' => 0];
+        }
+
+        if ($resultCode !== null) {
+            $row->update([
+                'status' => MpesaB2cRequest::STATUS_FAILED,
+                'failure_reason' => $response['Result']['ResultDesc'] ?? $response['ResultDesc'] ?? 'Daraja reported failure',
+                'confirmed_at' => now(),
+            ]);
+
+            return ['reconciled' => 1, 'confirmed' => 0, 'failed' => 1];
+        }
+
+        return ['reconciled' => 1, 'confirmed' => 0, 'failed' => 0];
     }
 
     private function confirmLinkedRefund(MpesaB2cRequest $row): void

@@ -156,21 +156,27 @@ class ReconciliationController extends Controller
         try {
             $import->import($request->file('file'));
 
-            $results = $import->getResults();
-
-            if ($results['imported'] === 0 && $results['skipped'] > 0) {
-                return back()->with('warning', "No new transactions imported. {$results['skipped']} row(s) were skipped (duplicates or invalid).");
-            }
-
-            $message = "{$results['imported']} transaction(s) imported successfully.";
-            if ($results['skipped'] > 0) {
-                $message .= " {$results['skipped']} row(s) skipped.";
-            }
-
-            return back()->with('success', $message);
+            return $this->redirectWithImportResults($import->getResults());
         } catch (\Exception $e) {
             return back()->withErrors(['file' => 'Failed to import file: '.$e->getMessage()]);
         }
+    }
+
+    /**
+     * @param  array{imported: int, skipped: int}  $results
+     */
+    private function redirectWithImportResults(array $results): RedirectResponse
+    {
+        if ($results['imported'] === 0 && $results['skipped'] > 0) {
+            return back()->with('warning', "No new transactions imported. {$results['skipped']} row(s) were skipped (duplicates or invalid).");
+        }
+
+        $message = "{$results['imported']} transaction(s) imported successfully.";
+        if ($results['skipped'] > 0) {
+            $message .= " {$results['skipped']} row(s) skipped.";
+        }
+
+        return back()->with('success', $message);
     }
 
     public function processQueue(): RedirectResponse

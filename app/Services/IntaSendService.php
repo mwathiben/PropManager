@@ -89,19 +89,7 @@ class IntaSendService
         }
 
         $phone = $this->formatPhoneNumber($phone);
-
-        // IntaSend expects amount in whole currency units (e.g., 100 for KES 100)
-        // Using round() to handle decimal amounts properly (99.50 → 100)
-        // instead of (int) which truncates (99.50 → 99)
-        $payload = [
-            'amount' => (int) round($amount),
-            'phone_number' => $phone,
-            'api_ref' => $reference,
-        ];
-
-        if ($splitConfig !== null && isset($splitConfig['wallet_id'])) {
-            $payload['wallet_id'] = $splitConfig['wallet_id'];
-        }
+        $payload = $this->buildStkPushPayload($amount, $phone, $reference, $splitConfig);
 
         try {
             /** @var Response $response */
@@ -112,26 +100,7 @@ class IntaSendService
                 ])
                 ->post($this->baseUrl.'/api/v1/payment/mpesa-stk-push/', $payload));
 
-            $result = $response->json();
-
-            if ($response->successful() && isset($result['invoice'])) {
-                Log::info('IntaSend STK Push initiated', [
-                    'invoice_id' => $result['invoice']['invoice_id'] ?? null,
-                    'state' => $result['invoice']['state'] ?? null,
-                    'phone' => substr($phone, -4),
-                    'reference' => $reference,
-                ]);
-
-                return $result;
-            }
-
-            Log::error('IntaSend STK Push failed', [
-                'status' => $response->status(),
-                'body' => $this->redactSecrets(json_encode($result)),
-                'reference' => $reference,
-            ]);
-
-            return null;
+            return $this->handleStkPushResponse($response, $phone, $reference);
         } catch (ConnectionException $e) {
             // HANDLE-1: surface gateway unreachability so callers can show a
             // 'try again later' message instead of a generic 500.
@@ -149,6 +118,54 @@ class IntaSendService
 
             return null;
         }
+    }
+
+    /**
+     * Build the STK Push request payload, including optional split config.
+     */
+    private function buildStkPushPayload(float $amount, string $phone, string $reference, ?array $splitConfig): array
+    {
+        // IntaSend expects amount in whole currency units (e.g., 100 for KES 100)
+        // Using round() to handle decimal amounts properly (99.50 → 100)
+        // instead of (int) which truncates (99.50 → 99)
+        $payload = [
+            'amount' => (int) round($amount),
+            'phone_number' => $phone,
+            'api_ref' => $reference,
+        ];
+
+        if ($splitConfig !== null && isset($splitConfig['wallet_id'])) {
+            $payload['wallet_id'] = $splitConfig['wallet_id'];
+        }
+
+        return $payload;
+    }
+
+    /**
+     * Log and return the result of an STK Push HTTP response.
+     */
+    private function handleStkPushResponse(Response $response, string $phone, string $reference): ?array
+    {
+        $result = $response->json();
+
+        if ($response->successful() && isset($result['invoice'])) {
+            Log::info('IntaSend STK Push initiated', [
+                'invoice_id' => $result['invoice']['invoice_id'] ?? null,
+                'state' => $result['invoice']['state'] ?? null,
+                'phone' => substr($phone, -4),
+                'reference' => $reference,
+            ]);
+
+            return $result;
+        }
+
+        Log::error('IntaSend STK Push failed', [
+            'status' => $response->status(),
+            'body' => $this->redactSecrets(json_encode($result)),
+            'reference' => $reference,
+        ]);
+
+        return null;
     }
 
     /**

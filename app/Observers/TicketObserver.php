@@ -19,49 +19,9 @@ class TicketObserver
      */
     public function creating(Ticket $ticket): void
     {
-        $user = Auth::user();
-
-        // Set landlord_id based on user role (a manager is its own scope owner).
-        if ($user) {
-            if ($user->isScopeOwner()) {
-                $ticket->landlord_id = $user->id;
-            } elseif ($user->landlord_id) {
-                $ticket->landlord_id = $user->landlord_id;
-            }
-
-            // Set reporter if not already set
-            if (! $ticket->reporter_id) {
-                $ticket->reporter_id = $user->id;
-            }
-        }
-
-        // Auto-assign to building's caretaker
-        if (! $ticket->assigned_to && $ticket->building_id) {
-            $building = $ticket->building;
-            if ($building && $building->caretaker_id) {
-                $ticket->assigned_to = $building->caretaker_id;
-            }
-        }
-
-        // Phase-49 SLA-PER-CATEGORY-2: stamp sla_due_at + resolution_due_at
-        // using the per-(landlord, category, subcategory, priority) cascade.
-        // Service has Ticket::SLA_SECONDS / RESOLUTION_SLA_SECONDS as fallback.
-        if ($ticket->sla_due_at === null || $ticket->resolution_due_at === null) {
-            $seconds = app(SlaDefinitionService::class)->resolveFor(
-                (string) $ticket->category,
-                $ticket->subcategory,
-                (string) $ticket->priority,
-                $ticket->landlord_id,
-            );
-            $base = $ticket->created_at ?? now();
-
-            if ($ticket->sla_due_at === null) {
-                $ticket->sla_due_at = $base->copy()->addSeconds($seconds['response_seconds']);
-            }
-            if ($ticket->resolution_due_at === null) {
-                $ticket->resolution_due_at = $base->copy()->addSeconds($seconds['resolution_seconds']);
-            }
-        }
+        $this->stampOwnershipFields($ticket);
+        $this->autoAssignToCaretaker($ticket);
+        $this->stampSlaDueDates($ticket);
     }
 
     /**
@@ -71,46 +31,138 @@ class TicketObserver
     public function created(Ticket $ticket): void
     {
         DB::transaction(function () use ($ticket) {
-            $ticket->logActivity(
-                TicketActivity::ACTION_CREATED,
-                null,
-                null,
-                "Ticket created: {$ticket->title}",
-                $ticket->reporter_id
-            );
-
-            if ($ticket->assigned_to) {
-                $assignee = $ticket->assignee;
-                $ticket->logActivity(
-                    TicketActivity::ACTION_ASSIGNED,
-                    null,
-                    $assignee?->name,
-                    "Auto-assigned to building caretaker: {$assignee?->name}",
-                    null
-                );
-            }
+            $this->logCreatedActivities($ticket);
         });
 
         DB::afterCommit(function () use ($ticket) {
-            if ($ticket->landlord_id) {
-                $this->notifyNewTicket($ticket, $ticket->landlord_id);
-            }
-
-            if ($ticket->assigned_to) {
-                $this->notifyAssignment($ticket, $ticket->assigned_to);
-            }
-
-            // Phase-75 VENDOR-ROUTING-3: opt-in auto-route to the best vendor
-            // in the ticket's pool. No-op unless maintenance.auto_route_vendors
-            // is enabled + the ticket has no vendor yet. Best-effort.
-            if ($ticket->landlord_id && config('maintenance.auto_route_vendors', false)) {
-                try {
-                    app(\App\Services\Maintenance\VendorAssignmentService::class)->autoAssign($ticket);
-                } catch (\Throwable) {
-                    // routing is non-critical — never break ticket creation
-                }
-            }
+            $this->dispatchCreatedNotifications($ticket);
         });
+    }
+
+    /**
+     * Stamp landlord_id and reporter_id on the ticket being created.
+     */
+    private function stampOwnershipFields(Ticket $ticket): void
+    {
+        $user = Auth::user();
+
+        if (! $user) {
+            return;
+        }
+
+        if ($user->isScopeOwner()) {
+            $ticket->landlord_id = $user->id;
+        } elseif ($user->landlord_id) {
+            $ticket->landlord_id = $user->landlord_id;
+        }
+
+        if (! $ticket->reporter_id) {
+            $ticket->reporter_id = $user->id;
+        }
+    }
+
+    /**
+     * Auto-assign the ticket to the building's caretaker if unassigned.
+     */
+    private function autoAssignToCaretaker(Ticket $ticket): void
+    {
+        if ($ticket->assigned_to || ! $ticket->building_id) {
+            return;
+        }
+
+        $building = $ticket->building;
+
+        if ($building && $building->caretaker_id) {
+            $ticket->assigned_to = $building->caretaker_id;
+        }
+    }
+
+    /**
+     * Stamp sla_due_at and resolution_due_at using the per-category cascade.
+     *
+     * Phase-49 SLA-PER-CATEGORY-2: uses the per-(landlord, category,
+     * subcategory, priority) cascade. Service has Ticket::SLA_SECONDS /
+     * RESOLUTION_SLA_SECONDS as fallback.
+     */
+    private function stampSlaDueDates(Ticket $ticket): void
+    {
+        if ($ticket->sla_due_at !== null && $ticket->resolution_due_at !== null) {
+            return;
+        }
+
+        $seconds = app(SlaDefinitionService::class)->resolveFor(
+            (string) $ticket->category,
+            $ticket->subcategory,
+            (string) $ticket->priority,
+            $ticket->landlord_id,
+        );
+        $base = $ticket->created_at ?? now();
+
+        if ($ticket->sla_due_at === null) {
+            $ticket->sla_due_at = $base->copy()->addSeconds($seconds['response_seconds']);
+        }
+
+        if ($ticket->resolution_due_at === null) {
+            $ticket->resolution_due_at = $base->copy()->addSeconds($seconds['resolution_seconds']);
+        }
+    }
+
+    /**
+     * Log activity entries inside the creation transaction.
+     */
+    private function logCreatedActivities(Ticket $ticket): void
+    {
+        $ticket->logActivity(
+            TicketActivity::ACTION_CREATED,
+            null,
+            null,
+            "Ticket created: {$ticket->title}",
+            $ticket->reporter_id
+        );
+
+        if ($ticket->assigned_to) {
+            $assignee = $ticket->assignee;
+            $ticket->logActivity(
+                TicketActivity::ACTION_ASSIGNED,
+                null,
+                $assignee?->name,
+                "Auto-assigned to building caretaker: {$assignee?->name}",
+                null
+            );
+        }
+    }
+
+    /**
+     * Dispatch notifications after the creation transaction commits.
+     */
+    private function dispatchCreatedNotifications(Ticket $ticket): void
+    {
+        if ($ticket->landlord_id) {
+            $this->notifyNewTicket($ticket, $ticket->landlord_id);
+        }
+
+        if ($ticket->assigned_to) {
+            $this->notifyAssignment($ticket, $ticket->assigned_to);
+        }
+
+        $this->tryAutoRouteVendor($ticket);
+    }
+
+    /**
+     * Phase-75 VENDOR-ROUTING-3: opt-in auto-route to the best vendor.
+     * No-op unless maintenance.auto_route_vendors is enabled. Best-effort.
+     */
+    private function tryAutoRouteVendor(Ticket $ticket): void
+    {
+        if (! $ticket->landlord_id || ! config('maintenance.auto_route_vendors', false)) {
+            return;
+        }
+
+        try {
+            app(\App\Services\Maintenance\VendorAssignmentService::class)->autoAssign($ticket);
+        } catch (\Throwable) {
+            // routing is non-critical — never break ticket creation
+        }
     }
 
     /**

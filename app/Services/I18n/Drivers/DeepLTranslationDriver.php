@@ -43,6 +43,19 @@ final class DeepLTranslationDriver implements TranslationDriverInterface
             return $this->stubFallback($sourceText, $targetLocale, 'missing api key');
         }
 
+        $payload = $this->buildPayload($sourceText, $sourceLocale, $targetLocale);
+
+        return $this->dispatchAndExtract($sourceText, $targetLocale, $payload);
+    }
+
+    /**
+     * Build the DeepL request payload, optionally appending formality
+     * and glossary fields when configured.
+     *
+     * @return array<string, mixed>
+     */
+    private function buildPayload(string $sourceText, string $sourceLocale, string $targetLocale): array
+    {
         $payload = [
             'text' => [$sourceText],
             'source_lang' => strtoupper($sourceLocale),
@@ -57,6 +70,17 @@ final class DeepLTranslationDriver implements TranslationDriverInterface
             $payload['glossary_id'] = $this->glossaryId;
         }
 
+        return $payload;
+    }
+
+    /**
+     * Fire the HTTP request to DeepL and extract the translated string,
+     * falling back to stub on any transport or response error.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private function dispatchAndExtract(string $sourceText, string $targetLocale, array $payload): string
+    {
         try {
             $response = Http::withHeaders([
                 'Authorization' => 'DeepL-Auth-Key '.$this->apiKey,

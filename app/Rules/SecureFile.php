@@ -65,55 +65,104 @@ class SecureFile implements ValidationRule
             return;
         }
 
-        // Check file size
+        if ($this->failsSizeCheck($value, $fail)) {
+            return;
+        }
+
+        $extension = strtolower($value->getClientOriginalExtension());
+
+        if ($this->failsExtensionChecks($extension, $fail)) {
+            return;
+        }
+
+        $mimeType = $value->getMimeType();
+
+        if ($this->failsMimeCheck($mimeType, $fail)) {
+            return;
+        }
+
+        if ($this->failsContentChecks($value, $mimeType, $fail)) {
+            return;
+        }
+    }
+
+    /**
+     * Return true (and call $fail) when the file exceeds the maximum size.
+     *
+     * @param  \Closure(string, ?string=): \Illuminate\Translation\PotentiallyTranslatedString  $fail
+     */
+    private function failsSizeCheck(UploadedFile $value, Closure $fail): bool
+    {
         $maxBytes = $this->maxSize * 1024 * 1024;
+
         if ($value->getSize() > $maxBytes) {
             $fail("The :attribute must not be larger than {$this->maxSize}MB.");
 
-            return;
+            return true;
         }
 
-        // Get file extension
-        $extension = strtolower($value->getClientOriginalExtension());
+        return false;
+    }
 
-        // Block dangerous extensions
+    /**
+     * Return true (and call $fail) when the extension is blocked or not allowed.
+     *
+     * @param  \Closure(string, ?string=): \Illuminate\Translation\PotentiallyTranslatedString  $fail
+     */
+    private function failsExtensionChecks(string $extension, Closure $fail): bool
+    {
         if (in_array($extension, $this->dangerousExtensions)) {
             $fail('The :attribute has a file type that is not allowed for security reasons.');
 
-            return;
+            return true;
         }
 
-        // Check allowed extensions if specified
         if (! empty($this->allowedExtensions) && ! in_array($extension, $this->allowedExtensions)) {
             $allowed = implode(', ', $this->allowedExtensions);
             $fail("The :attribute must be a file of type: {$allowed}.");
 
-            return;
+            return true;
         }
 
-        // Get MIME type
-        $mimeType = $value->getMimeType();
+        return false;
+    }
 
-        // Check allowed MIME types if specified
+    /**
+     * Return true (and call $fail) when the MIME type is not in the allowed list.
+     *
+     * @param  \Closure(string, ?string=): \Illuminate\Translation\PotentiallyTranslatedString  $fail
+     */
+    private function failsMimeCheck(?string $mimeType, Closure $fail): bool
+    {
         if (! empty($this->allowedMimes) && ! in_array($mimeType, $this->allowedMimes)) {
             $fail('The :attribute has an invalid file type.');
 
-            return;
+            return true;
         }
 
-        // Verify file signature (magic bytes) matches claimed MIME type
-        if (! $this->verifyFileSignature($value, $mimeType)) {
+        return false;
+    }
+
+    /**
+     * Return true (and call $fail) when the file content fails signature or PHP-code checks.
+     *
+     * @param  \Closure(string, ?string=): \Illuminate\Translation\PotentiallyTranslatedString  $fail
+     */
+    private function failsContentChecks(UploadedFile $value, ?string $mimeType, Closure $fail): bool
+    {
+        if (! $this->verifyFileSignature($value, $mimeType ?? '')) {
             $fail('The :attribute appears to be corrupted or has been tampered with.');
 
-            return;
+            return true;
         }
 
-        // Check for PHP code in file content (additional safety)
         if ($this->containsPhpCode($value)) {
             $fail('The :attribute contains invalid content.');
 
-            return;
+            return true;
         }
+
+        return false;
     }
 
     /**

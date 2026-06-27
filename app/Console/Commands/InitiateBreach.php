@@ -47,24 +47,13 @@ class InitiateBreach extends Command
         $affected = (int) ($this->option('affected') ?? 0);
         $mitigation = trim((string) ($this->option('mitigation') ?? ''));
 
-        if ($description === '' || $mitigation === '') {
-            $this->error('--description and --mitigation are required.');
-
-            return self::INVALID;
-        }
-
-        if ($affected < 0) {
-            $this->error('--affected must be a non-negative integer.');
-
-            return self::INVALID;
+        $validationResult = $this->validateInputs($description, $affected, $mitigation);
+        if ($validationResult !== null) {
+            return $validationResult;
         }
 
         if (! $this->option('confirm')) {
-            $this->warn('DRY RUN — pass --confirm to create the incident.');
-            $this->line('Description:    '.$description);
-            $this->line('Data types:     '.(empty($dataTypes) ? '(none)' : implode(', ', $dataTypes)));
-            $this->line('Affected count: '.$affected);
-            $this->line('Mitigation:     '.$mitigation);
+            $this->printDryRun($description, $dataTypes, $affected, $mitigation);
 
             return self::SUCCESS;
         }
@@ -79,13 +68,44 @@ class InitiateBreach extends Command
             reportedBy: $reporterId,
         );
 
+        $this->printIncidentCreated($incident);
+
+        return self::SUCCESS;
+    }
+
+    private function validateInputs(string $description, int $affected, string $mitigation): ?int
+    {
+        if ($description === '' || $mitigation === '') {
+            $this->error('--description and --mitigation are required.');
+
+            return self::INVALID;
+        }
+
+        if ($affected < 0) {
+            $this->error('--affected must be a non-negative integer.');
+
+            return self::INVALID;
+        }
+
+        return null;
+    }
+
+    private function printDryRun(string $description, array $dataTypes, int $affected, string $mitigation): void
+    {
+        $this->warn('DRY RUN — pass --confirm to create the incident.');
+        $this->line('Description:    '.$description);
+        $this->line('Data types:     '.(empty($dataTypes) ? '(none)' : implode(', ', $dataTypes)));
+        $this->line('Affected count: '.$affected);
+        $this->line('Mitigation:     '.$mitigation);
+    }
+
+    private function printIncidentCreated(mixed $incident): void
+    {
         $this->info("SecurityIncident #{$incident->id} created.");
         $this->line('Severity:           '.$incident->severity);
         $this->line('Notification by:    '.$incident->notification_deadline?->toDateTimeString());
         $this->line('ODPC email target:  '.(config('security.kenya_dpa.odpc_email') ?: '(unset)'));
         $this->line('Operator alert to:  '.(config('security.kenya_dpa.breach_notification_email') ?: '(unset — set KENYA_DPA_BREACH_EMAIL)'));
-
-        return self::SUCCESS;
     }
 
     private function resolveReporter(): ?int

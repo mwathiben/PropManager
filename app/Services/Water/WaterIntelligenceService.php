@@ -227,34 +227,7 @@ class WaterIntelligenceService
         $subsByParent = $subs->groupBy('parent_meter_id');
 
         return $mainMeters->map(function ($m) use ($byMeter, $subsByParent, $buildings) {
-            $mainRow = $byMeter[$m->id] ?? null;
-            $main = (float) ($mainRow->total ?? 0);
-            $mainHasReading = $mainRow !== null && (int) $mainRow->cnt > 0;
-
-            $subList = $subsByParent[$m->id] ?? collect();
-            $subCount = $subList->count();
-            $sub = 0.0;
-            $subsRead = 0;
-            foreach ($subList as $s) {
-                $row = $byMeter[$s->id] ?? null;
-                if ($row !== null && (int) $row->cnt > 0) {
-                    $subsRead++;
-                    $sub += (float) $row->total;
-                }
-            }
-
-            $complete = $mainHasReading && $subCount > 0 && $subsRead === $subCount;
-            $loss = $main - $sub;
-
-            return [
-                'meter' => $m->serial_number ?: '#'.$m->id,
-                'building' => $buildings[$m->building_id] ?? null,
-                'main' => (int) round($main),
-                'sub' => (int) round($sub),
-                'loss' => $complete ? (int) round($loss) : null,
-                'loss_pct' => ($complete && $main > 0) ? round($loss / $main * 100, 1) : null,
-                'complete' => $complete,
-            ];
+            return $this->reconcileMeter($m, $byMeter, $subsByParent, $buildings);
         })
             ->filter(fn ($r) => $r['main'] > 0)
             ->values()->all();
@@ -327,6 +300,81 @@ class WaterIntelligenceService
             'margin_pct' => $revenue > 0 ? round($margin / $revenue * 100, 1) : null,
             'cost_per_unit' => $consumption > 0 ? round($cost / $consumption, 2) : null,
             'costs_logged' => true,
+        ];
+    }
+
+    /**
+     * Accumulate sub-meter consumption for a main meter within the reading window.
+     *
+     * Returns [sub_total, subs_read_count] so the caller can determine completeness.
+     *
+     * @param  \Illuminate\Support\Collection<int, object>  $subList
+     * @param  \Illuminate\Support\Collection<int|string, object>  $byMeter
+     * @return array{0: float, 1: int}
+     */
+    private function accumulateSubMeters($subList, $byMeter): array
+    {
+        $sub = 0.0;
+        $subsRead = 0;
+        foreach ($subList as $s) {
+            $row = $byMeter[$s->id] ?? null;
+            if ($row !== null && (int) $row->cnt > 0) {
+                $subsRead++;
+                $sub += (float) $row->total;
+            }
+        }
+
+        return [$sub, $subsRead];
+    }
+
+    /**
+     * Build the non-revenue-water reconciliation entry for a single main meter.
+     *
+     * @param  \Illuminate\Support\Collection<int|string, object>  $byMeter
+     * @param  \Illuminate\Support\Collection<int|string, \Illuminate\Support\Collection<int, object>>  $subsByParent
+     * @param  \Illuminate\Support\Collection<int, string>  $buildings
+     * @return array<string, mixed>
+     */
+    private function reconcileMeter(object $m, $byMeter, $subsByParent, $buildings): array
+    {
+        $mainRow = $byMeter[$m->id] ?? null;
+        $main = (float) ($mainRow->total ?? 0);
+        $mainHasReading = $mainRow !== null && (int) $mainRow->cnt > 0;
+
+        $subList = $subsByParent[$m->id] ?? collect();
+        $subCount = $subList->count();
+        [$sub, $subsRead] = $this->accumulateSubMeters($subList, $byMeter);
+
+        $complete = $mainHasReading && $subCount > 0 && $subsRead === $subCount;
+
+        return array_merge(
+            [
+                'meter' => $m->serial_number ?: '#'.$m->id,
+                'building' => $buildings[$m->building_id] ?? null,
+                'main' => (int) round($main),
+                'sub' => (int) round($sub),
+                'complete' => $complete,
+            ],
+            $this->lossFields($main, $sub, $complete)
+        );
+    }
+
+    /**
+     * Compute the loss and loss_pct fields, withheld when the reading set is incomplete.
+     *
+     * @return array{loss: ?int, loss_pct: ?float}
+     */
+    private function lossFields(float $main, float $sub, bool $complete): array
+    {
+        if (! $complete) {
+            return ['loss' => null, 'loss_pct' => null];
+        }
+
+        $loss = $main - $sub;
+
+        return [
+            'loss' => (int) round($loss),
+            'loss_pct' => $main > 0 ? round($loss / $main * 100, 1) : null,
         ];
     }
 

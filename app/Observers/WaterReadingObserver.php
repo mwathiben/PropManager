@@ -51,19 +51,29 @@ class WaterReadingObserver
      */
     public function updating(WaterReading $waterReading): void
     {
-        // Prevent updates to invoiced readings (regardless of approval status)
+        $this->guardAgainstInvoicedUpdate($waterReading);
+        $this->guardAgainstApprovedUpdate($waterReading);
+        $this->recalculateIfReadingsChanged($waterReading);
+    }
+
+    private function guardAgainstInvoicedUpdate(WaterReading $waterReading): void
+    {
         if ($waterReading->is_invoiced && $waterReading->isDirty(['current_reading', 'previous_reading', 'photo_path'])) {
             throw new ReadingLockedException($waterReading->id, ReadingLockedException::INVOICED);
         }
+    }
 
-        // Prevent modifications to approved readings (except for approval workflow fields)
+    private function guardAgainstApprovedUpdate(WaterReading $waterReading): void
+    {
         if ($waterReading->getOriginal('status') === 'approved' &&
             $waterReading->isDirty(['current_reading', 'previous_reading', 'photo_path']) &&
             ! $waterReading->isDirty(['status', 'reviewed_by', 'reviewed_at', 'review_notes'])) {
             throw new ReadingLockedException($waterReading->id, ReadingLockedException::APPROVED);
         }
+    }
 
-        // Recalculate if readings changed
+    private function recalculateIfReadingsChanged(WaterReading $waterReading): void
+    {
         if ($waterReading->isDirty(['current_reading', 'previous_reading'])) {
             $waterReading->consumption = max(0, $waterReading->current_reading - $waterReading->previous_reading);
             $waterReading->cost = $this->tariffService->costForReading($waterReading);

@@ -52,42 +52,8 @@ class OccupancyAudit extends Command
 
             foreach ($rows as $row) {
                 $totalRows++;
-                if (! $dryRun) {
-                    try {
-                        $metrics->gauge('occupancy_rate', $row['occupancy_rate_pct'], [
-                            'building_id' => (string) $row['building_id'],
-                        ]);
-                        $metrics->gauge('vacancy_count', (float) $row['vacant_units'], [
-                            'building_id' => (string) $row['building_id'],
-                        ]);
-                    } catch (\Throwable) {
-                        // Metrics emit is best-effort.
-                    }
-                }
-
-                if ($row['is_below_target']) {
-                    $key = sprintf(
-                        'occupancy-breach:%d:%s',
-                        $row['building_id'],
-                        CarbonImmutable::now()->format('Y-m'),
-                    );
-                    if (Cache::add($key, true, now()->addDays(30))) {
-                        $breached++;
-                        if (! $dryRun) {
-                            $building = Building::query()
-                                ->withoutGlobalScope('landlord')
-                                ->find($row['building_id']);
-                            if ($building) {
-                                OccupancyTargetBreached::dispatch(
-                                    $building,
-                                    $row['occupancy_rate_pct'],
-                                    (float) $row['target_occupancy_rate'],
-                                    CarbonImmutable::now(),
-                                );
-                            }
-                        }
-                    }
-                }
+                $this->emitMetrics($metrics, $row, $dryRun);
+                $breached += $this->handleBreachDetection($row, $dryRun);
             }
         }
 
@@ -105,5 +71,56 @@ class OccupancyAudit extends Command
         );
 
         return self::SUCCESS;
+    }
+
+    private function emitMetrics(MetricsService $metrics, array $row, bool $dryRun): void
+    {
+        if ($dryRun) {
+            return;
+        }
+
+        try {
+            $metrics->gauge('occupancy_rate', $row['occupancy_rate_pct'], [
+                'building_id' => (string) $row['building_id'],
+            ]);
+            $metrics->gauge('vacancy_count', (float) $row['vacant_units'], [
+                'building_id' => (string) $row['building_id'],
+            ]);
+        } catch (\Throwable) {
+            // Metrics emit is best-effort.
+        }
+    }
+
+    private function handleBreachDetection(array $row, bool $dryRun): int
+    {
+        if (! $row['is_below_target']) {
+            return 0;
+        }
+
+        $key = sprintf(
+            'occupancy-breach:%d:%s',
+            $row['building_id'],
+            CarbonImmutable::now()->format('Y-m'),
+        );
+
+        if (! Cache::add($key, true, now()->addDays(30))) {
+            return 0;
+        }
+
+        if (! $dryRun) {
+            $building = Building::query()
+                ->withoutGlobalScope('landlord')
+                ->find($row['building_id']);
+            if ($building) {
+                OccupancyTargetBreached::dispatch(
+                    $building,
+                    $row['occupancy_rate_pct'],
+                    (float) $row['target_occupancy_rate'],
+                    CarbonImmutable::now(),
+                );
+            }
+        }
+
+        return 1;
     }
 }

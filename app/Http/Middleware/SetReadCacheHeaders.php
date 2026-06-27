@@ -59,25 +59,38 @@ class SetReadCacheHeaders
 
         $maxAge = (int) $routes[$routeName];
 
-        $content = $response->getContent();
-        if (is_string($content) && $content !== '') {
-            $etag = '"'.md5($content).'"';
-            $response->setEtag($etag);
+        $this->applyEtag($request, $response);
 
-            $ifNoneMatch = (string) $request->headers->get('If-None-Match', '');
-            if ($ifNoneMatch !== '' && trim($ifNoneMatch) === $etag) {
-                // Unchanged — 304, body dropped. The client still hit
-                // the server, so auth was still enforced.
-                $response->setNotModified();
-            }
-        }
-
-        $cacheControl = $shared
-            ? "public, s-maxage={$maxAge}, max-age=60"
-            : "private, must-revalidate, max-age={$maxAge}";
-        $response->headers->set('Cache-Control', $cacheControl);
+        $response->headers->set('Cache-Control', $this->buildCacheControl($shared, $maxAge));
         $response->headers->set('Vary', self::VARY_HEADER);
 
         return $response;
+    }
+
+    private function applyEtag(Request $request, Response $response): void
+    {
+        $content = $response->getContent();
+        if (! is_string($content) || $content === '') {
+            return;
+        }
+
+        $etag = '"'.md5($content).'"';
+        $response->setEtag($etag);
+
+        $ifNoneMatch = (string) $request->headers->get('If-None-Match', '');
+        if ($ifNoneMatch !== '' && trim($ifNoneMatch) === $etag) {
+            // Unchanged — 304, body dropped. The client still hit
+            // the server, so auth was still enforced.
+            $response->setNotModified();
+        }
+    }
+
+    private function buildCacheControl(bool $shared, int $maxAge): string
+    {
+        if ($shared) {
+            return "public, s-maxage={$maxAge}, max-age=60";
+        }
+
+        return "private, must-revalidate, max-age={$maxAge}";
     }
 }

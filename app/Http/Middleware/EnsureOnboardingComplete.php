@@ -26,33 +26,52 @@ class EnsureOnboardingComplete
     {
         $user = auth()->user();
 
-        // Only check for authenticated scope owners (landlords + managers)
         if (! $user || ! $user->isScopeOwner()) {
             return $next($request);
         }
 
-        // Allow access to permitted routes
-        foreach ($this->allowedRoutes as $pattern) {
-            if ($request->routeIs($pattern)) {
-                return $next($request);
-            }
+        if ($this->isAllowedRoute($request)) {
+            return $next($request);
         }
 
-        // Check if onboarding is complete
         if (! $user->hasCompletedOnboarding()) {
-            // Check if they have at least one property (legacy users who registered before onboarding)
-            if ($user->properties()->exists()) {
-                // Mark as complete for legacy users
-                $progress = $user->getOrCreateOnboardingProgress();
-                $progress->markComplete();
-
-                return $next($request);
-            }
-
-            // Redirect to onboarding
-            return redirect()->route('onboarding.index');
+            return $this->handleIncompleteOnboarding($user, $next, $request);
         }
 
         return $next($request);
+    }
+
+    /**
+     * Determine whether the request targets a route exempt from the onboarding check.
+     */
+    private function isAllowedRoute(Request $request): bool
+    {
+        foreach ($this->allowedRoutes as $pattern) {
+            if ($request->routeIs($pattern)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Handle a scope owner whose onboarding is not yet marked complete.
+     *
+     * Legacy users who already have a property are auto-completed and allowed through;
+     * everyone else is redirected to the onboarding flow.
+     *
+     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
+     */
+    private function handleIncompleteOnboarding(mixed $user, Closure $next, Request $request): Response
+    {
+        if ($user->properties()->exists()) {
+            $progress = $user->getOrCreateOnboardingProgress();
+            $progress->markComplete();
+
+            return $next($request);
+        }
+
+        return redirect()->route('onboarding.index');
     }
 }

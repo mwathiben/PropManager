@@ -58,6 +58,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->registerTelescope();
+        $this->registerSingletons();
+        $this->registerBindings();
+    }
+
+    private function registerTelescope(): void
+    {
         // Telescope is a local-only dev tool (require-dev). Register its
         // providers only in local AND only when the package is actually
         // installed, so `composer install --no-dev` (production + the
@@ -67,7 +74,10 @@ class AppServiceProvider extends ServiceProvider
             $this->app->register(\Laravel\Telescope\TelescopeServiceProvider::class);
             $this->app->register(\App\Providers\TelescopeServiceProvider::class);
         }
+    }
 
+    private function registerSingletons(): void
+    {
         // Register SecurityLogger as a singleton
         $this->app->singleton(SecurityLogger::class, function ($app) {
             return new SecurityLogger($app['request']);
@@ -92,6 +102,14 @@ class AppServiceProvider extends ServiceProvider
             $app->make(\App\Services\Reports\Cards\TextCardRenderer::class),
         ]));
 
+        $this->app->singleton(\App\Services\Vendors\AnalyticsForwarderInterface::class, fn () => $this->makeAnalyticsForwarder());
+
+        // Register payment gateway manager as singleton
+        $this->app->singleton(PaymentGatewayManager::class);
+    }
+
+    private function registerBindings(): void
+    {
         // Phase-67 ATTACHMENT-SCAN-1: bind the configured attachment
         // scanner (null / clamav / fake) for MessageAttachmentService.
         $this->app->bind(
@@ -102,19 +120,7 @@ class AppServiceProvider extends ServiceProvider
         // Phase-45 EMERGENCY-CONTACT-SMS-1: SMS driver binding.
         // Default is Stub so CI + dev never hit the network. Switch
         // via SMS_DRIVER=africastalking in production.
-        $this->app->bind(\App\Services\Sms\Contracts\SmsDriver::class, function ($app) {
-            $driver = config('sms.driver', 'stub');
-            if ($driver === 'africastalking') {
-                return new \App\Services\Sms\AfricasTalkingSmsDriver(
-                    config('sms.africastalking.username'),
-                    config('sms.africastalking.api_key'),
-                    config('sms.africastalking.sender_id'),
-                    config('sms.africastalking.endpoint', 'https://api.africastalking.com/version1/messaging'),
-                );
-            }
-
-            return new \App\Services\Sms\StubSmsDriver;
-        });
+        $this->app->bind(\App\Services\Sms\Contracts\SmsDriver::class, fn () => $this->makeSmsDriver());
 
         // Register notification config repository
         $this->app->bind(
@@ -131,43 +137,55 @@ class AppServiceProvider extends ServiceProvider
         // Register SMS service (Africa's Talking adapter)
         $this->app->bind(SmsServiceInterface::class, AfricasTalkingService::class);
 
-        // Phase-39 VENDOR-ANALYTICS-1: bind AnalyticsForwarderInterface
-        // to the configured vendor implementation. PostHog is the only
-        // implementation today; future vendors (Mixpanel/Heap/Amplitude)
-        // pick up here when their adapter ships.
-        $this->app->singleton(
-            \App\Services\Vendors\AnalyticsForwarderInterface::class,
-            function () {
-                if (config('vendors.posthog.enabled') && config('vendors.posthog.api_key')) {
-                    return new \App\Services\Vendors\PostHogForwarder(
-                        apiKey: (string) config('vendors.posthog.api_key'),
-                        host: (string) config('vendors.posthog.host'),
-                    );
-                }
-
-                // Null-object forwarder so callers don't have to null-check.
-                return new class implements \App\Services\Vendors\AnalyticsForwarderInterface
-                {
-                    public function vendor(): string
-                    {
-                        return 'noop';
-                    }
-
-                    public function flush(array $events): array
-                    {
-                        return ['accepted' => 0, 'rejected' => 0, 'retryable' => 0, 'vendor' => 'noop'];
-                    }
-                };
-            },
-        );
-
-        // Register payment gateway manager as singleton
-        $this->app->singleton(PaymentGatewayManager::class);
-
         // Bind interface to default gateway
         $this->app->bind(PaymentGatewayInterface::class, function ($app) {
             return $app->make(PaymentGatewayManager::class)->defaultGateway();
         });
+    }
+
+    /**
+     * Phase-45 EMERGENCY-CONTACT-SMS-1: resolve the SMS driver from config.
+     * Default is Stub so CI + dev never hit the network.
+     */
+    private function makeSmsDriver(): \App\Services\Sms\Contracts\SmsDriver
+    {
+        if (config('sms.driver', 'stub') === 'africastalking') {
+            return new \App\Services\Sms\AfricasTalkingSmsDriver(
+                config('sms.africastalking.username'),
+                config('sms.africastalking.api_key'),
+                config('sms.africastalking.sender_id'),
+                config('sms.africastalking.endpoint', 'https://api.africastalking.com/version1/messaging'),
+            );
+        }
+
+        return new \App\Services\Sms\StubSmsDriver;
+    }
+
+    /**
+     * Phase-39 VENDOR-ANALYTICS-1: resolve the analytics forwarder from config.
+     * PostHog when configured, null-object otherwise so callers don't null-check.
+     */
+    private function makeAnalyticsForwarder(): \App\Services\Vendors\AnalyticsForwarderInterface
+    {
+        if (config('vendors.posthog.enabled') && config('vendors.posthog.api_key')) {
+            return new \App\Services\Vendors\PostHogForwarder(
+                apiKey: (string) config('vendors.posthog.api_key'),
+                host: (string) config('vendors.posthog.host'),
+            );
+        }
+
+        return new class implements \App\Services\Vendors\AnalyticsForwarderInterface
+        {
+            public function vendor(): string
+            {
+                return 'noop';
+            }
+
+            public function flush(array $events): array
+            {
+                return ['accepted' => 0, 'rejected' => 0, 'retryable' => 0, 'vendor' => 'noop'];
+            }
+        };
     }
 
     /**
@@ -177,6 +195,19 @@ class AppServiceProvider extends ServiceProvider
     {
         Vite::prefetch(concurrency: 3);
 
+        $this->registerMacros();
+        $this->registerObservers();
+        $this->configureLazyLoadingDetection();
+
+        // Configure rate limiters
+        (new RateLimiterConfigurator)->configure();
+
+        // Validate security configuration in production
+        (new ProductionSecurityValidator($this->app))->validateProductionSecurity();
+    }
+
+    private function registerMacros(): void
+    {
         // Phase-16 RESIL-7: house-style HTTP preset. Any new outbound
         // call site can do `Http::resilient()->get(...)` and inherit
         // the 5s connect / 15s overall timeout + 2-retry policy. Pre-
@@ -223,8 +254,10 @@ class AppServiceProvider extends ServiceProvider
             ->numbers()
             ->symbols()
             ->rules([new PasswordPolicy]));
+    }
 
-        // Register model observers
+    private function registerObservers(): void
+    {
         Property::observe(PropertyObserver::class);
         Building::observe(BuildingObserver::class);
         Unit::observe(UnitObserver::class);
@@ -246,52 +279,68 @@ class AppServiceProvider extends ServiceProvider
         \App\Models\Vendor::observe(\App\Observers\VendorObserver::class);
         // Phase-75 PARTS-PRICING-1: append a price-history row on part cost change.
         \App\Models\Part::observe(\App\Observers\PartObserver::class);
+    }
 
-        // Prevent lazy loading in non-production to catch N+1 queries.
-        // OBS-9: in production, sample 1% of requests so genuine N+1
-        // regressions still surface in logs without hard-throwing on
-        // every request. The handler always logs (never throws) in prod
-        // so a lazy-load can't take a customer page down.
-        //
-        // Phase-22 PERF-NPLUS1-1: in the TESTING environment the handler
-        // THROWS (Laravel's default LazyLoadingViolationException) so an
-        // N+1 in a tested code path fails its test — turning the
-        // detector from a passive logger into a CI gate. Known
-        // pre-existing offenders on App\Support\NPlusOneBaseline::ALLOWED
-        // are logged-not-thrown so the gate is tractable; PERF-NPLUS1-2
-        // drives that list to empty.
+    /**
+     * Prevent lazy loading in non-production to catch N+1 queries.
+     *
+     * OBS-9: in production, sample 1% of requests so genuine N+1
+     * regressions still surface in logs without hard-throwing on
+     * every request. The handler always logs (never throws) in prod
+     * so a lazy-load can't take a customer page down.
+     *
+     * Phase-22 PERF-NPLUS1-1: in the TESTING environment the handler
+     * THROWS (Laravel's default LazyLoadingViolationException) so an
+     * N+1 in a tested code path fails its test — turning the
+     * detector from a passive logger into a CI gate. Known
+     * pre-existing offenders on App\Support\NPlusOneBaseline::ALLOWED
+     * are logged-not-thrown so the gate is tractable; PERF-NPLUS1-2
+     * drives that list to empty.
+     */
+    private function configureLazyLoadingDetection(): void
+    {
         $isTesting = app()->environment('testing');
-        $shouldDetectLazyLoading = ! app()->environment('production')
+        $shouldDetect = ! app()->environment('production')
             || (app()->runningInConsole() ? false : random_int(1, 100) === 1);
 
-        if ($shouldDetectLazyLoading) {
-            Model::preventLazyLoading();
-
-            Model::handleLazyLoadingViolationUsing(function ($model, $relation) use ($isTesting) {
-                $modelClass = get_class($model);
-
-                if ($isTesting && ! NPlusOneBaseline::isAllowed($modelClass, $relation)) {
-                    throw new LazyLoadingViolationException($model, $relation);
-                }
-
-                Log::channel('security')->warning('N+1 Query Detected', [
-                    'model' => $modelClass,
-                    'relation' => $relation,
-                    'environment' => app()->environment(),
-                    'trace' => collect(debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 10))
-                        ->filter(fn ($frame) => isset($frame['file']) && ! str_contains($frame['file'], '/vendor/'))
-                        ->take(5)
-                        ->map(fn ($frame) => ($frame['file'] ?? '').':'.($frame['line'] ?? ''))
-                        ->values()
-                        ->toArray(),
-                ]);
-            });
+        if (! $shouldDetect) {
+            return;
         }
 
-        // Configure rate limiters
-        (new RateLimiterConfigurator)->configure();
+        Model::preventLazyLoading();
+        Model::handleLazyLoadingViolationUsing(
+            fn ($model, $relation) => $this->handleLazyLoadingViolation($model, $relation, $isTesting)
+        );
+    }
 
-        // Validate security configuration in production
-        (new ProductionSecurityValidator($this->app))->validateProductionSecurity();
+    private function handleLazyLoadingViolation(object $model, string $relation, bool $isTesting): void
+    {
+        $modelClass = get_class($model);
+
+        if ($isTesting && ! NPlusOneBaseline::isAllowed($modelClass, $relation)) {
+            throw new LazyLoadingViolationException($model, $relation);
+        }
+
+        Log::channel('security')->warning('N+1 Query Detected', [
+            'model' => $modelClass,
+            'relation' => $relation,
+            'environment' => app()->environment(),
+            'trace' => $this->nPlusOneTrace(),
+        ]);
+    }
+
+    /**
+     * Build a compact stack trace for N+1 log entries, excluding vendor frames.
+     *
+     * @return list<string>
+     */
+    private function nPlusOneTrace(): array
+    {
+        return collect(debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 10))
+            ->filter(fn ($frame) => isset($frame['file']) && ! str_contains($frame['file'], '/vendor/'))
+            ->take(5)
+            ->map(fn ($frame) => ($frame['file'] ?? '').':'.($frame['line'] ?? ''))
+            ->values()
+            ->toArray();
     }
 }

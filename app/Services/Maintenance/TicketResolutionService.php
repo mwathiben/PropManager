@@ -53,39 +53,8 @@ class TicketResolutionService
                     continue;
                 }
 
-                $part = Part::query()
-                    ->where('id', $partId)
-                    ->where('landlord_id', $ticket->landlord_id)
-                    ->lockForUpdate()
-                    ->first();
-
-                if ($part === null) {
-                    throw ValidationException::withMessages([
-                        'parts' => "Part {$partId} not found or not owned by landlord.",
-                    ]);
-                }
-
-                if ($part->qty_available < $qty) {
-                    throw ValidationException::withMessages([
-                        'parts' => "Part '{$part->name}' has {$part->qty_available} available; cannot use {$qty}.",
-                    ]);
-                }
-
-                $part->decrement('qty_available', $qty);
-
-                $allocatedCents = $part->cost_per_unit_cents * $qty;
+                $allocatedCents = $this->consumeOnePart($ticket, $partId, $qty, ['recorder_id' => $recorderId, 'recorded_at' => $recordedAt]);
                 $totalCostCents += $allocatedCents;
-
-                DB::table('ticket_parts')->insert([
-                    'ticket_id' => $ticket->id,
-                    'part_id' => $part->id,
-                    'qty_used' => $qty,
-                    'cost_allocated_cents' => $allocatedCents,
-                    'recorded_by' => $recorderId,
-                    'recorded_at' => $recordedAt,
-                    'created_at' => $recordedAt,
-                    'updated_at' => $recordedAt,
-                ]);
                 $rowsInserted++;
             }
 
@@ -96,5 +65,49 @@ class TicketResolutionService
 
             return ['rows_inserted' => $rowsInserted, 'total_cost_cents' => $totalCostCents];
         });
+    }
+
+    /**
+     * Lock, validate, decrement stock for one part, insert pivot row, and return cost in cents.
+     */
+    /**
+     * @param  array{recorder_id: int|null, recorded_at: \Illuminate\Support\Carbon}  $meta
+     */
+    private function consumeOnePart(Ticket $ticket, int|string $partId, int $qty, array $meta): int
+    {
+        $part = Part::query()
+            ->where('id', $partId)
+            ->where('landlord_id', $ticket->landlord_id)
+            ->lockForUpdate()
+            ->first();
+
+        if ($part === null) {
+            throw ValidationException::withMessages([
+                'parts' => "Part {$partId} not found or not owned by landlord.",
+            ]);
+        }
+
+        if ($part->qty_available < $qty) {
+            throw ValidationException::withMessages([
+                'parts' => "Part '{$part->name}' has {$part->qty_available} available; cannot use {$qty}.",
+            ]);
+        }
+
+        $part->decrement('qty_available', $qty);
+
+        $allocatedCents = $part->cost_per_unit_cents * $qty;
+
+        DB::table('ticket_parts')->insert([
+            'ticket_id' => $ticket->id,
+            'part_id' => $part->id,
+            'qty_used' => $qty,
+            'cost_allocated_cents' => $allocatedCents,
+            'recorded_by' => $meta['recorder_id'],
+            'recorded_at' => $meta['recorded_at'],
+            'created_at' => $meta['recorded_at'],
+            'updated_at' => $meta['recorded_at'],
+        ]);
+
+        return $allocatedCents;
     }
 }

@@ -11,6 +11,7 @@ use App\Services\Maintenance\PartUsageService;
 use App\Services\MetricsService;
 use App\Services\WorkflowLogger;
 use Illuminate\Console\Command;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -45,30 +46,7 @@ class PartsReorderSuggest extends Command
     {
         $dryRun = (bool) $this->option('dry-run');
 
-        // Coarse pre-filter so we only hydrate parts that could possibly trigger:
-        // below the static threshold, OR with consumption in the usage window. A
-        // part above its threshold with zero recent usage has rate 0, so its
-        // effective threshold equals the static one and it can never trip the
-        // lead-time buffer — no need to load it.
-        $windowStart = now()->subDays(PartUsageService::DEFAULT_WINDOW_DAYS);
-
-        $activeByLandlord = Part::query()
-            ->withoutGlobalScope('landlord')
-            ->where('is_active', true)
-            ->where(function ($query) use ($windowStart) {
-                $query
-                    ->whereColumn('qty_available', '<=', 'reorder_threshold')
-                    ->orWhereExists(function ($sub) use ($windowStart) {
-                        $sub->from('ticket_parts')
-                            ->join('tickets', 'tickets.id', '=', 'ticket_parts.ticket_id')
-                            ->whereColumn('ticket_parts.part_id', 'parts.id')
-                            ->whereColumn('tickets.landlord_id', 'parts.landlord_id')
-                            ->where('ticket_parts.recorded_at', '>=', $windowStart);
-                    });
-            })
-            ->with('suppliers:id,part_id,vendor_id,unit_cost_cents,lead_time_days')
-            ->get()
-            ->groupBy('landlord_id');
+        $activeByLandlord = $this->fetchActivePartsByLandlord();
 
         $ordersTouched = 0;
         $linesUpserted = 0;
@@ -76,78 +54,18 @@ class PartsReorderSuggest extends Command
         foreach ($activeByLandlord as $landlordId => $allParts) {
             $rates = $usage->dailyRatesFor((int) $landlordId, $allParts);
 
-            $parts = $allParts
-                ->filter(fn (Part $part) => $part->belowEffectiveThreshold($rates[$part->id] ?? 0.0, $part->leadTimeDays()))
-                ->values();
+            $parts = $this->filterBelowEffectiveThreshold($allParts, $rates);
 
             if ($parts->isEmpty()) {
                 continue;
             }
 
-            $byVendor = $parts->groupBy(fn (Part $part) => $this->inferVendorId($part));
-
-            foreach ($byVendor as $vendorId => $vendorParts) {
-                $vendorId = $vendorId === '' ? null : $vendorId;
-
-                if ($dryRun) {
-                    $ordersTouched++;
-                    $linesUpserted += $vendorParts->count();
-
-                    continue;
-                }
-
-                $order = DraftPurchaseOrder::withoutGlobalScope('landlord')
-                    ->firstOrCreate(
-                        [
-                            'landlord_id' => $landlordId,
-                            'suggested_vendor_id' => $vendorId,
-                            'status' => DraftPurchaseOrder::STATUS_DRAFT,
-                        ],
-                        ['notes' => null],
-                    );
-                $ordersTouched++;
-
-                foreach ($vendorParts as $part) {
-                    $rate = $rates[$part->id] ?? 0.0;
-                    $buffer = (int) ceil($part->leadTimeDays() * $rate);
-                    $qty = max(1, ($part->reorder_threshold * 2) - $part->qty_available + $buffer);
-
-                    DraftPurchaseOrderLine::updateOrCreate(
-                        [
-                            'draft_purchase_order_id' => $order->id,
-                            'part_id' => $part->id,
-                        ],
-                        [
-                            'qty_suggested' => $qty,
-                            'cost_per_unit_cents_snapshot' => (int) $part->cost_per_unit_cents,
-                            'trigger_reason' => $part->isBelowThreshold()
-                                ? DraftPurchaseOrderLine::REASON_STATIC
-                                : DraftPurchaseOrderLine::REASON_LEAD_TIME,
-                            'projected_stockout_at' => $part->projectedStockoutDate($rate),
-                        ],
-                    );
-                    $linesUpserted++;
-                }
-            }
+            [$touched, $upserted] = $this->processLandlordParts($parts, $rates, (int) $landlordId, $dryRun);
+            $ordersTouched += $touched;
+            $linesUpserted += $upserted;
 
             if (! $dryRun) {
-                $pendingCount = DraftPurchaseOrder::withoutGlobalScope('landlord')
-                    ->where('landlord_id', $landlordId)
-                    ->where('status', DraftPurchaseOrder::STATUS_DRAFT)
-                    ->count();
-
-                $predictedCount = $parts->reject->isBelowThreshold()->count();
-
-                try {
-                    $metrics->gauge('draft_purchase_orders_pending_count', (float) $pendingCount, [
-                        'landlord_id' => (string) $landlordId,
-                    ]);
-                    $metrics->gauge('parts_predicted_stockout_count', (float) $predictedCount, [
-                        'landlord_id' => (string) $landlordId,
-                    ]);
-                } catch (\Throwable) {
-                    // best-effort
-                }
+                $this->emitMetrics($metrics, (int) $landlordId, $parts);
             }
         }
 
@@ -165,6 +83,146 @@ class PartsReorderSuggest extends Command
         );
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Coarse pre-filter so we only hydrate parts that could possibly trigger:
+     * below the static threshold, OR with consumption in the usage window. A
+     * part above its threshold with zero recent usage has rate 0, so its
+     * effective threshold equals the static one and it can never trip the
+     * lead-time buffer — no need to load it.
+     */
+    private function fetchActivePartsByLandlord(): Collection
+    {
+        $windowStart = now()->subDays(PartUsageService::DEFAULT_WINDOW_DAYS);
+
+        return Part::query()
+            ->withoutGlobalScope('landlord')
+            ->where('is_active', true)
+            ->where(function ($query) use ($windowStart) {
+                $query
+                    ->whereColumn('qty_available', '<=', 'reorder_threshold')
+                    ->orWhereExists(function ($sub) use ($windowStart) {
+                        $sub->from('ticket_parts')
+                            ->join('tickets', 'tickets.id', '=', 'ticket_parts.ticket_id')
+                            ->whereColumn('ticket_parts.part_id', 'parts.id')
+                            ->whereColumn('tickets.landlord_id', 'parts.landlord_id')
+                            ->where('ticket_parts.recorded_at', '>=', $windowStart);
+                    });
+            })
+            ->with('suppliers:id,part_id,vendor_id,unit_cost_cents,lead_time_days')
+            ->get()
+            ->groupBy('landlord_id');
+    }
+
+    /**
+     * Keep only parts that are below their effective threshold (static or
+     * lead-time-buffered).
+     */
+    private function filterBelowEffectiveThreshold(Collection $allParts, array $rates): Collection
+    {
+        return $allParts
+            ->filter(fn (Part $part) => $part->belowEffectiveThreshold($rates[$part->id] ?? 0.0, $part->leadTimeDays()))
+            ->values();
+    }
+
+    /**
+     * Group parts by inferred vendor, then create/update orders and lines.
+     * Returns [ordersTouched, linesUpserted].
+     */
+    private function processLandlordParts(Collection $parts, array $rates, int $landlordId, bool $dryRun): array
+    {
+        $ordersTouched = 0;
+        $linesUpserted = 0;
+
+        $byVendor = $parts->groupBy(fn (Part $part) => $this->inferVendorId($part));
+
+        foreach ($byVendor as $vendorId => $vendorParts) {
+            $vendorId = $vendorId === '' ? null : $vendorId;
+
+            if ($dryRun) {
+                $ordersTouched++;
+                $linesUpserted += $vendorParts->count();
+
+                continue;
+            }
+
+            $order = $this->findOrCreateDraftOrder($landlordId, $vendorId);
+            $ordersTouched++;
+
+            $linesUpserted += $this->upsertOrderLines($order->id, $vendorParts, $rates);
+        }
+
+        return [$ordersTouched, $linesUpserted];
+    }
+
+    /**
+     * Find or create the draft purchase order for a (landlord, vendor) pair.
+     */
+    private function findOrCreateDraftOrder(int $landlordId, int|string|null $vendorId): DraftPurchaseOrder
+    {
+        return DraftPurchaseOrder::withoutGlobalScope('landlord')
+            ->firstOrCreate(
+                [
+                    'landlord_id' => $landlordId,
+                    'suggested_vendor_id' => $vendorId,
+                    'status' => DraftPurchaseOrder::STATUS_DRAFT,
+                ],
+                ['notes' => null],
+            );
+    }
+
+    /**
+     * Upsert all lines for a vendor group. Returns number of lines upserted.
+     */
+    private function upsertOrderLines(int $orderId, Collection $vendorParts, array $rates): int
+    {
+        foreach ($vendorParts as $part) {
+            $rate = $rates[$part->id] ?? 0.0;
+            $buffer = (int) ceil($part->leadTimeDays() * $rate);
+            $qty = max(1, ($part->reorder_threshold * 2) - $part->qty_available + $buffer);
+
+            DraftPurchaseOrderLine::updateOrCreate(
+                [
+                    'draft_purchase_order_id' => $orderId,
+                    'part_id' => $part->id,
+                ],
+                [
+                    'qty_suggested' => $qty,
+                    'cost_per_unit_cents_snapshot' => (int) $part->cost_per_unit_cents,
+                    'trigger_reason' => $part->isBelowThreshold()
+                        ? DraftPurchaseOrderLine::REASON_STATIC
+                        : DraftPurchaseOrderLine::REASON_LEAD_TIME,
+                    'projected_stockout_at' => $part->projectedStockoutDate($rate),
+                ],
+            );
+        }
+
+        return $vendorParts->count();
+    }
+
+    /**
+     * Emit best-effort gauges for pending orders and predicted stockouts.
+     */
+    private function emitMetrics(MetricsService $metrics, int $landlordId, Collection $parts): void
+    {
+        $pendingCount = DraftPurchaseOrder::withoutGlobalScope('landlord')
+            ->where('landlord_id', $landlordId)
+            ->where('status', DraftPurchaseOrder::STATUS_DRAFT)
+            ->count();
+
+        $predictedCount = $parts->reject->isBelowThreshold()->count();
+
+        try {
+            $metrics->gauge('draft_purchase_orders_pending_count', (float) $pendingCount, [
+                'landlord_id' => (string) $landlordId,
+            ]);
+            $metrics->gauge('parts_predicted_stockout_count', (float) $predictedCount, [
+                'landlord_id' => (string) $landlordId,
+            ]);
+        } catch (\Throwable) {
+            // best-effort
+        }
     }
 
     /**

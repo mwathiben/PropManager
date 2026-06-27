@@ -10,27 +10,33 @@ class EnsurePaymentVerified
 {
     public function handle(Request $request, Closure $next): Response
     {
+        if ($this->tenantHasUnverifiedPayment($request) && ! $request->routeIs(...$this->allowedRoutes())) {
+            return redirect()->route('tenant.payment-required')
+                ->with('warning', 'Please complete your initial payment to access the portal.');
+        }
+
+        return $next($request);
+    }
+
+    private function tenantHasUnverifiedPayment(Request $request): bool
+    {
         $user = $request->user();
 
         if (! $user || ! $user->isTenant()) {
-            return $next($request);
+            return false;
         }
 
-        $lease = $user->lease;
-        if (! $lease) {
-            return $next($request);
-        }
+        $verification = $user->lease?->paymentVerification;
 
-        $verification = $lease->paymentVerification;
-        if (! $verification) {
-            return $next($request);
-        }
+        return $verification !== null && ! $verification->isVerified();
+    }
 
-        if ($verification->isVerified()) {
-            return $next($request);
-        }
-
-        $allowedRoutes = [
+    /**
+     * @return list<string>
+     */
+    private function allowedRoutes(): array
+    {
+        return [
             'tenant.payment-required',
             'tenant.payment.submit',
             'tenant.payment.pay-online',
@@ -41,12 +47,5 @@ class EnsurePaymentVerified
             'payments.callback',
             'payments.public-key',
         ];
-
-        if ($request->routeIs(...$allowedRoutes)) {
-            return $next($request);
-        }
-
-        return redirect()->route('tenant.payment-required')
-            ->with('warning', 'Please complete your initial payment to access the portal.');
     }
 }

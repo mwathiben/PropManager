@@ -103,43 +103,65 @@ class PaymentObserver
             return; // landlord_id will be backfilled or validated by another path
         }
 
-        if ($payment->lease_id) {
-            $leaseLandlord = Lease::withoutGlobalScope('landlord')
-                ->whereKey($payment->lease_id)
-                ->value('landlord_id');
-            if ($leaseLandlord !== null && (int) $leaseLandlord !== (int) $expectedLandlordId) {
-                throw new DataIntegrityException(
-                    message: "Payment.lease_id ({$payment->lease_id}) belongs to landlord {$leaseLandlord} but payment.landlord_id is {$expectedLandlordId}",
-                    errorCode: 'PAYMENT_CROSS_TENANT_LEASE_MISMATCH',
-                    context: ['payment_landlord_id' => $expectedLandlordId, 'lease_landlord_id' => $leaseLandlord],
-                );
-            }
+        $this->assertLeaseBelongsToLandlord($payment, (int) $expectedLandlordId);
+        $this->assertInvoiceBelongsToLandlord($payment, (int) $expectedLandlordId);
+        $this->assertTenantBelongsToLandlord($payment, (int) $expectedLandlordId);
+    }
+
+    private function assertLeaseBelongsToLandlord(Payment $payment, int $expectedLandlordId): void
+    {
+        if (! $payment->lease_id) {
+            return;
         }
 
-        if ($payment->invoice_id) {
-            $invoiceLandlord = Invoice::withoutGlobalScope('landlord')
-                ->whereKey($payment->invoice_id)
-                ->value('landlord_id');
-            if ($invoiceLandlord !== null && (int) $invoiceLandlord !== (int) $expectedLandlordId) {
-                throw new DataIntegrityException(
-                    message: "Payment.invoice_id ({$payment->invoice_id}) belongs to landlord {$invoiceLandlord} but payment.landlord_id is {$expectedLandlordId}",
-                    errorCode: 'PAYMENT_CROSS_TENANT_INVOICE_MISMATCH',
-                    context: ['payment_landlord_id' => $expectedLandlordId, 'invoice_landlord_id' => $invoiceLandlord],
-                );
-            }
+        $leaseLandlord = Lease::withoutGlobalScope('landlord')
+            ->whereKey($payment->lease_id)
+            ->value('landlord_id');
+
+        if ($leaseLandlord !== null && (int) $leaseLandlord !== $expectedLandlordId) {
+            throw new DataIntegrityException(
+                message: "Payment.lease_id ({$payment->lease_id}) belongs to landlord {$leaseLandlord} but payment.landlord_id is {$expectedLandlordId}",
+                errorCode: 'PAYMENT_CROSS_TENANT_LEASE_MISMATCH',
+                context: ['payment_landlord_id' => $expectedLandlordId, 'lease_landlord_id' => $leaseLandlord],
+            );
+        }
+    }
+
+    private function assertInvoiceBelongsToLandlord(Payment $payment, int $expectedLandlordId): void
+    {
+        if (! $payment->invoice_id) {
+            return;
         }
 
-        if ($payment->tenant_id) {
-            $tenantLandlord = User::withoutGlobalScope('landlord')
-                ->whereKey($payment->tenant_id)
-                ->value('landlord_id');
-            if ($tenantLandlord !== null && (int) $tenantLandlord !== (int) $expectedLandlordId) {
-                throw new DataIntegrityException(
-                    message: "Payment.tenant_id ({$payment->tenant_id}) belongs to landlord {$tenantLandlord} but payment.landlord_id is {$expectedLandlordId}",
-                    errorCode: 'PAYMENT_CROSS_TENANT_TENANT_MISMATCH',
-                    context: ['payment_landlord_id' => $expectedLandlordId, 'tenant_landlord_id' => $tenantLandlord],
-                );
-            }
+        $invoiceLandlord = Invoice::withoutGlobalScope('landlord')
+            ->whereKey($payment->invoice_id)
+            ->value('landlord_id');
+
+        if ($invoiceLandlord !== null && (int) $invoiceLandlord !== $expectedLandlordId) {
+            throw new DataIntegrityException(
+                message: "Payment.invoice_id ({$payment->invoice_id}) belongs to landlord {$invoiceLandlord} but payment.landlord_id is {$expectedLandlordId}",
+                errorCode: 'PAYMENT_CROSS_TENANT_INVOICE_MISMATCH',
+                context: ['payment_landlord_id' => $expectedLandlordId, 'invoice_landlord_id' => $invoiceLandlord],
+            );
+        }
+    }
+
+    private function assertTenantBelongsToLandlord(Payment $payment, int $expectedLandlordId): void
+    {
+        if (! $payment->tenant_id) {
+            return;
+        }
+
+        $tenantLandlord = User::withoutGlobalScope('landlord')
+            ->whereKey($payment->tenant_id)
+            ->value('landlord_id');
+
+        if ($tenantLandlord !== null && (int) $tenantLandlord !== $expectedLandlordId) {
+            throw new DataIntegrityException(
+                message: "Payment.tenant_id ({$payment->tenant_id}) belongs to landlord {$tenantLandlord} but payment.landlord_id is {$expectedLandlordId}",
+                errorCode: 'PAYMENT_CROSS_TENANT_TENANT_MISMATCH',
+                context: ['payment_landlord_id' => $expectedLandlordId, 'tenant_landlord_id' => $tenantLandlord],
+            );
         }
     }
 }

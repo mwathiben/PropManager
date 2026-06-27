@@ -53,6 +53,53 @@ class WebhookRotateSecret extends Command
         $landlordId = (int) $this->option('landlord');
         $reason = (string) ($this->option('reason') ?? 'unspecified');
 
+        $validationResult = $this->validateInputs($bank, $landlordId);
+        if ($validationResult !== self::SUCCESS) {
+            return $validationResult;
+        }
+
+        $landlord = $this->resolveLandlord($landlordId);
+        if ($landlord === null) {
+            return self::FAILURE;
+        }
+
+        $config = $this->resolveConfig($landlordId);
+        if ($config === null) {
+            return self::FAILURE;
+        }
+
+        $column = "{$bank}_webhook_secret";
+        $oldSecret = (string) ($config->{$column} ?? '');
+        $oldHash = $oldSecret === '' ? 'none' : hash('sha256', $oldSecret);
+        $newSecret = $this->generateSecret();
+        $newHash = hash('sha256', $newSecret);
+
+        $context = [
+            'bank' => $bank,
+            'landlord_id' => $landlordId,
+            'landlord_email' => $landlord->email,
+            'old_hash' => $oldHash,
+            'new_hash' => $newHash,
+            'reason' => $reason,
+        ];
+
+        if (! $this->option('confirm')) {
+            $this->printDryRun($context);
+
+            return self::SUCCESS;
+        }
+
+        $config->{$column} = $newSecret;
+        $config->save();
+
+        $this->writeAuditLog($context);
+        $this->printSuccess($oldHash, $newHash, $newSecret);
+
+        return self::SUCCESS;
+    }
+
+    private function validateInputs(string $bank, int $landlordId): int
+    {
         if (! in_array($bank, self::SUPPORTED_BANKS, true)) {
             $this->error('--bank must be one of: '.implode(', ', self::SUPPORTED_BANKS));
 
@@ -65,70 +112,78 @@ class WebhookRotateSecret extends Command
             return self::INVALID;
         }
 
+        return self::SUCCESS;
+    }
+
+    private function resolveLandlord(int $landlordId): ?User
+    {
         $landlord = User::find($landlordId);
         if (! $landlord || ! $landlord->isScopeOwner()) {
             $this->error("Landlord id={$landlordId} not found, or user is not a landlord.");
 
-            return self::FAILURE;
+            return null;
         }
 
+        return $landlord;
+    }
+
+    private function resolveConfig(int $landlordId): ?PaymentConfiguration
+    {
         $config = PaymentConfiguration::withoutGlobalScopes()
             ->where('landlord_id', $landlordId)
             ->first();
+
         if (! $config) {
             $this->error("No PaymentConfiguration found for landlord id={$landlordId}.");
 
-            return self::FAILURE;
+            return null;
         }
 
-        $column = "{$bank}_webhook_secret";
-        $oldSecret = (string) ($config->{$column} ?? '');
-        $oldHash = $oldSecret === '' ? 'none' : hash('sha256', $oldSecret);
+        return $config;
+    }
 
-        $newSecret = $this->generateSecret();
-        $newHash = hash('sha256', $newSecret);
+    /** @param array{bank:string,landlord_id:int,landlord_email:string,old_hash:string,new_hash:string,reason:string} $ctx */
+    private function printDryRun(array $ctx): void
+    {
+        $this->warn('DRY RUN — pass --confirm to apply.');
+        $this->line("Bank:          {$ctx['bank']}");
+        $this->line("Landlord id:   {$ctx['landlord_id']} ({$ctx['landlord_email']})");
+        $this->line("Old hash:      {$ctx['old_hash']}");
+        $this->line("New hash:      {$ctx['new_hash']}");
+        $this->line('Reason:        '.$ctx['reason']);
+    }
 
-        if (! $this->option('confirm')) {
-            $this->warn('DRY RUN — pass --confirm to apply.');
-            $this->line("Bank:          {$bank}");
-            $this->line("Landlord id:   {$landlordId} ({$landlord->email})");
-            $this->line("Old hash:      {$oldHash}");
-            $this->line("New hash:      {$newHash}");
-            $this->line('Reason:        '.$reason);
-
-            return self::SUCCESS;
-        }
-
-        $config->{$column} = $newSecret;
-        $config->save();
-
+    /** @param array{bank:string,landlord_id:int,landlord_email:string,old_hash:string,new_hash:string,reason:string} $ctx */
+    private function writeAuditLog(array $ctx): void
+    {
         $actor = $this->resolveActor();
         SecurityLog::create([
             'user_id' => $actor?->id,
-            'landlord_id' => $landlordId,
+            'landlord_id' => $ctx['landlord_id'],
             'event_type' => 'webhook_secret_rotated',
             'severity' => SecurityLog::SEVERITY_WARNING,
-            'description' => "Rotated {$bank}_webhook_secret for landlord {$landlordId}",
+            'description' => "Rotated {$ctx['bank']}_webhook_secret for landlord {$ctx['landlord_id']}",
             'metadata' => [
-                'bank' => $bank,
-                'landlord_id' => $landlordId,
-                'old_secret_hash' => $oldHash,
-                'new_secret_hash' => $newHash,
+                'bank' => $ctx['bank'],
+                'landlord_id' => $ctx['landlord_id'],
+                'old_secret_hash' => $ctx['old_hash'],
+                'new_secret_hash' => $ctx['new_hash'],
                 'rotated_by' => $actor?->email ?? 'cli',
-                'reason' => $reason,
+                'reason' => $ctx['reason'],
             ],
             'ip_address' => null,
             'user_agent' => 'artisan webhook:rotate-secret',
         ]);
+    }
 
+    private function printSuccess(string $oldHash, string $newHash, string $newSecret): void
+    {
         $this->info('Rotation complete.');
         $this->line("Old hash: {$oldHash}");
         $this->line("New hash: {$newHash}");
         $this->newLine();
         $this->warn('NEW SECRET (relay to the bank within 24h, then it will not be shown again):');
         $this->line($newSecret);
-
-        return self::SUCCESS;
     }
 
     private function generateSecret(): string

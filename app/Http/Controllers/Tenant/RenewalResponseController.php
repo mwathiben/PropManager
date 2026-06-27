@@ -33,45 +33,75 @@ class RenewalResponseController extends Controller
     {
         $tenant = $request->user();
         $lease = $tenant->lease()->with(['unit.building'])->first();
-
-        $renewal = $lease
-            ? LeaseRenewal::where('lease_id', $lease->id)
-                ->whereIn('status', LeaseRenewal::OPEN_STATUSES)
-                ->latest('id')
-                ->first()
-            : null;
-
-        // Phase-83 generated renewal-offer PDF for this lease, if one exists.
-        $offerDoc = ($lease && $renewal)
-            ? Document::where('documentable_type', Lease::class)
-                ->where('documentable_id', $lease->id)
-                ->where('document_type', 'notice')
-                ->where('title', __('lease_doc.renewal.title'))
-                ->latest('id')
-                ->first()
-            : null;
+        $renewal = $this->resolveOpenRenewal($lease);
+        $offerDoc = $this->resolveOfferDocument($lease, $renewal);
 
         return Inertia::render('Tenant/Renewals', [
             'hasLease' => (bool) $lease,
-            'lease' => $lease ? [
-                'rent_amount' => (float) $lease->rent_amount,
-                'end_date' => $lease->end_date?->toDateString(),
-                'unit' => $lease->unit?->unit_number,
-                'building' => $lease->unit?->building?->name,
-            ] : null,
-            'renewal' => $renewal ? [
-                'id' => $renewal->id,
-                'status' => $renewal->status,
-                'proposed_rent' => $renewal->proposed_rent_amount_cents / 100,
-                'proposed_end_date' => $renewal->proposed_end_date?->toDateString(),
-                'notes' => $renewal->notes,
-                'counter_rent' => $renewal->counter_rent_amount_cents ? $renewal->counter_rent_amount_cents / 100 : null,
-                'counter_end_date' => $renewal->counter_end_date?->toDateString(),
-                'counter_message' => $renewal->counter_message,
-                'can_respond' => $renewal->status === LeaseRenewal::STATUS_PROPOSED,
-            ] : null,
+            'lease' => $this->leaseData($lease),
+            'renewal' => $this->renewalData($renewal),
             'offerDocumentId' => $offerDoc?->id,
         ]);
+    }
+
+    private function resolveOpenRenewal(?Lease $lease): ?LeaseRenewal
+    {
+        if (! $lease) {
+            return null;
+        }
+
+        return LeaseRenewal::where('lease_id', $lease->id)
+            ->whereIn('status', LeaseRenewal::OPEN_STATUSES)
+            ->latest('id')
+            ->first();
+    }
+
+    // Phase-83 generated renewal-offer PDF for this lease, if one exists.
+    private function resolveOfferDocument(?Lease $lease, ?LeaseRenewal $renewal): ?Document
+    {
+        if (! $lease || ! $renewal) {
+            return null;
+        }
+
+        return Document::where('documentable_type', Lease::class)
+            ->where('documentable_id', $lease->id)
+            ->where('document_type', 'notice')
+            ->where('title', __('lease_doc.renewal.title'))
+            ->latest('id')
+            ->first();
+    }
+
+    private function leaseData(?Lease $lease): ?array
+    {
+        if (! $lease) {
+            return null;
+        }
+
+        return [
+            'rent_amount' => (float) $lease->rent_amount,
+            'end_date' => $lease->end_date?->toDateString(),
+            'unit' => $lease->unit?->unit_number,
+            'building' => $lease->unit?->building?->name,
+        ];
+    }
+
+    private function renewalData(?LeaseRenewal $renewal): ?array
+    {
+        if (! $renewal) {
+            return null;
+        }
+
+        return [
+            'id' => $renewal->id,
+            'status' => $renewal->status,
+            'proposed_rent' => $renewal->proposed_rent_amount_cents / 100,
+            'proposed_end_date' => $renewal->proposed_end_date?->toDateString(),
+            'notes' => $renewal->notes,
+            'counter_rent' => $renewal->counter_rent_amount_cents ? $renewal->counter_rent_amount_cents / 100 : null,
+            'counter_end_date' => $renewal->counter_end_date?->toDateString(),
+            'counter_message' => $renewal->counter_message,
+            'can_respond' => $renewal->status === LeaseRenewal::STATUS_PROPOSED,
+        ];
     }
 
     public function accept(Request $request, LeaseRenewal $renewal): RedirectResponse

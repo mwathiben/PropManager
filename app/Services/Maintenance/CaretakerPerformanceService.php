@@ -6,6 +6,7 @@ namespace App\Services\Maintenance;
 
 use App\Models\Ticket;
 use App\Models\User;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -42,7 +43,25 @@ class CaretakerPerformanceService
         }
 
         $ids = $caretakers->pluck('id')->all();
+        $aggregates = $this->fetchAggregates($landlordId, $ids, $since);
 
+        return $caretakers->map(function (User $caretaker) use ($aggregates, $windowDays) {
+            return $this->buildCaretakerRow($caretaker, $aggregates, $windowDays);
+        })->all();
+    }
+
+    /**
+     * @param  array<int>  $ids
+     * @return array{
+     *   resolvedByCaretaker: Collection,
+     *   openByCaretaker: Collection,
+     *   overdueByCaretaker: Collection,
+     *   escalationsByCaretaker: Collection,
+     *   waterByCaretaker: Collection
+     * }
+     */
+    private function fetchAggregates(int $landlordId, array $ids, \Carbon\Carbon $since): array
+    {
         $resolvedByCaretaker = Ticket::query()
             ->where('landlord_id', $landlordId)
             ->whereIn('assigned_to', $ids)
@@ -81,35 +100,58 @@ class CaretakerPerformanceService
             ->selectRaw('recorded_by, COUNT(*) as total')
             ->pluck('total', 'recorded_by');
 
-        return $caretakers->map(function (User $caretaker) use (
-            $resolvedByCaretaker, $openByCaretaker, $overdueByCaretaker, $escalationsByCaretaker, $waterByCaretaker, $windowDays
-        ) {
-            $resolved = $resolvedByCaretaker->get($caretaker->id) ?? collect();
-            $withDue = $resolved->filter(fn (Ticket $t) => $t->resolution_due_at !== null);
-            $withDueCount = $withDue->count();
-            $withinSla = $withDue->filter(fn (Ticket $t) => $t->resolved_at->lessThanOrEqualTo($t->resolution_due_at))->count();
-            $resolvedCount = $resolved->count();
-            $withResponse = $resolved->filter(fn (Ticket $t) => $t->first_response_at !== null);
+        return compact(
+            'resolvedByCaretaker',
+            'openByCaretaker',
+            'overdueByCaretaker',
+            'escalationsByCaretaker',
+            'waterByCaretaker'
+        );
+    }
 
-            return [
-                'caretaker_id' => $caretaker->id,
-                'name' => $caretaker->name,
-                'window_days' => $windowDays,
-                'resolved_count' => $resolvedCount,
-                'with_due' => $withDueCount,
-                'within_sla' => $withinSla,
-                'within_sla_pct' => $withDueCount > 0 ? round($withinSla / $withDueCount * 100, 1) : null,
-                'avg_resolution_hours' => $resolvedCount > 0
-                    ? round($resolved->avg(fn (Ticket $t) => $t->created_at->diffInHours($t->resolved_at)), 1)
-                    : null,
-                'avg_first_response_hours' => $withResponse->count() > 0
-                    ? round($withResponse->avg(fn (Ticket $t) => $t->created_at->diffInHours($t->first_response_at)), 1)
-                    : null,
-                'open_count' => (int) ($openByCaretaker[$caretaker->id] ?? 0),
-                'open_overdue' => (int) ($overdueByCaretaker[$caretaker->id] ?? 0),
-                'water_readings_recorded' => (int) ($waterByCaretaker[$caretaker->id] ?? 0),
-                'escalations_raised' => (int) ($escalationsByCaretaker[$caretaker->id] ?? 0),
-            ];
-        })->all();
+    /**
+     * @param  array{
+     *   resolvedByCaretaker: Collection,
+     *   openByCaretaker: Collection,
+     *   overdueByCaretaker: Collection,
+     *   escalationsByCaretaker: Collection,
+     *   waterByCaretaker: Collection
+     * }  $aggregates
+     * @return array{
+     *   caretaker_id:int, name:string, window_days:int, resolved_count:int,
+     *   with_due:int, within_sla:int, within_sla_pct:?float,
+     *   avg_resolution_hours:?float, avg_first_response_hours:?float,
+     *   open_count:int, open_overdue:int, water_readings_recorded:int,
+     *   escalations_raised:int
+     * }
+     */
+    private function buildCaretakerRow(User $caretaker, array $aggregates, int $windowDays): array
+    {
+        $resolved = $aggregates['resolvedByCaretaker']->get($caretaker->id) ?? collect();
+        $withDue = $resolved->filter(fn (Ticket $t) => $t->resolution_due_at !== null);
+        $withDueCount = $withDue->count();
+        $withinSla = $withDue->filter(fn (Ticket $t) => $t->resolved_at->lessThanOrEqualTo($t->resolution_due_at))->count();
+        $resolvedCount = $resolved->count();
+        $withResponse = $resolved->filter(fn (Ticket $t) => $t->first_response_at !== null);
+
+        return [
+            'caretaker_id' => $caretaker->id,
+            'name' => $caretaker->name,
+            'window_days' => $windowDays,
+            'resolved_count' => $resolvedCount,
+            'with_due' => $withDueCount,
+            'within_sla' => $withinSla,
+            'within_sla_pct' => $withDueCount > 0 ? round($withinSla / $withDueCount * 100, 1) : null,
+            'avg_resolution_hours' => $resolvedCount > 0
+                ? round($resolved->avg(fn (Ticket $t) => $t->created_at->diffInHours($t->resolved_at)), 1)
+                : null,
+            'avg_first_response_hours' => $withResponse->count() > 0
+                ? round($withResponse->avg(fn (Ticket $t) => $t->created_at->diffInHours($t->first_response_at)), 1)
+                : null,
+            'open_count' => (int) ($aggregates['openByCaretaker'][$caretaker->id] ?? 0),
+            'open_overdue' => (int) ($aggregates['overdueByCaretaker'][$caretaker->id] ?? 0),
+            'water_readings_recorded' => (int) ($aggregates['waterByCaretaker'][$caretaker->id] ?? 0),
+            'escalations_raised' => (int) ($aggregates['escalationsByCaretaker'][$caretaker->id] ?? 0),
+        ];
     }
 }

@@ -68,37 +68,9 @@ class PaymentAllocationService
                 ->get();
 
             $remaining = (int) round($payment->amount * 100);
-            $applied = [];
+            $applied = $this->applyRemainingToInstallments($installments, $remaining);
 
-            foreach ($installments as $installment) {
-                if ($remaining <= 0) {
-                    break;
-                }
-                $owed = max(0, $installment->amount_cents - $installment->paid_amount_cents);
-                if ($owed <= 0) {
-                    continue;
-                }
-                $thisApply = min($remaining, $owed);
-                $installment->paid_amount_cents += $thisApply;
-                if ($installment->paid_amount_cents >= $installment->amount_cents) {
-                    $installment->status = PaymentPlanInstallment::STATUS_PAID;
-                    $installment->paid_at = now();
-                }
-                $installment->save();
-
-                $applied[] = [
-                    'installment_id' => (int) $installment->id,
-                    'applied_cents' => $thisApply,
-                ];
-                $remaining -= $thisApply;
-            }
-
-            $allPaid = ! $plan->installments()
-                ->whereIn('status', [PaymentPlanInstallment::STATUS_PENDING])
-                ->exists();
-            if ($allPaid && $plan->status === PaymentPlan::STATUS_APPROVED) {
-                $plan->update(['status' => PaymentPlan::STATUS_COMPLETED]);
-            }
+            $this->completePlanIfFullyPaid($plan);
 
             if ($applied !== []) {
                 PaymentAllocated::dispatch($payment, $plan, $applied);
@@ -106,5 +78,51 @@ class PaymentAllocationService
 
             return $applied;
         });
+    }
+
+    /**
+     * Walk installments oldest-first, applying cents until exhausted.
+     *
+     * @param  \Illuminate\Database\Eloquent\Collection<int, PaymentPlanInstallment>  $installments
+     * @return array<int, array{installment_id: int, applied_cents: int}>
+     */
+    private function applyRemainingToInstallments($installments, int $remaining): array
+    {
+        $applied = [];
+
+        foreach ($installments as $installment) {
+            if ($remaining <= 0) {
+                break;
+            }
+            $owed = max(0, $installment->amount_cents - $installment->paid_amount_cents);
+            if ($owed <= 0) {
+                continue;
+            }
+            $thisApply = min($remaining, $owed);
+            $installment->paid_amount_cents += $thisApply;
+            if ($installment->paid_amount_cents >= $installment->amount_cents) {
+                $installment->status = PaymentPlanInstallment::STATUS_PAID;
+                $installment->paid_at = now();
+            }
+            $installment->save();
+
+            $applied[] = [
+                'installment_id' => (int) $installment->id,
+                'applied_cents' => $thisApply,
+            ];
+            $remaining -= $thisApply;
+        }
+
+        return $applied;
+    }
+
+    private function completePlanIfFullyPaid(PaymentPlan $plan): void
+    {
+        $allPaid = ! $plan->installments()
+            ->whereIn('status', [PaymentPlanInstallment::STATUS_PENDING])
+            ->exists();
+        if ($allPaid && $plan->status === PaymentPlan::STATUS_APPROVED) {
+            $plan->update(['status' => PaymentPlan::STATUS_COMPLETED]);
+        }
     }
 }

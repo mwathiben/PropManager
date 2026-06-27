@@ -113,59 +113,11 @@ class StripeService
     {
         $this->ensureConfigured();
 
-        $payload = [
-            'amount' => (int) $data['amount'],
-            'currency' => strtolower($data['currency']),
-            'metadata' => array_merge($data['metadata'] ?? [], ['reference' => $data['reference']]),
-            'receipt_email' => $data['receipt_email'] ?? null,
-            'automatic_payment_methods' => ['enabled' => true],
-        ];
-
-        // Phase-42 TAX-3: opt-in Stripe Tax for non-KES landlords who
-        // have stripe_tax_enabled set on their PaymentConfiguration.
-        // Stripe Tax doesn't yet cover Kenya — KES uses Phase-42
-        // local VAT computation via StripeTaxService instead.
-        if ($this->config !== null
-            && $this->config->hasStripeTaxEnabled()
-            && strtolower($data['currency']) !== 'kes'
-        ) {
-            $payload['automatic_tax'] = ['enabled' => true];
-        }
-
-        // Phase-42 CONNECT-STANDARD-2: route the PaymentIntent based on
-        // the landlord's Connect account type. Express uses destination
-        // charges (transfer_data.destination); Standard uses direct
-        // charges (on_behalf_of) executed in the landlord's account
-        // context via the Stripe-Account header. Untyped or missing
-        // account_id stays the legacy direct-to-platform behaviour.
-        $useStandardDirectCharge = false;
-        if ($this->config !== null && ! empty($this->config->stripe_connect_account_id)) {
-            $accountId = (string) $this->config->stripe_connect_account_id;
-            $type = $this->config->stripe_connect_account_type instanceof \App\Enums\StripeConnectAccountType
-                ? $this->config->stripe_connect_account_type
-                : \App\Enums\StripeConnectAccountType::Express;
-
-            if ($type === \App\Enums\StripeConnectAccountType::Standard) {
-                $payload['on_behalf_of'] = $accountId;
-                $useStandardDirectCharge = true;
-            } else {
-                $payload['transfer_data'] = ['destination' => $accountId];
-            }
-        }
+        $payload = $this->buildPaymentIntentPayload($data);
+        $useStandardDirectCharge = $this->applyConnectRouting($payload);
 
         try {
-            $intent = $this->timedHttpRequest('stripe', '/v1/payment_intents', function () use ($payload, $useStandardDirectCharge) {
-                if ($useStandardDirectCharge) {
-                    // Standard accounts charge in the landlord's account
-                    // context — Stripe-Account header is the wire-level
-                    // signal that routes the API call appropriately.
-                    return $this->client()->paymentIntents->create($payload, [
-                        'stripe_account' => $payload['on_behalf_of'],
-                    ]);
-                }
-
-                return $this->client()->paymentIntents->create($payload);
-            });
+            $intent = $this->executePaymentIntentCreate($payload, $useStandardDirectCharge);
 
             return [
                 'status' => true,
@@ -187,6 +139,88 @@ class StripeService
         } catch (\Throwable $e) {
             throw new PaymentGatewayUnreachableException('stripe', $e->getMessage(), 'unreachable');
         }
+    }
+
+    /**
+     * Build the base PaymentIntent payload, applying Stripe Tax when eligible.
+     *
+     * Phase-42 TAX-3: opt-in Stripe Tax for non-KES landlords who
+     * have stripe_tax_enabled set on their PaymentConfiguration.
+     * Stripe Tax doesn't yet cover Kenya — KES uses Phase-42
+     * local VAT computation via StripeTaxService instead.
+     */
+    private function buildPaymentIntentPayload(array $data): array
+    {
+        $payload = [
+            'amount' => (int) $data['amount'],
+            'currency' => strtolower($data['currency']),
+            'metadata' => array_merge($data['metadata'] ?? [], ['reference' => $data['reference']]),
+            'receipt_email' => $data['receipt_email'] ?? null,
+            'automatic_payment_methods' => ['enabled' => true],
+        ];
+
+        if ($this->config !== null
+            && $this->config->hasStripeTaxEnabled()
+            && strtolower($data['currency']) !== 'kes'
+        ) {
+            $payload['automatic_tax'] = ['enabled' => true];
+        }
+
+        return $payload;
+    }
+
+    /**
+     * Apply Connect account routing to the payload in-place.
+     *
+     * Phase-42 CONNECT-STANDARD-2: route the PaymentIntent based on
+     * the landlord's Connect account type. Express uses destination
+     * charges (transfer_data.destination); Standard uses direct
+     * charges (on_behalf_of) executed in the landlord's account
+     * context via the Stripe-Account header. Untyped or missing
+     * account_id stays the legacy direct-to-platform behaviour.
+     *
+     * Returns true when Standard direct-charge routing is active.
+     */
+    private function applyConnectRouting(array &$payload): bool
+    {
+        if ($this->config === null || empty($this->config->stripe_connect_account_id)) {
+            return false;
+        }
+
+        $accountId = (string) $this->config->stripe_connect_account_id;
+        $type = $this->config->stripe_connect_account_type instanceof \App\Enums\StripeConnectAccountType
+            ? $this->config->stripe_connect_account_type
+            : \App\Enums\StripeConnectAccountType::Express;
+
+        if ($type === \App\Enums\StripeConnectAccountType::Standard) {
+            $payload['on_behalf_of'] = $accountId;
+
+            return true;
+        }
+
+        $payload['transfer_data'] = ['destination' => $accountId];
+
+        return false;
+    }
+
+    /**
+     * Execute the Stripe PaymentIntent create API call via the timed wrapper.
+     *
+     * Standard accounts charge in the landlord's account context —
+     * the Stripe-Account header is the wire-level signal that routes
+     * the API call appropriately.
+     */
+    private function executePaymentIntentCreate(array $payload, bool $useStandardDirectCharge): PaymentIntent
+    {
+        return $this->timedHttpRequest('stripe', '/v1/payment_intents', function () use ($payload, $useStandardDirectCharge) {
+            if ($useStandardDirectCharge) {
+                return $this->client()->paymentIntents->create($payload, [
+                    'stripe_account' => $payload['on_behalf_of'],
+                ]);
+            }
+
+            return $this->client()->paymentIntents->create($payload);
+        });
     }
 
     public function retrievePaymentIntent(string $paymentIntentId): ?array
@@ -222,19 +256,11 @@ class StripeService
 
         $result = [];
         $startingAfter = null;
-        do {
-            $params = [
-                'created' => ['gte' => $from->getTimestamp(), 'lte' => $to->getTimestamp()],
-                'limit' => 100,
-            ];
-            if ($startingAfter !== null) {
-                $params['starting_after'] = $startingAfter;
-            }
 
-            try {
-                $page = $this->client()->charges->all($params);
-            } catch (ApiErrorException $e) {
-                Log::warning('stripe listCharges failed', ['error' => $e->getMessage()]);
+        do {
+            $page = $this->fetchChargePage($from, $to, $startingAfter);
+
+            if ($page === null) {
                 break;
             }
 
@@ -242,13 +268,51 @@ class StripeService
                 $result[$charge->id] = $charge;
             }
 
-            $hasMore = (bool) ($page->has_more ?? false);
-            $startingAfter = $hasMore && ! empty($page->data)
-                ? end($page->data)->id
-                : null;
+            $startingAfter = $this->nextCursor($page);
         } while ($startingAfter !== null);
 
         return $result;
+    }
+
+    /**
+     * Fetch a single page of Stripe charges within the time window.
+     *
+     * Returns null on API error (caller should break pagination loop).
+     */
+    private function fetchChargePage(CarbonImmutable $from, CarbonImmutable $to, ?string $startingAfter): mixed
+    {
+        $params = [
+            'created' => ['gte' => $from->getTimestamp(), 'lte' => $to->getTimestamp()],
+            'limit' => 100,
+        ];
+
+        if ($startingAfter !== null) {
+            $params['starting_after'] = $startingAfter;
+        }
+
+        try {
+            return $this->client()->charges->all($params);
+        } catch (ApiErrorException $e) {
+            Log::warning('stripe listCharges failed', ['error' => $e->getMessage()]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Derive the next pagination cursor from a Stripe list page.
+     *
+     * Returns null when there are no further pages.
+     */
+    private function nextCursor(mixed $page): ?string
+    {
+        $hasMore = (bool) ($page->has_more ?? false);
+
+        if (! $hasMore || empty($page->data)) {
+            return null;
+        }
+
+        return end($page->data)->id;
     }
 
     public function refund(string $paymentIntentId, ?int $amountMinorUnits = null): ?array

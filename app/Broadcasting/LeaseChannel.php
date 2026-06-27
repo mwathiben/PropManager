@@ -22,6 +22,11 @@ class LeaseChannel
             return false;
         }
 
+        return $this->userIsAuthorizedForLease($user, $lease);
+    }
+
+    private function userIsAuthorizedForLease(User $user, Lease $lease): bool
+    {
         if ($user->role === 'super_admin') {
             return true;
         }

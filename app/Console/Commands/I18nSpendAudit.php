@@ -86,17 +86,31 @@ class I18nSpendAudit extends Command
             return ['en'];
         }
 
+        $locales = $this->scanLocaleDirectories($langPath);
+
+        return $locales ?: ['en'];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function scanLocaleDirectories(string $langPath): array
+    {
         $locales = [];
         foreach (scandir($langPath) ?: [] as $entry) {
-            if ($entry === '.' || $entry === '..' || $entry === 'vendor') {
+            if ($this->isSkippableEntry($entry)) {
                 continue;
             }
-            $full = $langPath.DIRECTORY_SEPARATOR.$entry;
-            if (is_dir($full)) {
+            if (is_dir($langPath.DIRECTORY_SEPARATOR.$entry)) {
                 $locales[] = $entry;
             }
         }
 
-        return $locales ?: ['en'];
+        return $locales;
+    }
+
+    private function isSkippableEntry(string $entry): bool
+    {
+        return $entry === '.' || $entry === '..' || $entry === 'vendor';
     }
 }

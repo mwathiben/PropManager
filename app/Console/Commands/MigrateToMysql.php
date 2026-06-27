@@ -130,20 +130,7 @@ class MigrateToMysql extends Command
 
     public function handle(): int
     {
-        $dryRun = $this->option('dry-run');
-        $onlyTables = $this->option('tables')
-            ? explode(',', $this->option('tables'))
-            : null;
-        $skipTables = $this->option('skip-tables')
-            ? array_merge($this->defaultSkipTables, explode(',', $this->option('skip-tables')))
-            : $this->defaultSkipTables;
-
-        $this->info('SQLite to MySQL Data Migration');
-        $this->info('==============================');
-
-        if ($dryRun) {
-            $this->warn('DRY RUN MODE - No data will be modified');
-        }
+        [$dryRun, $onlyTables, $skipTables] = $this->resolveOptions();
 
         if (! $this->verifyConnections()) {
             return self::FAILURE;
@@ -159,37 +146,15 @@ class MigrateToMysql extends Command
 
         $this->info(sprintf('Tables to migrate: %d', count($tables)));
         $this->newLine();
+        $this->setForeignKeyChecks($dryRun, false);
 
-        if (! $dryRun) {
-            DB::connection('mysql')->statement('SET FOREIGN_KEY_CHECKS=0');
-        }
+        [$results, $totalRows, $failedTables] = $this->migrateAllTables($tables, $dryRun);
 
-        $results = [];
-        $totalRows = 0;
-        $failedTables = [];
-
-        foreach ($tables as $table) {
-            $result = $this->migrateTable($table, $dryRun);
-            $results[$table] = $result;
-            $totalRows += $result['rows'];
-
-            if (! $result['success']) {
-                $failedTables[] = $table;
-            }
-        }
-
-        if (! $dryRun) {
-            DB::connection('mysql')->statement('SET FOREIGN_KEY_CHECKS=1');
-        }
-
+        $this->setForeignKeyChecks($dryRun, true);
         $this->newLine();
         $this->displaySummary($results, $totalRows, $failedTables, $dryRun);
 
-        if (! empty($failedTables)) {
-            return self::FAILURE;
-        }
-
-        return self::SUCCESS;
+        return empty($failedTables) ? self::SUCCESS : self::FAILURE;
     }
 
     protected function verifyConnections(): bool
@@ -226,96 +191,32 @@ class MigrateToMysql extends Command
             ->pluck('name')
             ->toArray();
 
-        $orderedTables = [];
-        foreach ($this->tableOrder as $table) {
-            if (in_array($table, $sqliteTables) && ! in_array($table, $skipTables)) {
-                if ($onlyTables === null || in_array($table, $onlyTables)) {
-                    $orderedTables[] = $table;
-                }
-            }
-        }
+        $ordered = array_values(array_filter(
+            $this->tableOrder,
+            fn ($t) => in_array($t, $sqliteTables) && $this->isTableAllowed($t, $skipTables, $onlyTables)
+        ));
 
-        foreach ($sqliteTables as $table) {
-            if (! in_array($table, $orderedTables) && ! in_array($table, $skipTables)) {
-                if ($onlyTables === null || in_array($table, $onlyTables)) {
-                    $orderedTables[] = $table;
-                }
-            }
-        }
+        $remaining = array_values(array_filter(
+            $sqliteTables,
+            fn ($t) => ! in_array($t, $ordered) && $this->isTableAllowed($t, $skipTables, $onlyTables)
+        ));
 
-        return $orderedTables;
+        return array_merge($ordered, $remaining);
     }
 
     protected function migrateTable(string $table, bool $dryRun): array
     {
-        $result = [
-            'success' => true,
-            'rows' => 0,
-            'error' => null,
-        ];
+        $result = ['success' => true, 'rows' => 0, 'error' => null];
 
         try {
             $sourceCount = DB::connection('sqlite')->table($table)->count();
             $result['rows'] = $sourceCount;
 
-            if ($sourceCount === 0) {
-                $this->line(sprintf('  [SKIP] %s - empty', $table));
-
+            if ($this->shouldSkipTable($table, $sourceCount, $dryRun, $result)) {
                 return $result;
             }
 
-            if ($dryRun) {
-                $this->line(sprintf('  [DRY] %s - %d rows', $table, $sourceCount));
-
-                return $result;
-            }
-
-            if (! Schema::connection('mysql')->hasTable($table)) {
-                $this->warn(sprintf('  [SKIP] %s - table does not exist in MySQL', $table));
-                $result['rows'] = 0;
-
-                return $result;
-            }
-
-            DB::connection('mysql')->table($table)->truncate();
-
-            $bar = $this->output->createProgressBar($sourceCount);
-            $bar->setFormat('  %message% [%bar%] %current%/%max%');
-            $bar->setMessage($table);
-            $bar->start();
-
-            $chunk = [];
-            $chunkSize = 500;
-
-            DB::connection('sqlite')->table($table)->orderBy(
-                Schema::connection('sqlite')->hasColumn($table, 'id') ? 'id' : DB::raw('rowid')
-            )->cursor()->each(function ($row) use ($table, &$chunk, $chunkSize, $bar) {
-                $rowArray = (array) $row;
-                $rowArray = $this->prepareRowForMysql($rowArray, $table);
-                $chunk[] = $rowArray;
-
-                if (count($chunk) >= $chunkSize) {
-                    DB::connection('mysql')->table($table)->insert($chunk);
-                    $bar->advance(count($chunk));
-                    $chunk = [];
-                }
-            });
-
-            if (! empty($chunk)) {
-                DB::connection('mysql')->table($table)->insert($chunk);
-                $bar->advance(count($chunk));
-            }
-
-            $bar->finish();
-            $this->newLine();
-
-            $destCount = DB::connection('mysql')->table($table)->count();
-            if ($destCount !== $sourceCount) {
-                throw new \RuntimeException(
-                    sprintf('Row count mismatch: source=%d, dest=%d', $sourceCount, $destCount)
-                );
-            }
-
+            $this->copyTableData($table, $sourceCount);
         } catch (\Exception $e) {
             $this->newLine();
             $this->error(sprintf('  [FAIL] %s - %s', $table, $e->getMessage()));
@@ -378,6 +279,120 @@ class MigrateToMysql extends Command
         if (! $dryRun && $failed === 0) {
             $this->newLine();
             $this->info('Migration completed successfully!');
+        }
+    }
+
+    private function resolveOptions(): array
+    {
+        $dryRun = (bool) $this->option('dry-run');
+        $onlyTables = $this->option('tables') ? explode(',', $this->option('tables')) : null;
+        $skipTables = $this->option('skip-tables')
+            ? array_merge($this->defaultSkipTables, explode(',', $this->option('skip-tables')))
+            : $this->defaultSkipTables;
+
+        $this->info('SQLite to MySQL Data Migration');
+        $this->info('==============================');
+
+        if ($dryRun) {
+            $this->warn('DRY RUN MODE - No data will be modified');
+        }
+
+        return [$dryRun, $onlyTables, $skipTables];
+    }
+
+    private function setForeignKeyChecks(bool $dryRun, bool $enable): void
+    {
+        if ($dryRun) {
+            return;
+        }
+
+        DB::connection('mysql')->statement('SET FOREIGN_KEY_CHECKS='.($enable ? '1' : '0'));
+    }
+
+    private function migrateAllTables(array $tables, bool $dryRun): array
+    {
+        $results = [];
+        $totalRows = 0;
+        $failedTables = [];
+
+        foreach ($tables as $table) {
+            $result = $this->migrateTable($table, $dryRun);
+            $results[$table] = $result;
+            $totalRows += $result['rows'];
+            if (! $result['success']) {
+                $failedTables[] = $table;
+            }
+        }
+
+        return [$results, $totalRows, $failedTables];
+    }
+
+    private function isTableAllowed(string $table, array $skipTables, ?array $onlyTables): bool
+    {
+        return ! in_array($table, $skipTables) && ($onlyTables === null || in_array($table, $onlyTables));
+    }
+
+    private function shouldSkipTable(string $table, int $sourceCount, bool $dryRun, array &$result): bool
+    {
+        if ($sourceCount === 0) {
+            $this->line(sprintf('  [SKIP] %s - empty', $table));
+
+            return true;
+        }
+        if ($dryRun) {
+            $this->line(sprintf('  [DRY] %s - %d rows', $table, $sourceCount));
+
+            return true;
+        }
+        if (! Schema::connection('mysql')->hasTable($table)) {
+            $this->warn(sprintf('  [SKIP] %s - table does not exist in MySQL', $table));
+            $result['rows'] = 0;
+
+            return true;
+        }
+
+        return false;
+    }
+
+    private function copyTableData(string $table, int $sourceCount): void
+    {
+        DB::connection('mysql')->table($table)->truncate();
+
+        $bar = $this->output->createProgressBar($sourceCount);
+        $bar->setFormat('  %message% [%bar%] %current%/%max%');
+        $bar->setMessage($table);
+        $bar->start();
+
+        $chunk = [];
+        $chunkSize = 500;
+
+        DB::connection('sqlite')->table($table)->orderBy(
+            Schema::connection('sqlite')->hasColumn($table, 'id') ? 'id' : DB::raw('rowid')
+        )->cursor()->each(function ($row) use ($table, &$chunk, $chunkSize, $bar) {
+            $rowArray = (array) $row;
+            $rowArray = $this->prepareRowForMysql($rowArray, $table);
+            $chunk[] = $rowArray;
+
+            if (count($chunk) >= $chunkSize) {
+                DB::connection('mysql')->table($table)->insert($chunk);
+                $bar->advance(count($chunk));
+                $chunk = [];
+            }
+        });
+
+        if (! empty($chunk)) {
+            DB::connection('mysql')->table($table)->insert($chunk);
+            $bar->advance(count($chunk));
+        }
+
+        $bar->finish();
+        $this->newLine();
+
+        $destCount = DB::connection('mysql')->table($table)->count();
+        if ($destCount !== $sourceCount) {
+            throw new \RuntimeException(
+                sprintf('Row count mismatch: source=%d, dest=%d', $sourceCount, $destCount)
+            );
         }
     }
 }

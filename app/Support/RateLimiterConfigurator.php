@@ -9,90 +9,113 @@ use Illuminate\Support\Facades\RateLimiter;
 
 /**
  * Application rate-limiter definitions, extracted from AppServiceProvider
- * (M2 decomposition). Holds every RateLimiter::for(...) registration
- * (login / registration / password-reset / 2FA / telemetry / inbox /
- * reactions / uploads / ...). AppServiceProvider::boot() calls configure().
- * Verbatim move — behaviour is locked by the throttle / rate-limit feature
- * tests (Phase25RateLimitTest et al.).
+ * (M2 decomposition). AppServiceProvider::boot() calls configure().
+ * Behaviour locked by Phase25RateLimitTest et al.
  */
 class RateLimiterConfigurator
 {
     public function configure(): void
     {
-        // Login rate limiter - stricter to prevent brute force
+        $this->registerLoginLimiter();
+        $this->registerRegisterLimiter();
+        $this->registerPasswordResetLimiter();
+        $this->registerTwoFactorLimiter();
+        $this->registerTelemetryLimiter();
+        $this->registerMessagesLimiter();
+        $this->registerReactionsLimiter();
+        $this->registerFileUploadLimiter();
+        $this->registerApiLimiter();
+        $this->registerCspReportLimiter();
+        $this->registerInvitationLimiter();
+        $this->registerSensitiveLimiter();
+        $this->registerPaymentLimiter();
+        $this->registerPaymentLinkLimiter();
+        $this->registerExportLimiter();
+        $this->registerSearchLimiter();
+        $this->registerNotificationSendLimiter();
+        $this->registerBulkNotifyLimiter();
+        $this->registerBulkOpsLimiter();
+        $this->registerInboxReplyLimiter();
+        $this->registerBankVerifyLimiter();
+        $this->registerProviderTestLimiter();
+        $this->registerPdfRenderLimiter();
+        $this->registerLegalHoldLimiter();
+    }
+
+    /** @return array{int,int} */
+    private function parseRateLimitConfig(string $configKey, string $default): array
+    {
+        $config = config($configKey, $default);
+        [$maxAttempts, $decayMinutes] = explode(',', $config);
+
+        return [(int) $maxAttempts, (int) $decayMinutes];
+    }
+
+    private function jsonTooManyResponse(string $message): \Closure
+    {
+        return function (Request $request, array $headers) use ($message) {
+            return response()->json([
+                'message' => $message,
+                'retry_after' => $headers['Retry-After'] ?? 60,
+            ], 429, $headers);
+        };
+    }
+
+    private function registerLoginLimiter(): void
+    {
         RateLimiter::for('login', function (Request $request) {
-            $config = config('security.rate_limits.login', '5,1');
-            [$maxAttempts, $decayMinutes] = explode(',', $config);
+            [$max, $decay] = $this->parseRateLimitConfig('security.rate_limits.login', '5,1');
 
-            return Limit::perMinutes((int) $decayMinutes, (int) $maxAttempts)
+            return Limit::perMinutes($decay, $max)
                 ->by($request->input('email').'|'.$request->ip())
-                ->response(function (Request $request, array $headers) {
-                    return response()->json([
-                        'message' => 'Too many login attempts. Please try again later.',
-                        'retry_after' => $headers['Retry-After'] ?? 60,
-                    ], 429, $headers);
-                });
+                ->response($this->jsonTooManyResponse('Too many login attempts. Please try again later.'));
         });
+    }
 
-        // Registration rate limiter
+    private function registerRegisterLimiter(): void
+    {
         RateLimiter::for('register', function (Request $request) {
-            $config = config('security.rate_limits.register', '3,1');
-            [$maxAttempts, $decayMinutes] = explode(',', $config);
+            [$max, $decay] = $this->parseRateLimitConfig('security.rate_limits.register', '3,1');
 
-            return Limit::perMinutes((int) $decayMinutes, (int) $maxAttempts)
+            return Limit::perMinutes($decay, $max)
                 ->by($request->ip())
-                ->response(function (Request $request, array $headers) {
-                    return response()->json([
-                        'message' => 'Too many registration attempts. Please try again later.',
-                        'retry_after' => $headers['Retry-After'] ?? 60,
-                    ], 429, $headers);
-                });
+                ->response($this->jsonTooManyResponse('Too many registration attempts. Please try again later.'));
         });
+    }
 
-        // Password reset rate limiter
+    private function registerPasswordResetLimiter(): void
+    {
         RateLimiter::for('password-reset', function (Request $request) {
-            $config = config('security.rate_limits.password_reset', '3,1');
-            [$maxAttempts, $decayMinutes] = explode(',', $config);
+            [$max, $decay] = $this->parseRateLimitConfig('security.rate_limits.password_reset', '3,1');
 
-            return Limit::perMinutes((int) $decayMinutes, (int) $maxAttempts)
+            return Limit::perMinutes($decay, $max)
                 ->by($request->input('email', $request->ip()))
-                ->response(function (Request $request, array $headers) {
-                    return response()->json([
-                        'message' => 'Too many password reset requests. Please try again later.',
-                        'retry_after' => $headers['Retry-After'] ?? 60,
-                    ], 429, $headers);
-                });
+                ->response($this->jsonTooManyResponse('Too many password reset requests. Please try again later.'));
         });
+    }
 
-        // Two-factor authentication rate limiter
+    private function registerTwoFactorLimiter(): void
+    {
         RateLimiter::for('two-factor', function (Request $request) {
             return Limit::perMinute(5)
                 ->by($request->user()?->id ?: $request->ip())
-                ->response(function (Request $request, array $headers) {
-                    return response()->json([
-                        'message' => 'Too many 2FA verification attempts. Please try again later.',
-                        'retry_after' => $headers['Retry-After'] ?? 60,
-                    ], 429, $headers);
-                });
+                ->response($this->jsonTooManyResponse('Too many 2FA verification attempts. Please try again later.'));
         });
+    }
 
-        // Phase-64 TELEMETRY-WIRE-1: PWA telemetry ingress throttle.
-        // 60/min/user is generous — clients flush on visibilitychange +
-        // beforeunload (at most a handful of beacons per session).
+    private function registerTelemetryLimiter(): void
+    {
+        // Phase-64 TELEMETRY-WIRE-1: clients flush on visibilitychange/beforeunload.
         RateLimiter::for('telemetry', function (Request $request) {
             return Limit::perMinute(60)
                 ->by((string) ($request->user()?->id ?? $request->ip()))
-                ->response(function (Request $request, array $headers) {
-                    return response()->json([
-                        'message' => 'Telemetry rate limit exceeded.',
-                        'retry_after' => $headers['Retry-After'] ?? 60,
-                    ], 429, $headers);
-                });
+                ->response($this->jsonTooManyResponse('Telemetry rate limit exceeded.'));
         });
+    }
 
-        // Phase-63 INBOX-MOD-3: inbox compose throttle. 20/min by
-        // authenticated user — well above the ~1 msg/min back-and-forth
-        // peak but enough to absorb a compromised-account burst.
+    private function registerMessagesLimiter(): void
+    {
+        // Phase-63 INBOX-MOD-3: inbox compose throttle.
         RateLimiter::for('messages', function (Request $request) {
             $perMinute = (int) config('inbox.rate_limit.per_minute', 20);
 
@@ -107,10 +130,11 @@ class RateLimiterConfigurator
                     ], 429, $headers);
                 });
         });
+    }
 
-        // Phase-71 REACTIONS: a far more generous limiter than 'messages'.
-        // A reaction toggle is cheap and the UI invites rapid taps, so it
-        // gets its own budget instead of sharing the 20/min compose limit.
+    private function registerReactionsLimiter(): void
+    {
+        // Phase-71 REACTIONS: own budget — UI invites rapid taps.
         RateLimiter::for('reactions', function (Request $request) {
             $perMinute = (int) config('inbox.reactions_rate_limit.per_minute', 120);
 
@@ -125,36 +149,24 @@ class RateLimiterConfigurator
                     ], 429, $headers);
                 });
         });
+    }
 
-        // File upload rate limiter
+    private function registerFileUploadLimiter(): void
+    {
         RateLimiter::for('file-upload', function (Request $request) {
-            $config = config('security.rate_limits.file_upload', '10,1');
-            [$maxAttempts, $decayMinutes] = explode(',', $config);
+            [$max, $decay] = $this->parseRateLimitConfig('security.rate_limits.file_upload', '10,1');
 
-            return Limit::perMinutes((int) $decayMinutes, (int) $maxAttempts)
+            return Limit::perMinutes($decay, $max)
                 ->by($request->user()?->id ?: $request->ip())
-                ->response(function (Request $request, array $headers) {
-                    return response()->json([
-                        'message' => 'Too many file uploads. Please try again later.',
-                        'retry_after' => $headers['Retry-After'] ?? 60,
-                    ], 429, $headers);
-                });
+                ->response($this->jsonTooManyResponse('Too many file uploads. Please try again later.'));
         });
+    }
 
-        // API rate limiter (general).
-        //
-        // Phase-25 API-RATELIMIT-3: when the request is authenticated
-        // via a Sanctum personal access token, the token's
-        // rate_limit_multiplier scales the bucket. Trusted integration
-        // partners (multiplier 2.0) get 2x the headroom without
-        // mutating the global config; one-off abuse cases can be
-        // throttled by setting the multiplier <1.0 on a specific
-        // token. Multiplier <= 0 falls back to 1.0 (defensive — no
-        // legit value would zero a partner out; that's revoke's job).
+    private function registerApiLimiter(): void
+    {
+        // Phase-25 API-RATELIMIT-3: token rate_limit_multiplier scales the bucket.
         RateLimiter::for('api', function (Request $request) {
-            $config = config('security.rate_limits.api', '60,1');
-            [$maxAttempts, $decayMinutes] = explode(',', $config);
-            $maxAttempts = (int) $maxAttempts;
+            [$maxAttempts, $decayMinutes] = $this->parseRateLimitConfig('security.rate_limits.api', '60,1');
 
             $token = $request->user()?->currentAccessToken();
             if ($token && isset($token->rate_limit_multiplier)) {
@@ -164,44 +176,40 @@ class RateLimiterConfigurator
                 }
             }
 
-            return Limit::perMinutes((int) $decayMinutes, $maxAttempts)
+            return Limit::perMinutes($decayMinutes, $maxAttempts)
                 ->by($request->user()?->id ?: $request->ip());
         });
+    }
 
-        // Phase-15 FRONT-6: CSP violation reports. One compromised
-        // browser or extension can fire many violations per minute;
-        // 30/min is a reasonable cap that surfaces a genuine
-        // misconfiguration without becoming a write-amplification
-        // attack on security_logs.
+    private function registerCspReportLimiter(): void
+    {
+        // Phase-15 FRONT-6: prevents write-amplification on security_logs.
         RateLimiter::for('csp-report', function (Request $request) {
             return Limit::perMinute(30)->by($request->ip());
         });
+    }
 
-        // Invitation acceptance rate limiter
+    private function registerInvitationLimiter(): void
+    {
         RateLimiter::for('invitation', function (Request $request) {
             return Limit::perMinute(5)
                 ->by($request->ip())
-                ->response(function (Request $request, array $headers) {
-                    return response()->json([
-                        'message' => 'Too many invitation attempts. Please try again later.',
-                        'retry_after' => $headers['Retry-After'] ?? 60,
-                    ], 429, $headers);
-                });
+                ->response($this->jsonTooManyResponse('Too many invitation attempts. Please try again later.'));
         });
+    }
 
-        // Sensitive operations rate limiter (password change, delete account, etc.)
+    private function registerSensitiveLimiter(): void
+    {
         RateLimiter::for('sensitive', function (Request $request) {
             return Limit::perMinute(3)
                 ->by($request->user()?->id ?: $request->ip())
-                ->response(function (Request $request, array $headers) {
-                    return response()->json([
-                        'message' => 'Too many requests. Please wait before trying again.',
-                        'retry_after' => $headers['Retry-After'] ?? 60,
-                    ], 429, $headers);
-                });
+                ->response($this->jsonTooManyResponse('Too many requests. Please wait before trying again.'));
         });
+    }
 
-        // Payment initiation rate limiter: per-user (5/min) + per-invoice (1/min)
+    private function registerPaymentLimiter(): void
+    {
+        // RATE-1: per-user (5/min) + per-invoice (1/min).
         RateLimiter::for('payment', function (Request $request) {
             $routeInvoice = $request->route('invoice');
             $invoiceId = is_object($routeInvoice) ? $routeInvoice->id : ($routeInvoice ?? $request->input('invoice_id'));
@@ -209,36 +217,39 @@ class RateLimiterConfigurator
             $limits = [
                 Limit::perMinute(5)
                     ->by('user:'.($request->user()?->id ?: $request->ip()))
-                    ->response(function (Request $request, array $headers) {
-                        return response()->json([
-                            'message' => 'Too many payment requests. Please try again later.',
-                            'retry_after' => $headers['Retry-After'] ?? 60,
-                        ], 429, $headers);
-                    }),
+                    ->response($this->jsonTooManyResponse('Too many payment requests. Please try again later.')),
             ];
 
             if ($invoiceId) {
-                $limits[] = Limit::perMinute(1)
-                    ->by('invoice:'.$invoiceId)
-                    ->response(function (Request $request, array $headers) {
-                        $logInvoice = $request->route('invoice');
-                        Log::channel('security')->info('Payment rate limit hit per invoice', [
-                            'invoice_id' => is_object($logInvoice) ? $logInvoice->id : ($logInvoice ?? $request->input('invoice_id')),
-                            'user_id' => $request->user()?->id,
-                            'ip' => $request->ip(),
-                        ]);
-
-                        return response()->json([
-                            'message' => 'A payment for this invoice is already being processed. Please wait before trying again.',
-                            'retry_after' => $headers['Retry-After'] ?? 60,
-                        ], 429, $headers);
-                    });
+                $limits[] = $this->buildPerInvoicePaymentLimit($invoiceId);
             }
 
             return $limits;
         });
+    }
 
-        // Payment link rate limiter - stricter with security logging
+    private function buildPerInvoicePaymentLimit(int|string $invoiceId): Limit
+    {
+        return Limit::perMinute(1)
+            ->by('invoice:'.$invoiceId)
+            ->response(function (Request $request, array $headers) {
+                $logInvoice = $request->route('invoice');
+                Log::channel('security')->info('Payment rate limit hit per invoice', [
+                    'invoice_id' => is_object($logInvoice) ? $logInvoice->id : ($logInvoice ?? $request->input('invoice_id')),
+                    'user_id' => $request->user()?->id,
+                    'ip' => $request->ip(),
+                ]);
+
+                return response()->json([
+                    'message' => 'A payment for this invoice is already being processed. Please wait before trying again.',
+                    'retry_after' => $headers['Retry-After'] ?? 60,
+                ], 429, $headers);
+            });
+    }
+
+    private function registerPaymentLinkLimiter(): void
+    {
+        // Stricter with security logging.
         RateLimiter::for('payment-link', function (Request $request) {
             $token = $request->route('token');
 
@@ -257,40 +268,33 @@ class RateLimiterConfigurator
                     ])->toResponse($request)->setStatusCode(429);
                 });
         });
+    }
 
-        // Export rate limiter - resource intensive operations (PDF/Excel generation)
+    private function registerExportLimiter(): void
+    {
         RateLimiter::for('export', function (Request $request) {
-            $config = config('security.rate_limits.export', '5,1');
-            [$maxAttempts, $decayMinutes] = explode(',', $config);
+            [$max, $decay] = $this->parseRateLimitConfig('security.rate_limits.export', '5,1');
 
-            return Limit::perMinutes((int) $decayMinutes, (int) $maxAttempts)
+            return Limit::perMinutes($decay, $max)
                 ->by($request->user()?->id ?: $request->ip())
-                ->response(function (Request $request, array $headers) {
-                    return response()->json([
-                        'message' => 'Too many export requests. Please wait before exporting again.',
-                        'retry_after' => $headers['Retry-After'] ?? 60,
-                    ], 429, $headers);
-                });
+                ->response($this->jsonTooManyResponse('Too many export requests. Please wait before exporting again.'));
         });
+    }
 
-        // Search/autocomplete rate limiter - higher limit for UX
+    private function registerSearchLimiter(): void
+    {
         RateLimiter::for('search', function (Request $request) {
-            $config = config('security.rate_limits.search', '30,1');
-            [$maxAttempts, $decayMinutes] = explode(',', $config);
+            [$max, $decay] = $this->parseRateLimitConfig('security.rate_limits.search', '30,1');
 
-            return Limit::perMinutes((int) $decayMinutes, (int) $maxAttempts)
+            return Limit::perMinutes($decay, $max)
                 ->by($request->user()?->id ?: $request->ip())
-                ->response(function (Request $request, array $headers) {
-                    return response()->json([
-                        'message' => 'Too many search requests. Please slow down.',
-                        'retry_after' => $headers['Retry-After'] ?? 60,
-                    ], 429, $headers);
-                });
+                ->response($this->jsonTooManyResponse('Too many search requests. Please slow down.'));
         });
+    }
 
-        // RATE-2: per-invoice + per-user notification-send limiter so a
-        // landlord can't blast a tenant via 'send reminder' / 'send
-        // receipt' / 'email ledger' buttons.
+    private function registerNotificationSendLimiter(): void
+    {
+        // RATE-2: per-resource + per-user; prevents blast via send-reminder buttons.
         RateLimiter::for('notification-send', function (Request $request) {
             $invoice = $request->route('invoice');
             $payment = $request->route('payment');
@@ -305,10 +309,11 @@ class RateLimiterConfigurator
                 Limit::perMinute(20)->by('user:'.($request->user()?->id ?: $request->ip())),
             ];
         });
+    }
 
-        // RATE-3: bulk-notification limiter so a compromised landlord/
-        // caretaker session can't enqueue thousands of SMS/emails per
-        // hour. 2/min and 20/hour per landlord.
+    private function registerBulkNotifyLimiter(): void
+    {
+        // RATE-3: 2/min and 20/hour per landlord.
         RateLimiter::for('bulk-notify', function (Request $request) {
             $user = $request->user();
             $landlordId = $user
@@ -321,20 +326,21 @@ class RateLimiterConfigurator
                 Limit::perHour(20)->by($key),
             ];
         });
+    }
 
-        // RATE-4: bulk-operations limiter — per-user 3/min plus a
-        // serializing Cache::lock applied in the controller body so two
-        // concurrent bulk-rent-adjust requests can't race.
+    private function registerBulkOpsLimiter(): void
+    {
+        // RATE-4: 3/min per-user; controller body applies Cache::lock for concurrency.
         RateLimiter::for('bulk-ops', function (Request $request) {
-            $user = $request->user();
-            $key = 'user:'.($user?->id ?: $request->ip());
+            $key = 'user:'.($request->user()?->id ?: $request->ip());
 
             return Limit::perMinute(3)->by($key);
         });
+    }
 
-        // RATE-5: per-conversation + per-user inbox-reply limiter so a
-        // landlord can't blast a tenant via 200 paid SMS/WhatsApp replies
-        // in two minutes.
+    private function registerInboxReplyLimiter(): void
+    {
+        // RATE-5: per-conversation + per-user; prevents SMS/WhatsApp burst.
         RateLimiter::for('inbox-reply', function (Request $request) {
             $message = $request->route('message');
             $threadKey = is_object($message)
@@ -346,43 +352,44 @@ class RateLimiterConfigurator
                 Limit::perMinute(20)->by('user:'.($request->user()?->id ?: $request->ip())),
             ];
         });
+    }
 
-        // RATE-10: bank-verify limiter — Paystack bank verification is
-        // metered by Paystack and also a name-enumeration vector if left
-        // wide open. 3/min per user, with a 30/hour ceiling per landlord.
+    private function registerBankVerifyLimiter(): void
+    {
+        // RATE-10: Paystack bank verify is metered + a name-enumeration vector.
         RateLimiter::for('bank-verify', function (Request $request) {
-            $user = $request->user();
-            $key = 'user:'.($user?->id ?: $request->ip());
+            $key = 'user:'.($request->user()?->id ?: $request->ip());
 
             return [
                 Limit::perMinute(3)->by($key),
                 Limit::perHour(30)->by($key),
             ];
         });
+    }
 
-        // RATE-11: provider-test limiter — testProvider/previewTemplate
-        // both round-trip to the SMS/email provider; a tight bound stops
-        // a runaway UI from burning the daily provider quota.
+    private function registerProviderTestLimiter(): void
+    {
+        // RATE-11: testProvider/previewTemplate round-trip to SMS/email provider.
         RateLimiter::for('provider-test', function (Request $request) {
             $key = 'user:'.($request->user()?->id ?: $request->ip());
 
             return Limit::perMinute(5)->by($key);
         });
+    }
 
-        // RATE-12: PDF rendering is CPU-bound (DOMPDF/Snappy); a bound
-        // protects worker pool from an automation that loops download.
-        // 15/min lets a landlord export 15 receipts/leases without
-        // tripping the tighter export limiter (5/min) which is reserved
-        // for full-account dumps.
+    private function registerPdfRenderLimiter(): void
+    {
+        // RATE-12: DOMPDF/Snappy is CPU-bound; protects worker pool.
         RateLimiter::for('pdf-render', function (Request $request) {
             $key = 'user:'.($request->user()?->id ?: $request->ip());
 
             return Limit::perMinute(15)->by($key);
         });
+    }
 
-        // Phase-65 BULK-HOLD-2: bulk hold endpoints have higher
-        // attacker leverage than single-subject (one POST can mint
-        // 500 rows + bust the cache 4 times). Tighter cap.
+    private function registerLegalHoldLimiter(): void
+    {
+        // Phase-65 BULK-HOLD-2: one POST can mint 500 rows + bust cache 4×.
         RateLimiter::for('legal-hold', function (Request $request) {
             return Limit::perMinute(10)
                 ->by((string) ($request->user()?->id ?? $request->ip()));

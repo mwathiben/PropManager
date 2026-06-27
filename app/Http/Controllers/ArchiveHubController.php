@@ -7,6 +7,7 @@ use App\Models\Document;
 use App\Models\Lease;
 use App\Models\TenantActivity;
 use App\Support\TenantClock;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -65,52 +66,7 @@ class ArchiveHubController extends Controller
             ->current()
             ->with(['documentable']);
 
-        if ($request->filled('search')) {
-            // Phase-82 fix: real columns are title/file_name (not name/original_name).
-            $query->where(function ($q) use ($request) {
-                $q->where('title', 'like', '%'.$request->search.'%')
-                    ->orWhere('file_name', 'like', '%'.$request->search.'%');
-            });
-        }
-
-        if ($request->filled('type')) {
-            // Phase-82 fix: the column is document_type (not type).
-            $query->where('document_type', $request->type);
-        }
-
-        // Phase-82 DOC-EXPIRY-1: landlord expiry filter.
-        if ($request->filled('expiry')) {
-            if ($request->expiry === 'expired') {
-                $query->whereNotNull('expires_at')->whereDate('expires_at', '<', now());
-            } elseif ($request->expiry === 'expiring') {
-                $query->whereNotNull('expires_at')
-                    ->whereDate('expires_at', '>=', now())
-                    ->whereDate('expires_at', '<=', now()->addDays(30));
-            }
-        }
-
-        if ($request->filled('model_type')) {
-            $modelType = $request->model_type === 'Lease'
-                ? 'App\\Models\\Lease'
-                : 'App\\Models\\User';
-            $query->where('documentable_type', $modelType);
-        }
-
-        if ($request->filled('building_id')) {
-            $buildingId = $request->building_id;
-            $wingId = $request->wing_id;
-
-            $query->where(function ($q) use ($buildingId, $wingId) {
-                $q->whereHasMorph('documentable', ['App\\Models\\Lease'], function ($leaseQuery) use ($buildingId, $wingId) {
-                    $leaseQuery->whereHas('unit', function ($unitQuery) use ($buildingId, $wingId) {
-                        $unitQuery->where('building_id', $buildingId);
-                        if ($wingId) {
-                            $unitQuery->where('wing_id', $wingId);
-                        }
-                    });
-                });
-            });
-        }
+        $this->applyDocumentFilters($query, $request);
 
         $documents = $query->orderBy('created_at', 'desc')
             ->paginate(20)
@@ -130,7 +86,7 @@ class ArchiveHubController extends Controller
             ]);
 
         $documentTypes = collect(Document::DOCUMENT_TYPES)
-            ->map(fn ($label, $value) => ['value' => $value, 'label' => __('document.types.'.$value)])
+            ->map(fn ($label, int|string $value) => ['value' => $value, 'label' => __('document.types.'.$value)])
             ->values()
             ->all();
 
@@ -143,6 +99,80 @@ class ArchiveHubController extends Controller
                 ['value' => 'expired', 'label' => __('document.expiry.filter_expired')],
             ],
         ];
+    }
+
+    /** Apply all search/filter constraints to the document query. CC ≤ 5. */
+    private function applyDocumentFilters(Builder $query, Request $request): void
+    {
+        if ($request->filled('search')) {
+            // Phase-82 fix: real columns are title/file_name (not name/original_name).
+            $query->where(function ($q) use ($request) {
+                $q->where('title', 'like', '%'.$request->search.'%')
+                    ->orWhere('file_name', 'like', '%'.$request->search.'%');
+            });
+        }
+
+        if ($request->filled('type')) {
+            // Phase-82 fix: the column is document_type (not type).
+            $query->where('document_type', $request->type);
+        }
+
+        // Phase-82 DOC-EXPIRY-1: landlord expiry filter.
+        $this->applyDocumentExpiryFilter($query, $request);
+        $this->applyDocumentModelTypeFilter($query, $request);
+        $this->applyDocumentBuildingFilter($query, $request);
+    }
+
+    /** Constrain the query by documentable model class when the filter is present. CC ≤ 2. */
+    private function applyDocumentModelTypeFilter(Builder $query, Request $request): void
+    {
+        if (! $request->filled('model_type')) {
+            return;
+        }
+
+        $modelType = $request->model_type === 'Lease'
+            ? 'App\\Models\\Lease'
+            : 'App\\Models\\User';
+
+        $query->where('documentable_type', $modelType);
+    }
+
+    /** Constrain the query by expiry state when the filter is present. CC ≤ 3. */
+    private function applyDocumentExpiryFilter(Builder $query, Request $request): void
+    {
+        if (! $request->filled('expiry')) {
+            return;
+        }
+
+        if ($request->expiry === 'expired') {
+            $query->whereNotNull('expires_at')->whereDate('expires_at', '<', now());
+        } elseif ($request->expiry === 'expiring') {
+            $query->whereNotNull('expires_at')
+                ->whereDate('expires_at', '>=', now())
+                ->whereDate('expires_at', '<=', now()->addDays(30));
+        }
+    }
+
+    /** Constrain the query to documents attached to leases in a given building/wing. CC ≤ 3. */
+    private function applyDocumentBuildingFilter(Builder $query, Request $request): void
+    {
+        if (! $request->filled('building_id')) {
+            return;
+        }
+
+        $buildingId = $request->building_id;
+        $wingId = $request->wing_id;
+
+        $query->where(function ($q) use ($buildingId, $wingId) {
+            $q->whereHasMorph('documentable', ['App\\Models\\Lease'], function ($leaseQuery) use ($buildingId, $wingId) {
+                $leaseQuery->whereHas('unit', function ($unitQuery) use ($buildingId, $wingId) {
+                    $unitQuery->where('building_id', $buildingId);
+                    if ($wingId) {
+                        $unitQuery->where('wing_id', $wingId);
+                    }
+                });
+            });
+        });
     }
 
     private function getLeasesData(Request $request, int $landlordId): array
@@ -193,13 +223,34 @@ class ArchiveHubController extends Controller
                 'performer:id,name,email',
             ]);
 
+        $this->applyActivityFilters($query, $request);
+
+        $activities = $query->orderBy('created_at', 'desc')
+            ->paginate(50)
+            ->withQueryString();
+
+        $activities->getCollection()->transform(fn ($activity) => $this->formatActivityRecord($activity));
+
+        $activityTypes = TenantActivity::where('landlord_id', $landlordId)
+            ->distinct()
+            ->pluck('type')
+            ->map(fn ($type) => [
+                'value' => $type,
+                'label' => $this->getTypeLabel($type),
+            ]);
+
+        return [
+            'activities' => $activities,
+            'activityTypes' => $activityTypes,
+            'stats' => $this->buildActivityStats($landlordId),
+        ];
+    }
+
+    /** Apply search/type/date constraints to the activity query. CC ≤ 5. */
+    private function applyActivityFilters(Builder $query, Request $request): void
+    {
         if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('description', 'like', "%{$search}%")
-                    ->orWhereHas('tenant', fn ($tq) => $tq->where('name', 'like', "%{$search}%"))
-                    ->orWhereHas('performer', fn ($pq) => $pq->where('name', 'like', "%{$search}%"));
-            });
+            $this->applyActivitySearchFilter($query, (string) $request->search);
         }
 
         if ($request->filled('type')) {
@@ -213,45 +264,53 @@ class ArchiveHubController extends Controller
         if ($request->filled('date_to')) {
             $query->whereDate('created_at', '<=', $request->date_to);
         }
+    }
 
-        $activities = $query->orderBy('created_at', 'desc')
-            ->paginate(50)
-            ->withQueryString();
-
-        $activities->getCollection()->transform(function ($activity) {
-            return [
-                'id' => $activity->id,
-                'type' => $activity->type,
-                'type_label' => $this->getTypeLabel($activity->type),
-                'type_color' => $this->getTypeColor($activity->type),
-                'description' => $activity->description,
-                'tenant' => $activity->tenant ? [
-                    'id' => $activity->tenant->id,
-                    'name' => $activity->tenant->name,
-                ] : null,
-                'performer' => $activity->performer ? [
-                    'id' => $activity->performer->id,
-                    'name' => $activity->performer->name,
-                ] : null,
-                'metadata' => $activity->metadata,
-                'created_at' => $activity->created_at,
-                'created_at_human' => $activity->created_at->diffForHumans(),
-            ];
+    /** Apply OR-search across description, tenant name, and performer name. CC ≤ 2. */
+    private function applyActivitySearchFilter(Builder $query, string $search): void
+    {
+        $query->where(function ($q) use ($search) {
+            $q->where('description', 'like', "%{$search}%")
+                ->orWhereHas('tenant', fn ($tq) => $tq->where('name', 'like', "%{$search}%"))
+                ->orWhereHas('performer', fn ($pq) => $pq->where('name', 'like', "%{$search}%"));
         });
+    }
 
-        $activityTypes = TenantActivity::where('landlord_id', $landlordId)
-            ->distinct()
-            ->pluck('type')
-            ->map(fn ($type) => [
-                'value' => $type,
-                'label' => $this->getTypeLabel($type),
-            ]);
+    /** Serialize a single TenantActivity for the frontend. CC ≤ 3. */
+    private function formatActivityRecord(TenantActivity $activity): array
+    {
+        return [
+            'id' => $activity->id,
+            'type' => $activity->type,
+            'type_label' => $this->getTypeLabel($activity->type),
+            'type_color' => $this->getTypeColor($activity->type),
+            'description' => $activity->description,
+            'tenant' => $activity->tenant ? [
+                'id' => $activity->tenant->id,
+                'name' => $activity->tenant->name,
+            ] : null,
+            'performer' => $activity->performer ? [
+                'id' => $activity->performer->id,
+                'name' => $activity->performer->name,
+            ] : null,
+            'metadata' => $activity->metadata,
+            'created_at' => $activity->created_at,
+            'created_at_human' => $activity->created_at->diffForHumans(),
+        ];
+    }
 
-        // Phase-21 DEFER-PERF-2: TenantClock-anchored date stats so the
-        // ArchiveHub "today" / "this week" badges match the viewing user's
-        // local day boundary (Phase-17 pattern).
+    /**
+     * Build time-bucketed activity counts anchored to the viewer's local clock.
+     *
+     * Phase-21 DEFER-PERF-2: TenantClock-anchored date stats so the
+     * ArchiveHub "today" / "this week" badges match the viewing user's
+     * local day boundary (Phase-17 pattern).
+     */
+    private function buildActivityStats(int $landlordId): array
+    {
         $userNow = TenantClock::nowFor(auth()->user());
-        $stats = [
+
+        return [
             'total_activities' => TenantActivity::where('landlord_id', $landlordId)->count(),
             'today' => TenantActivity::where('landlord_id', $landlordId)
                 ->whereDate('created_at', $userNow->toDateString())
@@ -262,12 +321,6 @@ class ArchiveHubController extends Controller
             'this_month' => TenantActivity::where('landlord_id', $landlordId)
                 ->where('created_at', '>=', $userNow->startOfMonth())
                 ->count(),
-        ];
-
-        return [
-            'activities' => $activities,
-            'activityTypes' => $activityTypes,
-            'stats' => $stats,
         ];
     }
 

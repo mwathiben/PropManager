@@ -86,52 +86,22 @@ class WaterReadingService
         try {
             $unit = Unit::findOrFail($readingData['unit_id']);
 
-            // Phase-86 (review C1): the FormRequest validates exists:units only,
-            // not ownership. Reject a unit belonging to another landlord before
-            // resolveActiveForUnit would write a cross-tenant meter row.
-            if ((int) $unit->landlord_id !== (int) $landlordId) {
-                return [
-                    'success' => false,
-                    'error' => ['unit' => $readingData['unit_id'], 'message' => 'Unit not found.'],
-                ];
+            $ownershipError = $this->checkUnitOwnership($unit, $readingData['unit_id'], $landlordId);
+            if ($ownershipError !== null) {
+                return $ownershipError;
             }
 
-            // Phase-86 METER-MODEL: readings key off a physical meter. The
-            // previous value is the meter's last reading or — for the meter's
-            // first read — its (possibly non-zero) install baseline, not 0.
             $meter = Meter::resolveActiveForUnit($unit);
+            $previousValue = $this->resolvePreviousValue($meter);
 
-            $previousReading = WaterReading::where('meter_id', $meter->id)
-                ->orderBy('reading_date', 'desc')
-                ->orderBy('id', 'desc')
-                ->first();
-
-            $previousValue = $previousReading
-                ? (float) $previousReading->current_reading
-                : (float) $meter->initial_reading;
-
-            if ($readingData['current_reading'] < $previousValue) {
-                return [
-                    'success' => false,
-                    'error' => [
-                        'unit' => $unit->unit_number,
-                        'message' => "Current reading ({$readingData['current_reading']}) cannot be less than previous reading ({$previousValue})",
-                    ],
-                ];
+            $rangeError = $this->checkReadingRange($unit, $readingData['current_reading'], $previousValue);
+            if ($rangeError !== null) {
+                return $rangeError;
             }
 
-            $duplicate = WaterReading::where('meter_id', $meter->id)
-                ->whereDate('reading_date', $readingData['reading_date'])
-                ->exists();
-
-            if ($duplicate) {
-                return [
-                    'success' => false,
-                    'error' => [
-                        'unit' => $unit->unit_number,
-                        'message' => 'Reading already exists for this date',
-                    ],
-                ];
+            $duplicateError = $this->checkDuplicate($unit, $meter->id, $readingData['reading_date']);
+            if ($duplicateError !== null) {
+                return $duplicateError;
             }
 
             $photoPath = $this->handlePhotoUpload($readingData['photo'] ?? null, $unit->id, $landlordId);
@@ -171,6 +141,64 @@ class WaterReadingService
                 ],
             ];
         }
+    }
+
+    private function checkUnitOwnership(Unit $unit, mixed $rawUnitId, int $landlordId): ?array
+    {
+        if ((int) $unit->landlord_id !== (int) $landlordId) {
+            return [
+                'success' => false,
+                'error' => ['unit' => $rawUnitId, 'message' => 'Unit not found.'],
+            ];
+        }
+
+        return null;
+    }
+
+    private function resolvePreviousValue(Meter $meter): float
+    {
+        $previousReading = WaterReading::where('meter_id', $meter->id)
+            ->orderBy('reading_date', 'desc')
+            ->orderBy('id', 'desc')
+            ->first();
+
+        return $previousReading
+            ? (float) $previousReading->current_reading
+            : (float) $meter->initial_reading;
+    }
+
+    private function checkReadingRange(Unit $unit, float $currentReading, float $previousValue): ?array
+    {
+        if ($currentReading < $previousValue) {
+            return [
+                'success' => false,
+                'error' => [
+                    'unit' => $unit->unit_number,
+                    'message' => "Current reading ({$currentReading}) cannot be less than previous reading ({$previousValue})",
+                ],
+            ];
+        }
+
+        return null;
+    }
+
+    private function checkDuplicate(Unit $unit, int $meterId, string $readingDate): ?array
+    {
+        $duplicate = WaterReading::where('meter_id', $meterId)
+            ->whereDate('reading_date', $readingDate)
+            ->exists();
+
+        if ($duplicate) {
+            return [
+                'success' => false,
+                'error' => [
+                    'unit' => $unit->unit_number,
+                    'message' => 'Reading already exists for this date',
+                ],
+            ];
+        }
+
+        return null;
     }
 
     /**
@@ -218,54 +246,43 @@ class WaterReadingService
 
     public function processOcr(?UploadedFile $photo, ?string $photoPath, float $manualReading, int $landlordId): array
     {
-        $ocrReading = null;
-        $ocrVerified = false;
-        $ocrStatus = 'skipped';
-        $ocrError = null;
-
         $ocrEnabled = Setting::get('ocr_enabled', 'false', $landlordId) === 'true';
 
         if (! $ocrEnabled || ! $photoPath || ! $photo) {
-            return [
-                'reading' => $ocrReading,
-                'verified' => $ocrVerified,
-                'ocr_status' => $ocrStatus,
-                'ocr_error' => $ocrError,
-            ];
+            return $this->ocrSkippedResult();
         }
 
         try {
             $ocrService = new \App\Services\OcrService;
             $ocrResult = $ocrService->extractMeterReading($photo, $landlordId);
 
-            if ($ocrResult && $ocrResult['success'] && $ocrResult['reading']) {
-                $ocrReading = $ocrResult['reading'];
-                $ocrStatus = 'matched';
-
-                $tolerance = 0.5;
-                $autoVerify = Setting::get('ocr_auto_verify', 'false', $landlordId) === 'true';
-
-                if ($autoVerify && abs($ocrReading - $manualReading) <= $tolerance) {
-                    $ocrVerified = true;
-                }
-            } else {
-                $ocrStatus = 'no_reading';
-            }
+            return $this->buildOcrResult($ocrResult, $manualReading, $landlordId);
         } catch (\Throwable $e) {
             // HANDLE-13: surface the error state to callers instead of just
             // logging. The controller persists ocr_status on the WaterReading
             // row so an operator can review failed extractions later.
             Log::warning('OCR processing failed', ['error' => $e->getMessage()]);
-            $ocrStatus = 'errored';
-            $ocrError = $e->getMessage();
+
+            return ['reading' => null, 'verified' => false, 'ocr_status' => 'errored', 'ocr_error' => $e->getMessage()];
+        }
+    }
+
+    private function ocrSkippedResult(): array
+    {
+        return ['reading' => null, 'verified' => false, 'ocr_status' => 'skipped', 'ocr_error' => null];
+    }
+
+    private function buildOcrResult(?array $ocrResult, float $manualReading, int $landlordId): array
+    {
+        if (! $ocrResult || ! $ocrResult['success'] || ! $ocrResult['reading']) {
+            return ['reading' => null, 'verified' => false, 'ocr_status' => 'no_reading', 'ocr_error' => null];
         }
 
-        return [
-            'reading' => $ocrReading,
-            'verified' => $ocrVerified,
-            'ocr_status' => $ocrStatus,
-            'ocr_error' => $ocrError,
-        ];
+        $ocrReading = $ocrResult['reading'];
+        $autoVerify = Setting::get('ocr_auto_verify', 'false', $landlordId) === 'true';
+        $ocrVerified = $autoVerify && abs($ocrReading - $manualReading) <= 0.5;
+
+        return ['reading' => $ocrReading, 'verified' => $ocrVerified, 'ocr_status' => 'matched', 'ocr_error' => null];
     }
 
     public function getFilteredHistory(Collection $unitIds, array $filters): \Illuminate\Contracts\Pagination\LengthAwarePaginator

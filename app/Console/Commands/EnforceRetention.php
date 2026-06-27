@@ -71,86 +71,152 @@ class EnforceRetention extends Command
     {
         $dryRun = (bool) $this->option('dry-run');
         $failureCount = 0;
-        $skippedCount = 0;
         $stageResults = [];
 
         foreach (self::PIPELINE as $entry) {
-            $stage = $entry['stage'];
-            $command = $entry['command'];
-            $supportsDryRun = $entry['dry_run_supported'] ?? false;
-
-            if ($dryRun && ! $supportsDryRun) {
-                $this->info(sprintf('[%s] %s — SKIPPED (no --dry-run support)', $stage, $command));
-                $skippedCount++;
-                $stageResults[$stage] = 'skipped';
-
-                try {
-                    $metrics->gauge('retention_pipeline_health', 1.0, ['stage' => $stage]);
-                } catch (\Throwable) {
-                }
-
-                continue;
-            }
-
-            $options = $dryRun && $supportsDryRun
-                ? array_merge($entry['options'], ['--dry-run' => true])
-                : $entry['options'];
-
-            $this->info(sprintf('[%s] %s', $stage, $command));
-
-            try {
-                $exitCode = Artisan::call($command, $options);
-                $stageResults[$stage] = $exitCode;
-
-                $output = trim(Artisan::output());
-                if ($output !== '') {
-                    foreach (explode("\n", $output) as $line) {
-                        $this->line("  $line");
-                    }
-                }
-
-                try {
-                    $metrics->gauge(
-                        'retention_pipeline_health',
-                        (float) ($exitCode === 0 ? 1 : 0),
-                        ['stage' => $stage],
-                    );
-                } catch (\Throwable) {
-                }
-
-                if ($exitCode !== 0) {
-                    $failureCount++;
-                    $this->warn("  Stage $stage exited with code $exitCode");
-                }
-            } catch (\Throwable $e) {
-                $failureCount++;
-                $stageResults[$stage] = -1;
-
-                try {
-                    $metrics->gauge(
-                        'retention_pipeline_health',
-                        0.0,
-                        ['stage' => $stage],
-                    );
-                } catch (\Throwable) {
-                }
-
-                $this->error("  Stage $stage threw: ".$e->getMessage());
-                Log::channel(config('logging.schedule_channel', 'stack'))->error(
-                    'dpa:enforce-retention stage exception',
-                    ['stage' => $stage, 'command' => $command, 'exception' => $e->getMessage()],
-                );
-            }
+            $result = $this->runStage($entry, $dryRun, $metrics);
+            $stageResults[$result['stage']] = $result['outcome'];
+            $failureCount += $result['failed'] ? 1 : 0;
         }
 
+        return $this->finalisePipeline($metrics, $failureCount, $stageResults);
+    }
+
+    /**
+     * Run a single pipeline stage and return its outcome metadata.
+     *
+     * @param  array<string,mixed>  $entry
+     * @return array{stage:string,outcome:int|string,failed:bool}
+     */
+    private function runStage(array $entry, bool $dryRun, MetricsService $metrics): array
+    {
+        $stage = $entry['stage'];
+        $command = $entry['command'];
+        $supportsDryRun = $entry['dry_run_supported'] ?? false;
+
+        if ($dryRun && ! $supportsDryRun) {
+            return $this->skipStage($stage, $command, $metrics);
+        }
+
+        $options = $this->resolveOptions($entry, $dryRun);
+        $this->info(sprintf('[%s] %s', $stage, $command));
+
+        try {
+            $exitCode = Artisan::call($command, $options);
+            $this->echoArtisanOutput();
+            $this->recordStageHealth($metrics, $stage, $exitCode);
+
+            if ($exitCode !== 0) {
+                $this->warn("  Stage $stage exited with code $exitCode");
+
+                return ['stage' => $stage, 'outcome' => $exitCode, 'failed' => true];
+            }
+
+            return ['stage' => $stage, 'outcome' => $exitCode, 'failed' => false];
+        } catch (\Throwable $e) {
+            return $this->handleStageException($metrics, $stage, $command, $e);
+        }
+    }
+
+    /**
+     * Mark a stage as skipped (dry-run requested but stage has no dry-run support).
+     *
+     * @return array{stage:string,outcome:string,failed:bool}
+     */
+    private function skipStage(string $stage, string $command, MetricsService $metrics): array
+    {
+        $this->info(sprintf('[%s] %s — SKIPPED (no --dry-run support)', $stage, $command));
+        $this->emitGauge($metrics, 'retention_pipeline_health', 1.0, ['stage' => $stage]);
+
+        return ['stage' => $stage, 'outcome' => 'skipped', 'failed' => false];
+    }
+
+    /**
+     * Merge --dry-run into the stage options when the child command supports it.
+     *
+     * @param  array<string,mixed>  $entry
+     * @return array<string,mixed>
+     */
+    private function resolveOptions(array $entry, bool $dryRun): array
+    {
+        if ($dryRun && ($entry['dry_run_supported'] ?? false)) {
+            return array_merge($entry['options'], ['--dry-run' => true]);
+        }
+
+        return $entry['options'];
+    }
+
+    /**
+     * Echo any output Artisan buffered after the last call(), indented for readability.
+     */
+    private function echoArtisanOutput(): void
+    {
+        $output = trim(Artisan::output());
+        if ($output === '') {
+            return;
+        }
+
+        foreach (explode("\n", $output) as $line) {
+            $this->line("  $line");
+        }
+    }
+
+    /**
+     * Emit a retention_pipeline_health gauge for a completed (non-exception) stage.
+     */
+    private function recordStageHealth(MetricsService $metrics, string $stage, int $exitCode): void
+    {
+        $this->emitGauge(
+            $metrics,
+            'retention_pipeline_health',
+            (float) ($exitCode === 0 ? 1 : 0),
+            ['stage' => $stage],
+        );
+    }
+
+    /**
+     * Handle a Throwable thrown by a stage: emit a zero-health gauge, log, and return failure metadata.
+     *
+     * @return array{stage:string,outcome:int,failed:bool}
+     */
+    private function handleStageException(MetricsService $metrics, string $stage, string $command, \Throwable $e): array
+    {
+        $this->emitGauge($metrics, 'retention_pipeline_health', 0.0, ['stage' => $stage]);
+        $this->error("  Stage $stage threw: ".$e->getMessage());
+
+        Log::channel(config('logging.schedule_channel', 'stack'))->error(
+            'dpa:enforce-retention stage exception',
+            ['stage' => $stage, 'command' => $command, 'exception' => $e->getMessage()],
+        );
+
+        return ['stage' => $stage, 'outcome' => -1, 'failed' => true];
+    }
+
+    /**
+     * Emit a metrics gauge, swallowing any MetricsService failure so it never aborts the pipeline.
+     *
+     * @param  array<string,mixed>  $labels
+     */
+    private function emitGauge(MetricsService $metrics, string $name, float $value, array $labels = []): void
+    {
+        try {
+            $metrics->gauge($name, $value, $labels);
+        } catch (\Throwable) {
+        }
+    }
+
+    /**
+     * Log the pipeline summary, emit the failure-count gauge, and return the exit code.
+     *
+     * @param  array<string,int|string>  $stageResults
+     */
+    private function finalisePipeline(MetricsService $metrics, int $failureCount, array $stageResults): int
+    {
         $totalStages = count(self::PIPELINE);
         $successCount = $totalStages - $failureCount;
         $this->info("dpa:enforce-retention: $successCount/$totalStages stages succeeded.");
 
-        try {
-            $metrics->gauge('retention_pipeline_failure_count', (float) $failureCount);
-        } catch (\Throwable) {
-        }
+        $this->emitGauge($metrics, 'retention_pipeline_failure_count', (float) $failureCount);
 
         if ($failureCount > 0) {
             Log::channel(config('logging.schedule_channel', 'stack'))->error(

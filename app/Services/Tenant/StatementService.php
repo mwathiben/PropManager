@@ -69,93 +69,10 @@ class StatementService
             - $this->paymentTotalBefore($leaseIds, $from)
             - $this->creditNoteTotalBefore($leaseIds, $from);
 
-        $invoices = Invoice::whereIn('lease_id', $leaseIds)
-            ->whereNull('voided_at')
-            ->whereBetween('billing_period_start', [$from->toDateString(), $to->toDateString()])
-            ->orderBy('billing_period_start')
-            ->orderBy('id')
-            ->get(['id', 'invoice_number', 'billing_period_start', 'total_due']);
+        $events = $this->buildEventStream($leaseIds, $from, $to);
+        $parsedFilters = $this->parseFilters($filters);
 
-        $payments = Payment::whereIn('lease_id', $leaseIds)
-            ->where('is_voided', false)
-            ->whereBetween('payment_date', [$from->toDateString(), $to->toDateString()])
-            ->orderBy('payment_date')
-            ->orderBy('id')
-            ->get(['id', 'reference', 'payment_date', 'amount']);
-
-        $events = $invoices
-            ->map(fn (Invoice $inv) => [
-                'sort' => $inv->billing_period_start->toDateString().sprintf('-1-%010d', $inv->id),
-                'date' => $inv->billing_period_start->toDateString(),
-                'description' => __('tenant.statement.invoice_description', ['number' => $inv->invoice_number]),
-                'reference' => $inv->invoice_number,
-                'charge' => (float) $inv->total_due,
-                'payment' => 0.0,
-                'kind' => 'invoice',
-            ])
-            ->concat($payments->map(fn (Payment $p) => [
-                'sort' => $p->payment_date->toDateString().sprintf('-2-%010d', $p->id),
-                'date' => $p->payment_date->toDateString(),
-                'description' => __('tenant.statement.payment_description'),
-                'reference' => $p->reference,
-                'charge' => 0.0,
-                'payment' => (float) $p->amount,
-                'kind' => 'payment',
-            ]))
-            ->concat($this->creditNoteEvents($leaseIds, $from, $to))
-            ->concat($this->walletEvents($leaseIds, $from, $to))
-            ->sortBy('sort')
-            ->values();
-
-        $balance = $openingBalance;
-        $rows = collect([$this->openingRow($from, $openingBalance)]);
-
-        $allowedKinds = ! empty($filters['types']) ? array_intersect(
-            ['invoice', 'payment'],
-            array_map(static fn (string $t): string => match ($t) {
-                'charge' => 'invoice',
-                default => $t,
-            }, $filters['types']),
-        ) : null;
-        $minAmount = isset($filters['min_amount']) ? (float) $filters['min_amount'] : null;
-        $maxAmount = isset($filters['max_amount']) ? (float) $filters['max_amount'] : null;
-
-        foreach ($events as $event) {
-            $balance += $event['charge'] - $event['payment'];
-
-            // Running balance must walk EVERY event to stay correct,
-            // but only events matching the filter are emitted.
-            if ($allowedKinds !== null && ! in_array($event['kind'], $allowedKinds, true)) {
-                continue;
-            }
-            $amount = match (true) {
-                $event['charge'] !== 0.0 => $event['charge'],
-                $event['payment'] !== 0.0 => $event['payment'],
-                default => (float) ($event['amount'] ?? 0.0),
-            };
-            if ($minAmount !== null && $amount < $minAmount) {
-                continue;
-            }
-            if ($maxAmount !== null && $amount > $maxAmount) {
-                continue;
-            }
-
-            $rows->push([
-                'date' => $event['date'],
-                'description' => $event['description'],
-                'reference' => $event['reference'],
-                'charge' => $event['charge'],
-                'payment' => $event['payment'],
-                'running_balance' => round($balance, 2),
-                'kind' => $event['kind'],
-                'amount' => isset($event['amount']) ? round((float) $event['amount'], 2) : null,
-                'currency' => $event['currency'] ?? null,
-            ]);
-        }
-
-        $rows->push($this->closingRow($to, $balance));
-
-        return $rows;
+        return $this->applyRunningBalance($events, $openingBalance, $parsedFilters, ['from' => $from, 'to' => $to]);
     }
 
     /**
@@ -216,6 +133,168 @@ class StatementService
         }
 
         return $months;
+    }
+
+    /**
+     * Build the sorted chronological event stream for the window.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function buildEventStream(Collection $leaseIds, CarbonImmutable $from, CarbonImmutable $to): Collection
+    {
+        $invoices = Invoice::whereIn('lease_id', $leaseIds)
+            ->whereNull('voided_at')
+            ->whereBetween('billing_period_start', [$from->toDateString(), $to->toDateString()])
+            ->orderBy('billing_period_start')
+            ->orderBy('id')
+            ->get(['id', 'invoice_number', 'billing_period_start', 'total_due']);
+
+        $payments = Payment::whereIn('lease_id', $leaseIds)
+            ->where('is_voided', false)
+            ->whereBetween('payment_date', [$from->toDateString(), $to->toDateString()])
+            ->orderBy('payment_date')
+            ->orderBy('id')
+            ->get(['id', 'reference', 'payment_date', 'amount']);
+
+        return $invoices
+            ->map(fn (Invoice $inv) => [
+                'sort' => $inv->billing_period_start->toDateString().sprintf('-1-%010d', $inv->id),
+                'date' => $inv->billing_period_start->toDateString(),
+                'description' => __('tenant.statement.invoice_description', ['number' => $inv->invoice_number]),
+                'reference' => $inv->invoice_number,
+                'charge' => (float) $inv->total_due,
+                'payment' => 0.0,
+                'kind' => 'invoice',
+            ])
+            ->concat($payments->map(fn (Payment $p) => [
+                'sort' => $p->payment_date->toDateString().sprintf('-2-%010d', $p->id),
+                'date' => $p->payment_date->toDateString(),
+                'description' => __('tenant.statement.payment_description'),
+                'reference' => $p->reference,
+                'charge' => 0.0,
+                'payment' => (float) $p->amount,
+                'kind' => 'payment',
+            ]))
+            ->concat($this->creditNoteEvents($leaseIds, $from, $to))
+            ->concat($this->walletEvents($leaseIds, $from, $to))
+            ->sortBy('sort')
+            ->values();
+    }
+
+    /**
+     * Parse raw filter input into a typed array consumed by applyRunningBalance().
+     *
+     * @param  array{types?: list<string>, min_amount?: float, max_amount?: float}  $filters
+     * @return array{allowedKinds: list<string>|null, minAmount: float|null, maxAmount: float|null}
+     */
+    private function parseFilters(array $filters): array
+    {
+        $allowedKinds = null;
+        if (! empty($filters['types'])) {
+            $allowedKinds = array_intersect(
+                ['invoice', 'payment'],
+                array_map(static fn (string $t): string => match ($t) {
+                    'charge' => 'invoice',
+                    default => $t,
+                }, $filters['types']),
+            );
+        }
+
+        return [
+            'allowedKinds' => $allowedKinds,
+            'minAmount' => isset($filters['min_amount']) ? (float) $filters['min_amount'] : null,
+            'maxAmount' => isset($filters['max_amount']) ? (float) $filters['max_amount'] : null,
+        ];
+    }
+
+    /**
+     * Walk the event stream, accumulate running balance, and emit filtered rows.
+     *
+     * @param  Collection<int, array<string, mixed>>  $events
+     * @param  array{allowedKinds: list<string>|null, minAmount: float|null, maxAmount: float|null}  $parsedFilters
+     * @param  array{from: CarbonImmutable, to: CarbonImmutable}  $window
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function applyRunningBalance(
+        Collection $events,
+        float $openingBalance,
+        array $parsedFilters,
+        array $window,
+    ): Collection {
+        $balance = $openingBalance;
+        $rows = collect([$this->openingRow($window['from'], $openingBalance)]);
+
+        foreach ($events as $event) {
+            $balance += $event['charge'] - $event['payment'];
+
+            // Running balance must walk EVERY event to stay correct,
+            // but only events matching the filter are emitted.
+            if (! $this->eventPassesKindFilter($event, $parsedFilters['allowedKinds'])) {
+                continue;
+            }
+
+            if (! $this->eventPassesAmountFilter($event, $parsedFilters['minAmount'], $parsedFilters['maxAmount'])) {
+                continue;
+            }
+
+            $rows->push([
+                'date' => $event['date'],
+                'description' => $event['description'],
+                'reference' => $event['reference'],
+                'charge' => $event['charge'],
+                'payment' => $event['payment'],
+                'running_balance' => round($balance, 2),
+                'kind' => $event['kind'],
+                'amount' => isset($event['amount']) ? round((float) $event['amount'], 2) : null,
+                'currency' => $event['currency'] ?? null,
+            ]);
+        }
+
+        $rows->push($this->closingRow($window['to'], $balance));
+
+        return $rows;
+    }
+
+    /** @param  list<string>|null  $allowedKinds */
+    private function eventPassesKindFilter(array $event, ?array $allowedKinds): bool
+    {
+        if ($allowedKinds === null) {
+            return true;
+        }
+
+        return in_array($event['kind'], $allowedKinds, true);
+    }
+
+    private function eventPassesAmountFilter(array $event, ?float $minAmount, ?float $maxAmount): bool
+    {
+        if ($minAmount === null && $maxAmount === null) {
+            return true;
+        }
+
+        return $this->amountInRange($this->resolveEventAmount($event), $minAmount, $maxAmount);
+    }
+
+    private function amountInRange(float $amount, ?float $min, ?float $max): bool
+    {
+        if ($min !== null && $amount < $min) {
+            return false;
+        }
+
+        if ($max !== null && $amount > $max) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /** @param  array<string, mixed>  $event */
+    private function resolveEventAmount(array $event): float
+    {
+        return match (true) {
+            $event['charge'] !== 0.0 => $event['charge'],
+            $event['payment'] !== 0.0 => $event['payment'],
+            default => (float) ($event['amount'] ?? 0.0),
+        };
     }
 
     private function chargeTotalBefore(Collection $leaseIds, CarbonImmutable $from): float

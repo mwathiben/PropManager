@@ -84,30 +84,44 @@ class SoftDeletedPurge extends Command
                 continue;
             }
 
-            // Chunk the purge per-model so a model with millions of
-            // soft-deleted rows doesn't lock the table all night.
-            $deleted = 0;
-            do {
-                $batch = $this->purgeQuery($model, $cutoff)->limit(500)->get();
-
-                foreach ($batch as $row) {
-                    $row->forceDelete();
-                    $deleted++;
-                }
-            } while ($batch->count() > 0);
-
+            $deleted = $this->forceDeleteInChunks($model, $cutoff);
             $this->line("  force-deleted: {$deleted}");
             $totalDeleted += $deleted;
         }
 
+        $this->printSummary($confirmed, $totalDeleted, $totalCandidates);
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * Chunk the purge per-model so a model with millions of
+     * soft-deleted rows doesn't lock the table all night.
+     */
+    private function forceDeleteInChunks(string $model, \Carbon\CarbonInterface $cutoff): int
+    {
+        $deleted = 0;
+
+        do {
+            $batch = $this->purgeQuery($model, $cutoff)->limit(500)->get();
+
+            foreach ($batch as $row) {
+                $row->forceDelete();
+                $deleted++;
+            }
+        } while ($batch->count() > 0);
+
+        return $deleted;
+    }
+
+    private function printSummary(bool $confirmed, int $totalDeleted, int $totalCandidates): void
+    {
         if ($confirmed) {
             $this->info("Total force-deleted: {$totalDeleted}");
         } else {
             $this->warn('DRY RUN — pass --confirm to apply.');
             $this->info("Total candidates: {$totalCandidates}");
         }
-
-        return self::SUCCESS;
     }
 
     /**
@@ -117,7 +131,7 @@ class SoftDeletedPurge extends Command
      * would abort — or, if caught, infinitely re-loop — the purge. Held
      * rows are preserved and skipped from the batch entirely.
      */
-    private function purgeQuery(string $model, \Illuminate\Support\Carbon $cutoff): Builder
+    private function purgeQuery(string $model, \Carbon\CarbonInterface $cutoff): Builder
     {
         $query = $model::onlyTrashed()->where('deleted_at', '<', $cutoff);
 

@@ -143,14 +143,22 @@ class AuthServiceProvider extends ServiceProvider
         // A DPA-restricted super-admin would NOT actually be restricted.
         // Post-Phase-18 the DPA-4 check fires first; super-admin bypass
         // is constrained to abilities NOT denied by DPA-4.
+        $this->registerRestrictionGate();
+        $this->registerSuperAdminGate();
+        $this->registerAdminGates();
+        $this->registerSanctumTokenGates();
+        $this->registerManageGates();
+    }
 
-        // Phase-13 DPA-4: Article 18 restriction. A restricted user
-        // (whatever their role) is read-only; deny any write-side
-        // ability while restricted. The list of allowed abilities is
-        // intentionally narrow — anything not on it is denied. Release
-        // path goes through GdprController::releaseRestriction, which
-        // doesn't need to pass a Gate (the user is acting on their
-        // own record).
+    /**
+     * Phase-13 DPA-4: Article 18 restriction gate.
+     *
+     * A restricted user (whatever their role) is read-only; deny any
+     * write-side ability while restricted. Release path goes through
+     * GdprController::releaseRestriction.
+     */
+    private function registerRestrictionGate(): void
+    {
         Gate::before(function ($user, $ability) {
             if (! method_exists($user, 'isRestricted') || ! $user->isRestricted()) {
                 return null;
@@ -173,143 +181,97 @@ class AuthServiceProvider extends ServiceProvider
 
             return false;
         });
+    }
 
-        // Super-admin bypass. Applied AFTER the DPA-4 restriction check
-        // above, so a restricted super-admin is denied write-side
-        // abilities (the DPA-4 hook returns false first; this hook
-        // never runs for those abilities).
+    /**
+     * Super-admin bypass gate.
+     *
+     * Applied AFTER the DPA-4 restriction check, so a restricted
+     * super-admin is still denied write-side abilities.
+     */
+    private function registerSuperAdminGate(): void
+    {
         Gate::before(function ($user, $ability) {
             if ($user->isSuperAdmin()) {
                 return true;
             }
         });
+    }
 
-        // Gate for accessing admin panel
-        Gate::define('access-admin', function ($user) {
-            return $user->isSuperAdmin();
-        });
+    /**
+     * Cross-cutting admin and GDPR gates.
+     *
+     * Phase-18 AUTHZ-1: every Gate here must have a matching call site.
+     * Phase-19 POLICY-5: manage-subscription is landlord-only BY DESIGN —
+     * hatched in ManagerAuthzGateTest::INTENTIONALLY_LANDLORD_ONLY and
+     * pinned by ManagerProviderGatesTest.
+     * Phase-25 API-DOC-2: viewApiDocs widened to scope owners (MANAGER-AUTHZ-2).
+     */
+    private function registerAdminGates(): void
+    {
+        Gate::define('access-admin', fn ($user) => $user->isSuperAdmin());
 
-        // Gate for impersonating users
-        Gate::define('impersonate', function ($user, $target) {
-            return $user->isSuperAdmin() && ! $target->isSuperAdmin();
-        });
+        Gate::define('impersonate', fn ($user, $target) => $user->isSuperAdmin() && ! $target->isSuperAdmin());
 
-        // Gate for viewing security logs
-        Gate::define('view-security-logs', function ($user) {
-            return $user->isSuperAdmin();
-        });
+        Gate::define('view-security-logs', fn ($user) => $user->isSuperAdmin());
 
-        // Gate for viewing audit logs. MANAGER-AUTHZ-2: a manager is a scope
-        // owner and must see its own scope's audit trail, same as a landlord.
-        Gate::define('view-audit-logs', function ($user) {
-            return $user->isSuperAdmin() || $user->isScopeOwner();
-        });
+        // MANAGER-AUTHZ-2: managers see their own scope's audit trail.
+        Gate::define('view-audit-logs', fn ($user) => $user->isSuperAdmin() || $user->isScopeOwner());
 
-        // Phase-18 AUTHZ-1: removed 5 dead Gates that had zero call
-        // sites across app/ + resources/. Re-adding any of these
-        // requires a corresponding Gate::allows / $this->authorize()
-        // call site — orphan Gates create a misleading 'authorization
-        // is comprehensive' impression for security review.
-        // Still dead post-Phase-19:
-        //   manage-caretakers (covered by role:landlord middleware)
-        //   generate-invoices (covered by role:landlord,caretaker middleware)
-        //   perform-bulk-operations (covered by role:landlord + feature gate)
-        //   access-reports (covered by role:landlord,caretaker + feature gate)
+        Gate::define('manage-subscription', fn ($user) => $user->isLandlord());
 
-        // Phase-19 POLICY-5: manage-subscription resurrected. Wired into
-        // SubscriptionController::index/plans/subscribe — replaces three
-        // inline `$user->role !== 'landlord'` checks that bypassed the
-        // Gate layer (and therefore bypassed Phase-13 DPA-4 restriction
-        // enforcement; a restricted landlord could previously still
-        // initiate a paid subscription). Landlord-only BY DESIGN — this is
-        // the one gate in this provider that must NOT widen to managers:
-        // a manager runs properties on owners' behalf but does NOT own the
-        // platform billing relationship. This is why AuthServiceProvider.php
-        // is hatched in ManagerAuthzGateTest::INTENTIONALLY_LANDLORD_ONLY and
-        // pinned by ManagerProviderGatesTest::test_manager_is_denied_manage_subscription_gate.
-        // Restricted landlord blocked by DPA-4 hook above.
-        Gate::define('manage-subscription', function ($user) {
-            return $user->isLandlord();
-        });
+        Gate::define('viewApiDocs', fn ($user) => $user->isScopeOwner() || $user->isSuperAdmin());
 
-        // Phase-25 API-DOC-2: Scramble's `/docs/api` UI is gated by
-        // its RestrictedDocsAccess middleware which calls
-        // Gate::allows('viewApiDocs'). Allow scope owners (landlord +
-        // manager) + super-admins — tenants don't need API docs and the
-        // docs surface our server routes which should not be browsable
-        // by tenants. MANAGER-AUTHZ-2: managers see their own scope's docs.
-        Gate::define('viewApiDocs', function ($user) {
-            return $user->isScopeOwner() || $user->isSuperAdmin();
-        });
+        // GDPR rights — available to all authenticated users.
+        Gate::define('export-data', fn ($user) => true);
+        Gate::define('request-deletion', fn ($user) => true);
+    }
 
-        // Phase-19 POLICY-7 + Phase-20 AUTHZ-FRONT-8: every Sanctum
-        // ability issued by AuthController::getAbilitiesForUser is
-        // mirrored in the Gate registry so DPA-4 restriction
-        // enforcement applies symmetrically. The Gate hook simply
-        // forwards tokenCan() — super-admin handled by Gate::before
-        // bypass above, restricted user denied by DPA-4 hook (none
-        // of these abilities are on the read-side allow-list).
-        Gate::define('integration:webhook', function ($user) {
-            return $user->tokenCan('integration:webhook');
-        });
+    /**
+     * Phase-19 POLICY-7 + Phase-20 AUTHZ-FRONT-8: Sanctum token ability gates.
+     *
+     * Every ability issued by AuthController::getAbilitiesForUser is mirrored
+     * here so DPA-4 restriction enforcement applies symmetrically.
+     */
+    private function registerSanctumTokenGates(): void
+    {
+        Gate::define('integration:webhook', fn ($user) => $user->tokenCan('integration:webhook'));
+        Gate::define('landlord:manage', fn ($user) => $user->tokenCan('landlord:manage'));
+        Gate::define('tenant:read', fn ($user) => $user->tokenCan('tenant:read'));
+        Gate::define('admin:all', fn ($user) => $user->tokenCan('admin:all'));
+    }
 
-        Gate::define('landlord:manage', function ($user) {
-            return $user->tokenCan('landlord:manage');
-        });
+    /**
+     * Phase-21 DEFER-AUTHZ-1: resource management gates.
+     *
+     * Each gate represents "this user role can perform management operations
+     * on this resource class". UI consumes via useAuth().can('tenants:manage').
+     * Per-record authorization is still resolved at the Policy layer.
+     *
+     * MANAGER-AUTHZ-2: resolver is isScopeOwner() (landlord + manager), not
+     * isLandlord() — a manager is a full scope owner. The || isCaretaker()
+     * grant is unchanged for operational roles.
+     */
+    private function registerManageGates(): void
+    {
+        $scopeOwnerOrCaretaker = fn ($user) => $user->isScopeOwner() || $user->isCaretaker();
+        $scopeOwnerOnly = fn ($user) => $user->isScopeOwner();
 
-        Gate::define('tenant:read', function ($user) {
-            return $user->tokenCan('tenant:read');
-        });
-
-        Gate::define('admin:all', function ($user) {
-            return $user->tokenCan('admin:all');
-        });
-
-        // Gate for data export (GDPR)
-        Gate::define('export-data', function ($user) {
-            return true; // All users can export their own data
-        });
-
-        // Gate for requesting data deletion (GDPR)
-        Gate::define('request-deletion', function ($user) {
-            return true; // All users can request their data to be deleted
-        });
-
-        // Phase-21 DEFER-AUTHZ-1 management Gates. Each represents "this
-        // user role can perform management operations on this resource
-        // class". UI consumes via useAuth().can('tenants:manage') to
-        // gate "Add"/"Delete"/"Bulk action" buttons that index pages
-        // show; per-record authorization is still resolved at the
-        // Policy layer (see AuthAbilities::forRecord for Show pages).
-        //
-        // Each Gate is paired with a server-side call site to satisfy
-        // the Phase-18 AUTHZ-1 "no orphan Gates" rule — adding a Gate
-        // without call sites creates a misleading impression of
-        // authorization comprehensiveness during security review. Call
-        // sites are in the corresponding controllers' constructor
-        // middleware or @authorize blocks.
-        //
-        // DPA-4 restriction applies automatically via the Gate::before
-        // hook above — restricted landlords/caretakers/super-admins
-        // see false for any of these abilities.
-        //
-        // MANAGER-AUTHZ-2: the resolver is isScopeOwner() (landlord + manager),
-        // not isLandlord() — a manager is a full scope owner and these *:manage
-        // abilities are its core job. The `|| isCaretaker()` grant is unchanged.
         $manageGates = [
-            'tenants:manage' => fn ($user) => $user->isScopeOwner() || $user->isCaretaker(),
-            'invoices:manage' => fn ($user) => $user->isScopeOwner() || $user->isCaretaker(),
-            'payments:manage' => fn ($user) => $user->isScopeOwner() || $user->isCaretaker(),
-            'properties:manage' => fn ($user) => $user->isScopeOwner(),
-            'buildings:manage' => fn ($user) => $user->isScopeOwner(),
-            'units:manage' => fn ($user) => $user->isScopeOwner(),
-            'documents:manage' => fn ($user) => $user->isScopeOwner() || $user->isCaretaker(),
-            'settings:manage' => fn ($user) => $user->isScopeOwner(),
-            'team:manage' => fn ($user) => $user->isScopeOwner(),
-            'templates:manage' => fn ($user) => $user->isScopeOwner(),
-            'finances:manage' => fn ($user) => $user->isScopeOwner(),
-            'imports:manage' => fn ($user) => $user->isScopeOwner(),
+            'tenants:manage' => $scopeOwnerOrCaretaker,
+            'invoices:manage' => $scopeOwnerOrCaretaker,
+            'payments:manage' => $scopeOwnerOrCaretaker,
+            'documents:manage' => $scopeOwnerOrCaretaker,
+            'properties:manage' => $scopeOwnerOnly,
+            'buildings:manage' => $scopeOwnerOnly,
+            'units:manage' => $scopeOwnerOnly,
+            'settings:manage' => $scopeOwnerOnly,
+            'team:manage' => $scopeOwnerOnly,
+            'templates:manage' => $scopeOwnerOnly,
+            'finances:manage' => $scopeOwnerOnly,
+            'imports:manage' => $scopeOwnerOnly,
         ];
+
         foreach ($manageGates as $ability => $resolver) {
             Gate::define($ability, $resolver);
         }

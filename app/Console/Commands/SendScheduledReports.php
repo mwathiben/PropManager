@@ -44,50 +44,81 @@ class SendScheduledReports extends Command
         $this->info("Found {$due->count()} scheduled report(s) due now.");
 
         if ($this->option('dry-run')) {
-            foreach ($due as $row) {
-                $name = $row->savedReport?->name ?? '(deleted)';
-                $this->line("  would send {$row->id} → {$row->recipient_email} ({$name})");
-            }
-
-            return self::SUCCESS;
+            return $this->handleDryRun($due);
         }
 
+        return $this->dispatchDueReports($due, $builder, $xlsx);
+    }
+
+    /** @param \Illuminate\Support\Collection<int, ScheduledReport> $due */
+    private function handleDryRun(\Illuminate\Support\Collection $due): int
+    {
+        foreach ($due as $row) {
+            $name = $row->savedReport?->name ?? '(deleted)';
+            $this->line("  would send {$row->id} → {$row->recipient_email} ({$name})");
+        }
+
+        return self::SUCCESS;
+    }
+
+    /** @param \Illuminate\Support\Collection<int, ScheduledReport> $due */
+    private function dispatchDueReports(
+        \Illuminate\Support\Collection $due,
+        ReportBuilderService $builder,
+        XlsxExportService $xlsx
+    ): int {
         $sent = 0;
         $failed = 0;
 
         foreach ($due as $schedule) {
-            try {
-                if (! $schedule->savedReport) {
-                    $this->warn("Schedule {$schedule->id} references a deleted saved report — skipping.");
-
-                    continue;
-                }
-
-                $rows = $builder->run((array) $schedule->savedReport->config, (int) $schedule->landlord_id);
-                $tempPath = $this->renderXlsx($xlsx, $schedule, $rows);
-
-                Mail::to($schedule->recipient_email)
-                    ->queue(new ScheduledReportDelivery($schedule, $tempPath));
-
-                $schedule->markSent();
+            if ($this->dispatchOne($schedule, $builder, $xlsx)) {
                 $sent++;
-            } catch (\Throwable $e) {
+            } else {
                 $failed++;
-                // Phase-53 GAUGE-WIRING-2: scheduled-send failure surface.
-                try {
-                    app(\App\Services\MetricsService::class)
-                        ->increment('report_render_failure_count', 1, ['surface' => 'scheduled_send']);
-                } catch (\Throwable) {
-                    // best-effort
-                }
-                $this->error("Schedule {$schedule->id} failed: ".$e->getMessage());
-                report($e);
             }
         }
 
         $this->info("Sent: {$sent}. Failed: {$failed}.");
 
         return $failed === 0 ? self::SUCCESS : self::FAILURE;
+    }
+
+    private function dispatchOne(ScheduledReport $schedule, ReportBuilderService $builder, XlsxExportService $xlsx): bool
+    {
+        try {
+            if (! $schedule->savedReport) {
+                $this->warn("Schedule {$schedule->id} references a deleted saved report — skipping.");
+
+                return false;
+            }
+
+            $rows = $builder->run((array) $schedule->savedReport->config, (int) $schedule->landlord_id);
+            $tempPath = $this->renderXlsx($xlsx, $schedule, $rows);
+
+            Mail::to($schedule->recipient_email)
+                ->queue(new ScheduledReportDelivery($schedule, $tempPath));
+
+            $schedule->markSent();
+
+            return true;
+        } catch (\Throwable $e) {
+            $this->recordDispatchFailure($e, $schedule);
+
+            return false;
+        }
+    }
+
+    private function recordDispatchFailure(\Throwable $e, ScheduledReport $schedule): void
+    {
+        // Phase-53 GAUGE-WIRING-2: scheduled-send failure surface.
+        try {
+            app(\App\Services\MetricsService::class)
+                ->increment('report_render_failure_count', 1, ['surface' => 'scheduled_send']);
+        } catch (\Throwable) {
+            // best-effort
+        }
+        $this->error("Schedule {$schedule->id} failed: ".$e->getMessage());
+        report($e);
     }
 
     /**
@@ -150,16 +181,22 @@ class SendScheduledReports extends Command
 
     private function inferType(string $key, mixed $value): string
     {
-        if (str_contains($key, 'amount') || str_contains($key, 'rent') || str_contains($key, 'paid') || str_contains($key, 'total') || str_contains($key, 'due')) {
+        if ($this->isCurrencyKey($key)) {
             return str_ends_with($key, 'date') ? 'date' : 'currency';
         }
         if (str_ends_with($key, 'date') || str_ends_with($key, '_at')) {
             return 'date';
         }
-        if (is_int($value)) {
-            return 'integer';
-        }
 
-        return 'string';
+        return is_int($value) ? 'integer' : 'string';
+    }
+
+    private function isCurrencyKey(string $key): bool
+    {
+        return str_contains($key, 'amount')
+            || str_contains($key, 'rent')
+            || str_contains($key, 'paid')
+            || str_contains($key, 'total')
+            || str_contains($key, 'due');
     }
 }

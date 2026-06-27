@@ -96,17 +96,18 @@ class CreditNoteController extends Controller
         ]);
 
         $tenant = User::findOrFail($request->tenant_id);
-        $lease = $tenant->leases()->where('is_active', true)->first();
+        $leaseCheck = $this->resolveActiveLease($tenant, $landlordId);
 
-        if (! $lease || $lease->landlord_id !== $landlordId) {
-            return back()->withErrors(['tenant_id' => 'Invalid tenant selected.']);
+        if ($leaseCheck instanceof \Illuminate\Http\RedirectResponse) {
+            return $leaseCheck;
         }
 
-        if ($request->invoice_id) {
-            $invoice = Invoice::findOrFail($request->invoice_id);
-            if ($invoice->landlord_id !== $landlordId) {
-                return back()->withErrors(['invoice_id' => 'Invalid invoice selected.']);
-            }
+        $lease = $leaseCheck;
+
+        $invoiceCheck = $this->resolveInvoice($request->invoice_id, $landlordId);
+
+        if ($invoiceCheck instanceof \Illuminate\Http\RedirectResponse) {
+            return $invoiceCheck;
         }
 
         $creditNote = CreditNote::create([
@@ -123,6 +124,32 @@ class CreditNoteController extends Controller
 
         return redirect()->route('credit-notes.show', $creditNote)
             ->with('success', 'Credit note created successfully. Awaiting approval.');
+    }
+
+    private function resolveActiveLease(User $tenant, int $landlordId): \Illuminate\Database\Eloquent\Model|\Illuminate\Http\RedirectResponse
+    {
+        $lease = $tenant->leases()->where('is_active', true)->first();
+
+        if (! $lease || $lease->landlord_id !== $landlordId) {
+            return back()->withErrors(['tenant_id' => 'Invalid tenant selected.']);
+        }
+
+        return $lease;
+    }
+
+    private function resolveInvoice(?string $invoiceId, int $landlordId): Invoice|\Illuminate\Http\RedirectResponse|null
+    {
+        if (! $invoiceId) {
+            return null;
+        }
+
+        $invoice = Invoice::findOrFail($invoiceId);
+
+        if ($invoice->landlord_id !== $landlordId) {
+            return back()->withErrors(['invoice_id' => 'Invalid invoice selected.']);
+        }
+
+        return $invoice;
     }
 
     public function show(CreditNote $creditNote)

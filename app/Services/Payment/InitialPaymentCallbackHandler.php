@@ -40,69 +40,9 @@ class InitialPaymentCallbackHandler
         $verificationForMail = null;
 
         try {
-            $result = DB::transaction(function () use ($data, $reference, $verificationId, &$tenantToNotify, &$verificationForMail) {
-                $verification = TenantPaymentVerification::lockForUpdate()->find($verificationId);
-
-                if (! $verification) {
-                    return InitialPaymentResult::notFound();
-                }
-
-                if ($verification->isVerified()) {
-                    return InitialPaymentResult::alreadyVerified();
-                }
-
-                $existingPayment = Payment::where('paystack_reference', $reference)
-                    ->lockForUpdate()
-                    ->first();
-
-                if ($existingPayment) {
-                    return InitialPaymentResult::duplicate();
-                }
-
-                $currency = Currency::tryFrom($data['currency'] ?? '') ?? Currency::default();
-                $rawAmount = $data['amount'] ?? 0;
-                if (! is_numeric($rawAmount)) {
-                    Log::warning('Initial payment callback received non-numeric amount', [
-                        'amount' => $rawAmount,
-                        'reference' => $reference,
-                    ]);
-                    $rawAmount = 0;
-                }
-                $amount = $currency->fromMinorUnits($rawAmount);
-
-                $payment = Payment::create([
-                    'landlord_id' => $verification->landlord_id,
-                    'lease_id' => $verification->lease_id,
-                    'amount' => $amount,
-                    'currency' => $currency->value,
-                    'payment_method' => 'paystack',
-                    'payment_date' => now(),
-                    'reference' => $reference,
-                    'paystack_reference' => $reference,
-                    'notes' => 'Initial payment verification - '.($data['channel'] ?? 'online'),
-                ]);
-
-                $this->receiptService->createReceipt($payment);
-
-                $verification->recordPayment($amount);
-                $verification->refresh();
-
-                $isVerified = false;
-
-                if ($verification->isFullyPaid()) {
-                    $verification->approve(null);
-                    $isVerified = true;
-
-                    $verification->load('lease.tenant');
-                    $tenant = $verification->lease?->tenant;
-
-                    if ($tenant) {
-                        $tenantToNotify = $tenant;
-                        $verificationForMail = $verification;
-                    }
-                }
-
-                return InitialPaymentResult::success($payment, $verification, $amount, $isVerified);
+            $ctx = ['data' => $data, 'reference' => $reference, 'verificationId' => $verificationId];
+            $result = DB::transaction(function () use ($ctx, &$tenantToNotify, &$verificationForMail) {
+                return $this->runTransaction($ctx, $tenantToNotify, $verificationForMail);
             });
 
             if ($tenantToNotify && $verificationForMail) {
@@ -119,5 +59,108 @@ class InitialPaymentCallbackHandler
 
             return InitialPaymentResult::error('Failed to record payment. Please contact support.');
         }
+    }
+
+    /**
+     * @param  array{data: array, reference: string, verificationId: int|string}  $ctx
+     */
+    private function runTransaction(
+        array $ctx,
+        ?object &$tenantToNotify,
+        ?TenantPaymentVerification &$verificationForMail
+    ): InitialPaymentResult {
+        ['data' => $data, 'reference' => $reference, 'verificationId' => $verificationId] = $ctx;
+
+        $verification = TenantPaymentVerification::lockForUpdate()->find($verificationId);
+
+        if (! $verification) {
+            return InitialPaymentResult::notFound();
+        }
+
+        if ($verification->isVerified()) {
+            return InitialPaymentResult::alreadyVerified();
+        }
+
+        $existingPayment = Payment::where('paystack_reference', $reference)
+            ->lockForUpdate()
+            ->first();
+
+        if ($existingPayment) {
+            return InitialPaymentResult::duplicate();
+        }
+
+        $amount = $this->resolveAmount($data, $reference);
+        $currency = Currency::tryFrom($data['currency'] ?? '') ?? Currency::default();
+
+        $payment = $this->createPayment($verification, [
+            'reference' => $reference,
+            'amount' => $amount,
+            'currency' => $currency,
+            'channel' => $data['channel'] ?? 'online',
+        ]);
+
+        $this->receiptService->createReceipt($payment);
+
+        $verification->recordPayment($amount);
+        $verification->refresh();
+
+        $isVerified = $this->approveIfFullyPaid($verification, $tenantToNotify, $verificationForMail);
+
+        return InitialPaymentResult::success($payment, $verification, $amount, $isVerified);
+    }
+
+    private function resolveAmount(array $data, string $reference): float|int
+    {
+        $currency = Currency::tryFrom($data['currency'] ?? '') ?? Currency::default();
+        $rawAmount = $data['amount'] ?? 0;
+
+        if (! is_numeric($rawAmount)) {
+            Log::warning('Initial payment callback received non-numeric amount', [
+                'amount' => $rawAmount,
+                'reference' => $reference,
+            ]);
+            $rawAmount = 0;
+        }
+
+        return $currency->fromMinorUnits($rawAmount);
+    }
+
+    /**
+     * @param  array{reference: string, amount: float|int, currency: Currency, channel: string}  $attrs
+     */
+    private function createPayment(TenantPaymentVerification $verification, array $attrs): Payment
+    {
+        return Payment::create([
+            'landlord_id' => $verification->landlord_id,
+            'lease_id' => $verification->lease_id,
+            'amount' => $attrs['amount'],
+            'currency' => $attrs['currency']->value,
+            'payment_method' => 'paystack',
+            'payment_date' => now(),
+            'reference' => $attrs['reference'],
+            'paystack_reference' => $attrs['reference'],
+            'notes' => 'Initial payment verification - '.$attrs['channel'],
+        ]);
+    }
+
+    private function approveIfFullyPaid(
+        TenantPaymentVerification $verification,
+        ?object &$tenantToNotify,
+        ?TenantPaymentVerification &$verificationForMail
+    ): bool {
+        if (! $verification->isFullyPaid()) {
+            return false;
+        }
+
+        $verification->approve(null);
+        $verification->load('lease.tenant');
+        $tenant = $verification->lease?->tenant;
+
+        if ($tenant) {
+            $tenantToNotify = $tenant;
+            $verificationForMail = $verification;
+        }
+
+        return true;
     }
 }
