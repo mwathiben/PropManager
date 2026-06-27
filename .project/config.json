@@ -1,0 +1,12 @@
+{
+  "name": "PropManager",
+  "prefix": "PM",
+  "nextId": 1,
+  "statuses": ["backlog", "todo", "in-progress", "review", "done"],
+  "types": ["feature", "bug", "task", "epic"],
+  "priorities": ["critical", "high", "medium", "low"],
+  "labels": ["ui", "backend", "docs", "security", "performance", "devops"],
+  "team": [
+    {"name": "sammwas95", "email": "sammwas95@gmail.com", "slug": "bm"}
+  ]
+}
