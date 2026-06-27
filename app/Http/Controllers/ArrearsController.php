@@ -139,7 +139,7 @@ class ArrearsController extends Controller
      *
      * @return array{0: array<string, float|int>, 1: array<string, float>}
      */
-    private function fetchAggregates(int $landlordId, \Carbon\Carbon $today): array
+    private function fetchAggregates(int $landlordId, \Carbon\CarbonInterface $today): array
     {
         $cutoff30 = $today->copy()->subDays(30)->format('Y-m-d');
         $cutoff60 = $today->copy()->subDays(60)->format('Y-m-d');

@@ -98,7 +98,7 @@ class SoftDeletedPurge extends Command
      * Chunk the purge per-model so a model with millions of
      * soft-deleted rows doesn't lock the table all night.
      */
-    private function forceDeleteInChunks(string $model, \Illuminate\Support\Carbon $cutoff): int
+    private function forceDeleteInChunks(string $model, \Carbon\CarbonInterface $cutoff): int
     {
         $deleted = 0;
 
@@ -131,7 +131,7 @@ class SoftDeletedPurge extends Command
      * would abort — or, if caught, infinitely re-loop — the purge. Held
      * rows are preserved and skipped from the batch entirely.
      */
-    private function purgeQuery(string $model, \Illuminate\Support\Carbon $cutoff): Builder
+    private function purgeQuery(string $model, \Carbon\CarbonInterface $cutoff): Builder
     {
         $query = $model::onlyTrashed()->where('deleted_at', '<', $cutoff);
 

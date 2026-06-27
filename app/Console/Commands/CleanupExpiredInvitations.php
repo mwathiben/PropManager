@@ -35,7 +35,7 @@ class CleanupExpiredInvitations extends Command
         return Command::SUCCESS;
     }
 
-    private function expireStalePendingInvitations(\Carbon\Carbon $thirtyDaysAgo, array &$counters): void
+    private function expireStalePendingInvitations(\Carbon\CarbonInterface $thirtyDaysAgo, array &$counters): void
     {
         TenantInvitation::withoutGlobalScope('landlord')
             ->where('status', 'pending')
@@ -66,7 +66,7 @@ class CleanupExpiredInvitations extends Command
         }
     }
 
-    private function archiveIncompleteUsers(\Carbon\Carbon $thirtyDaysAgo, array &$counters, array &$processedUserIds): void
+    private function archiveIncompleteUsers(\Carbon\CarbonInterface $thirtyDaysAgo, array &$counters, array &$processedUserIds): void
     {
         TenantInvitation::withoutGlobalScope('landlord')
             ->where('status', 'accepted')

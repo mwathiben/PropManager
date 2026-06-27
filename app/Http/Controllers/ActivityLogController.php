@@ -109,7 +109,7 @@ class ActivityLogController extends Controller
     /**
      * Build activity stats for the given landlord anchored to their local time.
      */
-    private function buildStats(int $landlordId, \Carbon\Carbon $userNow): array
+    private function buildStats(int $landlordId, \Carbon\CarbonInterface $userNow): array
     {
         return [
             'total_activities' => TenantActivity::where('landlord_id', $landlordId)->count(),

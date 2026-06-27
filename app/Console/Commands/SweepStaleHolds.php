@@ -235,7 +235,7 @@ class SweepStaleHolds extends Command
      * @param  Collection<int, LegalHold>  $holds
      * @return array<int, array{type: string, id: int, reason: string, held_at: ?string, days_held: int}>
      */
-    private function summarise(Collection $holds, Carbon $now): array
+    private function summarise(Collection $holds, \Carbon\CarbonInterface $now): array
     {
         return $holds->map(fn (LegalHold $hold) => [
             'type' => class_basename($hold->holdable_type),

@@ -206,7 +206,7 @@ class LogsPrune extends Command
      *
      * @param  array<string, mixed>  $spec
      */
-    private function countCandidates(array $spec, string $column, \Illuminate\Support\Carbon $cutoff): int
+    private function countCandidates(array $spec, string $column, \Carbon\CarbonInterface $cutoff): int
     {
         $query = DB::table($spec['table'])->where($column, '<', $cutoff);
         if ($spec['where_not_null'] !== null) {
@@ -221,7 +221,7 @@ class LogsPrune extends Command
      *
      * @param  array<string, mixed>  $spec
      */
-    private function deleteInChunks(array $spec, string $column, \Illuminate\Support\Carbon $cutoff): int
+    private function deleteInChunks(array $spec, string $column, \Carbon\CarbonInterface $cutoff): int
     {
         $deleted = 0;
 

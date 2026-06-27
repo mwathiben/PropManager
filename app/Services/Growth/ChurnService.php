@@ -60,7 +60,7 @@ class ChurnService
         return $cohorts;
     }
 
-    private function buildSubscriptionCohortRow(string $key, array $cohort, Carbon $now): array
+    private function buildSubscriptionCohortRow(string $key, array $cohort, \Carbon\CarbonInterface $now): array
     {
         $cohortMonth = Carbon::parse($key.'-01');
         $monthsSinceCohort = $cohortMonth->diffInMonths($now);
@@ -78,7 +78,7 @@ class ChurnService
         ];
     }
 
-    private function subscriptionRetentionRate(array $subs, int $cohortSize, Carbon $boundary): float
+    private function subscriptionRetentionRate(array $subs, int $cohortSize, \Carbon\CarbonInterface $boundary): float
     {
         if ($cohortSize === 0) {
             return 0.0;
@@ -167,7 +167,7 @@ class ChurnService
         return $cohorts;
     }
 
-    private function buildSourceCohortRow(array $cohort, Carbon $now): array
+    private function buildSourceCohortRow(array $cohort, \Carbon\CarbonInterface $now): array
     {
         $cohortStart = Carbon::parse($cohort['cohort_month'].'-01')->startOfMonth();
         $monthsSinceCohort = $cohortStart->diffInMonths($now);
@@ -186,7 +186,7 @@ class ChurnService
         ];
     }
 
-    private function sourceActivityRetentionRate(array $userIds, int $size, Carbon $cohortStart, int $m): float
+    private function sourceActivityRetentionRate(array $userIds, int $size, \Carbon\CarbonInterface $cohortStart, int $m): float
     {
         if ($size === 0) {
             return 0.0;
@@ -204,7 +204,7 @@ class ChurnService
         return round($activeCount / $size, 4);
     }
 
-    public function monthlyChurnRate(?Carbon $month = null): float
+    public function monthlyChurnRate(?\Carbon\CarbonInterface $month = null): float
     {
         $month = $month ? $month->copy()->startOfMonth() : Carbon::now()->subMonthNoOverflow()->startOfMonth();
         $monthEnd = $month->copy()->endOfMonth();
