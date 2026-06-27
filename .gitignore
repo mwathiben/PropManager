@@ -43,3 +43,5 @@ tools/mailpit/mailpit*
 
 # Session journal written by .claude/hooks/end-of-session.ps1
 /docs/journal/
+.project/issues_index.json
+.project/.version-check-ts
